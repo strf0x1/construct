@@ -1,0 +1,19 @@
+[package]
+name = "construct-dev"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Dev tools for construct: scripted/recording model endpoint, pty driver, bench helpers"
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+bytes = "1"
+clap = { version = "4.6", features = ["derive"] }
+futures = "0.3"
+portable-pty = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+vt100 = "0.18"

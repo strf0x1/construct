@@ -1,0 +1,40 @@
+[workspace]
+members = [".", "dev"]
+
+[package]
+name = "construct"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+description = "A lean, self-improving agent harness"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.6", features = ["derive"] }
+crossterm = { version = "0.29", features = ["event-stream"] }
+futures = "0.3"
+globset = "0.4"
+grep-matcher = "0.1"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+htmd = "0.5"
+ignore = "0.4"
+libc = "0.2"
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json", "gzip", "query", "form"] }
+secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+similar = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time", "signal"] }
+toml = "1"
+unicode-width = "0.2"
+pulldown-cmark = { version = "0.13", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
