@@ -40,6 +40,8 @@ enum Cmd {
         #[arg(long)]
         port_file: Option<PathBuf>,
     },
+    /// A tiny stdio MCP server (tools: add, echo) for tests.
+    McpFake,
     /// Run a program in a pty and execute a drive script against it.
     Drive {
         /// Script file, or - for stdin.
@@ -89,6 +91,7 @@ fn main() -> Result<()> {
                 Ok(())
             })
         }
+        Cmd::McpFake => mcp_fake(),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {
             let text = if script == "-" {
                 let mut s = String::new();
@@ -119,4 +122,36 @@ fn main() -> Result<()> {
             }
         }
     }
+}
+
+fn mcp_fake() -> Result<()> {
+    use serde_json::{Value, json};
+    use std::io::{BufRead, Write};
+    let stdin = std::io::stdin();
+    let mut out = std::io::stdout();
+    for line in stdin.lock().lines() {
+        let line = line?;
+        let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+        let Some(id) = v.get("id").cloned() else { continue };
+        let result = match v["method"].as_str().unwrap_or("") {
+            "initialize" => json!({ "protocolVersion": "2025-06-18", "capabilities": { "tools": {} }, "serverInfo": { "name": "fake", "version": "1" } }),
+            "tools/list" => json!({ "tools": [
+                { "name": "add", "description": "Add two integers", "inputSchema": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a", "b"] } },
+                { "name": "echo", "description": "Echo text back", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } }, "required": ["text"] } }
+            ] }),
+            "tools/call" => {
+                let a = &v["params"]["arguments"];
+                let text = match v["params"]["name"].as_str() {
+                    Some("add") => (a["a"].as_i64().unwrap_or(0) + a["b"].as_i64().unwrap_or(0)).to_string(),
+                    Some("echo") => a["text"].as_str().unwrap_or("").to_string(),
+                    _ => "unknown tool".into(),
+                };
+                json!({ "content": [{ "type": "text", "text": text }] })
+            }
+            _ => json!({}),
+        };
+        writeln!(out, "{}", json!({ "jsonrpc": "2.0", "id": id, "result": result }))?;
+        out.flush()?;
+    }
+    Ok(())
 }

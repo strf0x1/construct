@@ -536,15 +536,20 @@ impl App {
         }
         let since = self.last_activity.elapsed().as_secs_f32();
         let total = self.turn_started.elapsed().as_secs_f32();
-        let (label, base, hi) = match &self.phase {
+        let (mut label, mut base, mut hi) = match &self.phase {
             Phase::Routing => ("routing".to_string(), theme::DIM, theme::CYAN),
-            Phase::Waiting if since > 8.0 => (format!("waiting on model · no response for {since:.0}s"), theme::YELLOW, Color::Rgb(255, 230, 180)),
             Phase::Waiting => ("waiting for model".to_string(), theme::DIM, theme::ACCENT),
             Phase::Thinking => ("thinking".to_string(), theme::DIM, theme::ACCENT2),
             Phase::Writing => ("writing".to_string(), theme::DIM, theme::ACCENT),
             Phase::Tool(n) => (format!("running {n}"), theme::DIM, theme::YELLOW),
             Phase::Idle => (String::new(), theme::DIM, theme::DIM),
         };
+        // Silence from the model reads as "broken"; say so plainly instead.
+        if since > 6.0 && !matches!(self.phase, Phase::Tool(_)) {
+            label = format!("{label} · no output for {since:.0}s");
+            base = theme::YELLOW;
+            hi = Color::Rgb(255, 230, 180);
+        }
         let mut spans = vec![Span::styled(format!("  {} ", theme::spinner(phase)), Style::new().fg(hi))];
         spans.extend(theme::shimmer(&label, phase, base, hi));
         spans.push(Span::styled(format!("  {total:.1}s"), theme::faint()));
@@ -906,9 +911,6 @@ fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) -> b
                 return slash(app, rest, cmd);
             }
             app.push(Block::new(Kind::User, text.clone()));
-            if !app.ready {
-                app.notice(theme::FAINT, "· starting up; your message is queued");
-            }
             let _ = cmd.send(Cmd::Prompt(text));
         }
         KeyCode::Backspace if ctrl || alt => delete_word(app),
