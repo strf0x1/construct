@@ -635,6 +635,38 @@ def check_task(work: Path):
     return checks
 
 
+def session_facts(home: Path, since: float):
+    """Routes and tool calls from construct sessions written after `since`.
+    (run() keeps only the tail of stdout, so don't parse events from it.)"""
+    routes, calls = [], []
+    for f in sorted((home / "sessions").glob("*.jsonl")):
+        if f.stat().st_mtime < since:
+            continue
+        for line in f.read_text().splitlines():
+            d = json.loads(line)
+            if d.get("type") == "route":
+                routes.append(d["data"])
+            for c in (d.get("message") or {}).get("tool_calls") or []:
+                calls.append({"name": c["function"]["name"], "args": c["function"]["arguments"]})
+    return routes, calls
+
+
+def assert_no_keys(root: Path):
+    """Stop the bench if a run's logs contain one of the bench keys: it means
+    an agent read a key file or the environment and sent it upstream."""
+    keys = [read_key(f) for f in (KEY_FILE, JEV_KEY_FILE) if f.exists()]
+    keys = [k for k in keys if len(k) > 12]
+    for dp, _, files in os.walk(root):
+        for n in files:
+            p = Path(dp) / n
+            try:
+                t = p.read_text(errors="ignore")
+            except OSError:
+                continue
+            if any(k in t for k in keys):
+                sys.exit(f"KEY LEAK: a bench key appears in {p}; stop, redact it and rotate the key")
+
+
 def suite_task(args):
     names = args.harness
     homes = fresh_homes(names, "task")
@@ -669,6 +701,7 @@ def suite_task(args):
         learn_s = time.time() - t_learn0
         recs = ep.records()
         ep.close()
+        assert_no_keys(WORK / "task" / name)
         checks = check_task(work)
         main = [x for x in recs if not x.get("side")]
         first = next((x for x in recs if x.get("n_tools")), None)
@@ -826,12 +859,15 @@ def suite_routing(args):
         ep = Endpoint(base / "ep", upstream=args.upstream)
         h.configure(ep.url, args.model)
         cmd = [str(CONSTRUCT), "run", "--json", "--no-learn", ROUTING_PROMPT]
+        t0 = time.time()
         res = run(cmd, h.full_env(), work, timeout=args.timeout)
+        routes, calls = session_facts(h.home, t0)
         recs = ep.records()
         ep.close()
-        route = next((json.loads(l) for l in res["stdout"].splitlines() if '"event":"route"' in l), {})
-        loaded = [json.loads(l) for l in res["stdout"].splitlines() if '"event":"tool_start"' in l and '"name":"skill"' in l]
-        ran_make = any('"event":"tool_start"' in l and "make release" in l for l in res["stdout"].splitlines())
+        assert_no_keys(base)
+        route = routes[0] if routes else {}
+        loaded = [c for c in calls if c["name"] == "skill"]
+        ran_make = any("make release" in c["args"] for c in calls)
         checks = check_routing(work)
         u = lambda x, k: (x.get("usage") or {}).get(k) or 0
         return {
@@ -926,17 +962,16 @@ def suite_loop(args):
         work = base / f"work{i}"
         loop_fixture(work)
         before = len(ep.records())
-        out = run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)
-        stdout = out["stdout"]
+        t0 = time.time()
+        run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)
         if hint:
-            out2 = run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT], h.full_env(), work, timeout=args.timeout)
-            stdout += out2["stdout"]
+            run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT], h.full_env(), work, timeout=args.timeout)
         wait_for_learners()
         recs = ep.records()[before:]
-        calls = [json.loads(l) for l in stdout.splitlines() if '"event":"tool_start"' in l]
+        routes, calls = session_facts(h.home, t0)
         first_test = next((k for k, c in enumerate(calls) if "unittest" in c.get("args", "") or "test_stats" in c.get("args", "")), None)
         first_gen = next((k for k, c in enumerate(calls) if "gen-fixtures" in c.get("args", "")), None)
-        route = next((json.loads(l) for l in stdout.splitlines() if '"event":"route"' in l), {})
+        route = routes[0] if routes else {}
         return {
             "task": fn,
             "checks": check_loop(work, fn),
@@ -946,6 +981,7 @@ def suite_loop(args):
             "gen_before_tests": first_gen is not None and (first_test is None or first_gen < first_test),
             "suggested": [s[0] for s in route.get("skills", [])],
             "skill_loaded": any(c.get("name") == "skill" for c in calls),
+            "outside_workdir": sum(1 for c in calls if "~" in c["args"] or "/home/" in c["args"]),
         }
 
     for r in range(args.rounds):
@@ -965,6 +1001,7 @@ def suite_loop(args):
                 "learn_log": (h.home / "learn.log").read_text()[-3000:] if (h.home / "learn.log").exists() else "",
             }
             ep.close()
+            assert_no_keys(base)
             results[n].append({"sessions": s, "learned": learned})
             print(f"round {r} {n:14} s3 pass={s[2]['checks']['tests_pass']} gen_first={s[2]['gen_before_tests']} suggested={s[2]['suggested']} loaded={s[2]['skill_loaded']} "
                   f"s3 requests={s[2]['requests']} | s1/s2 pass={[x['checks']['tests_pass'] for x in s[:2]]} | ledger={learned['ledger']} skills={learned['skills']} memory={learned['memory'][:120]!r}")

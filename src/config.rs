@@ -23,6 +23,7 @@ pub struct Config {
     pub memory: MemoryConfig,
     pub learn: LearnConfig,
     pub router: RouterConfig,
+    pub sandbox: SandboxConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
@@ -84,6 +85,7 @@ impl Default for Config {
             memory: MemoryConfig::default(),
             learn: LearnConfig::default(),
             router: RouterConfig::default(),
+            sandbox: SandboxConfig::default(),
             mcp: BTreeMap::new(),
             headers: BTreeMap::new(),
         }
@@ -106,6 +108,25 @@ impl Default for LearnConfig {
             model: String::new(),
             curator_every_days: 7,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SandboxConfig {
+    /// "workspace" (default): tools read and write the working directory and
+    /// read system paths and toolchains, nothing else under $HOME.
+    /// "read-only": no writes outside construct's temp dir. "off": no boundary.
+    pub mode: String,
+    /// Extra paths tools may read (`~/` expands).
+    pub allow_read: Vec<String>,
+    /// Extra paths tools may read and write.
+    pub allow_write: Vec<String>,
+}
+
+impl Default for SandboxConfig {
+    fn default() -> Self {
+        Self { mode: "workspace".into(), allow_read: vec![], allow_write: vec![] }
     }
 }
 
@@ -173,6 +194,9 @@ impl Config {
         }
         if let Ok(v) = std::env::var("CONSTRUCT_MODEL") {
             cfg.model = v;
+        }
+        if let Ok(v) = std::env::var("CONSTRUCT_SANDBOX") {
+            cfg.sandbox.mode = v;
         }
         if let Ok(v) = std::env::var("CONSTRUCT_ROUTER") {
             cfg.router.mode = v;

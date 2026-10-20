@@ -361,3 +361,44 @@ fn jev_down_falls_back_to_local_routing_and_is_logged() {
     assert_eq!(call["purpose"], "route");
     assert_eq!(call["ok"], false);
 }
+
+#[test]
+fn sandbox_keeps_tools_inside_the_workspace() {
+    let env = Env::new(
+        "sandbox",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "cat \"$HOME/.config/fake.key\"" } },
+            { "call": "shell", "args": { "command": "cat ../outside/secret.txt" } },
+            { "call": "shell", "args": { "command": "env" } },
+            { "call": "shell", "args": { "command": "tr '\\0' '\\n' < /proc/$PPID/environ" } },
+            { "call": "read", "args": { "path": "../outside/secret.txt" } },
+            { "call": "read", "args": { "path": "link.txt" } },
+            { "call": "write", "args": { "path": "../outside/new.txt", "content": "x" } },
+            { "call": "shell", "args": { "command": "echo ok > made.txt && cat made.txt" } },
+            { "text": "done" }
+        ] }),
+    );
+    let fake_home = env.dir.join("fakehome");
+    std::fs::create_dir_all(fake_home.join(".config")).unwrap();
+    std::fs::write(fake_home.join(".config/fake.key"), "SECRET-IN-HOME").unwrap();
+    std::fs::create_dir_all(env.dir.join("outside")).unwrap();
+    std::fs::write(env.dir.join("outside/secret.txt"), "SECRET-OUTSIDE").unwrap();
+    std::os::unix::fs::symlink(env.dir.join("outside/secret.txt"), env.work.join("link.txt")).unwrap();
+    let home = fake_home.display().to_string();
+    let out = env.run_with(&[("HOME", &home), ("FAKE_API_KEY", "SECRET-IN-ENV")], &["run", "--no-learn", "poke around"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let last = env.requests().pop().unwrap();
+    let results: Vec<String> = last["messages"].as_array().unwrap().iter().filter(|m| m["role"] == "tool").map(|m| m["content"].as_str().unwrap_or("").to_string()).collect();
+    assert_eq!(results.len(), 8, "{results:#?}");
+    for (i, r) in results.iter().enumerate() {
+        assert!(!r.contains("SECRET-"), "step {i} leaked: {r}");
+    }
+    assert!(!results[2].contains("OPENAI_API_KEY") && !results[2].contains("FAKE_API_KEY"), "credentials scrubbed from env: {}", results[2]);
+    assert!(results[2].contains("PATH="), "env still works: {}", results[2]);
+    assert!(results[4].contains("blocked by the sandbox"), "{}", results[4]);
+    assert!(results[5].contains("blocked by the sandbox"), "symlink escape: {}", results[5]);
+    assert!(results[6].contains("blocked by the sandbox"), "{}", results[6]);
+    assert!(!env.dir.join("outside/new.txt").exists());
+    assert_eq!(results[7].trim(), "ok", "{}", results[7]);
+    assert_eq!(std::fs::read_to_string(env.work.join("made.txt")).unwrap(), "ok\n");
+}

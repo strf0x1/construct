@@ -53,6 +53,7 @@ pub struct Ctx {
     pub memory: memory::Store,
     pub skills: Library,
     pub mcp: Option<Arc<mcp::Manager>>,
+    pub sandbox: crate::sandbox::Policy,
     read_files: Mutex<HashSet<PathBuf>>,
 }
 
@@ -63,6 +64,7 @@ impl Ctx {
         memory: memory::Store,
         cancel: watch::Receiver<bool>,
         mcp: Option<Arc<mcp::Manager>>,
+        sandbox: crate::sandbox::Policy,
     ) -> Self {
         let http = reqwest::Client::builder()
             .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
@@ -70,7 +72,7 @@ impl Ctx {
             .build()
             .expect("http client");
         let skills = Library::new(&paths);
-        Self { cwd, paths, http, cancel, memory, skills, mcp, read_files: Mutex::new(HashSet::new()) }
+        Self { cwd, paths, http, cancel, memory, skills, mcp, sandbox, read_files: Mutex::new(HashSet::new()) }
     }
     pub fn mark_read(&self, p: &Path) {
         self.read_files.lock().unwrap().insert(p.to_path_buf());

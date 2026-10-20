@@ -76,7 +76,8 @@ impl Agent {
             Some(m) if m.role == "system" => messages[0] = Message::system(system),
             _ => messages.insert(0, Message::system(system)),
         }
-        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp));
+        let sandbox = crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths);
+        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox));
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
         let mut agent = Self {

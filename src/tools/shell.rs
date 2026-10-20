@@ -19,12 +19,11 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
         .unwrap_or(DEFAULT_TIMEOUT_S)
         .clamp(1, MAX_TIMEOUT_S);
     let cwd = a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
+    ctx.sandbox.check_read(&cwd)?;
 
     let shell = if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" };
-    let mut cmd = tokio::process::Command::new(shell);
-    cmd.arg("-c")
-        .arg(format!("exec 2>&1\n{command}"))
-        .current_dir(&cwd)
+    let mut cmd = ctx.sandbox.command(shell, &format!("exec 2>&1\n{command}"));
+    cmd.current_dir(&cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -80,7 +79,15 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
     match (stopped, code) {
         (Some(why), _) => Err(format!("{out}\n[{why} after {:.1}s]", elapsed.as_secs_f32())),
         (None, Some(0)) => Ok(out),
-        (None, Some(c)) => Err(format!("{out}\n[exit {c}]")),
+        (None, Some(c)) => {
+            // Landlock denials look like ordinary permission errors; say why.
+            let hint = if !ctx.sandbox.off && (out.contains("Permission denied") || out.contains("Operation not permitted")) {
+                "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
+            } else {
+                ""
+            };
+            Err(format!("{out}\n[exit {c}]{hint}"))
+        }
         (None, None) => Err(format!("{out}\n[killed by signal]")),
     }
 }

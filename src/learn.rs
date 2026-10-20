@@ -103,7 +103,7 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let ctx = Arc::new(Ctx::new(std::env::current_dir().unwrap_or_default(), paths.clone(), memory, rx, None));
+    let ctx = Arc::new(learner_ctx(cfg, paths, memory, rx));
     let wants_memory = matches!(kind, Kind::Memory | Kind::Both);
     let mut ledger_note = Vec::new();
 
@@ -176,6 +176,18 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     ledger_note.append(&mut out.actions);
     out.actions = ledger_note;
     Ok(out)
+}
+
+/// The learner only gets memory and skill tools, but its context still
+/// carries a sandbox: read-only, so nothing it does can write the workspace.
+fn learner_ctx(cfg: &Config, paths: &Paths, memory: Store, rx: tokio::sync::watch::Receiver<bool>) -> Ctx {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let mut sb = cfg.sandbox.clone();
+    if sb.mode != "off" {
+        sb.mode = "read-only".into();
+    }
+    let policy = crate::sandbox::Policy::new(&sb, &cwd, paths);
+    Ctx::new(cwd, paths.clone(), memory, rx, None, policy)
 }
 
 // ---------------------------------------------------------------- ledger
@@ -354,7 +366,7 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let ctx = Ctx::new(std::env::current_dir().unwrap_or_default(), paths.clone(), memory, rx, None);
+    let ctx = learner_ctx(cfg, paths, memory, rx);
     let usage = ctx.skills.usage();
     let now = crate::skills::now();
     let mut listing = String::new();

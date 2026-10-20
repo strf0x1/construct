@@ -33,6 +33,7 @@ fn num(a: &Value, k: &str) -> Option<usize> {
 
 pub fn read(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    ctx.sandbox.check_read(&path)?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     if meta.is_dir() {
         let mut names: Vec<String> = std::fs::read_dir(&path)
@@ -72,6 +73,7 @@ pub fn read(ctx: &Ctx, a: &Value) -> Result<String, String> {
 
 pub fn write(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    ctx.sandbox.check_write(&path)?;
     let content = arg(a, "content").ok_or("content is required")?;
     let existed = path.exists();
     if existed && !ctx.was_read(&path) {
@@ -87,6 +89,7 @@ pub fn write(ctx: &Ctx, a: &Value) -> Result<String, String> {
 
 pub fn edit(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    ctx.sandbox.check_write(&path)?;
     let old = arg(a, "old_string").ok_or("old_string is required")?;
     let new = arg(a, "new_string").ok_or("new_string is required")?;
     let all = a.get("replace_all").and_then(Value::as_bool).unwrap_or(false);
@@ -128,6 +131,7 @@ fn walker(root: &Path, hidden: bool) -> WalkBuilder {
 pub fn glob(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
+    ctx.sandbox.check_read(&root)?;
     let pat = if pattern.contains('/') || pattern.starts_with("**") { pattern.to_string() } else { format!("**/{pattern}") };
     let set = globset::GlobBuilder::new(&pat).literal_separator(true).build().map_err(|e| e.to_string())?.compile_matcher();
     let mut hits: Vec<(SystemTime, PathBuf)> = Vec::new();
@@ -156,6 +160,7 @@ pub fn glob(ctx: &Ctx, a: &Value) -> Result<String, String> {
 pub fn grep(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
+    ctx.sandbox.check_read(&root)?;
     let insensitive = a.get("ignore_case").and_then(Value::as_bool).unwrap_or(false);
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(insensitive)

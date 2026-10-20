@@ -15,7 +15,9 @@ and observe it end to end without a model or a terminal.
 | `src/tools/` | shell, read/write/edit/grep/glob (ripgrep crates), web, memory/skill/session_search dispatch. |
 | `src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `src/memory.rs`, `src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
-| `src/learn.rs` | Learning gate (Jev or local), review pass, curator. Runs detached after a session. |
+| `src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
+| `src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
+| `src/sandbox.rs` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. |
 | `src/tui/` | ratatui app, markdown renderer, theme. |
 | `dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
@@ -76,6 +78,12 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
   `--set holdout`) before and after. Phrase nouls strictly ("explicitly
   require ...; answer no if ..."); in a choice put the conservative answer
   first, since Jev favours the first option.
+- Tools run sandboxed (`[sandbox] mode = "workspace"`): the working dir, a
+  private TMPDIR, system paths and toolchains. If a real tool breaks inside
+  it, add the toolchain path to `HOME_RO`/`HOME_RW` in src/sandbox.rs and a
+  step to the sandbox e2e test, rather than turning the sandbox off.
+- Never point a harness at a real model without the sandbox: an agent with
+  nothing to go on searches the disk, and once read the bench key files.
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
   `python3 bench/report.py`. Never rebuild `target/release/construct` while a
   bench is running.
