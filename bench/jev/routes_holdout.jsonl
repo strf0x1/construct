@@ -1,0 +1,18 @@
+{"request":"the migration script hangs forever on the orders table, help","groups":[],"skills":["postgres-migration"]}
+{"request":"tidy up the error messages in src/cli.rs","groups":[],"skills":[]}
+{"request":"how do I configure tracing-subscriber to write JSON logs? check the current docs","groups":["web"],"skills":[]}
+{"request":"I go by Sam","groups":["memory"],"skills":[]}
+{"request":"please always run clippy before you say you're done","groups":["memory"],"skills":[]}
+{"request":"what were the three options we listed for the cache design last session?","groups":["history"],"skills":[]}
+{"request":"turn what you just did into a reusable skill for next time","groups":["skill-write"],"skills":[]}
+{"request":"list open PRs that touch the parser","groups":["mcp:github"],"skills":[]}
+{"request":"file a bug in linear for the timezone crash","groups":["mcp:linear"],"skills":[]}
+{"request":"what's the row count of the events table in prod?","groups":["mcp:postgres"],"skills":[]}
+{"request":"terraform wants to destroy the bucket, is that safe? here's the plan output","groups":[],"skills":["terraform-plan"]}
+{"request":"profile the importer, it got 3x slower this week","groups":[],"skills":["perf-profile"],"skills_ok":[["git-bisect"]]}
+{"request":"push the release tag","groups":[],"skills":["rust-release"],"skills_ok":[[]]}
+{"request":"get the vendor team to agree on nullable timestamps before we ingest","groups":[],"skills":["contract-negotiation"]}
+{"request":"port-forward the prod redis to localhost through ssm","groups":[],"skills":["aws-ssm-connect"]}
+{"request":"write a haiku about rust","groups":[],"skills":[]}
+{"request":"summarize this file","groups":[],"skills":[]}
+{"request":"compare our retry logic with what the reqwest-retry crate does upstream","groups":["web"],"skills":[]}

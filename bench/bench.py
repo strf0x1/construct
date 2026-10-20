@@ -69,6 +69,11 @@ class Endpoint:
             key = KEY_FILE.read_text().strip() if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
             if not key:
                 sys.exit(f"no OpenRouter key: put it in {KEY_FILE}")
+            # Never forward some other secret to the upstream by mistake.
+            if "openrouter.ai" in upstream and not key.startswith("sk-or-"):
+                sys.exit(f"{KEY_FILE} doesn't hold an OpenRouter key (expected sk-or-...); not sending it upstream")
+            if JEV_KEY_FILE.exists() and JEV_KEY_FILE.read_text().strip() == key:
+                sys.exit(f"{KEY_FILE} holds the same key as {JEV_KEY_FILE}; not sending it upstream")
             env["OPENROUTER_API_KEY"] = key
         self.proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=open(dir / "serve.err", "w"), env=env)
         for _ in range(500):
@@ -128,21 +133,41 @@ class Construct(Harness):
     ready = "ask construct"
     jev = False
 
+    seed_skills = False
+
     def env(self):
         e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy"}
         if self.jev and JEV_KEY_FILE.exists():
             e["TYPESAFE_API_KEY"] = JEV_KEY_FILE.read_text().strip()
+        else:
+            e["CONSTRUCT_ROUTER"] = "local"
         return e
 
     def configure(self, url, model):
         self.home.mkdir(parents=True, exist_ok=True)
         (self.home / "config.toml").write_text(f'base_url = "{url}"\nmodel = "{model}"\n')
+        skills = self.home / "skills"
+        if self.seed_skills and not skills.exists():
+            # A realistic existing library (bench/jev/library.json): the router
+            # has something to choose from, or to wrongly suggest.
+            lib = json.loads((ROOT / "bench" / "jev" / "library.json").read_text())
+            for name, desc in lib["skills"].items():
+                d = skills / name
+                d.mkdir(parents=True)
+                (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\n1. Follow the team runbook for this.\n")
 
     def headless(self, prompt, cont=False):
         return [str(CONSTRUCT), "run"] + (["-c"] if cont else []) + [prompt]
 
     def tui(self):
         return [str(CONSTRUCT)]
+
+
+class ConstructJev(Construct):
+    """construct with the TypeSafe key: Jev routes and gates learning."""
+
+    name = "construct-jev"
+    jev = True
 
 
 class Hermes(Harness):
@@ -209,6 +234,8 @@ class Opencode(Harness):
 
 
 HARNESSES = {"construct": Construct, "hermes": Hermes, "opencode": Opencode}
+# Variants, only run when named with --harness.
+VARIANTS = {"construct-jev": ConstructJev}
 
 
 # ---------------------------------------------------------------- helpers
@@ -333,7 +360,7 @@ def fresh_homes(names, tag):
     base = WORK / tag
     if base.exists():
         shutil.rmtree(base)
-    return {n: HARNESSES[n](base / n / "home") for n in names}
+    return {n: {**HARNESSES, **VARIANTS}[n](base / n / "home") for n in names}
 
 
 def order(names, r):
@@ -704,8 +731,10 @@ def main():
     ap.add_argument("--no-warmup", action="store_true")
     ap.add_argument("--harness", nargs="+", default=list(HARNESSES))
     ap.add_argument("--jev", action="store_true", help="give construct the TypeSafe key (Jev router)")
+    ap.add_argument("--seed-skills", action="store_true", help="seed construct homes with bench/jev/library.json skills")
     args = ap.parse_args()
-    Construct.jev = args.jev
+    Construct.jev = Construct.jev or args.jev
+    Construct.seed_skills = args.seed_skills
     # One bench at a time: two runs share WORK and would corrupt each other.
     import fcntl
     WORK.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,23 @@
+{
+  "skills": {
+    "rust-release": "Cut a release of a Rust crate: bump version, update CHANGELOG, tag, cargo publish, verify on crates.io",
+    "etl-verify": "Verify a data stream through the ETL pipeline: run deterministic stage checks (PASS/FAIL/INCOMPLETE) from raw landing to warehouse tables",
+    "aws-ssm-connect": "Connect to hardened AWS hosts through SSM Session Manager with the right profile, region and port forwarding; avoids the bastion pitfalls",
+    "contract-negotiation": "Prepare and track a data contract with another team: schema proposal, field-level SLAs, open questions, sign-off log",
+    "postgres-migration": "Write and apply a Postgres schema migration safely: lock timeouts, backfill in batches, verify row counts, rollback plan",
+    "playwright-e2e": "Verify a web UI by running Playwright end-to-end tests through the main user workflows and reading the trace on failure",
+    "docker-debug": "Debug a container that fails to start: inspect logs, entrypoint, env, healthcheck, exec into a shell",
+    "git-bisect": "Find the commit that introduced a regression with git bisect run and a deterministic test script",
+    "flaky-test-triage": "Triage a flaky test: rerun in a loop, capture seeds and timing, isolate shared state, quarantine or fix",
+    "k8s-rollout": "Roll out a new image to Kubernetes, watch the rollout, check pod health, and roll back on failure",
+    "python-env": "Set up or repair a Python project environment with uv: venv, lockfile, interpreter version, editable installs",
+    "incident-postmortem": "Write a blameless postmortem: timeline from logs, impact, root cause, action items",
+    "terraform-plan": "Plan and apply Terraform changes safely: fmt, validate, plan to file, review destroys, apply the saved plan",
+    "perf-profile": "Profile a slow program: flamegraph with perf/samply, find the hot path, benchmark before and after"
+  },
+  "mcp": {
+    "github": "GitHub issues, pull requests, reviews, CI runs and repository contents",
+    "linear": "Linear issue tracker: create, search and update tickets and projects",
+    "postgres": "Query the team's Postgres databases read-only: schemas, tables, ad-hoc SQL"
+  }
+}

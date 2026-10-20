@@ -1,0 +1,8 @@
+{"name":"rule for future","users":["fix the lint","going forward, run clippy with -D warnings before saying you're done"],"errors":[],"loaded":[],"kind":"Memory"}
+{"name":"task with prefer","users":["I'd prefer the function returned a Result here instead of panicking"],"errors":[],"loaded":[],"kind":null}
+{"name":"identity","users":["I'm the only maintainer of this repo, so skip PR descriptions","merge the branch"],"errors":[],"loaded":[],"kind":"Memory"}
+{"name":"skill fine, user code broke","users":["run the etl checks on the new feed"],"errors":["check_rowcount: FAIL expected 1200 got 1188"],"loaded":["etl-verify"],"kind":null}
+{"name":"tool quirk","users":["build the docs"],"errors":["mdbook: command not found","error: no such command: `doc2`","cargo install mdbook: permission denied (os error 13)"],"loaded":[],"kind":"Skills"}
+{"name":"skill outdated","users":["connect to ingest box","the profile isn't prod-admin anymore, it's prod-ops since the migration"],"errors":["The config profile (prod-admin) could not be found"],"loaded":["aws-ssm-connect"],"kind":"Skills","kind_ok":["Skills","Both"]}
+{"name":"plain qna","users":["what's the difference between Arc and Rc?"],"errors":[],"loaded":[],"kind":null}
+{"name":"in-task style","users":["write the release notes","make them shorter, bullets only"],"errors":[],"loaded":[],"kind":null}

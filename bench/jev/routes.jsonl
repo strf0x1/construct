@@ -1,0 +1,47 @@
+{"request":"publish a new release of this crate","groups":[],"skills":["rust-release"]}
+{"request":"fix the off-by-one in src/parse.rs line 40","groups":[],"skills":[]}
+{"request":"rename the Config struct to Settings everywhere","groups":[],"skills":[]}
+{"request":"what does this repo do?","groups":[],"skills":[]}
+{"request":"run the tests and fix whatever fails","groups":[],"skills":[]}
+{"request":"add a --verbose flag to the CLI","groups":[],"skills":[]}
+{"request":"why is `cargo build` so slow on this project? it takes 4 minutes","groups":[],"skills":["perf-profile"],"skills_ok":[[],["perf-profile"]]}
+{"request":"the api container keeps crashing on startup, figure out why","groups":[],"skills":["docker-debug"]}
+{"request":"some commit in the last two weeks broke the date parsing test, find which one","groups":[],"skills":["git-bisect"]}
+{"request":"test_upload passes locally but fails about 1 in 5 runs in CI","groups":[],"skills":["flaky-test-triage"],"groups_ok":[[],["mcp:github"]]}
+{"request":"new vendor feed landed in s3 last night, make sure it made it through to the warehouse intact","groups":[],"skills":["etl-verify"]}
+{"request":"I need to get a shell on the prod ingest box","groups":[],"skills":["aws-ssm-connect"]}
+{"request":"draft the schema proposal for the payments team's events feed","groups":[],"skills":["contract-negotiation"]}
+{"request":"add a nullable column last_seen_at to users and backfill it from sessions","groups":[],"skills":["postgres-migration"]}
+{"request":"check the signup flow still works after my CSS refactor","groups":[],"skills":["playwright-e2e"]}
+{"request":"ship v2.3 of the worker image to staging","groups":[],"skills":["k8s-rollout"]}
+{"request":"uv sync fails with a resolver error on python 3.13","groups":[],"skills":["python-env"],"groups_ok":[[],["web"]]}
+{"request":"write up what happened in yesterday's outage from these logs","groups":[],"skills":["incident-postmortem"]}
+{"request":"bump the RDS instance size in our infra code and apply it","groups":[],"skills":["terraform-plan"]}
+{"request":"what's the latest stable version of tokio?","groups":["web"],"skills":[]}
+{"request":"read https://docs.rs/ratatui/latest/ratatui/ and summarize the layout API","groups":["web"],"skills":[]}
+{"request":"search the web for how other people handle SSE reconnects in reqwest","groups":["web"],"skills":[]}
+{"request":"is there a known CVE for openssl 3.0.13?","groups":["web"],"skills":[]}
+{"request":"post the release notes to the README","groups":[],"skills":[],"skills_ok":[[],["rust-release"]]}
+{"request":"publish the docs folder into the build output","groups":[],"skills":[]}
+{"request":"fetch the latest changes from origin and rebase my branch","groups":[],"skills":[]}
+{"request":"remember that I use fish, not bash","groups":["memory"],"skills":[]}
+{"request":"from now on, don't add comments to code you write","groups":["memory"],"skills":[]}
+{"request":"stop running cargo fmt on files I didn't touch","groups":["memory"],"skills":[]}
+{"request":"my work laptop is a mac, this box is arch","groups":["memory"],"skills":[]}
+{"request":"I always want tabs in this file","groups":[],"skills":[],"groups_ok":[[],["memory"]]}
+{"request":"never mind, revert that last change","groups":[],"skills":[]}
+{"request":"remember the deploy we did last week? do the same for the billing service","groups":["history"],"skills":["k8s-rollout"],"skills_ok":[["k8s-rollout"],[]]}
+{"request":"what did we decide about the retry policy in the session on tuesday?","groups":["history"],"skills":[]}
+{"request":"pick up where we left off yesterday on the parser rewrite","groups":["history"],"skills":[]}
+{"request":"save how we just connected to the ingest box as a skill","groups":["skill-write"],"skills":[]}
+{"request":"update the etl-verify skill: stage 3 now writes parquet, not csv","groups":["skill-write"],"skills":["etl-verify"],"skills_ok":[["etl-verify"],[]]}
+{"request":"delete the docker-debug skill, it's useless","groups":["skill-write"],"skills":[],"skills_ok":[[],["docker-debug"]]}
+{"request":"review PR 412 and leave comments","groups":["mcp:github"],"skills":[]}
+{"request":"why did CI fail on main?","groups":["mcp:github"],"skills":[]}
+{"request":"open a ticket for the flaky upload test and assign it to me","groups":["mcp:linear"],"skills":[],"skills_ok":[[],["flaky-test-triage"]]}
+{"request":"how many orders were placed yesterday?","groups":["mcp:postgres"],"skills":[]}
+{"request":"which tables reference customer_id?","groups":["mcp:postgres"],"skills":[],"groups_ok":[["mcp:postgres"],[]]}
+{"request":"thanks!","groups":[],"skills":[]}
+{"request":"do the same for the other two files","previous":"Renamed `parse_date` to `parse_iso_date` in src/a.rs and updated its callers.","groups":[],"skills":[]}
+{"request":"ok now apply it","previous":"Here's the Terraform plan: 1 to change (aws_db_instance.main instance_class db.t3.large -> db.r6g.large), 0 to destroy. Saved to plan.out.","groups":[],"skills":["terraform-plan"],"skills_ok":[["terraform-plan"],[]]}
+{"request":"look up the issue the user reported about login timeouts and reproduce it","groups":["mcp:github"],"skills":[],"groups_ok":[["mcp:github"],["mcp:linear"],["mcp:github","mcp:linear"]]}

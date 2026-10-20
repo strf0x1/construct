@@ -141,7 +141,8 @@ impl Client {
         let url = format!("{}/models", self.base_url);
         let key = self.api_key.clone();
         tokio::spawn(async move {
-            let mut rb = http.get(url).timeout(Duration::from_secs(10));
+            // HEAD: the connection is the point, not OpenRouter's model list.
+            let mut rb = http.head(url).timeout(Duration::from_secs(10));
             if let Some(k) = key {
                 rb = rb.bearer_auth(k);
             }

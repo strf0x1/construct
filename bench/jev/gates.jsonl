@@ -1,0 +1,18 @@
+{"name":"plain bugfix","users":["fix the failing test in tests/date.rs"],"errors":[],"loaded":[],"kind":null}
+{"name":"plain feature, multi-turn","users":["add a --json flag to the export command","also make it pretty-print when stdout is a tty","great, thanks"],"errors":[],"loaded":[],"kind":null}
+{"name":"stated preference","users":["refactor the config loader","btw I hate when you add docstrings to every function, keep it terse"],"errors":[],"loaded":[],"kind":"Memory"}
+{"name":"machine fact","users":["the build fails","oh this box has no docker, use podman for everything"],"errors":["bash: docker: command not found"],"loaded":[],"kind":"Both","kind_ok":["Both","Memory"]}
+{"name":"task phrased as want","users":["I want the parser to accept trailing commas"],"errors":[],"loaded":[],"kind":null}
+{"name":"task with always","users":["make sure the CLI always exits non-zero on error"],"errors":[],"loaded":[],"kind":null}
+{"name":"env workaround","users":["run the integration tests"],"errors":["error: linker `cc` not found","error: could not find system library 'openssl' required by the 'openssl-sys' crate","pkg-config: command not found"],"loaded":[],"kind":"Skills"}
+{"name":"user code failures are the task","users":["make the tests pass"],"errors":["test parse::dates ... FAILED","test parse::times ... FAILED","test parse::zones ... FAILED"],"loaded":[],"kind":null}
+{"name":"skill was wrong","users":["verify the new vendor feed","the skill says stage 3 writes csv but it's parquet now, that check is wrong"],"errors":["check_stage3: FAIL no csv files in s3://landing/vendor/"],"loaded":["etl-verify"],"kind":"Skills"}
+{"name":"skill worked fine","users":["connect to the ingest box and tail the worker log"],"errors":[],"loaded":["aws-ssm-connect"],"kind":null}
+{"name":"skill incomplete via errors","users":["get me a shell on the prod ingest box"],"errors":["An error occurred (TargetNotConnected) when calling the StartSession operation","SessionManagerPlugin is not found. Please refer to SessionManager Documentation"],"loaded":["aws-ssm-connect"],"kind":"Skills"}
+{"name":"correction of approach","users":["clean up the imports","no, don't use sed for that, use the edit tool so I can see diffs"],"errors":[],"loaded":[],"kind":"Memory"}
+{"name":"one-off correction","users":["rename foo to bar","no I meant only in src/lib.rs, not the tests"],"errors":[],"loaded":[],"kind":null}
+{"name":"chit chat","users":["hi","what can you do?"],"errors":[],"loaded":[],"kind":null}
+{"name":"call me","users":["call me B. now, what's failing in CI?"],"errors":[],"loaded":[],"kind":"Memory"}
+{"name":"flag quirk","users":["count lines of rust code"],"errors":["tokei: command not found","cloc: command not found"],"loaded":[],"kind":null,"kind_ok":[null,"Skills"]}
+{"name":"recurring auth pitfall","users":["deploy the worker","ugh, again with the expired SSO token — run aws sso login --profile prod first, every time"],"errors":["Error when retrieving token from sso: Token has expired and refresh failed"],"loaded":[],"kind":"Both","kind_ok":["Both","Skills","Memory"]}
+{"name":"long successful session","users":["add pagination to the list endpoint","add tests","update the docs","ship it"],"errors":[],"loaded":[],"kind":null}

@@ -102,6 +102,12 @@ impl Agent {
         Ok(agent)
     }
 
+    /// Pre-connect to the model endpoint and to Jev in the background.
+    pub fn warm(&self) {
+        self.client.warm();
+        router::warm(&self.cfg.router, &self.ctx.http);
+    }
+
     /// A handle the UI can use to interrupt the running turn.
     pub fn canceller(&self) -> watch::Sender<bool> {
         self.cancel_tx.clone()

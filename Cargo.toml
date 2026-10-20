@@ -25,7 +25,7 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json", "gzip", "query", "form"] }
 secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 similar = "3"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time", "signal"] }
 toml = "1"

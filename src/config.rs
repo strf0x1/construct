@@ -174,6 +174,9 @@ impl Config {
         if let Ok(v) = std::env::var("CONSTRUCT_MODEL") {
             cfg.model = v;
         }
+        if let Ok(v) = std::env::var("CONSTRUCT_ROUTER") {
+            cfg.router.mode = v;
+        }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         Ok(cfg)
     }

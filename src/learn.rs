@@ -297,9 +297,17 @@ pub async fn gate(cfg: &Config, messages: &[Message]) -> Gate {
     }
     let errors = tool_errors(messages);
     let loaded = skills_loaded(messages);
+    gate_parts(cfg, &users, &errors, &loaded).await
+}
+
+/// The gate on already-extracted evidence; `construct gate` feeds it directly.
+pub async fn gate_parts(cfg: &Config, users: &[String], errors: &[String], loaded: &[String]) -> Gate {
+    if users.is_empty() {
+        return Gate { kind: None, source: "local", note: "no user turns".into() };
+    }
     if cfg.router.mode != "local" && cfg.router.mode != "off" {
         if let Some(key) = crate::secrets::get("TYPESAFE_API_KEY") {
-            match jev_gate(cfg, &key, &users, &errors, &loaded).await {
+            match jev_gate(cfg, &key, users, errors, loaded).await {
                 Ok(g) => return g,
                 Err(e) => log_line_quiet(&format!("jev gate failed ({e}); using local heuristics")),
             }
@@ -322,9 +330,15 @@ async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], 
     let errors: Vec<String> = errors.iter().take(8).cloned().collect();
     let mut questions = serde_json::Map::new();
     let noul = |q: &str| json!({ "type": "noul", "instructions": q });
+    // A choice, not a noul: asked as yes/no, Jev counted task phrasing ("I want
+    // the parser to...", "make sure it always...") as preferences. "task" goes
+    // first: Jev favours the first option (see src/router.rs).
     questions.insert(
         "preference".into(),
-        noul("Do `user_messages` state a lasting preference about how the assistant should work, correct the assistant's approach or style, or share a durable fact about the user or their machine? Ordinary task requests do not count."),
+        json!({ "type": "choice", "instructions": "Across `user_messages`, what is the most lasting thing the user said?", "criteria": {
+            "task": "only requests for this task, or corrections that apply to this task alone",
+            "preference": "a rule for how the assistant should work in future sessions, or a durable fact about the user or their machine",
+        } }),
     );
     if !errors.is_empty() {
         questions.insert(
@@ -354,7 +368,8 @@ async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], 
         .await
         .map_err(|e| e.to_string())?;
     let p = |k: &str| v["answers"][k]["noul"].as_f64().unwrap_or(0.0);
-    let pref = p("preference") >= 0.5;
+    let pref_p = v["answers"]["preference"]["probabilities"]["preference"].as_f64().unwrap_or(0.0);
+    let pref = pref_p >= 0.5;
     let skill = p("workaround") >= 0.5 || p("skill_gap") >= 0.5;
     let kind = match (pref, skill) {
         (true, true) => Some(Kind::Both),
@@ -365,7 +380,7 @@ async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], 
     Ok(Gate {
         kind,
         source: "jev",
-        note: format!("preference={:.2} workaround={:.2} skill_gap={:.2}", p("preference"), p("workaround"), p("skill_gap")),
+        note: format!("preference={pref_p:.2} workaround={:.2} skill_gap={:.2}", p("workaround"), p("skill_gap")),
     })
 }
 

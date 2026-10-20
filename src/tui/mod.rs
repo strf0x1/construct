@@ -1059,7 +1059,7 @@ async fn agent_task(
         }
     };
     trace("agent ready");
-    agent.client.warm();
+    agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
     let _ = ready.send((agent.log.id.clone(), agent.canceller(), vec![], history));
     let mut reviewed = agent.messages.len();

@@ -69,6 +69,14 @@ enum Cmd {
     Memory,
     /// Show the config path and current settings.
     Config,
+    /// Route requests read as JSON lines from stdin ({"request","previous"})
+    /// and print each route as a JSON line. For router evals.
+    #[command(hide = true)]
+    Route,
+    /// Run the learning gate on JSON lines from stdin
+    /// ({"users","errors","loaded"}). For gate evals.
+    #[command(hide = true)]
+    Gate,
 }
 
 #[derive(Subcommand)]
@@ -153,11 +161,51 @@ fn main() -> Result<()> {
             println!("{}", if block.is_empty() { "memory is empty".into() } else { block });
             Ok(())
         }
+        Some(Cmd::Route) => rt.block_on(route_cmd(cfg, paths)),
+        Some(Cmd::Gate) => rt.block_on(gate_cmd(cfg)),
         Some(Cmd::Config) => {
             println!("# {}\n{}", paths.config().display(), toml::to_string_pretty(&cfg)?);
             Ok(())
         }
     }
+}
+
+fn stdin_lines() -> Vec<serde_json::Value> {
+    let mut text = String::new();
+    let _ = std::io::stdin().read_to_string(&mut text);
+    text.lines().filter(|l| !l.trim().is_empty()).filter_map(|l| serde_json::from_str(l).ok()).collect()
+}
+
+async fn route_cmd(cfg: Config, paths: Paths) -> Result<()> {
+    let skills = skills::Library::new(&paths).list();
+    let mcp: std::collections::BTreeMap<String, String> = cfg.mcp.iter().map(|(k, v)| (k.clone(), v.description.clone())).collect();
+    let http = reqwest::Client::builder().tcp_nodelay(true).build()?;
+    for v in stdin_lines() {
+        let request = v["request"].as_str().unwrap_or("");
+        let previous = v["previous"].as_str().unwrap_or("");
+        let r = router::route(&cfg.router, &http, router::Input { request, previous, skills: &skills, mcp: &mcp }).await;
+        let out = serde_json::json!({
+            "request": request,
+            "groups": r.groups.iter().map(tools::Group::label).collect::<Vec<_>>(),
+            "skills": r.skills,
+            "source": r.source,
+            "ms": r.ms,
+            "note": r.note,
+        });
+        println!("{out}");
+    }
+    Ok(())
+}
+
+async fn gate_cmd(cfg: Config) -> Result<()> {
+    let strs = |v: &serde_json::Value| -> Vec<String> { v.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect() };
+    for v in stdin_lines() {
+        let started = std::time::Instant::now();
+        let g = learn::gate_parts(&cfg, &strs(&v["users"]), &strs(&v["errors"]), &strs(&v["loaded"])).await;
+        let out = serde_json::json!({ "kind": g.kind.map(|k| format!("{k:?}")), "source": g.source, "note": g.note, "ms": started.elapsed().as_millis() as u64 });
+        println!("{out}");
+    }
+    Ok(())
 }
 
 fn resolve_resume(resume: &Option<String>, cont: bool, paths: &Paths) -> Result<Option<String>> {
@@ -175,6 +223,8 @@ async fn headless(cfg: Config, paths: Paths, resume: Option<String>, text: Strin
     let learn = learn && cfg.learn.enabled;
     let cwd = std::env::current_dir()?;
     let mut agent = Agent::new(cfg, paths, cwd, resume)?;
+    // Overlaps the model's TLS handshake with routing.
+    agent.warm();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
     let printer = tokio::spawn(async move {
         let mut out = std::io::stdout();

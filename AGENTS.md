@@ -72,6 +72,9 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
 - Keep the first request small: no skill index in the system prompt, core tools
   only; everything else is routed per turn and stays on once enabled.
 - Learning must earn its tokens: the gate runs before any LLM review.
+- Router/gate changes: score them with `python3 bench/jev/eval.py` (and
+  `--set holdout`) before and after. Jev favours the first option of a choice,
+  so put the conservative answer first.
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
   `python3 bench/report.py`. Never rebuild `target/release/construct` while a
   bench is running.

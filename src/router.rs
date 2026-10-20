@@ -58,6 +58,20 @@ pub async fn route(cfg: &RouterConfig, http: &reqwest::Client, input: Input<'_>)
     route
 }
 
+/// Open the connection to Jev ahead of the first turn when Jev will route,
+/// so the first route doesn't pay for the TLS handshake (~100-150ms).
+pub fn warm(cfg: &RouterConfig, http: &reqwest::Client) {
+    if cfg.mode == "local" || cfg.mode == "off" {
+        return;
+    }
+    let (http, url) = (http.clone(), cfg.jev_url.clone());
+    tokio::spawn(async move {
+        if crate::secrets::get("TYPESAFE_API_KEY").is_some() {
+            let _ = http.head(url).timeout(Duration::from_secs(5)).send().await;
+        }
+    });
+}
+
 fn all_groups(input: &Input<'_>) -> Vec<Group> {
     let mut g = vec![Group::Web, Group::Memory, Group::History, Group::SkillWrite];
     if !input.skills.is_empty() {
@@ -67,25 +81,36 @@ fn all_groups(input: &Input<'_>) -> Vec<Group> {
     g
 }
 
-const Q_WEB: &str = "Does handling `request` need anything from the internet: searching the web, reading a URL or online docs, or checking current versions, prices or news?";
-const Q_MEMORY: &str = "In `request`, does the user state a lasting preference, correct how you work, share a personal or machine fact worth keeping, or ask you to remember or forget something?";
-const Q_HISTORY: &str = "Does `request` refer to an earlier conversation, a past session, or work done before this conversation started?";
-const Q_SKILL_WRITE: &str = "Does `request` ask to save, write, update or delete a skill, playbook or reusable procedure?";
+// Groups are asked as two choices rather than a yes/no per group: independent
+// nouls read the request literally and fire on anything nearby (a GitHub noul
+// was >0.6 for most coding requests), while a choice with an explicit "none"
+// has to weigh the options against each other. Jev also favours whichever
+// option comes first (+0.2-0.35 on ambiguous cases), so the conservative
+// answer ("none", "task") always goes first; serde_json keeps insertion order.
+// See bench/jev/.
+const Q_ACCESS: &str = "Besides the local files and a shell, what does the assistant need to access to handle `request`?";
+const Q_INTENT: &str = "What is `request` mainly doing?";
 const Q_NEEDS_SKILL: &str = "Would a written procedure for a specific kind of task help with `request` (as opposed to a quick question or casual chat)?";
 
 async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Input<'_>) -> Result<Route, String> {
     let mut questions = Map::new();
     let noul = |instructions: String| json!({ "type": "noul", "instructions": instructions });
-    questions.insert("web".into(), noul(Q_WEB.into()));
-    questions.insert("memory".into(), noul(Q_MEMORY.into()));
-    questions.insert("history".into(), noul(Q_HISTORY.into()));
-    questions.insert("skill_write".into(), noul(Q_SKILL_WRITE.into()));
+    let mut access = Map::new();
+    access.insert("none".into(), json!("nothing beyond the local repository, files and shell commands"));
+    access.insert("web".into(), json!("the internet: web search, fetching URLs or online docs, checking current versions, CVEs or news"));
+    access.insert("history".into(), json!("transcripts of earlier conversations with the assistant (what we did or decided in a past session)"));
     for (name, desc) in input.mcp {
-        questions.insert(
-            format!("mcp:{name}"),
-            noul(format!("Would the `{name}` tools ({desc}) help with `request`?")),
-        );
+        access.insert(format!("mcp:{name}"), json!(format!("the {name} tools: {}", crate::llm::truncate(desc, 300))));
     }
+    questions.insert("access".into(), json!({ "type": "choice", "instructions": Q_ACCESS, "criteria": access }));
+    questions.insert(
+        "intent".into(),
+        json!({ "type": "choice", "instructions": Q_INTENT, "criteria": {
+            "task": "asks the assistant to do or answer something (code, files, ops, questions)",
+            "preference": "tells the assistant how to behave from now on, or shares a lasting fact about the user or their machine",
+            "skill-edit": "asks to create, change or delete one of the assistant's saved skills",
+        } }),
+    );
     // Choice allows at most 255 options; keep the best-matching 254 + none.
     let mut candidates: Vec<&Skill> = input.skills.iter().collect();
     if candidates.len() > 254 {
@@ -125,20 +150,24 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     let v: Value = resp.json().await.map_err(|e| e.to_string())?;
     let answers = &v["answers"];
     let p = |k: &str| answers[k]["noul"].as_f64().unwrap_or(0.0) as f32;
+    let choice = |q: &str, k: &str| answers[q]["probabilities"][k].as_f64().unwrap_or(0.0) as f32;
     let t = cfg.threshold;
     let mut groups = Vec::new();
     let mut note = Vec::new();
-    for (k, g) in [("web", Group::Web), ("memory", Group::Memory), ("history", Group::History), ("skill_write", Group::SkillWrite)] {
-        note.push(format!("{k}={:.2}", p(k)));
-        if p(k) >= t {
+    let mut access: Vec<(String, Group)> = vec![("web".into(), Group::Web), ("history".into(), Group::History)];
+    access.extend(input.mcp.keys().map(|n| (format!("mcp:{n}"), Group::Mcp(n.clone()))));
+    for (k, g) in access {
+        let v = choice("access", &k);
+        note.push(format!("{k}={v:.2}"));
+        if v >= t {
             groups.push(g);
         }
     }
-    for name in input.mcp.keys() {
-        let k = format!("mcp:{name}");
-        note.push(format!("{k}={:.2}", p(&k)));
-        if p(&k) >= t {
-            groups.push(Group::Mcp(name.clone()));
+    for (k, g) in [("preference", Group::Memory), ("skill-edit", Group::SkillWrite)] {
+        let v = choice("intent", k);
+        note.push(format!("{k}={v:.2}"));
+        if v >= t {
+            groups.push(g);
         }
     }
     let mut skills = Vec::new();
