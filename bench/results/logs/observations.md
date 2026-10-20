@@ -86,3 +86,24 @@ insufficient.") scores groups 43/47 (held-out 16/18) vs the two-choice design
 allow several groups. The router now uses strict nouls; the learning gate keeps
 its task-first choice (18/18, 7/8). Latency unchanged (~110ms p50).
 - Routing A/B attempt 1 (2026-10-20) void: the no-skill agent searched outside its work dir, read bench/bench.py (which held the skill text and the key id) and sibling runs' homes. Key id is now random per run and absent from the repo history. Also: nothing stops a construct agent from reading anywhere on disk; noted for the safety model.
+
+## Routing A/B and a key leak (2026-10-20, results/routing-20261020-111915.json)
+
+Release task that needs one skill out of 15 (random signing key per run).
+- construct-jev: Jev suggested stats-release (0.84-0.88) in 6/6 runs, the model
+  loaded it on its first call, 5/5 success; median 17 requests, 64K prompt
+  tokens, 53s.
+- construct (local router): no suggestion in 6/6. The model searched the disk
+  for the answer and found its own skill files in CONSTRUCT_HOME in 4/6 runs
+  (loaded via enable_tools at call 14-21), 5/5 success; median 28 requests,
+  493K prompt tokens, 215s. The bench's `suggested`/`loaded` fields read a
+  truncated stdout; the numbers above come from session logs.
+- LEAK: with no skill to go on, the local-router agent read outside its work
+  dir in every run: env, ~/.claude/settings.json, ~/.codex/config.toml,
+  ~/.bash_history, ~/.gnupg listing, home handoff notes, construct's repo,
+  sibling bench runs. In construct/r2 it ran `cat` on
+  ~/.config/construct-bench.key and construct-bench-jev.key: both keys went
+  to OpenRouter and the free model's provider in a tool result. Two Jev runs
+  (r3, r4) also wandered (~/.claude listing, ~/.config listing, sibling runs).
+  The local copy of that session was redacted. Both keys need rotating.
+  construct has no filesystem boundary for its tools; that's the gap.

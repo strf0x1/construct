@@ -1,0 +1,2255 @@
+{
+ "jev": {
+  "groups_correct": 42,
+  "skills_correct": 42,
+  "n": 47,
+  "group_fp": 4,
+  "group_fn": 2,
+  "gate_correct": 18,
+  "gates": 18,
+  "stable": 46,
+  "route_ms": {
+   "p50": 85.5,
+   "p95": 138,
+   "max": 192,
+   "first": 178
+  },
+  "gate_ms": {
+   "p50": 126.5,
+   "max": 328
+  },
+  "routes": [
+   [
+    true,
+    true,
+    "publish a new release of this crate",
+    [],
+    [],
+    [
+     "rust-release 1.00"
+    ],
+    [
+     "rust-release"
+    ],
+    "web=0.47 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.14 mcp:linear=0.04 mcp:postgres=0.02 needs_skill=0.90",
+    178
+   ],
+   [
+    true,
+    true,
+    "fix the off-by-one in src/parse.rs line 40",
+    [],
+    [],
+    [],
+    [],
+    "web=0.03 history=0.05 memory=0.05 skill_write=0.04 mcp:github=0.12 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.76",
+    110
+   ],
+   [
+    true,
+    true,
+    "rename the Config struct to Settings everywhere",
+    [],
+    [],
+    [],
+    [],
+    "web=0.02 history=0.04 memory=0.06 skill_write=0.03 mcp:github=0.08 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.83",
+    114
+   ],
+   [
+    true,
+    true,
+    "what does this repo do?",
+    [],
+    [],
+    [],
+    [],
+    "web=0.20 history=0.05 memory=0.08 skill_write=0.03 mcp:github=0.24 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.30",
+    104
+   ],
+   [
+    true,
+    false,
+    "run the tests and fix whatever fails",
+    [],
+    [],
+    [
+     "flaky-test-triage 0.77"
+    ],
+    [],
+    "web=0.05 history=0.05 memory=0.07 skill_write=0.03 mcp:github=0.13 mcp:linear=0.03 mcp:postgres=0.05 needs_skill=0.86",
+    76
+   ],
+   [
+    true,
+    true,
+    "add a --verbose flag to the CLI",
+    [],
+    [],
+    [],
+    [],
+    "web=0.03 history=0.03 memory=0.05 skill_write=0.04 mcp:github=0.06 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.74",
+    81
+   ],
+   [
+    true,
+    true,
+    "why is `cargo build` so slow on this project? it takes 4 minutes",
+    [],
+    [],
+    [
+     "perf-profile 0.88"
+    ],
+    [
+     "perf-profile"
+    ],
+    "web=0.10 history=0.06 memory=0.09 skill_write=0.02 mcp:github=0.09 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.72",
+    83
+   ],
+   [
+    true,
+    true,
+    "the api container keeps crashing on startup, figure out why",
+    [],
+    [],
+    [
+     "docker-debug 1.00"
+    ],
+    [
+     "docker-debug"
+    ],
+    "web=0.11 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.09 mcp:linear=0.05 mcp:postgres=0.06 needs_skill=0.85",
+    83
+   ],
+   [
+    true,
+    true,
+    "some commit in the last two weeks broke the date parsing test, find which one",
+    [],
+    [],
+    [
+     "git-bisect 1.00"
+    ],
+    [
+     "git-bisect"
+    ],
+    "web=0.07 history=0.04 memory=0.06 skill_write=0.03 mcp:github=0.20 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.86",
+    85
+   ],
+   [
+    true,
+    true,
+    "test_upload passes locally but fails about 1 in 5 runs in CI",
+    [],
+    [],
+    [
+     "flaky-test-triage 1.00"
+    ],
+    [
+     "flaky-test-triage"
+    ],
+    "web=0.09 history=0.06 memory=0.09 skill_write=0.02 mcp:github=0.25 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.70",
+    192
+   ],
+   [
+    true,
+    true,
+    "new vendor feed landed in s3 last night, make sure it made it through to the warehouse intact",
+    [],
+    [],
+    [
+     "etl-verify 1.00"
+    ],
+    [
+     "etl-verify"
+    ],
+    "web=0.17 history=0.05 memory=0.06 skill_write=0.02 mcp:github=0.03 mcp:linear=0.08 mcp:postgres=0.09 needs_skill=0.90",
+    84
+   ],
+   [
+    true,
+    true,
+    "I need to get a shell on the prod ingest box",
+    [],
+    [],
+    [
+     "aws-ssm-connect 0.97"
+    ],
+    [
+     "aws-ssm-connect"
+    ],
+    "web=0.05 history=0.04 memory=0.07 skill_write=0.02 mcp:github=0.03 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.80",
+    117
+   ],
+   [
+    true,
+    true,
+    "draft the schema proposal for the payments team's events feed",
+    [],
+    [],
+    [
+     "contract-negotiation 1.00"
+    ],
+    [
+     "contract-negotiation"
+    ],
+    "web=0.06 history=0.06 memory=0.05 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.07 needs_skill=0.72",
+    88
+   ],
+   [
+    true,
+    true,
+    "add a nullable column last_seen_at to users and backfill it from sessions",
+    [],
+    [],
+    [
+     "postgres-migration 1.00"
+    ],
+    [
+     "postgres-migration"
+    ],
+    "web=0.02 history=0.04 memory=0.07 skill_write=0.03 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.32 needs_skill=0.93",
+    87
+   ],
+   [
+    true,
+    true,
+    "check the signup flow still works after my CSS refactor",
+    [],
+    [],
+    [
+     "playwright-e2e 1.00"
+    ],
+    [
+     "playwright-e2e"
+    ],
+    "web=0.14 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.13 mcp:linear=0.06 mcp:postgres=0.03 needs_skill=0.86",
+    90
+   ],
+   [
+    true,
+    true,
+    "ship v2.3 of the worker image to staging",
+    [],
+    [],
+    [
+     "k8s-rollout 1.00"
+    ],
+    [
+     "k8s-rollout"
+    ],
+    "web=0.20 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.18 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.91",
+    72
+   ],
+   [
+    true,
+    true,
+    "uv sync fails with a resolver error on python 3.13",
+    [],
+    [],
+    [
+     "python-env 1.00"
+    ],
+    [
+     "python-env"
+    ],
+    "web=0.24 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.06 mcp:postgres=0.02 needs_skill=0.79",
+    84
+   ],
+   [
+    true,
+    true,
+    "write up what happened in yesterday's outage from these logs",
+    [],
+    [],
+    [
+     "incident-postmortem 1.00"
+    ],
+    [
+     "incident-postmortem"
+    ],
+    "web=0.05 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.06 mcp:linear=0.03 mcp:postgres=0.06 needs_skill=0.74",
+    77
+   ],
+   [
+    true,
+    true,
+    "bump the RDS instance size in our infra code and apply it",
+    [],
+    [],
+    [
+     "terraform-plan 1.00"
+    ],
+    [
+     "terraform-plan"
+    ],
+    "web=0.06 history=0.08 memory=0.07 skill_write=0.03 mcp:github=0.15 mcp:linear=0.05 mcp:postgres=0.05 needs_skill=0.92",
+    173
+   ],
+   [
+    true,
+    true,
+    "what's the latest stable version of tokio?",
+    [
+     "web"
+    ],
+    [
+     "web"
+    ],
+    [],
+    [],
+    "web=0.86 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.07 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.18",
+    78
+   ],
+   [
+    true,
+    true,
+    "read https://docs.rs/ratatui/latest/ratatui/ and summarize the layout API",
+    [
+     "web"
+    ],
+    [
+     "web"
+    ],
+    [],
+    [],
+    "web=0.97 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.05 mcp:linear=0.02 mcp:postgres=0.01 needs_skill=0.57",
+    75
+   ],
+   [
+    true,
+    true,
+    "search the web for how other people handle SSE reconnects in reqwest",
+    [
+     "web"
+    ],
+    [
+     "web"
+    ],
+    [],
+    [],
+    "web=0.98 history=0.03 memory=0.06 skill_write=0.03 mcp:github=0.12 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.76",
+    79
+   ],
+   [
+    true,
+    true,
+    "is there a known CVE for openssl 3.0.13?",
+    [
+     "web"
+    ],
+    [
+     "web"
+    ],
+    [],
+    [],
+    "web=0.81 history=0.03 memory=0.05 skill_write=0.01 mcp:github=0.07 mcp:linear=0.04 mcp:postgres=0.03 needs_skill=0.33",
+    91
+   ],
+   [
+    true,
+    true,
+    "post the release notes to the README",
+    [],
+    [],
+    [
+     "rust-release 0.51"
+    ],
+    [],
+    "web=0.09 history=0.06 memory=0.08 skill_write=0.04 mcp:github=0.22 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.77",
+    96
+   ],
+   [
+    true,
+    true,
+    "publish the docs folder into the build output",
+    [],
+    [],
+    [],
+    [],
+    "web=0.03 history=0.04 memory=0.07 skill_write=0.03 mcp:github=0.08 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.86",
+    91
+   ],
+   [
+    true,
+    true,
+    "fetch the latest changes from origin and rebase my branch",
+    [],
+    [],
+    [],
+    [],
+    "web=0.48 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.09 mcp:linear=0.01 mcp:postgres=0.02 needs_skill=0.90",
+    87
+   ],
+   [
+    true,
+    true,
+    "remember that I use fish, not bash",
+    [
+     "memory"
+    ],
+    [
+     "memory"
+    ],
+    [],
+    [],
+    "web=0.02 history=0.06 memory=0.95 skill_write=0.31 mcp:github=0.03 mcp:linear=0.02 mcp:postgres=0.03 needs_skill=0.54",
+    80
+   ],
+   [
+    true,
+    true,
+    "from now on, don't add comments to code you write",
+    [
+     "memory"
+    ],
+    [
+     "memory"
+    ],
+    [],
+    [],
+    "web=0.02 history=0.04 memory=0.88 skill_write=0.07 mcp:github=0.03 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.67",
+    85
+   ],
+   [
+    false,
+    true,
+    "stop running cargo fmt on files I didn't touch",
+    [],
+    [
+     "memory"
+    ],
+    [],
+    [],
+    "web=0.03 history=0.06 memory=0.44 skill_write=0.03 mcp:github=0.14 mcp:linear=0.03 mcp:postgres=0.01 needs_skill=0.71",
+    77
+   ],
+   [
+    true,
+    true,
+    "my work laptop is a mac, this box is arch",
+    [
+     "memory"
+    ],
+    [
+     "memory"
+    ],
+    [],
+    [],
+    "web=0.07 history=0.04 memory=0.85 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.59",
+    105
+   ],
+   [
+    true,
+    true,
+    "I always want tabs in this file",
+    [
+     "memory"
+    ],
+    [],
+    [],
+    [],
+    "web=0.02 history=0.03 memory=0.71 skill_write=0.04 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.64",
+    92
+   ],
+   [
+    true,
+    false,
+    "never mind, revert that last change",
+    [],
+    [],
+    [
+     "k8s-rollout 0.65"
+    ],
+    [],
+    "web=0.02 history=0.37 memory=0.04 skill_write=0.05 mcp:github=0.13 mcp:linear=0.07 mcp:postgres=0.04 needs_skill=0.58",
+    99
+   ],
+   [
+    true,
+    true,
+    "remember the deploy we did last week? do the same for the billing service",
+    [
+     "history"
+    ],
+    [
+     "history"
+    ],
+    [
+     "k8s-rollout 0.98"
+    ],
+    [
+     "k8s-rollout"
+    ],
+    "web=0.08 history=0.68 memory=0.21 skill_write=0.05 mcp:github=0.17 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.90",
+    81
+   ],
+   [
+    true,
+    true,
+    "what did we decide about the retry policy in the session on tuesday?",
+    [
+     "history"
+    ],
+    [
+     "history"
+    ],
+    [],
+    [],
+    "web=0.05 history=0.87 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.20 mcp:postgres=0.05 needs_skill=0.52",
+    90
+   ],
+   [
+    true,
+    true,
+    "pick up where we left off yesterday on the parser rewrite",
+    [
+     "history"
+    ],
+    [
+     "history"
+    ],
+    [],
+    [],
+    "web=0.03 history=0.75 memory=0.11 skill_write=0.03 mcp:github=0.20 mcp:linear=0.14 mcp:postgres=0.03 needs_skill=0.72",
+    79
+   ],
+   [
+    false,
+    false,
+    "save how we just connected to the ingest box as a skill",
+    [
+     "history",
+     "memory",
+     "skill-write"
+    ],
+    [
+     "skill-write"
+    ],
+    [
+     "aws-ssm-connect 0.84"
+    ],
+    [],
+    "web=0.04 history=0.58 memory=0.77 skill_write=0.94 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.04 needs_skill=0.90",
+    76
+   ],
+   [
+    true,
+    true,
+    "update the etl-verify skill: stage 3 now writes parquet, not csv",
+    [
+     "skill-write"
+    ],
+    [
+     "skill-write"
+    ],
+    [
+     "etl-verify 1.00"
+    ],
+    [
+     "etl-verify"
+    ],
+    "web=0.03 history=0.10 memory=0.26 skill_write=0.97 mcp:github=0.15 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.87",
+    79
+   ],
+   [
+    true,
+    true,
+    "delete the docker-debug skill, it's useless",
+    [
+     "skill-write"
+    ],
+    [
+     "skill-write"
+    ],
+    [
+     "docker-debug 0.71"
+    ],
+    [],
+    "web=0.03 history=0.04 memory=0.21 skill_write=0.98 mcp:github=0.11 mcp:linear=0.08 mcp:postgres=0.02 needs_skill=0.72",
+    86
+   ],
+   [
+    false,
+    true,
+    "review PR 412 and leave comments",
+    [
+     "mcp:github",
+     "web"
+    ],
+    [
+     "mcp:github"
+    ],
+    [],
+    [],
+    "web=0.50 history=0.06 memory=0.05 skill_write=0.02 mcp:github=0.73 mcp:linear=0.15 mcp:postgres=0.03 needs_skill=0.85",
+    80
+   ],
+   [
+    true,
+    false,
+    "why did CI fail on main?",
+    [
+     "mcp:github"
+    ],
+    [
+     "mcp:github"
+    ],
+    [
+     "flaky-test-triage 0.44",
+     "git-bisect 0.34"
+    ],
+    [],
+    "web=0.29 history=0.07 memory=0.06 skill_write=0.02 mcp:github=0.68 mcp:linear=0.06 mcp:postgres=0.05 needs_skill=0.66",
+    83
+   ],
+   [
+    false,
+    true,
+    "open a ticket for the flaky upload test and assign it to me",
+    [
+     "mcp:github",
+     "mcp:linear"
+    ],
+    [
+     "mcp:linear"
+    ],
+    [
+     "flaky-test-triage 0.98"
+    ],
+    [],
+    "web=0.16 history=0.05 memory=0.08 skill_write=0.02 mcp:github=0.71 mcp:linear=0.89 mcp:postgres=0.03 needs_skill=0.81",
+    83
+   ],
+   [
+    false,
+    true,
+    "how many orders were placed yesterday?",
+    [],
+    [
+     "mcp:postgres"
+    ],
+    [],
+    [],
+    "web=0.09 history=0.04 memory=0.05 skill_write=0.02 mcp:github=0.04 mcp:linear=0.04 mcp:postgres=0.33 needs_skill=0.50",
+    81
+   ],
+   [
+    true,
+    true,
+    "which tables reference customer_id?",
+    [],
+    [
+     "mcp:postgres"
+    ],
+    [],
+    [],
+    "web=0.04 history=0.04 memory=0.05 skill_write=0.02 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.45 needs_skill=0.36",
+    76
+   ],
+   [
+    true,
+    true,
+    "thanks!",
+    [],
+    [],
+    [],
+    [],
+    "web=0.02 history=0.02 memory=0.02 skill_write=0.02 mcp:github=0.02 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.13",
+    85
+   ],
+   [
+    true,
+    true,
+    "do the same for the other two files",
+    [],
+    [],
+    [],
+    [],
+    "web=0.03 history=0.26 memory=0.07 skill_write=0.03 mcp:github=0.12 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.84",
+    83
+   ],
+   [
+    true,
+    true,
+    "ok now apply it",
+    [],
+    [],
+    [
+     "terraform-plan 1.00"
+    ],
+    [
+     "terraform-plan"
+    ],
+    "web=0.04 history=0.18 memory=0.07 skill_write=0.05 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.04 needs_skill=0.77",
+    102
+   ],
+   [
+    true,
+    false,
+    "look up the issue the user reported about login timeouts and reproduce it",
+    [
+     "mcp:linear"
+    ],
+    [
+     "mcp:github"
+    ],
+    [
+     "playwright-e2e 0.95"
+    ],
+    [],
+    "web=0.19 history=0.13 memory=0.06 skill_write=0.02 mcp:github=0.49 mcp:linear=0.54 mcp:postgres=0.07 needs_skill=0.92",
+    78
+   ]
+  ],
+  "gate_rows": [
+   [
+    true,
+    "plain bugfix",
+    null,
+    null,
+    "preference=0.00 workaround=0.00 skill_gap=0.00",
+    147
+   ],
+   [
+    true,
+    "plain feature, multi-turn",
+    null,
+    null,
+    "preference=0.00 workaround=0.00 skill_gap=0.00",
+    131
+   ],
+   [
+    true,
+    "stated preference",
+    "Memory",
+    "Memory",
+    "preference=0.99 workaround=0.00 skill_gap=0.00",
+    133
+   ],
+   [
+    true,
+    "machine fact",
+    "Both",
+    "Both",
+    "preference=0.96 workaround=0.89 skill_gap=0.00",
+    130
+   ],
+   [
+    true,
+    "task phrased as want",
+    null,
+    null,
+    "preference=0.26 workaround=0.00 skill_gap=0.00",
+    114
+   ],
+   [
+    true,
+    "task with always",
+    null,
+    null,
+    "preference=0.36 workaround=0.00 skill_gap=0.00",
+    120
+   ],
+   [
+    true,
+    "env workaround",
+    "Skills",
+    "Skills",
+    "preference=0.00 workaround=0.88 skill_gap=0.00",
+    132
+   ],
+   [
+    true,
+    "user code failures are the task",
+    null,
+    null,
+    "preference=0.00 workaround=0.24 skill_gap=0.00",
+    119
+   ],
+   [
+    true,
+    "skill was wrong",
+    "Skills",
+    "Skills",
+    "preference=0.08 workaround=0.52 skill_gap=0.94",
+    124
+   ],
+   [
+    true,
+    "skill worked fine",
+    null,
+    null,
+    "preference=0.00 workaround=0.00 skill_gap=0.11",
+    119
+   ],
+   [
+    true,
+    "skill incomplete via errors",
+    "Skills",
+    "Skills",
+    "preference=0.00 workaround=0.92 skill_gap=0.67",
+    328
+   ],
+   [
+    true,
+    "correction of approach",
+    "Memory",
+    "Memory",
+    "preference=0.62 workaround=0.00 skill_gap=0.00",
+    125
+   ],
+   [
+    true,
+    "one-off correction",
+    null,
+    null,
+    "preference=0.00 workaround=0.00 skill_gap=0.00",
+    125
+   ],
+   [
+    true,
+    "chit chat",
+    null,
+    null,
+    "preference=0.12 workaround=0.00 skill_gap=0.00",
+    126
+   ],
+   [
+    true,
+    "call me",
+    "Memory",
+    "Memory",
+    "preference=0.96 workaround=0.00 skill_gap=0.00",
+    114
+   ],
+   [
+    true,
+    "flag quirk",
+    "Skills",
+    null,
+    "preference=0.00 workaround=0.95 skill_gap=0.00",
+    148
+   ],
+   [
+    true,
+    "recurring auth pitfall",
+    "Both",
+    "Both",
+    "preference=0.97 workaround=0.79 skill_gap=0.00",
+    124
+   ],
+   [
+    true,
+    "long successful session",
+    null,
+    null,
+    "preference=0.00 workaround=0.00 skill_gap=0.00",
+    126
+   ]
+  ],
+  "raw_routes": [
+   [
+    {
+     "request": "publish a new release of this crate",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "rust-release",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 178,
+     "note": "web=0.47 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.14 mcp:linear=0.04 mcp:postgres=0.02 needs_skill=0.90"
+    },
+    {
+     "request": "fix the off-by-one in src/parse.rs line 40",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 110,
+     "note": "web=0.03 history=0.05 memory=0.05 skill_write=0.04 mcp:github=0.12 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.76"
+    },
+    {
+     "request": "rename the Config struct to Settings everywhere",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 114,
+     "note": "web=0.02 history=0.04 memory=0.06 skill_write=0.03 mcp:github=0.08 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.83"
+    },
+    {
+     "request": "what does this repo do?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 104,
+     "note": "web=0.20 history=0.05 memory=0.08 skill_write=0.03 mcp:github=0.24 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.30"
+    },
+    {
+     "request": "run the tests and fix whatever fails",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.7699999809265137
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 76,
+     "note": "web=0.05 history=0.05 memory=0.07 skill_write=0.03 mcp:github=0.13 mcp:linear=0.03 mcp:postgres=0.05 needs_skill=0.86"
+    },
+    {
+     "request": "add a --verbose flag to the CLI",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 81,
+     "note": "web=0.03 history=0.03 memory=0.05 skill_write=0.04 mcp:github=0.06 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.74"
+    },
+    {
+     "request": "why is `cargo build` so slow on this project? it takes 4 minutes",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "perf-profile",
+       0.8799999952316284
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.10 history=0.06 memory=0.09 skill_write=0.02 mcp:github=0.09 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.72"
+    },
+    {
+     "request": "the api container keeps crashing on startup, figure out why",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "docker-debug",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.11 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.09 mcp:linear=0.05 mcp:postgres=0.06 needs_skill=0.85"
+    },
+    {
+     "request": "some commit in the last two weeks broke the date parsing test, find which one",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "git-bisect",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 85,
+     "note": "web=0.07 history=0.04 memory=0.06 skill_write=0.03 mcp:github=0.20 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.86"
+    },
+    {
+     "request": "test_upload passes locally but fails about 1 in 5 runs in CI",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 192,
+     "note": "web=0.09 history=0.06 memory=0.09 skill_write=0.02 mcp:github=0.25 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.70"
+    },
+    {
+     "request": "new vendor feed landed in s3 last night, make sure it made it through to the warehouse intact",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "etl-verify",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 84,
+     "note": "web=0.17 history=0.05 memory=0.06 skill_write=0.02 mcp:github=0.03 mcp:linear=0.08 mcp:postgres=0.09 needs_skill=0.90"
+    },
+    {
+     "request": "I need to get a shell on the prod ingest box",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "aws-ssm-connect",
+       0.9700000286102295
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 117,
+     "note": "web=0.05 history=0.04 memory=0.07 skill_write=0.02 mcp:github=0.03 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.80"
+    },
+    {
+     "request": "draft the schema proposal for the payments team's events feed",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "contract-negotiation",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 88,
+     "note": "web=0.06 history=0.06 memory=0.05 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.07 needs_skill=0.72"
+    },
+    {
+     "request": "add a nullable column last_seen_at to users and backfill it from sessions",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "postgres-migration",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 87,
+     "note": "web=0.02 history=0.04 memory=0.07 skill_write=0.03 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.32 needs_skill=0.93"
+    },
+    {
+     "request": "check the signup flow still works after my CSS refactor",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "playwright-e2e",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 90,
+     "note": "web=0.14 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.13 mcp:linear=0.06 mcp:postgres=0.03 needs_skill=0.86"
+    },
+    {
+     "request": "ship v2.3 of the worker image to staging",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 72,
+     "note": "web=0.20 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.18 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.91"
+    },
+    {
+     "request": "uv sync fails with a resolver error on python 3.13",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "python-env",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 84,
+     "note": "web=0.24 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.06 mcp:postgres=0.02 needs_skill=0.79"
+    },
+    {
+     "request": "write up what happened in yesterday's outage from these logs",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "incident-postmortem",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 77,
+     "note": "web=0.05 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.06 mcp:linear=0.03 mcp:postgres=0.06 needs_skill=0.74"
+    },
+    {
+     "request": "bump the RDS instance size in our infra code and apply it",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "terraform-plan",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 173,
+     "note": "web=0.06 history=0.08 memory=0.07 skill_write=0.03 mcp:github=0.15 mcp:linear=0.05 mcp:postgres=0.05 needs_skill=0.92"
+    },
+    {
+     "request": "what's the latest stable version of tokio?",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 78,
+     "note": "web=0.86 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.07 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.18"
+    },
+    {
+     "request": "read https://docs.rs/ratatui/latest/ratatui/ and summarize the layout API",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 75,
+     "note": "web=0.97 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.05 mcp:linear=0.02 mcp:postgres=0.01 needs_skill=0.57"
+    },
+    {
+     "request": "search the web for how other people handle SSE reconnects in reqwest",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 79,
+     "note": "web=0.98 history=0.03 memory=0.06 skill_write=0.03 mcp:github=0.12 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.76"
+    },
+    {
+     "request": "is there a known CVE for openssl 3.0.13?",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 91,
+     "note": "web=0.81 history=0.03 memory=0.05 skill_write=0.01 mcp:github=0.07 mcp:linear=0.04 mcp:postgres=0.03 needs_skill=0.33"
+    },
+    {
+     "request": "post the release notes to the README",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "rust-release",
+       0.5099999904632568
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 96,
+     "note": "web=0.09 history=0.06 memory=0.08 skill_write=0.04 mcp:github=0.22 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.77"
+    },
+    {
+     "request": "publish the docs folder into the build output",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 91,
+     "note": "web=0.03 history=0.04 memory=0.07 skill_write=0.03 mcp:github=0.08 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.86"
+    },
+    {
+     "request": "fetch the latest changes from origin and rebase my branch",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 87,
+     "note": "web=0.48 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.09 mcp:linear=0.01 mcp:postgres=0.02 needs_skill=0.90"
+    },
+    {
+     "request": "remember that I use fish, not bash",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 80,
+     "note": "web=0.02 history=0.06 memory=0.95 skill_write=0.31 mcp:github=0.03 mcp:linear=0.02 mcp:postgres=0.03 needs_skill=0.54"
+    },
+    {
+     "request": "from now on, don't add comments to code you write",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 85,
+     "note": "web=0.02 history=0.04 memory=0.88 skill_write=0.07 mcp:github=0.03 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.67"
+    },
+    {
+     "request": "stop running cargo fmt on files I didn't touch",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 77,
+     "note": "web=0.03 history=0.06 memory=0.44 skill_write=0.03 mcp:github=0.14 mcp:linear=0.03 mcp:postgres=0.01 needs_skill=0.71"
+    },
+    {
+     "request": "my work laptop is a mac, this box is arch",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 105,
+     "note": "web=0.07 history=0.04 memory=0.85 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.59"
+    },
+    {
+     "request": "I always want tabs in this file",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 92,
+     "note": "web=0.02 history=0.03 memory=0.71 skill_write=0.04 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.64"
+    },
+    {
+     "request": "never mind, revert that last change",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       0.6499999761581421
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 99,
+     "note": "web=0.02 history=0.37 memory=0.04 skill_write=0.05 mcp:github=0.13 mcp:linear=0.07 mcp:postgres=0.04 needs_skill=0.58"
+    },
+    {
+     "request": "remember the deploy we did last week? do the same for the billing service",
+     "groups": [
+      "history",
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       0.9800000190734863
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 81,
+     "note": "web=0.08 history=0.68 memory=0.21 skill_write=0.05 mcp:github=0.17 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.90"
+    },
+    {
+     "request": "what did we decide about the retry policy in the session on tuesday?",
+     "groups": [
+      "history"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 90,
+     "note": "web=0.05 history=0.87 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.20 mcp:postgres=0.05 needs_skill=0.52"
+    },
+    {
+     "request": "pick up where we left off yesterday on the parser rewrite",
+     "groups": [
+      "history"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 79,
+     "note": "web=0.03 history=0.75 memory=0.11 skill_write=0.03 mcp:github=0.20 mcp:linear=0.14 mcp:postgres=0.03 needs_skill=0.72"
+    },
+    {
+     "request": "save how we just connected to the ingest box as a skill",
+     "groups": [
+      "history",
+      "memory",
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "aws-ssm-connect",
+       0.8399999737739563
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 76,
+     "note": "web=0.04 history=0.58 memory=0.77 skill_write=0.94 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.04 needs_skill=0.90"
+    },
+    {
+     "request": "update the etl-verify skill: stage 3 now writes parquet, not csv",
+     "groups": [
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "etl-verify",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 79,
+     "note": "web=0.03 history=0.10 memory=0.26 skill_write=0.97 mcp:github=0.15 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.87"
+    },
+    {
+     "request": "delete the docker-debug skill, it's useless",
+     "groups": [
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "docker-debug",
+       0.7099999785423279
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 86,
+     "note": "web=0.03 history=0.04 memory=0.21 skill_write=0.98 mcp:github=0.11 mcp:linear=0.08 mcp:postgres=0.02 needs_skill=0.72"
+    },
+    {
+     "request": "review PR 412 and leave comments",
+     "groups": [
+      "web",
+      "mcp:github"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 80,
+     "note": "web=0.50 history=0.06 memory=0.05 skill_write=0.02 mcp:github=0.73 mcp:linear=0.15 mcp:postgres=0.03 needs_skill=0.85"
+    },
+    {
+     "request": "why did CI fail on main?",
+     "groups": [
+      "mcp:github",
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.4399999976158142
+      ],
+      [
+       "git-bisect",
+       0.3400000035762787
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.29 history=0.07 memory=0.06 skill_write=0.02 mcp:github=0.68 mcp:linear=0.06 mcp:postgres=0.05 needs_skill=0.66"
+    },
+    {
+     "request": "open a ticket for the flaky upload test and assign it to me",
+     "groups": [
+      "mcp:github",
+      "mcp:linear",
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.9800000190734863
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.16 history=0.05 memory=0.08 skill_write=0.02 mcp:github=0.71 mcp:linear=0.89 mcp:postgres=0.03 needs_skill=0.81"
+    },
+    {
+     "request": "how many orders were placed yesterday?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 81,
+     "note": "web=0.09 history=0.04 memory=0.05 skill_write=0.02 mcp:github=0.04 mcp:linear=0.04 mcp:postgres=0.33 needs_skill=0.50"
+    },
+    {
+     "request": "which tables reference customer_id?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 76,
+     "note": "web=0.04 history=0.04 memory=0.05 skill_write=0.02 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.45 needs_skill=0.36"
+    },
+    {
+     "request": "thanks!",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 85,
+     "note": "web=0.02 history=0.02 memory=0.02 skill_write=0.02 mcp:github=0.02 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.13"
+    },
+    {
+     "request": "do the same for the other two files",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.03 history=0.26 memory=0.07 skill_write=0.03 mcp:github=0.12 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.84"
+    },
+    {
+     "request": "ok now apply it",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "terraform-plan",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 102,
+     "note": "web=0.04 history=0.18 memory=0.07 skill_write=0.05 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.04 needs_skill=0.77"
+    },
+    {
+     "request": "look up the issue the user reported about login timeouts and reproduce it",
+     "groups": [
+      "mcp:linear",
+      "skills"
+     ],
+     "skills": [
+      [
+       "playwright-e2e",
+       0.949999988079071
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 78,
+     "note": "web=0.19 history=0.13 memory=0.06 skill_write=0.02 mcp:github=0.49 mcp:linear=0.54 mcp:postgres=0.07 needs_skill=0.92"
+    }
+   ],
+   [
+    {
+     "request": "publish a new release of this crate",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "rust-release",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 144,
+     "note": "web=0.44 history=0.05 memory=0.07 skill_write=0.02 mcp:github=0.13 mcp:linear=0.04 mcp:postgres=0.03 needs_skill=0.91"
+    },
+    {
+     "request": "fix the off-by-one in src/parse.rs line 40",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 128,
+     "note": "web=0.03 history=0.04 memory=0.05 skill_write=0.04 mcp:github=0.14 mcp:linear=0.04 mcp:postgres=0.02 needs_skill=0.77"
+    },
+    {
+     "request": "rename the Config struct to Settings everywhere",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 80,
+     "note": "web=0.02 history=0.05 memory=0.06 skill_write=0.02 mcp:github=0.07 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.82"
+    },
+    {
+     "request": "what does this repo do?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 86,
+     "note": "web=0.19 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.22 mcp:linear=0.02 mcp:postgres=0.04 needs_skill=0.31"
+    },
+    {
+     "request": "run the tests and fix whatever fails",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.75
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 111,
+     "note": "web=0.05 history=0.05 memory=0.07 skill_write=0.03 mcp:github=0.12 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.85"
+    },
+    {
+     "request": "add a --verbose flag to the CLI",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 117,
+     "note": "web=0.02 history=0.03 memory=0.07 skill_write=0.03 mcp:github=0.05 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.74"
+    },
+    {
+     "request": "why is `cargo build` so slow on this project? it takes 4 minutes",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "perf-profile",
+       0.8700000047683716
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 85,
+     "note": "web=0.09 history=0.06 memory=0.08 skill_write=0.02 mcp:github=0.09 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.75"
+    },
+    {
+     "request": "the api container keeps crashing on startup, figure out why",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "docker-debug",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 81,
+     "note": "web=0.10 history=0.07 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.05 mcp:postgres=0.06 needs_skill=0.86"
+    },
+    {
+     "request": "some commit in the last two weeks broke the date parsing test, find which one",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "git-bisect",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 87,
+     "note": "web=0.07 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.22 mcp:linear=0.05 mcp:postgres=0.03 needs_skill=0.86"
+    },
+    {
+     "request": "test_upload passes locally but fails about 1 in 5 runs in CI",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 128,
+     "note": "web=0.09 history=0.06 memory=0.09 skill_write=0.02 mcp:github=0.25 mcp:linear=0.06 mcp:postgres=0.03 needs_skill=0.67"
+    },
+    {
+     "request": "new vendor feed landed in s3 last night, make sure it made it through to the warehouse intact",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "etl-verify",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 112,
+     "note": "web=0.20 history=0.05 memory=0.06 skill_write=0.02 mcp:github=0.03 mcp:linear=0.07 mcp:postgres=0.08 needs_skill=0.90"
+    },
+    {
+     "request": "I need to get a shell on the prod ingest box",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "aws-ssm-connect",
+       0.9800000190734863
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 79,
+     "note": "web=0.05 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.03 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.81"
+    },
+    {
+     "request": "draft the schema proposal for the payments team's events feed",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "contract-negotiation",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 72,
+     "note": "web=0.06 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.07 needs_skill=0.75"
+    },
+    {
+     "request": "add a nullable column last_seen_at to users and backfill it from sessions",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "postgres-migration",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 77,
+     "note": "web=0.03 history=0.05 memory=0.07 skill_write=0.02 mcp:github=0.05 mcp:linear=0.03 mcp:postgres=0.35 needs_skill=0.93"
+    },
+    {
+     "request": "check the signup flow still works after my CSS refactor",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "playwright-e2e",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 77,
+     "note": "web=0.16 history=0.06 memory=0.06 skill_write=0.02 mcp:github=0.14 mcp:linear=0.07 mcp:postgres=0.03 needs_skill=0.87"
+    },
+    {
+     "request": "ship v2.3 of the worker image to staging",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 100,
+     "note": "web=0.20 history=0.05 memory=0.06 skill_write=0.02 mcp:github=0.17 mcp:linear=0.05 mcp:postgres=0.02 needs_skill=0.91"
+    },
+    {
+     "request": "uv sync fails with a resolver error on python 3.13",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "python-env",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 122,
+     "note": "web=0.22 history=0.06 memory=0.07 skill_write=0.02 mcp:github=0.10 mcp:linear=0.06 mcp:postgres=0.02 needs_skill=0.78"
+    },
+    {
+     "request": "write up what happened in yesterday's outage from these logs",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "incident-postmortem",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 122,
+     "note": "web=0.05 history=0.05 memory=0.07 skill_write=0.02 mcp:github=0.06 mcp:linear=0.03 mcp:postgres=0.06 needs_skill=0.74"
+    },
+    {
+     "request": "bump the RDS instance size in our infra code and apply it",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "terraform-plan",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 138,
+     "note": "web=0.06 history=0.08 memory=0.07 skill_write=0.03 mcp:github=0.14 mcp:linear=0.05 mcp:postgres=0.05 needs_skill=0.92"
+    },
+    {
+     "request": "what's the latest stable version of tokio?",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 94,
+     "note": "web=0.88 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.07 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.16"
+    },
+    {
+     "request": "read https://docs.rs/ratatui/latest/ratatui/ and summarize the layout API",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 100,
+     "note": "web=0.97 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.05 mcp:linear=0.02 mcp:postgres=0.01 needs_skill=0.57"
+    },
+    {
+     "request": "search the web for how other people handle SSE reconnects in reqwest",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.98 history=0.04 memory=0.05 skill_write=0.03 mcp:github=0.14 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.77"
+    },
+    {
+     "request": "is there a known CVE for openssl 3.0.13?",
+     "groups": [
+      "web"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 92,
+     "note": "web=0.82 history=0.03 memory=0.05 skill_write=0.02 mcp:github=0.07 mcp:linear=0.04 mcp:postgres=0.03 needs_skill=0.30"
+    },
+    {
+     "request": "post the release notes to the README",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "rust-release",
+       0.5699999928474426
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 104,
+     "note": "web=0.08 history=0.06 memory=0.07 skill_write=0.03 mcp:github=0.26 mcp:linear=0.03 mcp:postgres=0.02 needs_skill=0.79"
+    },
+    {
+     "request": "publish the docs folder into the build output",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 78,
+     "note": "web=0.03 history=0.03 memory=0.07 skill_write=0.04 mcp:github=0.09 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.86"
+    },
+    {
+     "request": "fetch the latest changes from origin and rebase my branch",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 165,
+     "note": "web=0.45 history=0.03 memory=0.06 skill_write=0.01 mcp:github=0.08 mcp:linear=0.01 mcp:postgres=0.01 needs_skill=0.91"
+    },
+    {
+     "request": "remember that I use fish, not bash",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 75,
+     "note": "web=0.02 history=0.06 memory=0.95 skill_write=0.32 mcp:github=0.02 mcp:linear=0.02 mcp:postgres=0.03 needs_skill=0.51"
+    },
+    {
+     "request": "from now on, don't add comments to code you write",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.01 history=0.04 memory=0.88 skill_write=0.08 mcp:github=0.03 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.68"
+    },
+    {
+     "request": "stop running cargo fmt on files I didn't touch",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 113,
+     "note": "web=0.03 history=0.07 memory=0.46 skill_write=0.04 mcp:github=0.13 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.73"
+    },
+    {
+     "request": "my work laptop is a mac, this box is arch",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 87,
+     "note": "web=0.08 history=0.04 memory=0.86 skill_write=0.02 mcp:github=0.04 mcp:linear=0.03 mcp:postgres=0.04 needs_skill=0.62"
+    },
+    {
+     "request": "I always want tabs in this file",
+     "groups": [
+      "memory"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 87,
+     "note": "web=0.02 history=0.03 memory=0.72 skill_write=0.04 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.60"
+    },
+    {
+     "request": "never mind, revert that last change",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       0.6899999976158142
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 79,
+     "note": "web=0.02 history=0.36 memory=0.04 skill_write=0.06 mcp:github=0.12 mcp:linear=0.06 mcp:postgres=0.03 needs_skill=0.61"
+    },
+    {
+     "request": "remember the deploy we did last week? do the same for the billing service",
+     "groups": [
+      "history",
+      "skills"
+     ],
+     "skills": [
+      [
+       "k8s-rollout",
+       0.9800000190734863
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 76,
+     "note": "web=0.09 history=0.65 memory=0.18 skill_write=0.06 mcp:github=0.19 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.90"
+    },
+    {
+     "request": "what did we decide about the retry policy in the session on tuesday?",
+     "groups": [
+      "history"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 89,
+     "note": "web=0.05 history=0.88 memory=0.07 skill_write=0.02 mcp:github=0.09 mcp:linear=0.16 mcp:postgres=0.06 needs_skill=0.56"
+    },
+    {
+     "request": "pick up where we left off yesterday on the parser rewrite",
+     "groups": [
+      "history"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 110,
+     "note": "web=0.03 history=0.72 memory=0.11 skill_write=0.03 mcp:github=0.23 mcp:linear=0.15 mcp:postgres=0.03 needs_skill=0.70"
+    },
+    {
+     "request": "save how we just connected to the ingest box as a skill",
+     "groups": [
+      "history",
+      "memory",
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "aws-ssm-connect",
+       0.75
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.04 history=0.58 memory=0.78 skill_write=0.94 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.05 needs_skill=0.88"
+    },
+    {
+     "request": "update the etl-verify skill: stage 3 now writes parquet, not csv",
+     "groups": [
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "etl-verify",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 94,
+     "note": "web=0.03 history=0.10 memory=0.29 skill_write=0.97 mcp:github=0.15 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.85"
+    },
+    {
+     "request": "delete the docker-debug skill, it's useless",
+     "groups": [
+      "skill-write",
+      "skills"
+     ],
+     "skills": [
+      [
+       "docker-debug",
+       0.699999988079071
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 75,
+     "note": "web=0.03 history=0.04 memory=0.22 skill_write=0.98 mcp:github=0.11 mcp:linear=0.09 mcp:postgres=0.02 needs_skill=0.72"
+    },
+    {
+     "request": "review PR 412 and leave comments",
+     "groups": [
+      "mcp:github"
+     ],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 80,
+     "note": "web=0.47 history=0.06 memory=0.05 skill_write=0.02 mcp:github=0.72 mcp:linear=0.15 mcp:postgres=0.03 needs_skill=0.85"
+    },
+    {
+     "request": "why did CI fail on main?",
+     "groups": [
+      "mcp:github",
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.5
+      ],
+      [
+       "git-bisect",
+       0.3100000023841858
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 78,
+     "note": "web=0.25 history=0.07 memory=0.05 skill_write=0.03 mcp:github=0.68 mcp:linear=0.06 mcp:postgres=0.04 needs_skill=0.64"
+    },
+    {
+     "request": "open a ticket for the flaky upload test and assign it to me",
+     "groups": [
+      "mcp:github",
+      "mcp:linear",
+      "skills"
+     ],
+     "skills": [
+      [
+       "flaky-test-triage",
+       0.9700000286102295
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 88,
+     "note": "web=0.16 history=0.05 memory=0.08 skill_write=0.02 mcp:github=0.72 mcp:linear=0.90 mcp:postgres=0.02 needs_skill=0.83"
+    },
+    {
+     "request": "how many orders were placed yesterday?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 83,
+     "note": "web=0.08 history=0.05 memory=0.04 skill_write=0.02 mcp:github=0.04 mcp:linear=0.04 mcp:postgres=0.33 needs_skill=0.46"
+    },
+    {
+     "request": "which tables reference customer_id?",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 93,
+     "note": "web=0.04 history=0.04 memory=0.06 skill_write=0.02 mcp:github=0.05 mcp:linear=0.04 mcp:postgres=0.47 needs_skill=0.36"
+    },
+    {
+     "request": "thanks!",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 98,
+     "note": "web=0.02 history=0.02 memory=0.02 skill_write=0.02 mcp:github=0.02 mcp:linear=0.02 mcp:postgres=0.02 needs_skill=0.13"
+    },
+    {
+     "request": "do the same for the other two files",
+     "groups": [],
+     "skills": [],
+     "source": "jev-1.13.0",
+     "ms": 76,
+     "note": "web=0.03 history=0.26 memory=0.06 skill_write=0.03 mcp:github=0.13 mcp:linear=0.03 mcp:postgres=0.03 needs_skill=0.83"
+    },
+    {
+     "request": "ok now apply it",
+     "groups": [
+      "skills"
+     ],
+     "skills": [
+      [
+       "terraform-plan",
+       1.0
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 82,
+     "note": "web=0.05 history=0.19 memory=0.06 skill_write=0.05 mcp:github=0.04 mcp:linear=0.02 mcp:postgres=0.04 needs_skill=0.78"
+    },
+    {
+     "request": "look up the issue the user reported about login timeouts and reproduce it",
+     "groups": [
+      "mcp:linear",
+      "skills"
+     ],
+     "skills": [
+      [
+       "playwright-e2e",
+       0.9300000071525574
+      ]
+     ],
+     "source": "jev-1.13.0",
+     "ms": 89,
+     "note": "web=0.20 history=0.13 memory=0.07 skill_write=0.02 mcp:github=0.41 mcp:linear=0.53 mcp:postgres=0.07 needs_skill=0.92"
+    }
+   ]
+  ],
+  "raw_gates": [
+   [
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 147
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 131
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=0.99 workaround=0.00 skill_gap=0.00",
+     "ms": 133
+    },
+    {
+     "kind": "Both",
+     "source": "jev",
+     "note": "preference=0.96 workaround=0.89 skill_gap=0.00",
+     "ms": 130
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.26 workaround=0.00 skill_gap=0.00",
+     "ms": 114
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.36 workaround=0.00 skill_gap=0.00",
+     "ms": 120
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.88 skill_gap=0.00",
+     "ms": 132
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.24 skill_gap=0.00",
+     "ms": 119
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.08 workaround=0.52 skill_gap=0.94",
+     "ms": 124
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.11",
+     "ms": 119
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.92 skill_gap=0.67",
+     "ms": 328
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=0.62 workaround=0.00 skill_gap=0.00",
+     "ms": 125
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 125
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.12 workaround=0.00 skill_gap=0.00",
+     "ms": 126
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=0.96 workaround=0.00 skill_gap=0.00",
+     "ms": 114
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.95 skill_gap=0.00",
+     "ms": 148
+    },
+    {
+     "kind": "Both",
+     "source": "jev",
+     "note": "preference=0.97 workaround=0.79 skill_gap=0.00",
+     "ms": 124
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 126
+    }
+   ],
+   [
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 136
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 118
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=1.00 workaround=0.00 skill_gap=0.00",
+     "ms": 105
+    },
+    {
+     "kind": "Both",
+     "source": "jev",
+     "note": "preference=0.95 workaround=0.89 skill_gap=0.00",
+     "ms": 108
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.30 workaround=0.00 skill_gap=0.00",
+     "ms": 120
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.44 workaround=0.00 skill_gap=0.00",
+     "ms": 162
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.89 skill_gap=0.00",
+     "ms": 146
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.24 skill_gap=0.00",
+     "ms": 131
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.11 workaround=0.54 skill_gap=0.94",
+     "ms": 119
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.10",
+     "ms": 131
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.92 skill_gap=0.68",
+     "ms": 127
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=0.56 workaround=0.00 skill_gap=0.00",
+     "ms": 173
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 125
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.12 workaround=0.00 skill_gap=0.00",
+     "ms": 118
+    },
+    {
+     "kind": "Memory",
+     "source": "jev",
+     "note": "preference=0.96 workaround=0.00 skill_gap=0.00",
+     "ms": 155
+    },
+    {
+     "kind": "Skills",
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.95 skill_gap=0.00",
+     "ms": 161
+    },
+    {
+     "kind": "Both",
+     "source": "jev",
+     "note": "preference=0.97 workaround=0.80 skill_gap=0.00",
+     "ms": 141
+    },
+    {
+     "kind": null,
+     "source": "jev",
+     "note": "preference=0.00 workaround=0.00 skill_gap=0.00",
+     "ms": 131
+    }
+   ]
+  ]
+ }
+}
