@@ -52,6 +52,8 @@ pub struct Ctx {
     pub cancel: watch::Receiver<bool>,
     pub memory: memory::Store,
     pub skills: Library,
+    /// The current repo's kit skills, when construct runs inside a repo.
+    pub project_skills: Option<Library>,
     pub mcp: Option<Arc<mcp::Manager>>,
     pub sandbox: crate::sandbox::Policy,
     read_files: Mutex<HashSet<PathBuf>>,
@@ -72,7 +74,8 @@ impl Ctx {
             .build()
             .expect("http client");
         let skills = Library::new(&paths);
-        Self { cwd, paths, http, cancel, memory, skills, mcp, sandbox, read_files: Mutex::new(HashSet::new()) }
+        let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
+        Self { cwd, paths, http, cancel, memory, skills, project_skills, mcp, sandbox, read_files: Mutex::new(HashSet::new()) }
     }
     pub fn mark_read(&self, p: &Path) {
         self.read_files.lock().unwrap().insert(p.to_path_buf());
@@ -197,10 +200,10 @@ fn web_defs() -> Vec<Value> {
 fn memory_def() -> Value {
     def(
         "memory",
-        "Durable memory injected into every future session. target 'user' = who the user is and how they like to work; 'memory' = facts about this machine, projects and tools. Both are capped: pass all changes as one operations array (applied atomically, cap checked on the result), removing stale entries to make room. Save preferences, corrections and stable facts; skip task progress and things easy to rediscover.",
+        "Durable memory injected into future sessions. target 'user' = who the user is and how they like to work; 'memory' = facts about this machine and its tools; 'project' = how the current repo works (build/test steps, landmines, conventions), shown only when working in this repo. Both are capped: pass all changes as one operations array (applied atomically, cap checked on the result), removing stale entries to make room. Save preferences, corrections and stable facts; skip task progress and things easy to rediscover.",
         obj(
             json!({
-                "target": { "type": "string", "enum": ["user", "memory"] },
+                "target": { "type": "string", "enum": ["user", "memory", "project"] },
                 "operations": {
                     "type": "array",
                     "items": {
@@ -239,7 +242,8 @@ fn skill_manage_def() -> Value {
                 "file": { "type": "string" },
                 "old_string": { "type": "string" },
                 "new_string": { "type": "string" },
-                "absorbed_into": { "type": "string" }
+                "absorbed_into": { "type": "string" },
+                "scope": { "type": "string", "enum": ["global", "project"], "description": "For create: 'project' when the procedure only makes sense in the current repo (its build, landmines, conventions); 'global' for methods that work across repos. Default global." }
             }),
             &["action"],
         ),
@@ -284,7 +288,10 @@ pub async fn call(ctx: &Ctx, name: &str, args: &str) -> Result<String, String> {
         "memory" => memory_call(ctx, &a),
         "skill" => {
             let n = a["name"].as_str().ok_or("name is required")?;
-            ctx.skills.view(n, a["file"].as_str())
+            match ctx.project_skills.as_ref().filter(|p| p.get(n).is_some()) {
+                Some(p) => p.view(n, a["file"].as_str()),
+                None => ctx.skills.view(n, a["file"].as_str()),
+            }
         }
         "skill_manage" => skill_manage(ctx, &a),
         "session_search" => session_search(&a).await,
@@ -304,7 +311,7 @@ async fn blocking(ctx: &Ctx, a: Value, f: fn(&Ctx, &Value) -> Result<String, Str
 }
 
 fn memory_call(ctx: &Ctx, a: &Value) -> Result<String, String> {
-    let target: Target = serde_json::from_value(a["target"].clone()).map_err(|_| "target must be user or memory")?;
+    let target: Target = serde_json::from_value(a["target"].clone()).map_err(|_| "target must be user, memory or project")?;
     let ops: Vec<memory::Op> = match a.get("operations") {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("operations: {e}"))?,
         None => vec![serde_json::from_value(a.clone()).map_err(|e| format!("{e}"))?],
@@ -315,25 +322,41 @@ fn memory_call(ctx: &Ctx, a: &Value) -> Result<String, String> {
 fn skill_manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let s = |k: &str| a.get(k).and_then(Value::as_str);
     let name = || s("name").ok_or_else(|| "name is required".to_string());
+    // An existing skill is edited where it lives; a new one goes where `scope` says.
+    let project = ctx.project_skills.as_ref();
+    let lib = match (s("scope"), s("name").and_then(|n| project.filter(|p| p.get(n).is_some()))) {
+        (_, Some(p)) => p,
+        (Some("project"), None) => match (project, &ctx.memory.project) {
+            (Some(p), Some(pr)) => {
+                pr.touch();
+                p
+            }
+            _ => return Err("not in a git repo, so there is no project kit; use scope 'global'".into()),
+        },
+        _ => &ctx.skills,
+    };
     match s("action").unwrap_or("") {
         "list" => {
-            let list = ctx.skills.list();
-            if list.is_empty() {
+            let mut lines: Vec<String> = project
+                .map(|p| p.list().iter().map(|k| format!("- {} (project): {}", k.name, k.description)).collect())
+                .unwrap_or_default();
+            lines.extend(ctx.skills.list().iter().map(|k| format!("- {}: {}", k.name, k.description)));
+            if lines.is_empty() {
                 return Ok("the skill library is empty".into());
             }
-            Ok(list.iter().map(|k| format!("- {}: {}", k.name, k.description)).collect::<Vec<_>>().join("\n"))
+            Ok(lines.join("\n"))
         }
-        "create" => ctx.skills.create(&name()?, s("content").ok_or("content is required")?, "agent"),
-        "edit" => ctx.skills.edit(&name()?, s("content").ok_or("content is required")?),
-        "patch" => ctx.skills.patch(
+        "create" => lib.create(&name()?, s("content").ok_or("content is required")?, "agent"),
+        "edit" => lib.edit(&name()?, s("content").ok_or("content is required")?),
+        "patch" => lib.patch(
             &name()?,
             s("file"),
             s("old_string").ok_or("old_string is required")?,
             s("new_string").ok_or("new_string is required")?,
         ),
-        "write_file" => ctx.skills.write_file(&name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
-        "remove_file" => ctx.skills.remove_file(&name()?, s("file").ok_or("file is required")?),
-        "delete" => ctx.skills.archive(&name()?, s("absorbed_into")),
+        "write_file" => lib.write_file(&name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
+        "remove_file" => lib.remove_file(&name()?, s("file").ok_or("file is required")?),
+        "delete" => lib.archive(&name()?, s("absorbed_into")),
         other => Err(format!("unknown action {other:?}")),
     }
 }

@@ -75,6 +75,11 @@ impl Library {
         Self { dir: paths.skills_dir() }
     }
 
+    /// A library rooted somewhere else (a project kit's skills/).
+    pub fn at(dir: PathBuf) -> Self {
+        Self { dir }
+    }
+
     pub fn list(&self) -> Vec<Skill> {
         let mut out = Vec::new();
         let Ok(rd) = std::fs::read_dir(&self.dir) else { return out };

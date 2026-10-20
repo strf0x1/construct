@@ -1020,7 +1020,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         }
         "memory" => {
             let paths = Paths::resolve().ok();
-            let block = paths.map(|p| crate::memory::Store::new(&p, &app.cfg.memory).prompt_block()).unwrap_or_default();
+            let block = paths.map(|p| crate::memory::Store::new(&p, &app.cfg.memory).with_project(&p, &std::env::current_dir().unwrap_or_default()).prompt_block()).unwrap_or_default();
             app.notice(theme::DIM, if block.is_empty() { "memory is empty".to_string() } else { block });
         }
         "skills" => {

@@ -34,6 +34,8 @@ pub struct Config {
 pub struct MemoryConfig {
     pub memory_chars: usize,
     pub user_chars: usize,
+    /// Cap on the current repo's notes (`$CONSTRUCT_HOME/projects/<id>/NOTES.md`).
+    pub project_chars: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,7 +97,7 @@ impl Default for Config {
 impl Default for MemoryConfig {
     fn default() -> Self {
         // Hermes's defaults: small enough to stay in every prompt.
-        Self { memory_chars: 2200, user_chars: 1375 }
+        Self { memory_chars: 2200, user_chars: 1375, project_chars: 1500 }
     }
 }
 

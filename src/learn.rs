@@ -29,7 +29,7 @@ const SYSTEM: &str = "You are construct's learning pass. You read a finished str
 const MEMORY_FOCUS: &str = "MEMORY — who the user is and what their machine is like.
 - Save only what the user said about how they want you to work (\"I prefer…\", \"always…\", \"don't…\", a correction of your approach), facts about them, and stable facts about the machine (OS quirks, toolchains, paths, services).
 - A task request is not a preference. \"Document X in the README\" or \"fix it in the library, not the tests\" describe one task; never record them as standing preferences or habits.
-- Use target 'user' for the person, 'memory' for the machine and projects. Both are capped: batch your changes in one call and remove or merge stale entries to make room.
+- Use target 'user' for the person, 'memory' for the machine and its tools in general, and 'project' for how the current repo works (build and test steps, landmines, conventions): project notes only show up in this repo. All are capped: batch your changes in one call and remove or merge stale entries to make room.
 - Skip task progress, one-off details, anything easy to rediscover, and secrets.";
 
 const SKILL_FOCUS: &str = "SKILLS — how to do a class of task for this user, faster next time.
@@ -133,10 +133,14 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let mut task = String::new();
     let _ = writeln!(task, "<session>\n{}\n</session>\n", digest(messages, 60_000));
     let _ = writeln!(task, "Current memory:{}", if ctx.memory.prompt_block().is_empty() { " (empty)".to_string() } else { ctx.memory.prompt_block() });
-    if lib.is_empty() {
+    let project_lib = ctx.project_skills.as_ref().map(|p| p.list()).unwrap_or_default();
+    if lib.is_empty() && project_lib.is_empty() {
         let _ = writeln!(task, "\nSkill library: empty.");
     } else {
         let _ = writeln!(task, "\nSkill library:");
+        for k in &project_lib {
+            let _ = writeln!(task, "- {} (this project): {}", k.name, k.description);
+        }
         for s in &lib {
             let _ = writeln!(task, "- {}: {}", s.name, s.description);
         }
@@ -150,10 +154,10 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
         if recurring.is_empty() {
             let _ = writeln!(task, "Only patch the skills loaded this session ({}); don't create new skills. Anything else this session taught is already recorded and will become a skill if it recurs.\n", loaded.join(", "));
         } else {
-            let _ = writeln!(task, "RECURRING PROBLEMS: these came up in more than one session, so they have earned a skill. Write or patch one class-level skill per problem class (fold it into an existing skill when one covers the territory). Use only what the evidence shows.");
+            let _ = writeln!(task, "RECURRING PROBLEMS: these came up in more than one session, so they have earned a skill. Write or patch one class-level skill per problem class (fold it into an existing skill when one covers the territory). Use scope 'project' when every occurrence is in the same repo and the fix only makes sense there; 'global' when it is a method that carries across repos. When patching, add only what this evidence shows, never advice about today's task.");
             for (o, earlier) in &recurring {
                 for e in std::iter::once(o).chain(earlier) {
-                    let _ = writeln!(task, "- [session {}] {}: {} | fix: {} | evidence: {}", e.session, e.problem_class, e.summary, e.fix, llm::truncate(&e.evidence, 300));
+                    let _ = writeln!(task, "- [session {} · repo {}] {}: {} | fix: {} | evidence: {}", e.session, e.cwd, e.problem_class, e.summary, e.fix, llm::truncate(&e.evidence, 300));
                 }
             }
             if !loaded.is_empty() {
@@ -182,6 +186,7 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
 /// carries a sandbox: read-only, so nothing it does can write the workspace.
 fn learner_ctx(cfg: &Config, paths: &Paths, memory: Store, rx: tokio::sync::watch::Receiver<bool>) -> Ctx {
     let cwd = std::env::current_dir().unwrap_or_default();
+    let memory = memory.with_project(paths, &cwd);
     let mut sb = cfg.sandbox.clone();
     if sb.mode != "off" {
         sb.mode = "read-only".into();

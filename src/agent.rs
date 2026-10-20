@@ -63,7 +63,7 @@ impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
         let key = crate::secrets::api_key(&cfg.api_key_secret);
         let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
-        let memory = crate::memory::Store::new(&paths, &cfg.memory);
+        let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() { None } else { Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone()))) };
         let cwd_s = cwd.display().to_string();

@@ -402,3 +402,63 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     assert_eq!(results[7].trim(), "ok", "{}", results[7]);
     assert_eq!(std::fs::read_to_string(env.work.join("made.txt")).unwrap(), "ok\n");
 }
+
+#[test]
+fn project_kit_follows_the_repo_not_the_session() {
+    let skill_md = "---\nname: run-tests-here\ndescription: Running this repo's tests (fixtures must be generated first)\n---\n\n1. ./tools/gen-fixtures\n2. python3 -m unittest\n";
+    let env = Env::new(
+        "project",
+        json!({ "steps": [
+            { "call": "memory", "args": { "target": "project", "operations": [ { "action": "add", "content": "Tests need ./tools/gen-fixtures first" } ] } },
+            { "call": "skill_manage", "args": { "action": "create", "scope": "project", "name": "run-tests-here", "content": skill_md } },
+            { "text": "noted" },
+            { "text": "hi from repo a" },
+            { "text": "hi from repo b" },
+            { "call": "memory", "args": { "target": "project", "operations": [ { "action": "add", "content": "x" } ] } },
+            { "text": "done" }
+        ] }),
+    );
+    let repo_a = env.work.join("a");
+    let repo_b = env.work.join("b");
+    for r in [&repo_a, &repo_b] {
+        std::fs::create_dir_all(r.join(".git")).unwrap();
+    }
+    std::fs::write(repo_a.join(".git/config"), "[remote \"origin\"]\n\turl = git@example.com:me/a.git\n").unwrap();
+    let in_dir = |dir: &PathBuf, args: &[&str]| {
+        let mut c = Command::new(construct());
+        c.args(args).current_dir(dir).env_remove("TYPESAFE_API_KEY");
+        for (k, v) in env.env() {
+            if !v.is_empty() {
+                c.env(k, v);
+            }
+        }
+        c.output().unwrap()
+    };
+    // Remember a fact and a procedure for repo a.
+    let out = in_dir(&repo_a.join("."), &["run", "--no-learn", "remember how tests work here"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let kits: Vec<_> = std::fs::read_dir(env.home.join("projects")).unwrap().flatten().map(|e| e.path()).collect();
+    assert_eq!(kits.len(), 1);
+    let kit = &kits[0];
+    assert!(kit.file_name().unwrap().to_string_lossy().starts_with("a-"));
+    assert_eq!(std::fs::read_to_string(kit.join("NOTES.md")).unwrap(), "Tests need ./tools/gen-fixtures first");
+    assert!(kit.join("skills/run-tests-here/SKILL.md").exists());
+    assert!(!env.home.join("skills/run-tests-here").exists(), "project skill stays out of the global library");
+    assert!(std::fs::read_to_string(kit.join("project.json")).unwrap().contains("example.com:me/a"));
+    // A new session in a subdirectory of repo a starts with both.
+    std::fs::create_dir_all(repo_a.join("src")).unwrap();
+    let out = in_dir(&repo_a.join("src"), &["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(sys.contains("Notes on this project (a)") && sys.contains("Tests need ./tools/gen-fixtures first"), "{sys}");
+    assert!(sys.contains("run-tests-here: Running this repo's tests"), "{sys}");
+    // Repo b sees none of it.
+    let out = in_dir(&repo_b, &["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(!sys.contains("gen-fixtures") && !sys.contains("run-tests-here"), "{sys}");
+    // Outside any repo there is no project to write to.
+    let out = in_dir(&env.work, &["run", "--no-learn", "note this"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(last_tool_result(env.requests().last().unwrap()).contains("not in a git repo"));
+}

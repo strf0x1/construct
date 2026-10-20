@@ -4,6 +4,7 @@ mod jev;
 mod learn;
 mod llm;
 mod mcp;
+mod project;
 mod memory;
 mod prompt;
 mod router;
@@ -163,7 +164,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Memory) => {
-            let store = memory::Store::new(&paths, &cfg.memory);
+            let store = memory::Store::new(&paths, &cfg.memory).with_project(&paths, &std::env::current_dir()?);
             let block = store.prompt_block();
             println!("{}", if block.is_empty() { "memory is empty".into() } else { block });
             Ok(())

@@ -29,6 +29,15 @@ pub fn build(cwd: &Path, memory: &memory::Store) -> String {
         }
     }
     s.push_str(&memory.prompt_block());
+    if let Some(p) = &memory.project {
+        let kit = crate::skills::Library::at(p.skills_dir()).list();
+        if !kit.is_empty() {
+            s.push_str(&format!("\n# Skills for this project ({}) — load with the skill tool when one applies\n", p.name));
+            for k in kit {
+                s.push_str(&format!("- {}: {}\n", k.name, crate::llm::truncate(&k.description, 200)));
+            }
+        }
+    }
     s
 }
 

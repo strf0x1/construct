@@ -15,6 +15,8 @@ pub const DELIM: &str = "\n§\n";
 pub enum Target {
     Memory,
     User,
+    /// Notes on the repo construct is running in (its project kit).
+    Project,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,24 +31,33 @@ pub struct Op {
 pub struct Store {
     dir: PathBuf,
     cfg: MemoryConfig,
+    pub project: Option<crate::project::Project>,
 }
 
 impl Store {
     pub fn new(paths: &Paths, cfg: &MemoryConfig) -> Self {
-        Self { dir: paths.memory_dir(), cfg: cfg.clone() }
+        Self { dir: paths.memory_dir(), cfg: cfg.clone(), project: None }
+    }
+
+    /// Also hold notes for the repo at `cwd`, when it is one.
+    pub fn with_project(mut self, paths: &Paths, cwd: &std::path::Path) -> Self {
+        self.project = crate::project::detect(paths, cwd);
+        self
     }
 
     fn path(&self, t: Target) -> PathBuf {
-        self.dir.join(match t {
-            Target::Memory => "MEMORY.md",
-            Target::User => "USER.md",
-        })
+        match t {
+            Target::Memory => self.dir.join("MEMORY.md"),
+            Target::User => self.dir.join("USER.md"),
+            Target::Project => self.project.as_ref().map(|p| p.notes()).unwrap_or_else(|| self.dir.join("none")),
+        }
     }
 
     pub fn limit(&self, t: Target) -> usize {
         match t {
             Target::Memory => self.cfg.memory_chars,
             Target::User => self.cfg.user_chars,
+            Target::Project => self.cfg.project_chars,
         }
     }
 
@@ -63,6 +74,12 @@ impl Store {
     /// Apply operations atomically: the cap is checked once, on the result,
     /// so one call can evict stale entries and add new ones together.
     pub fn apply(&self, t: Target, ops: &[Op]) -> Result<String, String> {
+        if t == Target::Project {
+            match &self.project {
+                Some(p) => p.touch(),
+                None => return Err("not in a git repo, so there is no project to keep notes for; use target 'memory'".into()),
+            }
+        }
         let mut work = self.entries(t);
         for op in ops {
             match op.action.as_str() {
@@ -116,6 +133,9 @@ impl Store {
             ));
         }
         let path = self.path(t);
+        if let Some(d) = path.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
         write_atomic(&path, work.join(DELIM).as_bytes()).map_err(|e| e.to_string())?;
         Ok(format!("saved. {} now at {used}/{limit} chars ({} entries)", label(t), work.len()))
     }
@@ -127,13 +147,17 @@ impl Store {
     /// The block that goes into the system prompt, or nothing when empty.
     pub fn prompt_block(&self) -> String {
         let mut out = String::new();
-        for t in [Target::User, Target::Memory] {
+        for t in [Target::User, Target::Memory, Target::Project] {
             let entries = self.entries(t);
             if entries.is_empty() {
                 continue;
             }
             let used = Self::size(&entries);
-            out.push_str(&format!("\n# {} [{used}/{} chars]\n", label(t), self.limit(t)));
+            let title = match (t, &self.project) {
+                (Target::Project, Some(p)) => format!("Notes on this project ({})", p.name),
+                _ => label(t).to_string(),
+            };
+            out.push_str(&format!("\n# {title} [{used}/{} chars]\n", self.limit(t)));
             for e in entries {
                 out.push_str(&format!("- {}\n", e.replace('\n', "\n  ")));
             }
@@ -145,7 +169,8 @@ impl Store {
 fn label(t: Target) -> &'static str {
     match t {
         Target::User => "What you know about the user",
-        Target::Memory => "Your notes on this machine and its projects",
+        Target::Memory => "Your notes on this machine and its tools",
+        Target::Project => "Notes on this project",
     }
 }
 
