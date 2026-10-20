@@ -1,5 +1,6 @@
 mod agent;
 mod config;
+mod jev;
 mod learn;
 mod llm;
 mod mcp;

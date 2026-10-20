@@ -72,6 +72,10 @@ impl Env {
     }
 
     fn run(&self, args: &[&str]) -> Output {
+        self.run_with(&[], args)
+    }
+
+    fn run_with(&self, extra: &[(&str, &str)], args: &[&str]) -> Output {
         let mut c = Command::new(construct());
         c.args(args).current_dir(&self.work).env_remove("TYPESAFE_API_KEY");
         for (k, v) in self.env() {
@@ -79,6 +83,7 @@ impl Env {
                 c.env(k, v);
             }
         }
+        c.envs(extra.iter().copied());
         c.output().unwrap()
     }
 
@@ -312,4 +317,22 @@ fn a_session_with_nothing_to_learn_costs_no_review() {
     assert_eq!(env.requests().len(), 2, "the gate skipped the LLM review");
     let log = std::fs::read_to_string(env.home.join("learn.log")).unwrap();
     assert!(log.contains("gate local") && log.contains("-> None"), "{log}");
+}
+
+#[test]
+fn jev_down_falls_back_to_local_routing_and_is_logged() {
+    let env = Env::new("jevdown", json!({ "steps": [{ "text": "Here's the latest." }] }));
+    // Jev "lives" on a path the scripted endpoint answers with 404.
+    env.config(&format!("[router]\njev_url = \"http://127.0.0.1:{}/v1/systemone\"\n", env.port));
+    let out = env.run_with(&[("TYPESAFE_API_KEY", "test")], &["run", "--json", "--no-learn", "search the web for the latest tokio release"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let route: Value = String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str::<Value>(l).ok()).find(|e| e["event"] == "route").expect("route event");
+    assert_eq!(route["source"], "local");
+    assert!(route["note"].as_str().unwrap().contains("jev failed"), "{route}");
+    // The local router still caught the web request.
+    assert!(tool_names(&env.requests()[0]).contains(&"web_search".to_string()));
+    let log = std::fs::read_to_string(env.home.join("jev.log")).expect("jev.log");
+    let call: Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
+    assert_eq!(call["purpose"], "route");
+    assert_eq!(call["ok"], false);
 }

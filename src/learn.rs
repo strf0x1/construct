@@ -328,45 +328,51 @@ pub async fn gate_parts(cfg: &Config, users: &[String], errors: &[String], loade
 async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], loaded: &[String]) -> Result<Gate, String> {
     let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
     let errors: Vec<String> = errors.iter().take(8).cloned().collect();
-    let mut questions = serde_json::Map::new();
     let noul = |q: &str| json!({ "type": "noul", "instructions": q });
+    // Each question sees only the state it needs: whether the user stated a
+    // preference doesn't depend on tool errors, and long error text pulled
+    // that answer around. So up to two calls, in parallel.
+    let mut pref_q = serde_json::Map::new();
     // A choice, not a noul: asked as yes/no, Jev counted task phrasing ("I want
     // the parser to...", "make sure it always...") as preferences. "task" goes
     // first: Jev favours the first option (see src/router.rs).
-    questions.insert(
+    pref_q.insert(
         "preference".into(),
         json!({ "type": "choice", "instructions": "Across `user_messages`, what is the most lasting thing the user said?", "criteria": {
             "task": "only requests for this task, or corrections that apply to this task alone",
             "preference": "a rule for how the assistant should work in future sessions, or a durable fact about the user or their machine",
         } }),
     );
+    let mut skill_q = serde_json::Map::new();
     if !errors.is_empty() {
-        questions.insert(
+        skill_q.insert(
             "workaround".into(),
             noul("Do `tool_errors` show the assistant's own commands or approach failing in a way that needed a different technique (wrong flags, missing tools, environment quirks), as opposed to failures in the user's code that the task was about?"),
         );
     }
     if !loaded.is_empty() {
-        questions.insert(
+        skill_q.insert(
             "skill_gap".into(),
             noul("Do `user_messages` or `tool_errors` suggest that a procedure listed in `skills_loaded` was wrong, incomplete or outdated?"),
         );
     }
-    let state = json!({ "user_messages": users, "tool_errors": errors, "skills_loaded": loaded });
     let http = reqwest::Client::new();
-    let v: Value = http
-        .post(&cfg.router.jev_url)
-        .bearer_auth(key)
-        .json(&json!({ "model": cfg.router.jev_model, "state": state, "questions": questions }))
-        .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .error_for_status()
-        .map_err(|e| e.to_string())?
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let timeout = std::time::Duration::from_secs(5);
+    let pref_call = crate::jev::ask(&cfg.router, &http, key, "gate", json!({ "user_messages": users }), pref_q, timeout);
+    let skill_call = async {
+        if skill_q.is_empty() {
+            return Ok(json!({}));
+        }
+        let state = json!({ "user_messages": users, "tool_errors": errors, "skills_loaded": loaded });
+        crate::jev::ask(&cfg.router, &http, key, "gate", state, skill_q, timeout).await
+    };
+    let (pv, sv) = tokio::join!(pref_call, skill_call);
+    let (pv, sv) = (pv?, sv?);
+    let v = json!({ "answers": {
+        "preference": pv["answers"]["preference"],
+        "workaround": sv["answers"]["workaround"],
+        "skill_gap": sv["answers"]["skill_gap"],
+    } });
     let p = |k: &str| v["answers"][k]["noul"].as_f64().unwrap_or(0.0);
     let pref_p = v["answers"]["preference"]["probabilities"]["preference"].as_f64().unwrap_or(0.0);
     let pref = pref_p >= 0.5;

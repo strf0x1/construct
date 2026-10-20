@@ -128,20 +128,7 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     if !input.previous.is_empty() {
         state["previous_reply"] = json!(crate::llm::truncate(input.previous, 600));
     }
-    let body = json!({ "model": cfg.jev_model, "state": state, "questions": questions });
-    let resp = http
-        .post(&cfg.jev_url)
-        .bearer_auth(key)
-        .json(&body)
-        .timeout(Duration::from_millis(2500))
-        .send()
-        .await
-        .map_err(|e| if e.is_timeout() { "timeout".to_string() } else { e.to_string() })?;
-    if !resp.status().is_success() {
-        let s = resp.status();
-        return Err(format!("{s}: {}", crate::llm::truncate(&resp.text().await.unwrap_or_default(), 200)));
-    }
-    let v: Value = resp.json().await.map_err(|e| e.to_string())?;
+    let v = crate::jev::ask(cfg, http, key, "route", state, questions, Duration::from_millis(2500)).await?;
     let answers = &v["answers"];
     let p = |k: &str| answers[k]["noul"].as_f64().unwrap_or(0.0) as f32;
     let t = cfg.threshold;
