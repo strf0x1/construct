@@ -52,3 +52,24 @@ cases, 14-skill library, 3 MCP servers. `python3 bench/jev/eval.py [--set holdou
   upstream request got 401 and ~30 requests carried the Jev key to
   openrouter.ai. bench.py now refuses a non-`sk-or-` key or one equal to the
   Jev key before forwarding anything.
+
+## Jev vs local A/B, real model (2026-10-20, results/task-20261020-103014.json)
+
+minimax/minimax-m3.1-flash:free, warm-up + 5 interleaved rounds, both homes
+seeded with the 14-skill library (bench/jev/library.json), binary d70d542.
+
+- Routing was identical: all 18 turns in both variants routed to core tools
+  only, no skill suggestions. The stats task needs none of the library, and
+  both routers said so. Jev cost ~100ms/turn and changed nothing here.
+- Token/request gap (median 67K vs 52K prompt tokens, 18 vs 15 requests) is
+  model path variance, not routing: identical routes and tool lists, and the
+  local variant had its own 25-request round. Treat as noise until more rounds.
+- Peak RSS 42 vs 29MB is bench-measured over the process tree (includes the
+  python test/doctest processes the model runs). construct alone with Jev vs
+  local on a scripted endpoint: 16.1MB vs 16.1MB, 3 runs each.
+- Learning: local gate never fired (6/6 None). Jev gate fired once
+  (workaround=0.56, a README doctest failing inside a markdown fence) and the
+  review created `python-lib-tdd`: trigger lines quoting the bench prompts,
+  generic steps, and one real pitfall. A one-session, task-shaped skill: the
+  recurrence problem the learner redesign targets. One Jev gate call failed
+  (network) and fell back to local.
