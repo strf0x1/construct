@@ -27,24 +27,25 @@ pub enum Kind {
 const SYSTEM: &str = "You are construct's learning pass. You read a finished stretch of an agent session and improve two durable stores so the next session goes better. You can only use the memory, skill and skill_manage tools. Do the work in as few calls as you can, then reply with one short line saying what changed (or 'Nothing to save.').";
 
 const MEMORY_FOCUS: &str = "MEMORY — who the user is and what their machine is like.
-- Save what stops the user repeating themselves: stated preferences, corrections to how you work, their role and projects, stable facts about the machine (OS quirks, toolchains, paths, services).
+- Save only what the user said about how they want you to work (\"I prefer…\", \"always…\", \"don't…\", a correction of your approach), facts about them, and stable facts about the machine (OS quirks, toolchains, paths, services).
+- A task request is not a preference. \"Document X in the README\" or \"fix it in the library, not the tests\" describe one task; never record them as standing preferences or habits.
 - Use target 'user' for the person, 'memory' for the machine and projects. Both are capped: batch your changes in one call and remove or merge stale entries to make room.
 - Skip task progress, one-off details, anything easy to rediscover, and secrets.";
 
-const SKILL_FOCUS: &str = "SKILLS — how to do a class of task for this user.
-Act when any of these happened:
-- the user corrected your approach, style or output (frustration is a first-class signal);
-- a non-trivial technique, fix, workaround or debugging path emerged;
-- a skill that was loaded turned out wrong, incomplete or outdated.
+const SKILL_FOCUS: &str = "SKILLS — how to do a class of task for this user, faster next time.
+A skill earns its place by making the next run take fewer steps or avoid a failure that actually happened here. Act when:
+- the user corrected your approach, style or output;
+- you hit an error and found the fix or workaround (wrong flags, missing tool, environment quirk);
+- a skill that was loaded turned out wrong or incomplete in a way that cost you steps.
 Preference order, take the first that fits:
 1. patch a skill that was loaded this session;
 2. patch an existing class-level skill that covers the territory (skill_manage list, then skill to read it);
 3. add a support file (references/, templates/ or scripts/) under an existing skill and point to it from SKILL.md;
 4. create a new class-level skill. Name it for the class of work, never for today's task, a PR, an error string or a single library.
-A good SKILL.md: frontmatter (name, description saying when to use it), then trigger, numbered steps with exact commands, pitfalls, and how to verify.
+Keep skills short: trigger, the few steps that matter with exact commands, pitfalls actually hit. Don't add ceremony (extra status checks, cleanups, re-verification) unless leaving it out caused a problem this session; every step you add is a tool call on every future run. Remove steps that proved unnecessary.
 Never capture: environment failures the user can fix (missing binaries, unset credentials), negative claims about tools ('X doesn't work'), errors that a retry fixed, or one-off task narratives.";
 
-const NOTHING: &str = "If nothing in the session meets the bar, reply 'Nothing to save.' and stop. Don't reach for that by default.";
+const NOTHING: &str = "If nothing in the session meets the bar, reply 'Nothing to save.' and stop. A routine session that went smoothly usually has nothing to save.";
 
 /// Render messages as compact text: tool outputs clipped, newest kept when
 /// the whole thing exceeds `max_chars`.
@@ -283,7 +284,7 @@ fn skills_loaded(messages: &[Message]) -> Vec<String> {
 
 const PREFERENCE_HINTS: &[&str] = &[
     "i prefer", "i like", "i don't like", "i hate", "i want you to", "always ", "never ", "stop ", "don't ", "do not ",
-    "remember", "from now on", "call me", "my name", "instead", "too verbose", "too long", "next time", "i use ", "on my machine",
+    "remember", "from now on", "call me", "my name", "too verbose", "too long", "next time", "on my machine",
 ];
 
 /// Decide whether a stretch of session holds anything worth an LLM review,

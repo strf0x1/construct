@@ -10,6 +10,7 @@ const BASE: &str = "You are construct, a coding agent working in the user's term
 - Prefer read/grep/glob/edit over shell for files. Run independent tool calls in parallel.
 - Verify your work (build, test, run) when you can, and report failures honestly.
 - Be brief. Use GitHub markdown. Refer to code as path:line.
+- Don't narrate before tool calls. When done, say what changed and how you verified it in a few sentences.
 - <system-reminder> blocks come from the harness, not the user.";
 
 pub fn build(cwd: &Path, memory: &memory::Store) -> String {
