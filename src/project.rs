@@ -20,9 +20,15 @@ pub struct Project {
 /// The repo containing `cwd`, identified by its git remote when it has one
 /// (so two clones share a kit) and by its root path otherwise.
 pub fn detect(paths: &Paths, cwd: &Path) -> Option<Project> {
-    let root = cwd.ancestors().find(|d| d.join(".git").exists())?.to_path_buf();
-    let name = root.file_name()?.to_string_lossy().to_string();
-    let identity = remote(&root).unwrap_or_else(|| root.display().to_string());
+    let root = cwd.ancestors().find(|d| is_repo(d))?.to_path_buf();
+    let remote = remote(&root);
+    // Name from the remote when there is one: clones in differently named
+    // directories are the same project.
+    let name = match &remote {
+        Some(r) => r.rsplit(['/', ':']).next().unwrap_or(r).to_string(),
+        None => root.file_name()?.to_string_lossy().to_string(),
+    };
+    let identity = remote.unwrap_or_else(|| root.display().to_string());
     let id = format!("{}-{:08x}", slug(&name), fnv(&identity) as u32);
     Some(Project { name, root, dir: paths.home.join("projects").join(id) })
 }
@@ -47,6 +53,13 @@ impl Project {
     }
 }
 
+/// A real repo: `.git/HEAD`, or a `.git` file pointing at one (worktrees,
+/// submodules). An empty `.git` directory left in /tmp is not a project.
+fn is_repo(d: &Path) -> bool {
+    let g = d.join(".git");
+    g.join("HEAD").is_file() || std::fs::read_to_string(&g).is_ok_and(|t| t.starts_with("gitdir:"))
+}
+
 /// `remote.origin.url` read straight from .git/config: no git process on the
 /// startup path.
 fn remote(root: &Path) -> Option<String> {
@@ -57,11 +70,35 @@ fn remote(root: &Path) -> Option<String> {
             in_origin = line == "[remote \"origin\"]";
         } else if in_origin {
             if let Some(url) = line.strip_prefix("url").map(|r| r.trim_start().trim_start_matches('=').trim()) {
-                return Some(url.trim_end_matches(".git").to_string());
+                return Some(normalize(url));
             }
         }
     }
     None
+}
+
+/// `git@host:owner/repo.git`, `ssh://git@host/owner/repo` and
+/// `https://host/owner/repo` are one repo: `host/owner/repo`.
+fn normalize(url: &str) -> String {
+    let u = url.trim().trim_end_matches('/').trim_end_matches(".git");
+    let u = u.split_once("://").map(|(_, rest)| rest).unwrap_or(u);
+    let u = u.rsplit_once('@').map(|(_, rest)| rest).unwrap_or(u);
+    let u = match u.split_once(':') {
+        // scp-style host:path, not host:port/path
+        Some((host, path)) if !path.starts_with(|c: char| c.is_ascii_digit()) => format!("{host}/{path}"),
+        _ => u.to_string(),
+    };
+    u.to_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn remotes_normalize_to_one_identity() {
+        for u in ["git@github.com:Me/Repo.git", "https://github.com/me/repo", "ssh://git@github.com/me/repo.git", "https://user@github.com/me/repo/"] {
+            assert_eq!(super::normalize(u), "github.com/me/repo", "{u}");
+        }
+    }
 }
 
 fn slug(s: &str) -> String {

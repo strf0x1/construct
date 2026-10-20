@@ -32,9 +32,10 @@ pub struct Policy {
 }
 
 /// Read-only, executable everywhere a shell needs to look.
-const SYSTEM: &[&str] = &["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/opt", "/nix", "/run/current-system", "/sys", "/proc"];
-/// Writable devices and scratch the shell can't work without.
-const SYSTEM_RW: &[&str] = &["/dev"];
+const SYSTEM: &[&str] = &["/dev/fd", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/opt", "/nix", "/run/current-system", "/sys", "/proc"];
+/// Writable devices the shell can't work without. Not all of /dev: /dev/shm
+/// would be a shared scratch space outside the workspace.
+const SYSTEM_RW: &[&str] = &["/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom", "/dev/tty", "/dev/pts", "/dev/ptmx"];
 /// Toolchains and caches under $HOME. Read-only unless listed in HOME_RW.
 const HOME_RO: &[&str] = &[".local/share/mise", ".config/mise", ".local/bin", ".rustup", ".gitconfig", ".config/git", ".nvm", ".pyenv", ".bun/bin", "go/bin"];
 const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg"];

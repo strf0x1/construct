@@ -141,3 +141,18 @@ run before the sandbox).
   saved the seed and the two-step test command to its kit; the local learner
   saved nothing (gate fired on 10-11 tool errors, review found nothing).
   Log kept in results/invalid/. Sessions of a round now share a git remote.
+- Seeded loop run 2 (2026-10-20) void after round 0: the project kit id
+  used the directory name (work0/work1/work2) as well as the remote hash, so
+  each session still got its own kit, although the Jev learner saved the
+  seed to the kit both times. Kits are now named from the normalized remote
+  (host/owner/repo). Also found: an empty /tmp/.git (not created by any
+  agent tool call; sandboxed commands can't write /tmp) made /tmp itself
+  look like a repo; detection now requires .git/HEAD. /dev/shm was writable
+  inside the sandbox (all of /dev was allowed); now only the device nodes a
+  shell needs.
+- In the earlier seeded run (round 0, local variant, no way to learn the
+  seed) the agent tried hard to get it anyway: read /proc of other pids
+  including the bench's (environ denied by Landlock), searched the web for the
+  hash, listed ~/Documents (denied), and compiled a C SHA-256 brute-forcer it
+  started with `setsid nohup`, so it outlived the session. Processes that
+  leave construct's process group are not contained: see the issue.

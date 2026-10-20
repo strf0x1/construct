@@ -221,9 +221,14 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     );
     env.config("[memory]\nuser_chars = 1000\n");
     let session = |n: usize| {
-        let mut ids: Vec<String> = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().map(|e| e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string()).collect();
+        // Ids have one-second resolution; order by when the session file appeared.
+        let mut ids: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(env.home.join("sessions"))
+            .unwrap()
+            .flatten()
+            .map(|e| (e.metadata().unwrap().created().or_else(|_| e.metadata().unwrap().modified()).unwrap(), e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string()))
+            .collect();
         ids.sort();
-        ids[n].clone()
+        ids[n].1.clone()
     };
 
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
@@ -375,6 +380,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
             { "call": "read", "args": { "path": "link.txt" } },
             { "call": "write", "args": { "path": "../outside/new.txt", "content": "x" } },
             { "call": "shell", "args": { "command": "echo ok > made.txt && cat made.txt" } },
+            { "call": "shell", "args": { "command": "touch /dev/shm/construct-e2e-probe && echo SHM-WRITABLE; echo hi > /dev/null && echo devnull-ok" } },
             { "text": "done" }
         ] }),
     );
@@ -389,7 +395,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     assert!(out.status.success(), "{}", text(&out));
     let last = env.requests().pop().unwrap();
     let results: Vec<String> = last["messages"].as_array().unwrap().iter().filter(|m| m["role"] == "tool").map(|m| m["content"].as_str().unwrap_or("").to_string()).collect();
-    assert_eq!(results.len(), 8, "{results:#?}");
+    assert_eq!(results.len(), 9, "{results:#?}");
     for (i, r) in results.iter().enumerate() {
         assert!(!r.contains("SECRET-"), "step {i} leaked: {r}");
     }
@@ -401,6 +407,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     assert!(!env.dir.join("outside/new.txt").exists());
     assert_eq!(results[7].trim(), "ok", "{}", results[7]);
     assert_eq!(std::fs::read_to_string(env.work.join("made.txt")).unwrap(), "ok\n");
+    assert!(!results[8].contains("SHM-WRITABLE") && results[8].contains("devnull-ok"), "{}", results[8]);
 }
 
 #[test]
@@ -413,6 +420,7 @@ fn project_kit_follows_the_repo_not_the_session() {
             { "call": "skill_manage", "args": { "action": "create", "scope": "project", "name": "run-tests-here", "content": skill_md } },
             { "text": "noted" },
             { "text": "hi from repo a" },
+            { "text": "hi from the clone" },
             { "text": "hi from repo b" },
             { "call": "memory", "args": { "target": "project", "operations": [ { "action": "add", "content": "x" } ] } },
             { "text": "done" }
@@ -422,7 +430,10 @@ fn project_kit_follows_the_repo_not_the_session() {
     let repo_b = env.work.join("b");
     for r in [&repo_a, &repo_b] {
         std::fs::create_dir_all(r.join(".git")).unwrap();
+        std::fs::write(r.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
     }
+    // An empty .git directory (as found in /tmp) is not a repo.
+    std::fs::create_dir_all(env.work.join(".git")).unwrap();
     std::fs::write(repo_a.join(".git/config"), "[remote \"origin\"]\n\turl = git@example.com:me/a.git\n").unwrap();
     let in_dir = |dir: &PathBuf, args: &[&str]| {
         let mut c = Command::new(construct());
@@ -444,7 +455,7 @@ fn project_kit_follows_the_repo_not_the_session() {
     assert_eq!(std::fs::read_to_string(kit.join("NOTES.md")).unwrap(), "Tests need ./tools/gen-fixtures first");
     assert!(kit.join("skills/run-tests-here/SKILL.md").exists());
     assert!(!env.home.join("skills/run-tests-here").exists(), "project skill stays out of the global library");
-    assert!(std::fs::read_to_string(kit.join("project.json")).unwrap().contains("example.com:me/a"));
+    assert!(std::fs::read_to_string(kit.join("project.json")).unwrap().contains("example.com/me/a"));
     // A new session in a subdirectory of repo a starts with both.
     std::fs::create_dir_all(repo_a.join("src")).unwrap();
     let out = in_dir(&repo_a.join("src"), &["run", "--no-learn", "hi"]);
@@ -452,6 +463,15 @@ fn project_kit_follows_the_repo_not_the_session() {
     let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
     assert!(sys.contains("Notes on this project (a)") && sys.contains("Tests need ./tools/gen-fixtures first"), "{sys}");
     assert!(sys.contains("run-tests-here: Running this repo's tests"), "{sys}");
+    // A second clone of the same remote, in a differently named directory, shares the kit.
+    let clone = env.work.join("a-clone");
+    std::fs::create_dir_all(clone.join(".git")).unwrap();
+    std::fs::write(clone.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    std::fs::write(clone.join(".git/config"), "[remote \"origin\"]\n\turl = https://example.com/me/a\n").unwrap();
+    let out = in_dir(&clone, &["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(sys.contains("Tests need ./tools/gen-fixtures first"), "clone shares the kit: {sys}");
     // Repo b sees none of it.
     let out = in_dir(&repo_b, &["run", "--no-learn", "hi"]);
     assert!(out.status.success(), "{}", text(&out));
