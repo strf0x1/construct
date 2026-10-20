@@ -930,7 +930,7 @@ LOOP_TASKS = [
 ]
 
 
-def loop_fixture(dest: Path, seed: str):
+def loop_fixture(dest: Path, seed: str, remote: str = "git@example.com:team/stats.git"):
     if dest.exists():
         shutil.rmtree(dest)
     (dest / "tools").mkdir(parents=True)
@@ -955,6 +955,8 @@ def loop_fixture(dest: Path, seed: str):
     (dest / "README.md").write_text("# stats\n\nSmall statistics helpers.\n")
     (dest / ".gitignore").write_text(".fixtures/\n")
     subprocess.run(["git", "init", "-q"], cwd=dest)
+    # Every session of a round is the same repo (same remote), so they share a project kit.
+    subprocess.run(["git", "remote", "add", "origin", remote], cwd=dest)
     subprocess.run(["git", "add", "-A"], cwd=dest)
     subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
 
@@ -986,7 +988,7 @@ def suite_loop(args):
     def session(h, ep, base, i, hint, seed):
         fn, prompt = LOOP_TASKS[i]
         work = base / f"work{i}"
-        loop_fixture(work, seed)
+        loop_fixture(work, seed, f"git@example.com:team/stats-{base.parent.name}-{base.name}.git")
         before = len(ep.records())
         t0 = time.time()
         run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)

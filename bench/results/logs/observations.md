@@ -135,3 +135,9 @@ run before the sandbox).
   repo property ("tests read generated fixtures") that requests don't
   mention. Adding that phrase to the request -> Jev picks it at 1.0. Project
   knowledge is triggered by where you are, not what you ask.
+- Seeded loop run 1 (2026-10-20) void after round 0: each session's work dir
+  was a fresh `git init` with no remote, so sessions 1-3 got three different
+  project kits and session 3 never saw what was learned. The Jev learner had
+  saved the seed and the two-step test command to its kit; the local learner
+  saved nothing (gate fired on 10-11 tool errors, review found nothing).
+  Log kept in results/invalid/. Sessions of a round now share a git remote.

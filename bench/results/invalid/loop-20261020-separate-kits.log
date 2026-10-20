@@ -1,0 +1,2 @@
+round 0 construct      s3 pass=False hits=[10, 8, 5] suggested=[] loaded=False s3 requests=55 | s1/s2 pass=[True, True] | ledger=[] skills=[] memory=''
+round 0 construct-jev  s3 pass=False hits=[6, 11, 8] suggested=[] loaded=False s3 requests=34 | s1/s2 pass=[True, True] | ledger=['missing generated test fixtures', 'pytest unavailable in minimal Python environment'] skills=[] memory='Python 3.14.8 is the available interpreter; pytest is NOT installed, so run test suites with `python3 -m unittest -v`.\n§'
