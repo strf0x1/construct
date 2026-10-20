@@ -79,7 +79,7 @@ impl Default for Config {
             api_key_secret: "OPENAI_API_KEY".into(),
             max_tokens: None,
             temperature: None,
-            max_steps: 60,
+            max_steps: 200,
             context_window: 131_072,
             memory: MemoryConfig::default(),
             learn: LearnConfig::default(),

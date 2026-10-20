@@ -1,3 +1,4 @@
 target/
 research/src/
 research/jev/
+bench/results/logs/*.log

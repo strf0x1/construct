@@ -1,0 +1,30 @@
+{
+ "construct": {
+  "install": 13606296,
+  "parts": {
+   "binary": 13606296
+  },
+  "fresh_home_after_first_run": 1440,
+  "first_run_s": 0.005988650000290363,
+  "first_run_rc": 0
+ },
+ "hermes": {
+  "install": 363316037,
+  "parts": {
+   "venv": 278435645,
+   "python": 84880392
+  },
+  "fresh_home_after_first_run": 564332,
+  "first_run_s": 1.2934880510001676,
+  "first_run_rc": 0
+ },
+ "opencode": {
+  "install": 185116816,
+  "parts": {
+   "binary": 185116816
+  },
+  "fresh_home_after_first_run": 14532946,
+  "first_run_s": 1.5664061219995347,
+  "first_run_rc": 0
+ }
+}

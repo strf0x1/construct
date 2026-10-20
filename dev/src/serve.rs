@@ -76,6 +76,12 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         .with_state(shared);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let port = listener.local_addr()?.port();
+    // Without TCP_NODELAY the tail of a streamed response can wait ~40ms on
+    // delayed ACKs, which would be billed to the harness under test.
+    use axum::serve::ListenerExt;
+    let listener = listener.tap_io(|tcp| {
+        let _ = tcp.set_nodelay(true);
+    });
     let h = tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
@@ -141,6 +147,10 @@ fn summarize(body: &Value) -> Value {
 }
 
 async fn chat(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http::Uri, body: Bytes) -> Response {
+    if !uri.path().ends_with("chat/completions") {
+        // e.g. Hermes probes Ollama's /api/show on loopback endpoints
+        return (StatusCode::NOT_FOUND, axum::Json(json!({ "error": { "message": "not found" } }))).into_response();
+    }
     let t_arrive = ms(&s);
     let idx = {
         let mut c = s.count.lock().unwrap();
@@ -318,28 +328,30 @@ fn sse(v: Value) -> Bytes {
 }
 
 async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
-    let step = {
+    // Side calls without tools (opencode's title generation, compaction)
+    // don't advance the script; only the agent loop does.
+    let side = req["tools"].as_array().is_none_or(|t| t.is_empty());
+    rec["side"] = json!(side);
+    let step = if side {
+        Some(Step::Text { text: "Side reply".into(), delay_ms: 0, reasoning: None })
+    } else {
         let mut n = s.next.lock().unwrap();
         let st = s.cfg.script.get(*n).cloned();
         if st.is_some() {
             *n += 1;
         }
-        st
+        st.or_else(|| {
+            let (st, max) = s.cfg.repeat_call.clone()?;
+            let mut r = s.repeated.lock().unwrap();
+            (*r < max).then(|| {
+                *r += 1;
+                st
+            })
+        })
     };
     let step = match step {
         Some(st) => st,
-        None => match &s.cfg.repeat_call {
-            Some((st, max)) => {
-                let mut r = s.repeated.lock().unwrap();
-                if *r < *max {
-                    *r += 1;
-                    st.clone()
-                } else {
-                    Step::Text { text: "done".into(), delay_ms: 0, reasoning: None }
-                }
-            }
-            None => Step::Text { text: "done".into(), delay_ms: 0, reasoning: None },
-        },
+        None => Step::Text { text: "done".into(), delay_ms: 0, reasoning: None },
     };
     let model = req["model"].as_str().unwrap_or("mock").to_string();
     let stream = req["stream"].as_bool().unwrap_or(false);

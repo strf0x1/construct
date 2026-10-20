@@ -10,6 +10,8 @@
 //!   snap [label]               print the screen
 //!   expect <text>              fail unless <text> is on screen now
 //!   resize <cols> <rows>
+//!   settle <quiet_ms> [timeout_ms]  wait until the screen is quiet for quiet_ms;
+//!                              records when it last changed ("settled")
 //!
 //! Timings (first output, first non-blank frame, each wait) are reported so
 //! the same driver measures load latency in the bench.
@@ -31,6 +33,9 @@ pub struct Driver {
     pub first_output: Option<Duration>,
     pub first_frame: Option<Duration>,
     pub bytes: usize,
+    /// When the screen last received output.
+    pub last_output: Option<Duration>,
+    carry: Vec<u8>,
     closed: bool,
 }
 
@@ -56,12 +61,17 @@ impl Driver {
         let mut reader = pair.master.try_clone_reader()?;
         let writer = pair.master.take_writer()?;
         let (tx, rx) = mpsc::channel();
+        let raw_log = std::env::var_os("DRIVE_RAW_LOG").and_then(|p| std::fs::File::create(p).ok());
         std::thread::spawn(move || {
+            let mut raw_log = raw_log;
             let mut buf = [0u8; 65536];
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) | Err(_) => break,
                     Ok(n) => {
+                        if let Some(f) = raw_log.as_mut() {
+                            let _ = f.write_all(&buf[..n]);
+                        }
                         if tx.send(buf[..n].to_vec()).is_err() {
                             break;
                         }
@@ -79,6 +89,8 @@ impl Driver {
             first_output: None,
             first_frame: None,
             bytes: 0,
+            last_output: None,
+            carry: Vec::new(),
             closed: false,
         })
     }
@@ -94,19 +106,18 @@ impl Driver {
                         self.first_output = Some(self.start.elapsed());
                     }
                     self.bytes += b.len();
+                    self.last_output = Some(self.start.elapsed());
                     self.parser.process(&b);
-                    // Answer cursor-position queries so TUIs that ask don't hang.
-                    if b.windows(4).any(|w| w == b"\x1b[6n") {
-                        let (r, c) = self.parser.screen().cursor_position();
-                        let _ = self.writer.write_all(format!("\x1b[{};{}R", r + 1, c + 1).as_bytes());
-                    }
+                    self.answer_queries(&b);
                     if self.first_frame.is_none() && !self.text().trim().is_empty() {
                         self.first_frame = Some(self.start.elapsed());
                     }
                     // keep draining without blocking
                     while let Ok(b) = self.rx.try_recv() {
                         self.bytes += b.len();
+                        self.last_output = Some(self.start.elapsed());
                         self.parser.process(&b);
+                        self.answer_queries(&b);
                         if self.first_frame.is_none() && !self.text().trim().is_empty() {
                             self.first_frame = Some(self.start.elapsed());
                         }
@@ -120,6 +131,107 @@ impl Driver {
                 }
             }
         }
+    }
+
+    /// Answer terminal queries the way a modern terminal (Ghostty-like)
+    /// would, so programs that probe capabilities don't sit on timeouts that
+    /// a real terminal would never trigger.
+    fn answer_queries(&mut self, chunk: &[u8]) {
+        let mut buf = std::mem::take(&mut self.carry);
+        buf.extend_from_slice(chunk);
+        let mut replies: Vec<Vec<u8>> = Vec::new();
+        let mut i = 0;
+        let mut consumed = 0;
+        while i < buf.len() {
+            if buf[i] != 0x1b {
+                i += 1;
+                continue;
+            }
+            let rest = &buf[i..];
+            // CSI ... final byte, or OSC ... BEL/ST
+            let (len, reply): (usize, Option<Vec<u8>>) = if rest.starts_with(b"\x1b[") {
+                match rest[2..].iter().position(|b| (0x40..=0x7e).contains(b)) {
+                    None => break, // incomplete: keep for the next chunk
+                    Some(p) => {
+                        let body = &rest[2..2 + p];
+                        let fin = rest[2 + p];
+                        let r = match (body, fin) {
+                            (b"6", b'n') => {
+                                let (r, c) = self.parser.screen().cursor_position();
+                                Some(format!("\x1b[{};{}R", r + 1, c + 1).into_bytes())
+                            }
+                            (b"", b'c') | (b"0", b'c') => Some(b"\x1b[?62;22c".to_vec()),
+                            (b">", b'c') | (b">0", b'c') => Some(b"\x1b[>1;10;0c".to_vec()),
+                            (b">", b'q') | (b">0", b'q') => Some(b"\x1bP>|ghostty 1.2.0\x1b\\".to_vec()),
+                            (b"?", b'u') => Some(b"\x1b[?0u".to_vec()),
+                            (b"14", b't') => Some(b"\x1b[4;720;1200t".to_vec()),
+                            (b"16", b't') => Some(b"\x1b[6;20;10t".to_vec()),
+                            (b"18", b't') => {
+                                let (rows, cols) = self.parser.screen().size();
+                                Some(format!("\x1b[8;{rows};{cols}t").into_bytes())
+                            }
+                            (body, b'p') if body.starts_with(b"?") && body.ends_with(b"$") => {
+                                let mode = String::from_utf8_lossy(&body[1..body.len() - 1]).to_string();
+                                Some(format!("\x1b[?{mode};2$y").into_bytes())
+                            }
+                            _ => None,
+                        };
+                        (2 + p + 1, r)
+                    }
+                }
+            } else if rest.starts_with(b"\x1b]") {
+                let end = rest.iter().position(|&b| b == 0x07).map(|p| (p, p + 1)).or_else(|| {
+                    rest.windows(2).position(|w| w == b"\x1b\\").map(|p| (p, p + 2))
+                });
+                match end {
+                    None => break,
+                    Some((body_end, total)) => {
+                        let body = &rest[2..body_end];
+                        let r = match body {
+                            b"10;?" => Some(b"\x1b]10;rgb:c0c0/caca/f5f5\x1b\\".to_vec()),
+                            b"11;?" => Some(b"\x1b]11;rgb:1a1a/1b1b/2626\x1b\\".to_vec()),
+                            b"12;?" => Some(b"\x1b]12;rgb:c0c0/caca/f5f5\x1b\\".to_vec()),
+                            b if b.starts_with(b"4;") && b.ends_with(b";?") => {
+                                let idx = String::from_utf8_lossy(&b[2..b.len() - 2]).to_string();
+                                Some(format!("\x1b]4;{idx};rgb:8080/8080/8080\x1b\\").into_bytes())
+                            }
+                            _ => None,
+                        };
+                        (total, r)
+                    }
+                }
+            } else if rest.starts_with(b"\x1bP") {
+                // DCS: XTGETTCAP (+q) — report the capability as unknown
+                match rest.windows(2).position(|w| w == b"\x1b\\") {
+                    None => break,
+                    Some(p) => {
+                        let body = &rest[2..p];
+                        let r = body.starts_with(b"+q").then(|| b"\x1bP0+r\x1b\\".to_vec());
+                        (p + 2, r)
+                    }
+                }
+            } else if rest.len() < 2 {
+                break;
+            } else {
+                (1, None)
+            };
+            if let Some(r) = reply {
+                replies.push(r);
+            }
+            i += len;
+            consumed = i;
+        }
+        // keep an unfinished escape sequence for the next chunk
+        let tail_from = if i < buf.len() && buf[i] == 0x1b { i } else { buf.len() };
+        let _ = consumed;
+        self.carry = buf[tail_from..].to_vec();
+        if self.carry.len() > 256 {
+            self.carry.clear();
+        }
+        for r in replies {
+            let _ = self.writer.write_all(&r);
+        }
+        let _ = self.writer.flush();
     }
 
     pub fn text(&self) -> String {
@@ -259,6 +371,24 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
                     let t = unquote(rest);
                     if !d.text().contains(&t) {
                         bail!("expected {t:?} on screen\n--- screen ---\n{}", d.text());
+                    }
+                }
+                "settle" => {
+                    let mut it = rest.split_whitespace();
+                    let quiet: u64 = it.next().and_then(|x| x.parse().ok()).unwrap_or(500);
+                    let timeout: u64 = it.next().and_then(|x| x.parse().ok()).unwrap_or(30_000);
+                    let deadline = Instant::now() + Duration::from_millis(timeout);
+                    loop {
+                        d.pump(Duration::from_millis(10));
+                        let last = d.last_output.unwrap_or_default();
+                        let now = d.start.elapsed();
+                        if d.first_frame.is_some() && now.saturating_sub(last) >= Duration::from_millis(quiet) {
+                            waits.push(json!({ "line": n + 1, "kind": "settle", "ms": last.as_secs_f64() * 1000.0 }));
+                            break;
+                        }
+                        if Instant::now() >= deadline {
+                            bail!("screen never settled\n--- screen ---\n{}", d.text());
+                        }
                     }
                 }
                 "resize" => {
