@@ -107,3 +107,31 @@ Release task that needs one skill out of 15 (random signing key per run).
   (r3, r4) also wandered (~/.claude listing, ~/.config listing, sibling runs).
   The local copy of that session was redacted. Both keys need rotating.
   construct has no filesystem boundary for its tools; that's the gap.
+
+## Learning loop, sandboxed (2026-10-20, results/loop-20261020-122108.json)
+
+Repo whose tests need `./tools/gen-fixtures` first (nothing says so). Sessions
+1-2: different tasks, user gives the hint in a follow-up. Session 3: third
+task, no hint. Control: session 3 in a fresh home. 2 rounds. Sandboxed; key
+scan clean; 0 tool calls outside the work dir in all 14 sessions (vs 1-25 per
+run before the sandbox).
+- The landmine is too easy: every session passed, control included; the model
+  hits FileNotFoundError 1-3 times, finds tools/gen-fixtures and recovers.
+  The bench's gen_first field was wrong (it counted reading test_stats.py as
+  running tests); numbers below are recomputed from session logs.
+- Session 3 landmine hits: jev r0 0, jev r1 1, local r0 1, local r1 2,
+  control 1 and 2. Requests: jev 13/12, local 19/19, control 14/18.
+- Local learner learned nothing in 2 rounds: its gate never saw the hint
+  (no keyword matched "that's how this repo works"), and 3 errors fired it
+  only for reviews that found nothing.
+- Jev r0 ran the loop as designed: session 1 -> 3 ledger entries + a memory
+  note; session 2 -> recurrence matched -> skill `golden-fixture-repo-tasks`;
+  session 3 -> patched. Session 3 avoided the landmine via the memory note.
+  The session-3 patch added task-specific advice (population vs sample
+  variance): overfit creeping back in through patches.
+- Jev r1 never saw a recurrence: in session 2 the model avoided the landmine
+  and the user's repeated hint scored preference 0.37, under the gate.
+- The router never suggested the learned skill: its description keys on a
+  repo property ("tests read generated fixtures") that requests don't
+  mention. Adding that phrase to the request -> Jev picks it at 1.0. Project
+  knowledge is triggered by where you are, not what you ask.

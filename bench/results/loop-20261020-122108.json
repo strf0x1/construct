@@ -1,0 +1,297 @@
+{
+ "model": "minimax/minimax-m3.1-flash:free",
+ "rounds": 2,
+ "hint": "The tests need ./tools/gen-fixtures run first; that's how this repo works.",
+ "tasks": [
+  [
+   "median",
+   "Add a median(values) function to stats.py with a unit test, and make sure the whole test suite passes."
+  ],
+  [
+   "mode",
+   "Add a mode(values) function to stats.py (most common value, ValueError on empty) with a unit test, and make sure the whole test suite passes."
+  ],
+  [
+   "variance",
+   "Add a variance(values) function to stats.py (population variance, ValueError on empty) with a unit test, and make sure the whole test suite passes."
+  ]
+ ],
+ "raw": {
+  "construct": [
+   {
+    "sessions": [
+     {
+      "task": "median",
+      "checks": {
+       "tests_pass": true,
+       "median_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 17,
+      "learn_requests": 0,
+      "prompt_tokens": 74263,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "mode",
+      "checks": {
+       "tests_pass": true,
+       "mode_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 26,
+      "learn_requests": 1,
+      "prompt_tokens": 161417,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 19,
+      "learn_requests": 1,
+      "prompt_tokens": 81609,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ],
+    "learned": {
+     "ledger": [],
+     "skills": [],
+     "memory": "",
+     "learn_log": "1792518901617 session 20261020-175413-7d98: still active; leaving it to the next learner\n1792518921071 session 20261020-175413-7d98: gate local preference=false tool_errors=2 skills_loaded=0 -> None\n1792519100996 session 20261020-175521-6efc: still active; leaving it to the next learner\n1792519113079 session 20261020-175521-6efc: gate local preference=false tool_errors=3 skills_loaded=0 -> Some(Skills)\n1792519131339 session 20261020-175521-6efc: Nothing to save. | \n1792519282647 session 20261020-175851-bf83: gate local preference=false tool_errors=3 skills_loaded=0 -> Some(Skills)\n1792519301249 session 20261020-175851-bf83: Nothing to save. | \n"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "median",
+      "checks": {
+       "tests_pass": true,
+       "median_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 24,
+      "learn_requests": 0,
+      "prompt_tokens": 127464,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "mode",
+      "checks": {
+       "tests_pass": true,
+       "mode_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 16,
+      "learn_requests": 0,
+      "prompt_tokens": 69632,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 19,
+      "learn_requests": 1,
+      "prompt_tokens": 88655,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ],
+    "learned": {
+     "ledger": [],
+     "skills": [],
+     "memory": "",
+     "learn_log": "1792520050591 session 20261020-181256-f49b: still active; leaving it to the next learner\n1792520061629 session 20261020-181256-f49b: gate local preference=false tool_errors=1 skills_loaded=0 -> None\n1792520149332 session 20261020-181422-8302: still active; leaving it to the next learner\n1792520168238 session 20261020-181422-8302: gate local preference=false tool_errors=1 skills_loaded=0 -> None\n1792520342026 session 20261020-181608-628c: gate local preference=false tool_errors=3 skills_loaded=0 -> Some(Skills)\n1792520361481 session 20261020-181608-628c: Nothing to save. | \n"
+    }
+   }
+  ],
+  "construct-jev": [
+   {
+    "sessions": [
+     {
+      "task": "median",
+      "checks": {
+       "tests_pass": true,
+       "median_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 23,
+      "learn_requests": 1,
+      "prompt_tokens": 129870,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "mode",
+      "checks": {
+       "tests_pass": true,
+       "mode_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 19,
+      "learn_requests": 1,
+      "prompt_tokens": 80911,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 13,
+      "learn_requests": 1,
+      "prompt_tokens": 47310,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ],
+    "learned": {
+     "ledger": [
+      "implicit generated-fixture setup",
+      "missing pytest in minimal Python environment",
+      "unwritable temporary backup path",
+      "generated fixtures required before test execution",
+      "missing optional test runner",
+      "gitignored generated test fixtures"
+     ],
+     "skills": [
+      "golden-fixture-repo-tasks"
+     ],
+     "memory": "stats repo (stats.py + test_stats.py): test fixtures are generated, not committed \u2014 run ./tools/gen-fixtures first (it writes gitignored .fixtures/golden.json), then run the tests. pytest is not installed on this machine; use `python3 -m unittest -v` (the test file is stdlib unittest).",
+     "learn_log": "1792519391007 session 20261020-180141-19d1: still active; leaving it to the next learner\n1792519399057 session 20261020-180141-19d1: gate jev preference=0.51 workaround=0.95 skill_gap=0.00 -> Some(Both)\n1792519417172 session 20261020-180141-19d1: Saved: the stats repo's fixture-generation workflow (and no pytest available), plus the user's preference to keep existing repo workflows rather than adding auto-bootstrap workarounds. | ledger: implicit generated-fixture setup; ledger: missing pytest in minimal Python environment; ledger: unwritable temporary backup path; memory: saved. Your notes on this machine and its projects now at 286/2200 chars (1 entries); memory: saved. What you know about the user now at 214/1375 chars (1 entries)\n1792519488631 session 20261020-180337-f86b: still active; leaving it to the next learner\n1792519497251 session 20261020-180337-f86b: gate jev preference=0.43 workaround=0.80 skill_gap=0.00 -> Some(Skills)\n1792519528037 session 20261020-180337-f86b: Created skill `golden-fixture-repo-tasks` covering the generate-fixtures-then-run-tests workflow (edit `tools/gen-fixtures` alongside the code, never bootstrap fixtures in the test module, verify with `rm -rf .fixtures __pycache__ && ./tools/gen-fixtures && python3 -m unittest -v`). | ledger: generated fixtures required before test execution; skill_manage: created skill golden-fixture-repo-tasks\n1792519581029 session 20261020-180528-dfd0: gate jev preference=0.00 workaround=0.94 skill_gap=0.00 -> Some(Skills)\n1792519614910 session 20261020-180528-dfd0: Patched the `golden-fixture-repo-tasks` skill (reuse existing module helpers like `mean`; decide population vs sample variance from the user's wording, document it, and pin it with a generator case). | ledger: missing optional test runner; ledger: gitignored generated test fixtures; skill_manage: patched golden-fixture-repo-tasks/SKILL.md; skill_manage: patched golden-fixture-repo-tasks/SKILL.md\n"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "median",
+      "checks": {
+       "tests_pass": true,
+       "median_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 18,
+      "learn_requests": 1,
+      "prompt_tokens": 81513,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "mode",
+      "checks": {
+       "tests_pass": true,
+       "mode_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 20,
+      "learn_requests": 0,
+      "prompt_tokens": 84395,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     },
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 12,
+      "learn_requests": 0,
+      "prompt_tokens": 39918,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ],
+    "learned": {
+     "ledger": [
+      "missing test runner dependency",
+      "gitignored generated test fixtures"
+     ],
+     "skills": [],
+     "memory": "",
+     "learn_log": "1792519797533 session 20261020-180830-4609: still active; leaving it to the next learner\n1792519806279 session 20261020-180830-4609: gate jev preference=0.48 workaround=0.84 skill_gap=0.00 -> Some(Skills)\n1792519819045 session 20261020-180830-4609: Recorded 2 observation(s); a skill is written if they recur. | ledger: missing test runner dependency; ledger: gitignored generated test fixtures\n1792519885459 session 20261020-181019-8246: still active; leaving it to the next learner\n1792519896365 session 20261020-181019-8246: gate jev preference=0.37 workaround=0.00 skill_gap=0.00 -> None\n1792519976820 session 20261020-181136-ea12: gate jev preference=0.00 workaround=0.00 skill_gap=0.00 -> None\n"
+    }
+   }
+  ],
+  "control": [
+   {
+    "sessions": [
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 14,
+      "learn_requests": 0,
+      "prompt_tokens": 55069,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ]
+   },
+   {
+    "sessions": [
+     {
+      "task": "variance",
+      "checks": {
+       "tests_pass": true,
+       "variance_tested": true,
+       "fixtures_built": true
+      },
+      "requests": 18,
+      "learn_requests": 0,
+      "prompt_tokens": 80953,
+      "gen_before_tests": false,
+      "suggested": [],
+      "skill_loaded": false,
+      "outside_workdir": 0
+     }
+    ]
+   }
+  ]
+ }
+}
