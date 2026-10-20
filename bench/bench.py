@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import signal
 import statistics
@@ -39,6 +40,14 @@ HERMES = HERMES_VENV / "bin" / "hermes"
 OPENCODE = Path.home() / ".local/share/mise/installs/opencode/1.18.34/opencode"
 KEY_FILE = Path.home() / ".config" / "construct-bench.key"
 JEV_KEY_FILE = Path.home() / ".config" / "construct-bench-jev.key"
+
+
+def read_key(path: Path):
+    """A key file holds either the bare key or NAME=key (optionally `export`ed)."""
+    t = path.read_text().strip()
+    return re.sub(r"^(export\s+)?[A-Z][A-Z0-9_]*\s*=\s*", "", t).strip("'\"")
+
+
 WORK = Path(os.environ.get("BENCH_WORK", tempfile.gettempdir())) / "construct-bench"
 
 
@@ -66,13 +75,13 @@ class Endpoint:
             args += ["--upstream", upstream]
         env = dict(os.environ)
         if upstream:
-            key = KEY_FILE.read_text().strip() if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
+            key = read_key(KEY_FILE) if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
             if not key:
                 sys.exit(f"no OpenRouter key: put it in {KEY_FILE}")
             # Never forward some other secret to the upstream by mistake.
             if "openrouter.ai" in upstream and not key.startswith("sk-or-"):
                 sys.exit(f"{KEY_FILE} doesn't hold an OpenRouter key (expected sk-or-...); not sending it upstream")
-            if JEV_KEY_FILE.exists() and JEV_KEY_FILE.read_text().strip() == key:
+            if JEV_KEY_FILE.exists() and read_key(JEV_KEY_FILE) == key:
                 sys.exit(f"{KEY_FILE} holds the same key as {JEV_KEY_FILE}; not sending it upstream")
             env["OPENROUTER_API_KEY"] = key
         self.proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=open(dir / "serve.err", "w"), env=env)
@@ -138,7 +147,7 @@ class Construct(Harness):
     def env(self):
         e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy"}
         if self.jev and JEV_KEY_FILE.exists():
-            e["TYPESAFE_API_KEY"] = JEV_KEY_FILE.read_text().strip()
+            e["TYPESAFE_API_KEY"] = read_key(JEV_KEY_FILE)
         else:
             e["CONSTRUCT_ROUTER"] = "local"
         return e

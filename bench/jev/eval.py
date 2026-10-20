@@ -11,6 +11,9 @@ library.json, then feeds routes.jsonl / gates.jsonl through the hidden
 import argparse, json, os, statistics, subprocess, sys, tempfile, time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from bench import read_key
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 BIN = ROOT / "target/release/construct"
@@ -33,7 +36,7 @@ def run(cmd, mode, h, lines):
     env = {k: v for k, v in os.environ.items() if k not in ("TYPESAFE_API_KEY",)}
     env.update(CONSTRUCT_HOME=str(h), CONSTRUCT_ROUTER=mode)
     if mode == "jev":
-        env["TYPESAFE_API_KEY"] = KEY.read_text().strip()
+        env["TYPESAFE_API_KEY"] = read_key(KEY)
     inp = "".join(json.dumps(l) + "\n" for l in lines)
     out = subprocess.run([str(BIN), cmd], input=inp, capture_output=True, text=True, env=env, timeout=600)
     if out.returncode:

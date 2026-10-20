@@ -2,7 +2,9 @@
 """Try question designs for tool-group routing directly against Jev."""
 import json, sys, time, concurrent.futures as cf, urllib.request
 from pathlib import Path
-KEY = (Path.home() / ".config/construct-bench-jev.key").read_text().strip()
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from bench import read_key
+KEY = read_key(Path.home() / ".config/construct-bench-jev.key")
 lib = json.loads(Path(__file__).with_name("library.json").read_text())
 cases = [json.loads(l) for l in Path(__file__).with_name("routes.jsonl").read_text().splitlines() if l.strip()]
 
