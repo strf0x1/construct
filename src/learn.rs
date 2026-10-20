@@ -494,7 +494,51 @@ pub async fn gate(cfg: &Config, messages: &[Message]) -> Gate {
     }
     let errors = tool_errors(messages);
     let loaded = skills_loaded(messages);
-    gate_parts(cfg, &users, &errors, &loaded).await
+    let g = gate_parts(cfg, &users, &errors, &loaded).await;
+    if g.kind.is_some() {
+        return g;
+    }
+    // The user telling us something we've already been told is the strongest
+    // sign of recurrence, even when it reads as an ordinary request.
+    match repeats_ledger(cfg, &users).await {
+        Some(lesson) => Gate { kind: Some(Kind::Both), source: g.source, note: format!("{} repeats_ledger={lesson:?}", g.note) },
+        None => g,
+    }
+}
+
+/// The ledger entry the user is repeating in `users`, if any.
+async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
+    let paths = Paths::resolve().ok()?;
+    let ledger = ledger(&paths);
+    let recent: Vec<&Observation> = ledger.iter().rev().take(60).collect();
+    if recent.is_empty() {
+        return None;
+    }
+    let lesson = |o: &Observation| format!("{}: {} (fix: {})", o.problem_class, llm::truncate(&o.summary, 160), llm::truncate(&o.fix, 160));
+    if let Some(key) = crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off") {
+        let mut criteria = serde_json::Map::new();
+        // "none" first: Jev favours the first option (see src/router.rs).
+        criteria.insert("none".into(), json!("the user doesn't restate any of these"));
+        for (i, o) in recent.iter().enumerate() {
+            criteria.insert(format!("o{i}"), json!(lesson(o)));
+        }
+        let mut q = serde_json::Map::new();
+        q.insert("repeat".into(), json!({ "type": "choice", "instructions": "Does the user, in `user_messages`, tell the assistant one of these earlier lessons again?", "criteria": criteria }));
+        let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
+        if let Ok(v) = crate::jev::ask(&cfg.router, &reqwest::Client::new(), &key, "repeat", json!({ "user_messages": users }), q, std::time::Duration::from_secs(5)).await {
+            let probs = v["answers"]["repeat"]["probabilities"].as_object().cloned().unwrap_or_default();
+            return probs
+                .iter()
+                .filter(|(k, p)| *k != "none" && p.as_f64().unwrap_or(0.0) >= 0.5)
+                .filter_map(|(k, _)| k[1..].parse::<usize>().ok())
+                .next()
+                .map(|i| recent[i].problem_class.clone());
+        }
+    }
+    recent
+        .iter()
+        .find(|o| users.iter().any(|u| crate::router::overlap(u, &format!("{} {}", o.fix, o.summary)) >= 0.4))
+        .map(|o| o.problem_class.clone())
 }
 
 /// The gate on already-extracted evidence; `construct gate` feeds it directly.

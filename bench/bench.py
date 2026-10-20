@@ -17,6 +17,7 @@ Results land in bench/results/<suite>-<timestamp>.json.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -914,11 +915,14 @@ def suite_routing(args):
 
 # ---------------------------------------------------------------- loop
 # The learning loop end to end, on a landmine nothing in the repo explains:
-# the tests read generated fixtures, so `./tools/gen-fixtures` must run first.
+# the tests read fixtures generated with the team seed (`./tools/gen-fixtures
+# --seed <n>`), and the seed is written nowhere: only the user knows it. A
+# model can find the script, but only learning gets it the seed. The seed is
+# random per round and the sandbox keeps rounds from reading each other.
 # Sessions 1 and 2 are different tasks where the user has to say so; session
 # 3 is a third task with no hint. A control runs session 3 in a fresh home.
 
-LOOP_HINT = "The tests need ./tools/gen-fixtures run first; that's how this repo works."
+LOOP_HINT = "The tests need ./tools/gen-fixtures --seed {seed} run first (that's the team seed); that's how this repo works."
 LOOP_TASKS = [
     ("median", "Add a median(values) function to stats.py with a unit test, and make sure the whole test suite passes."),
     ("mode", "Add a mode(values) function to stats.py (most common value, ValueError on empty) with a unit test, and make sure the whole test suite passes."),
@@ -926,19 +930,27 @@ LOOP_TASKS = [
 ]
 
 
-def loop_fixture(dest: Path):
+def loop_fixture(dest: Path, seed: str):
     if dest.exists():
         shutil.rmtree(dest)
     (dest / "tools").mkdir(parents=True)
     (dest / "stats.py").write_text('"""Small statistics helpers."""\n\n\ndef mean(values):\n    if not values:\n        raise ValueError("mean of empty list")\n    return sum(values) / len(values)\n')
     (dest / "test_stats.py").write_text(
         "import json\nimport unittest\nfrom pathlib import Path\n\nfrom stats import mean\n\n"
-        "GOLDEN = json.loads((Path(__file__).parent / '.fixtures' / 'golden.json').read_text())\n\n\n"
+        "GOLDEN = json.loads((Path(__file__).parent / '.fixtures' / 'golden.json').read_text())\n"
+        f"assert GOLDEN.get('seed_check') == '{hashlib.sha256(seed.encode()).hexdigest()[:16]}', 'fixtures were generated with the wrong seed'\n\n\n"
         "class MeanTest(unittest.TestCase):\n    def test_golden(self):\n        for case in GOLDEN['mean']:\n            self.assertAlmostEqual(mean(case['in']), case['out'])\n\n\n"
         "if __name__ == '__main__':\n    unittest.main()\n"
     )
     gen = dest / "tools" / "gen-fixtures"
-    gen.write_text("#!/usr/bin/env bash\nset -e\ncd \"$(dirname \"$0\")/..\"\nmkdir -p .fixtures\necho '{\"mean\": [{\"in\": [1, 2, 3, 4], \"out\": 2.5}]}' > .fixtures/golden.json\necho 'fixtures written'\n")
+    gen.write_text(
+        "#!/usr/bin/env bash\nset -e\ncd \"$(dirname \"$0\")/..\"\n"
+        'if [ "$1" != "--seed" ] || [ -z "$2" ]; then echo "usage: gen-fixtures --seed <team seed>" >&2; exit 2; fi\n'
+        "mkdir -p .fixtures\n"
+        'check=$(printf %s "$2" | sha256sum | cut -c1-16)\n'
+        'echo "{\\"seed_check\\": \\"$check\\", \\"mean\\": [{\\"in\\": [1, 2, 3, 4], \\"out\\": 2.5}]}" > .fixtures/golden.json\n'
+        "echo 'fixtures written'\n"
+    )
     gen.chmod(0o755)
     (dest / "README.md").write_text("# stats\n\nSmall statistics helpers.\n")
     (dest / ".gitignore").write_text(".fixtures/\n")
@@ -953,32 +965,44 @@ def check_loop(work: Path, fn: str):
     return {"tests_pass": r.returncode == 0, f"{fn}_tested": fn in tests, "fixtures_built": (work / ".fixtures" / "golden.json").exists()}
 
 
+def landmine_hits(home: Path, since: float):
+    """Tool results showing the fixture landmine (missing, unseeded or wrongly seeded)."""
+    hits = 0
+    for f in sorted((home / "sessions").glob("*.jsonl")):
+        if f.stat().st_mtime < since:
+            continue
+        for line in f.read_text().splitlines():
+            m = json.loads(line).get("message") or {}
+            c = m.get("content") or ""
+            if m.get("role") == "tool" and ("golden.json" in c and ("No such file" in c or "FileNotFoundError" in c) or "wrong seed" in c or "usage: gen-fixtures" in c):
+                hits += 1
+    return hits
+
+
 def suite_loop(args):
     names = args.harness
     results = {n: [] for n in names + ["control"]}
 
-    def session(h, ep, base, i, hint):
+    def session(h, ep, base, i, hint, seed):
         fn, prompt = LOOP_TASKS[i]
         work = base / f"work{i}"
-        loop_fixture(work)
+        loop_fixture(work, seed)
         before = len(ep.records())
         t0 = time.time()
         run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)
         if hint:
-            run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT], h.full_env(), work, timeout=args.timeout)
+            run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT.format(seed=seed)], h.full_env(), work, timeout=args.timeout)
         wait_for_learners()
         recs = ep.records()[before:]
         routes, calls = session_facts(h.home, t0)
-        first_test = next((k for k, c in enumerate(calls) if "unittest" in c.get("args", "") or "test_stats" in c.get("args", "")), None)
-        first_gen = next((k for k, c in enumerate(calls) if "gen-fixtures" in c.get("args", "")), None)
         route = routes[0] if routes else {}
         return {
+            "landmine_hits": landmine_hits(h.home, t0),
             "task": fn,
             "checks": check_loop(work, fn),
             "requests": sum(1 for x in recs if x.get("n_tools")),
             "learn_requests": sum(1 for x in recs if not x.get("n_tools")) ,
             "prompt_tokens": sum((x.get("usage") or {}).get("prompt_tokens") or 0 for x in recs),
-            "gen_before_tests": first_gen is not None and (first_test is None or first_gen < first_test),
             "suggested": [s[0] for s in route.get("skills", [])],
             "skill_loaded": any(c.get("name") == "skill" for c in calls),
             "outside_workdir": sum(1 for c in calls if "~" in c["args"] or "/home/" in c["args"]),
@@ -992,7 +1016,8 @@ def suite_loop(args):
             h = {**HARNESSES, **VARIANTS}[n](base / "home")
             ep = Endpoint(base / "ep", upstream=args.upstream)
             h.configure(ep.url, args.model)
-            s = [session(h, ep, base, 0, True), session(h, ep, base, 1, True), session(h, ep, base, 2, False)]
+            seed = f"{random.getrandbits(48):012x}"
+            s = [session(h, ep, base, 0, True, seed), session(h, ep, base, 1, True, seed), session(h, ep, base, 2, False, seed)]
             ledger = (h.home / "learn" / "ledger.jsonl")
             learned = {
                 "ledger": [json.loads(l)["problem_class"] for l in ledger.read_text().splitlines()] if ledger.exists() else [],
@@ -1003,7 +1028,7 @@ def suite_loop(args):
             ep.close()
             assert_no_keys(base)
             results[n].append({"sessions": s, "learned": learned})
-            print(f"round {r} {n:14} s3 pass={s[2]['checks']['tests_pass']} gen_first={s[2]['gen_before_tests']} suggested={s[2]['suggested']} loaded={s[2]['skill_loaded']} "
+            print(f"round {r} {n:14} s3 pass={s[2]['checks']['tests_pass']} hits={[x['landmine_hits'] for x in s]} suggested={s[2]['suggested']} loaded={s[2]['skill_loaded']} "
                   f"s3 requests={s[2]['requests']} | s1/s2 pass={[x['checks']['tests_pass'] for x in s[:2]]} | ledger={learned['ledger']} skills={learned['skills']} memory={learned['memory'][:120]!r}")
         # control: session 3 with nothing learned
         base = WORK / "loop" / "control" / f"r{r}"
@@ -1012,10 +1037,10 @@ def suite_loop(args):
         h = Construct(base / "home")
         ep = Endpoint(base / "ep", upstream=args.upstream)
         h.configure(ep.url, args.model)
-        c = session(h, ep, base, 2, False)
+        c = session(h, ep, base, 2, False, f"{random.getrandbits(48):012x}")
         ep.close()
         results["control"].append({"sessions": [c]})
-        print(f"round {r} control        s3 pass={c['checks']['tests_pass']} gen_first={c['gen_before_tests']} s3 requests={c['requests']}")
+        print(f"round {r} control        s3 pass={c['checks']['tests_pass']} hits={c['landmine_hits']} s3 requests={c['requests']}")
     save("loop", {"model": args.model, "rounds": args.rounds, "hint": LOOP_HINT, "tasks": LOOP_TASKS, "raw": results})
 
 def main():
