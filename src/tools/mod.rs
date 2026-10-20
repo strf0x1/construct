@@ -228,7 +228,7 @@ fn skill_def(_ctx: &Ctx) -> Value {
 fn skill_manage_def() -> Value {
     def(
         "skill_manage",
-        "Write the skill library. create (content = full SKILL.md with frontmatter name/description), patch (old_string/new_string, optional file), edit (full rewrite), write_file (file under references/, templates/ or scripts/), remove_file, delete (archives; absorbed_into names the skill that took over), list. Skills are class-level procedures: trigger, numbered steps with exact commands, pitfalls, how to verify.",
+        "Write the skill library. create (content = full SKILL.md with frontmatter name/description), patch (old_string/new_string, optional file), edit (full rewrite), write_file (file under references/, templates/ or scripts/), remove_file, delete (archives; absorbed_into names the skill that took over), list. Skills are class-level procedures: trigger, numbered steps with exact commands, pitfalls, how to verify. The description is how the skill gets found later: models deciding whether a skill fits their task see only its name and description, so say plainly what situations it is for (and what it isn't, if a similar skill exists) and keep the steps in the body.",
         obj(
             json!({
                 "action": { "type": "string", "enum": ["create", "patch", "edit", "write_file", "remove_file", "delete", "list"] },
