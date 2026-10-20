@@ -3,3 +3,18 @@ research/src/
 research/jev/
 bench/results/logs/*.log
 __pycache__/
+
+# Local credentials and runtime state
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+.construct/
+
+# Local Python environments and generated caches
+*.py[cod]
+.venv/
+.pytest_cache/
+.DS_Store
