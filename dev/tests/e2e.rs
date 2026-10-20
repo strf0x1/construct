@@ -62,6 +62,7 @@ impl Env {
             ("CONSTRUCT_BASE_URL".into(), format!("http://127.0.0.1:{}/v1", self.port)),
             ("OPENAI_API_KEY".into(), "test".into()),
             ("TYPESAFE_API_KEY".into(), String::new()),
+            ("CONSTRUCT_LEARN_DEBOUNCE_MS".into(), "0".into()),
         ]
     }
 
@@ -192,9 +193,9 @@ fn learning_pass_writes_capped_memory_and_a_skill() {
     let env = Env::new(
         "learn",
         json!({ "steps": [
-            { "call": "shell", "args": { "command": "true" } },
-            { "call": "shell", "args": { "command": "true" } },
-            { "call": "shell", "args": { "command": "true" } },
+            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "call": "shell", "args": { "command": "exit 2" } },
+            { "call": "shell", "args": { "command": "false" } },
             { "text": "released" },
             // learning pass:
             { "call": "memory", "args": { "target": "user", "operations": [ { "action": "add", "content": big } ] } },
@@ -295,4 +296,20 @@ wait "back again" 5000
     d.send(b"/quit\r").unwrap();
     std::thread::sleep(Duration::from_millis(300));
     assert!(d.exited() || { d.pump(Duration::from_millis(500)); d.exited() }, "quit exits");
+}
+
+#[test]
+fn a_session_with_nothing_to_learn_costs_no_review() {
+    let env = Env::new("gate", json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." } ] }));
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let id = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().next().unwrap().file_name();
+    let id = id.to_string_lossy().trim_end_matches(".jsonl").to_string();
+    let out = env.run(&["learn", "--session", &id]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(env.requests().len(), 2, "the gate skipped the LLM review");
+    let log = std::fs::read_to_string(env.home.join("learn.log")).unwrap();
+    assert!(log.contains("gate local") && log.contains("-> None"), "{log}");
 }

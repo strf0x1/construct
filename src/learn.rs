@@ -233,3 +233,143 @@ pub fn kind_for(user_turns: u32, tool_calls: u32) -> Option<Kind> {
         _ => Some(Kind::Memory),
     }
 }
+
+/// The verdict of the cheap check that runs before an LLM review.
+pub struct Gate {
+    pub kind: Option<Kind>,
+    pub source: &'static str,
+    pub note: String,
+}
+
+fn user_texts(messages: &[Message]) -> Vec<String> {
+    messages
+        .iter()
+        .filter(|m| m.role == "user")
+        .filter_map(|m| m.content.as_deref())
+        .map(|c| c.split("<system-reminder>").next().unwrap_or("").trim().to_string())
+        .filter(|c| !c.is_empty())
+        .collect()
+}
+
+/// Tool results that report a failure, with the call that produced them.
+fn tool_errors(messages: &[Message]) -> Vec<String> {
+    let mut calls = std::collections::HashMap::new();
+    for m in messages {
+        for c in &m.tool_calls {
+            calls.insert(c.id.clone(), format!("{} {}", c.function.name, llm::truncate(&c.function.arguments, 160)));
+        }
+    }
+    messages
+        .iter()
+        .filter(|m| m.role == "tool")
+        .filter_map(|m| {
+            let out = m.content.as_deref()?;
+            out.starts_with("Error:").then(|| {
+                let call = m.tool_call_id.as_ref().and_then(|id| calls.get(id)).cloned().unwrap_or_default();
+                format!("{call} -> {}", llm::truncate(out, 240))
+            })
+        })
+        .collect()
+}
+
+fn skills_loaded(messages: &[Message]) -> Vec<String> {
+    messages
+        .iter()
+        .flat_map(|m| &m.tool_calls)
+        .filter(|c| c.function.name == "skill")
+        .filter_map(|c| serde_json::from_str::<Value>(&c.function.arguments).ok()?["name"].as_str().map(String::from))
+        .collect()
+}
+
+const PREFERENCE_HINTS: &[&str] = &[
+    "i prefer", "i like", "i don't like", "i hate", "i want you to", "always ", "never ", "stop ", "don't ", "do not ",
+    "remember", "from now on", "call me", "my name", "instead", "too verbose", "too long", "next time", "i use ", "on my machine",
+];
+
+/// Decide whether a stretch of session holds anything worth an LLM review,
+/// before paying for one. Jev answers when a TypeSafe key resolves; local
+/// heuristics otherwise.
+pub async fn gate(cfg: &Config, messages: &[Message]) -> Gate {
+    let users = user_texts(messages);
+    if users.is_empty() {
+        return Gate { kind: None, source: "local", note: "no user turns".into() };
+    }
+    let errors = tool_errors(messages);
+    let loaded = skills_loaded(messages);
+    if cfg.router.mode != "local" && cfg.router.mode != "off" {
+        if let Some(key) = crate::secrets::get("TYPESAFE_API_KEY") {
+            match jev_gate(cfg, &key, &users, &errors, &loaded).await {
+                Ok(g) => return g,
+                Err(e) => log_line_quiet(&format!("jev gate failed ({e}); using local heuristics")),
+            }
+        }
+    }
+    let joined = users.join("\n").to_lowercase();
+    let pref = PREFERENCE_HINTS.iter().any(|h| joined.contains(h));
+    let skill = !loaded.is_empty() || errors.len() >= 3;
+    let kind = match (pref, skill) {
+        (true, true) => Some(Kind::Both),
+        (true, false) => Some(Kind::Memory),
+        (false, true) => Some(Kind::Skills),
+        _ => None,
+    };
+    Gate { kind, source: "local", note: format!("preference={pref} tool_errors={} skills_loaded={}", errors.len(), loaded.len()) }
+}
+
+async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], loaded: &[String]) -> Result<Gate, String> {
+    let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
+    let errors: Vec<String> = errors.iter().take(8).cloned().collect();
+    let mut questions = serde_json::Map::new();
+    let noul = |q: &str| json!({ "type": "noul", "instructions": q });
+    questions.insert(
+        "preference".into(),
+        noul("Do `user_messages` state a lasting preference about how the assistant should work, correct the assistant's approach or style, or share a durable fact about the user or their machine? Ordinary task requests do not count."),
+    );
+    if !errors.is_empty() {
+        questions.insert(
+            "workaround".into(),
+            noul("Do `tool_errors` show the assistant's own commands or approach failing in a way that needed a different technique (wrong flags, missing tools, environment quirks), as opposed to failures in the user's code that the task was about?"),
+        );
+    }
+    if !loaded.is_empty() {
+        questions.insert(
+            "skill_gap".into(),
+            noul("Do `user_messages` or `tool_errors` suggest that a procedure listed in `skills_loaded` was wrong, incomplete or outdated?"),
+        );
+    }
+    let state = json!({ "user_messages": users, "tool_errors": errors, "skills_loaded": loaded });
+    let http = reqwest::Client::new();
+    let v: Value = http
+        .post(&cfg.router.jev_url)
+        .bearer_auth(key)
+        .json(&json!({ "model": cfg.router.jev_model, "state": state, "questions": questions }))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+    let p = |k: &str| v["answers"][k]["noul"].as_f64().unwrap_or(0.0);
+    let pref = p("preference") >= 0.5;
+    let skill = p("workaround") >= 0.5 || p("skill_gap") >= 0.5;
+    let kind = match (pref, skill) {
+        (true, true) => Some(Kind::Both),
+        (true, false) => Some(Kind::Memory),
+        (false, true) => Some(Kind::Skills),
+        _ => None,
+    };
+    Ok(Gate {
+        kind,
+        source: "jev",
+        note: format!("preference={:.2} workaround={:.2} skill_gap={:.2}", p("preference"), p("workaround"), p("skill_gap")),
+    })
+}
+
+fn log_line_quiet(line: &str) {
+    if let Ok(p) = Paths::resolve() {
+        log_line(&p, line);
+    }
+}

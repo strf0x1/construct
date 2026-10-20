@@ -242,7 +242,15 @@ def tree_rss_kb(pid):
 def run(cmd, env, cwd, timeout=900, sample=False):
     """Run a command; optionally sample its process-tree RSS every 50ms."""
     t0 = time.perf_counter()
-    p = subprocess.Popen(cmd, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    # PWD must agree with cwd: opencode resolves the directory it works in
+    # from $PWD, and an inherited one points the agent at another repo.
+    env = {**env, "PWD": str(cwd)}
+    # stdin must be closed: a harness that reads piped stdin as part of the
+    # prompt waits for EOF, and an inherited open pipe never sends one.
+    # PWD must match cwd: opencode takes its working directory (and which
+    # AGENTS.md to load) from $PWD, not getcwd().
+    env = dict(env, PWD=str(cwd))
+    p = subprocess.Popen(cmd, env=env, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     samples = []
     stop = threading.Event()
 
@@ -698,6 +706,16 @@ def main():
     ap.add_argument("--jev", action="store_true", help="give construct the TypeSafe key (Jev router)")
     args = ap.parse_args()
     Construct.jev = args.jev
+    # One bench at a time: two runs share WORK and would corrupt each other.
+    import fcntl
+    WORK.mkdir(parents=True, exist_ok=True)
+    lock = open(WORK / "bench.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f"another bench is running (lock {WORK / 'bench.lock'}); stop it with bench/stop.sh")
+    lock.write(str(os.getpid()))
+    lock.flush()
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")

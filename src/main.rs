@@ -236,6 +236,20 @@ async fn headless(cfg: Config, paths: Paths, resume: Option<String>, text: Strin
 
 async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: bool) -> Result<()> {
     if let Some(id) = session {
+        // Debounce: a session continued with `-c` spawns a learner per turn.
+        // Wait until the session has gone quiet so only the last learner
+        // reviews, and it never competes with a running turn for the model.
+        let file = paths.sessions_dir().join(format!("{id}.jsonl"));
+        let quiet = std::env::var("CONSTRUCT_LEARN_DEBOUNCE_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(20_000u64);
+        if quiet > 0 {
+            let size = |f: &std::path::Path| std::fs::metadata(f).map(|m| m.len()).unwrap_or(0);
+            let before = size(&file);
+            tokio::time::sleep(std::time::Duration::from_millis(quiet)).await;
+            if size(&file) != before {
+                learn::log_line(&paths, &format!("session {id}: still active; leaving it to the next learner"));
+                return Ok(());
+            }
+        }
         let (_, msgs) = session::Log::open(&paths, &id)?;
         let user_turns = msgs.iter().filter(|m| m.role == "user").count() as u32;
         let tool_calls = msgs.iter().map(|m| m.tool_calls.len() as u32).sum();
@@ -243,8 +257,11 @@ async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: b
         // A session may already have been reviewed in-process up to some point.
         let reviewed = st["reviewed"][&id].as_u64().unwrap_or(0) as usize;
         let fresh = if reviewed > 0 && reviewed < msgs.len() { &msgs[reviewed..] } else { &msgs[..] };
-        if reviewed < msgs.len() {
-            if let Some(kind) = learn::kind_for(user_turns, tool_calls) {
+        if reviewed < msgs.len() && learn::kind_for(user_turns, tool_calls).is_some() {
+            // A cheap check first: most sessions hold nothing worth a review.
+            let gate = learn::gate(&cfg, fresh).await;
+            learn::log_line(&paths, &format!("session {id}: gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
+            if let Some(kind) = gate.kind {
                 match learn::review(&cfg, &paths, fresh, kind).await {
                     Ok(o) => {
                         learn::log_line(&paths, &format!("session {id}: {} | {}", o.summary, o.actions.join("; ")));
