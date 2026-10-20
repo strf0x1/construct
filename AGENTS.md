@@ -73,8 +73,9 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
   only; everything else is routed per turn and stays on once enabled.
 - Learning must earn its tokens: the gate runs before any LLM review.
 - Router/gate changes: score them with `python3 bench/jev/eval.py` (and
-  `--set holdout`) before and after. Jev favours the first option of a choice,
-  so put the conservative answer first.
+  `--set holdout`) before and after. Phrase nouls strictly ("explicitly
+  require ...; answer no if ..."); in a choice put the conservative answer
+  first, since Jev favours the first option.
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
   `python3 bench/report.py`. Never rebuild `target/release/construct` while a
   bench is running.

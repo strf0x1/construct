@@ -73,3 +73,15 @@ seeded with the 14-skill library (bench/jev/library.json), binary d70d542.
   generic steps, and one real pitfall. A one-session, task-shaped skill: the
   recurrence problem the learner redesign targets. One Jev gate call failed
   (network) and fell back to local.
+
+## Correction: strict nouls beat the choice design (2026-10-20)
+
+Earlier I concluded nouls "read literally" and switched group routing to
+choices. That was mostly bad wording. thruwire/foreman phrases nouls strictly
+("Does the work explicitly require ...", "Answer no when ... insufficient");
+the same pattern here ("Does `request` explicitly require <group>? Answer no
+if it can be done with only the local files and a shell, or if the evidence is
+insufficient.") scores groups 43/47 (held-out 16/18) vs the two-choice design
+40/47 (15/18) and loose nouls 12/47. Nouls also have no option-order bias and
+allow several groups. The router now uses strict nouls; the learning gate keeps
+its task-first choice (18/18, 7/8). Latency unchanged (~110ms p50).
