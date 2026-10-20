@@ -108,16 +108,17 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let mut ledger_note = Vec::new();
 
     let loaded = skills_loaded(messages);
-    let mut recurring: Vec<(Observation, Vec<Observation>)> = Vec::new();
-    if matches!(kind, Kind::Skills | Kind::Both) {
+    // Observe whenever the gate fired: a procedure the user had to supply
+    // reads as a preference to the gate, but it is exactly what recurs.
+    let recurring = {
         let prior = ledger(paths);
         let new = observe(&client, cfg.learn_model(), messages, session).await.unwrap_or_default();
         append_ledger(paths, &new);
         for o in &new {
             ledger_note.push(format!("ledger: {}", o.problem_class));
         }
-        recurring = recurrences(cfg, &new, &prior).await;
-    }
+        recurrences(cfg, &new, &prior).await
+    };
     let skills_ok = !loaded.is_empty() || !recurring.is_empty();
     if !wants_memory && !skills_ok {
         let summary = if ledger_note.is_empty() {

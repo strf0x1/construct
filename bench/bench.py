@@ -875,9 +875,115 @@ def suite_routing(args):
     }
     save("routing", {"model": args.model, "rounds": args.rounds, "prompt": ROUTING_PROMPT, "raw": results, "summary": summary})
 
+
+# ---------------------------------------------------------------- loop
+# The learning loop end to end, on a landmine nothing in the repo explains:
+# the tests read generated fixtures, so `./tools/gen-fixtures` must run first.
+# Sessions 1 and 2 are different tasks where the user has to say so; session
+# 3 is a third task with no hint. A control runs session 3 in a fresh home.
+
+LOOP_HINT = "The tests need ./tools/gen-fixtures run first; that's how this repo works."
+LOOP_TASKS = [
+    ("median", "Add a median(values) function to stats.py with a unit test, and make sure the whole test suite passes."),
+    ("mode", "Add a mode(values) function to stats.py (most common value, ValueError on empty) with a unit test, and make sure the whole test suite passes."),
+    ("variance", "Add a variance(values) function to stats.py (population variance, ValueError on empty) with a unit test, and make sure the whole test suite passes."),
+]
+
+
+def loop_fixture(dest: Path):
+    if dest.exists():
+        shutil.rmtree(dest)
+    (dest / "tools").mkdir(parents=True)
+    (dest / "stats.py").write_text('"""Small statistics helpers."""\n\n\ndef mean(values):\n    if not values:\n        raise ValueError("mean of empty list")\n    return sum(values) / len(values)\n')
+    (dest / "test_stats.py").write_text(
+        "import json\nimport unittest\nfrom pathlib import Path\n\nfrom stats import mean\n\n"
+        "GOLDEN = json.loads((Path(__file__).parent / '.fixtures' / 'golden.json').read_text())\n\n\n"
+        "class MeanTest(unittest.TestCase):\n    def test_golden(self):\n        for case in GOLDEN['mean']:\n            self.assertAlmostEqual(mean(case['in']), case['out'])\n\n\n"
+        "if __name__ == '__main__':\n    unittest.main()\n"
+    )
+    gen = dest / "tools" / "gen-fixtures"
+    gen.write_text("#!/usr/bin/env bash\nset -e\ncd \"$(dirname \"$0\")/..\"\nmkdir -p .fixtures\necho '{\"mean\": [{\"in\": [1, 2, 3, 4], \"out\": 2.5}]}' > .fixtures/golden.json\necho 'fixtures written'\n")
+    gen.chmod(0o755)
+    (dest / "README.md").write_text("# stats\n\nSmall statistics helpers.\n")
+    (dest / ".gitignore").write_text(".fixtures/\n")
+    subprocess.run(["git", "init", "-q"], cwd=dest)
+    subprocess.run(["git", "add", "-A"], cwd=dest)
+    subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
+
+
+def check_loop(work: Path, fn: str):
+    r = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=work, capture_output=True, timeout=60)
+    tests = (work / "test_stats.py").read_text()
+    return {"tests_pass": r.returncode == 0, f"{fn}_tested": fn in tests, "fixtures_built": (work / ".fixtures" / "golden.json").exists()}
+
+
+def suite_loop(args):
+    names = args.harness
+    results = {n: [] for n in names + ["control"]}
+
+    def session(h, ep, base, i, hint):
+        fn, prompt = LOOP_TASKS[i]
+        work = base / f"work{i}"
+        loop_fixture(work)
+        before = len(ep.records())
+        out = run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)
+        stdout = out["stdout"]
+        if hint:
+            out2 = run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT], h.full_env(), work, timeout=args.timeout)
+            stdout += out2["stdout"]
+        wait_for_learners()
+        recs = ep.records()[before:]
+        calls = [json.loads(l) for l in stdout.splitlines() if '"event":"tool_start"' in l]
+        first_test = next((k for k, c in enumerate(calls) if "unittest" in c.get("args", "") or "test_stats" in c.get("args", "")), None)
+        first_gen = next((k for k, c in enumerate(calls) if "gen-fixtures" in c.get("args", "")), None)
+        route = next((json.loads(l) for l in stdout.splitlines() if '"event":"route"' in l), {})
+        return {
+            "task": fn,
+            "checks": check_loop(work, fn),
+            "requests": sum(1 for x in recs if x.get("n_tools")),
+            "learn_requests": sum(1 for x in recs if not x.get("n_tools")) ,
+            "prompt_tokens": sum((x.get("usage") or {}).get("prompt_tokens") or 0 for x in recs),
+            "gen_before_tests": first_gen is not None and (first_test is None or first_gen < first_test),
+            "suggested": [s[0] for s in route.get("skills", [])],
+            "skill_loaded": any(c.get("name") == "skill" for c in calls),
+        }
+
+    for r in range(args.rounds):
+        for n in order(names, r):
+            base = WORK / "loop" / n / f"r{r}"
+            if base.exists():
+                shutil.rmtree(base)
+            h = {**HARNESSES, **VARIANTS}[n](base / "home")
+            ep = Endpoint(base / "ep", upstream=args.upstream)
+            h.configure(ep.url, args.model)
+            s = [session(h, ep, base, 0, True), session(h, ep, base, 1, True), session(h, ep, base, 2, False)]
+            ledger = (h.home / "learn" / "ledger.jsonl")
+            learned = {
+                "ledger": [json.loads(l)["problem_class"] for l in ledger.read_text().splitlines()] if ledger.exists() else [],
+                "skills": sorted(p.name for p in (h.home / "skills").iterdir() if p.is_dir() and not p.name.startswith(".")) if (h.home / "skills").exists() else [],
+                "memory": (h.home / "memory" / "MEMORY.md").read_text() if (h.home / "memory" / "MEMORY.md").exists() else "",
+                "learn_log": (h.home / "learn.log").read_text()[-3000:] if (h.home / "learn.log").exists() else "",
+            }
+            ep.close()
+            results[n].append({"sessions": s, "learned": learned})
+            print(f"round {r} {n:14} s3 pass={s[2]['checks']['tests_pass']} gen_first={s[2]['gen_before_tests']} suggested={s[2]['suggested']} loaded={s[2]['skill_loaded']} "
+                  f"s3 requests={s[2]['requests']} | s1/s2 pass={[x['checks']['tests_pass'] for x in s[:2]]} | ledger={learned['ledger']} skills={learned['skills']} memory={learned['memory'][:120]!r}")
+        # control: session 3 with nothing learned
+        base = WORK / "loop" / "control" / f"r{r}"
+        if base.exists():
+            shutil.rmtree(base)
+        h = Construct(base / "home")
+        ep = Endpoint(base / "ep", upstream=args.upstream)
+        h.configure(ep.url, args.model)
+        c = session(h, ep, base, 2, False)
+        ep.close()
+        results["control"].append({"sessions": [c]})
+        print(f"round {r} control        s3 pass={c['checks']['tests_pass']} gen_first={c['gen_before_tests']} s3 requests={c['requests']}")
+    save("loop", {"model": args.model, "rounds": args.rounds, "hint": LOOP_HINT, "tasks": LOOP_TASKS, "raw": results})
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing"])
+    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop"])
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--calls", type=int, default=15)
     ap.add_argument("--steps", type=int, default=120)
@@ -905,7 +1011,7 @@ def main():
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
-    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing}[args.suite](args)
+    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop}[args.suite](args)
 
 
 if __name__ == "__main__":
