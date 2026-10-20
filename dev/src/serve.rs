@@ -39,6 +39,8 @@ pub struct Config {
     pub script: Vec<Step>,
     /// After the script: answer N more requests with this tool call before stopping.
     pub repeat_call: Option<(Step, usize)>,
+    /// Replies to side calls (no tools), in order; "Side reply" after that.
+    pub side: Vec<String>,
     pub upstream: Option<String>,
     pub key: Option<String>,
     pub log: Option<PathBuf>,
@@ -49,6 +51,7 @@ pub struct Config {
 struct Shared {
     cfg: Config,
     next: Mutex<usize>,
+    side_next: Mutex<usize>,
     repeated: Mutex<usize>,
     start: Instant,
     log: Mutex<Option<std::fs::File>>,
@@ -64,6 +67,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
     let shared = Arc::new(Shared {
         cfg,
         next: Mutex::new(0),
+        side_next: Mutex::new(0),
         repeated: Mutex::new(0),
         start: Instant::now(),
         log: Mutex::new(log),
@@ -333,7 +337,10 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let side = req["tools"].as_array().is_none_or(|t| t.is_empty());
     rec["side"] = json!(side);
     let step = if side {
-        Some(Step::Text { text: "Side reply".into(), delay_ms: 0, reasoning: None })
+        let mut n = s.side_next.lock().unwrap();
+        let text = s.cfg.side.get(*n).cloned().unwrap_or_else(|| "Side reply".into());
+        *n += 1;
+        Some(Step::Text { text, delay_ms: 0, reasoning: None })
     } else {
         let mut n = s.next.lock().unwrap();
         let st = s.cfg.script.get(*n).cloned();

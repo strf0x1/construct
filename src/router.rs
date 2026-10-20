@@ -196,7 +196,7 @@ const STOP: &[&str] = &[
 
 /// Share of the skill's words that appear in the request, weighted toward
 /// rarer (longer) words. Crude, fast, and good enough as a fallback.
-fn overlap(request: &str, doc: &str) -> f32 {
+pub(crate) fn overlap(request: &str, doc: &str) -> f32 {
     let r: std::collections::HashSet<String> = words(request).into_iter().collect();
     let d = words(doc);
     if d.is_empty() || r.is_empty() {

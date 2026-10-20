@@ -67,12 +67,13 @@ enum Cmd {
 fn main() -> Result<()> {
     match Cli::parse().cmd {
         Cmd::Serve { port, script, repeat, upstream, key_env, log, dump, chunk_ms, port_file } => {
-            let steps = match script {
+            let (steps, side) = match script {
                 Some(p) => {
                     let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p)?)?;
-                    serde_json::from_value(v["steps"].clone()).context("parsing steps")?
+                    let side = serde_json::from_value(v["side"].clone()).unwrap_or_default();
+                    (serde_json::from_value(v["steps"].clone()).context("parsing steps")?, side)
                 }
-                None => vec![],
+                None => (vec![], vec![]),
             };
             let repeat_call = match repeat {
                 Some(v) => Some((serde_json::from_str(&v[0]).context("parsing repeat step")?, v[1].parse()?)),
@@ -81,7 +82,7 @@ fn main() -> Result<()> {
             let key = if upstream.is_some() { std::env::var(&key_env).ok() } else { None };
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async move {
-                let cfg = serve::Config { script: steps, repeat_call, upstream, key, log, dump_dir: dump, chunk_ms };
+                let cfg = serve::Config { script: steps, side, repeat_call, upstream, key, log, dump_dir: dump, chunk_ms };
                 let (port, h) = serve::serve(cfg, port).await?;
                 if let Some(f) = port_file {
                     std::fs::write(f, port.to_string())?;

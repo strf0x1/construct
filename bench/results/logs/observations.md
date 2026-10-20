@@ -85,3 +85,4 @@ insufficient.") scores groups 43/47 (held-out 16/18) vs the two-choice design
 40/47 (15/18) and loose nouls 12/47. Nouls also have no option-order bias and
 allow several groups. The router now uses strict nouls; the learning gate keeps
 its task-first choice (18/18, 7/8). Latency unchanged (~110ms p50).
+- Routing A/B attempt 1 (2026-10-20) void: the no-skill agent searched outside its work dir, read bench/bench.py (which held the skill text and the key id) and sibling runs' homes. Key id is now random per run and absent from the repo history. Also: nothing stops a construct agent from reading anywhere on disk; noted for the safety model.

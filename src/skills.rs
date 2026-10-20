@@ -31,6 +31,11 @@ pub struct Usage {
     pub author: String,
     #[serde(default)]
     pub pinned: bool,
+    /// Times the router put this skill in front of the model. Suggested
+    /// often but rarely viewed means the description attracts the wrong
+    /// requests.
+    #[serde(default)]
+    pub suggested: u32,
 }
 
 pub struct Library {
@@ -100,6 +105,10 @@ impl Library {
 
     pub fn usage(&self) -> BTreeMap<String, Usage> {
         std::fs::read_to_string(self.usage_path()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    pub fn suggested(&self, name: &str) {
+        self.touch(name, |u| u.suggested += 1);
     }
 
     fn touch(&self, name: &str, f: impl FnOnce(&mut Usage)) {

@@ -1143,7 +1143,7 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
                 return;
             }
         };
-        let status = match learn::review(&cfg, &paths, &slice, kind).await {
+        let status = match learn::review(&cfg, &paths, &id, &slice, kind).await {
             Ok(o) => {
                 learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));
                 if o.actions.is_empty() { "learned nothing new".to_string() } else { format!("learned: {}", o.actions.iter().map(|a| a.split(':').next().unwrap_or("")).collect::<Vec<_>>().join(", ")) }

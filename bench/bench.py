@@ -727,9 +727,157 @@ def suite_task(args):
     save("task", {"model": args.model, "rounds": args.rounds, "turns": TASK_TURNS, "raw": results, "summary": summary, "stalls": STALLS, "jev": args.jev})
 
 
+
+# ---------------------------------------------------------------- routing
+# A task that only succeeds with knowledge from one skill in a library of 15:
+# the signing key id and the landmine (`make release` wipes the changelog) are
+# written nowhere in the repo. Measures whether the router puts the right skill
+# in front of the model when the request doesn't use the skill's words.
+# The key id is random per run and lives only in that run's skill and stamp
+# script: agents do search the disk (one found this file), and sibling runs'
+# homes sit next to each other.
+
+ROUTING_PROMPT = "Get version 1.4.0 out to customers."
+RELEASE_SKILL_T = """---
+name: stats-release
+description: Ship a new version of the stats package to customers - version bump in VERSION and stats/meta.toml, signed changelog stamp, release verification. Not for publishing docs.
+---
+
+# Releasing stats
+
+1. Write the new version to `VERSION` and to `version = "..."` in `stats/meta.toml`.
+2. Run `./tools/stamp --sign-with {key} <version>`. The key id is `{key}`; nothing else is accepted.
+3. Run `./tools/verify-release`; it must print PASS.
+
+Pitfall: `make release` is deprecated and empties CHANGELOG.md. Don't run it.
+"""
+
+
+def routing_fixture(dest: Path, key: str):
+    if dest.exists():
+        shutil.rmtree(dest)
+    (dest / "stats").mkdir(parents=True)
+    (dest / "tools").mkdir()
+    (dest / "VERSION").write_text("1.3.2\n")
+    (dest / "stats" / "meta.toml").write_text('name = "stats"\nversion = "1.3.2"\n')
+    (dest / "stats" / "__init__.py").write_text('"""Small statistics helpers."""\n')
+    (dest / "CHANGELOG.md").write_text("# Changelog\n\n## 1.3.2 (signed ledger-2025, retired)\n- Fix mean of one value.\n")
+    (dest / "README.md").write_text("# stats\n\nSmall statistics helpers. Releases are signed.\n")
+    (dest / "Makefile").write_text("release:\n\t@: > CHANGELOG.md\n\t@echo released $$(cat VERSION)\n")
+    stamp = dest / "tools" / "stamp"
+    stamp.write_text(
+        "#!/usr/bin/env bash\nset -e\n"
+        'if [ "$1" != "--sign-with" ] || [ -z "$2" ] || [ -z "$3" ]; then echo "usage: stamp --sign-with <key-id> <version>" >&2; exit 2; fi\n'
+        'if [ "$2" != "{key}" ]; then echo "error: unknown signing key id \'$2\' (ask the release owner)" >&2; exit 3; fi\n'
+        'tmp=$(mktemp); { echo "# Changelog"; echo; echo "## $3 (signed $2)"; echo "- Release $3."; tail -n +3 CHANGELOG.md; } > "$tmp"; mv "$tmp" CHANGELOG.md\n'
+        'echo "stamped $3"\n'
+    )
+    verify = dest / "tools" / "verify-release"
+    verify.write_text(
+        "#!/usr/bin/env bash\n"
+        'v=$(cat VERSION); m=$(sed -n \'s/^version = "\\(.*\\)"/\\1/p\' stats/meta.toml)\n'
+        'top=$(grep -m1 "^## " CHANGELOG.md || true)\n'
+        'fail=0\n'
+        '[ "$v" = "$m" ] || { echo "FAIL: VERSION $v != meta.toml $m"; fail=1; }\n'
+        'case "$top" in "## $v (signed {key})") ;; *) echo "FAIL: top changelog entry is not a signed $v entry"; fail=1;; esac\n'
+        'grep -q "^## 1.3.2" CHANGELOG.md || { echo "FAIL: changelog history missing"; fail=1; }\n'
+        '[ $fail = 0 ] && echo PASS || exit 1\n'
+    )
+    for f in (stamp, verify):
+        f.write_text(f.read_text().replace("{key}", key))
+        f.chmod(0o755)
+    subprocess.run(["git", "init", "-q"], cwd=dest)
+    subprocess.run(["git", "add", "-A"], cwd=dest)
+    subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
+
+
+def release_skill(key: str):
+    return RELEASE_SKILL_T.replace("{key}", key)
+
+
+def check_routing(work: Path):
+    r = subprocess.run(["./tools/verify-release"], cwd=work, capture_output=True, text=True, timeout=30)
+    return {
+        "verify_pass": r.returncode == 0 and "PASS" in r.stdout,
+        "version_1_4_0": (work / "VERSION").read_text().strip() == "1.4.0",
+        "history_kept": "## 1.3.2" in (work / "CHANGELOG.md").read_text(),
+    }
+
+
+def suite_routing(args):
+    names = args.harness
+    lib = json.loads((ROOT / "bench" / "jev" / "library.json").read_text())
+    results = {n: [] for n in names}
+
+    def once(name, r):
+        base = WORK / "routing" / name / f"r{r}"
+        if base.exists():
+            shutil.rmtree(base)
+        h = {**HARNESSES, **VARIANTS}[name](base / "home")
+        work = base / "work"
+        key = f"ledger-{random.randrange(16**4):04x}"
+        routing_fixture(work, key)
+        skills = h.home / "skills"
+        for sname, desc in lib["skills"].items():
+            (skills / sname).mkdir(parents=True)
+            (skills / sname / "SKILL.md").write_text(f"---\nname: {sname}\ndescription: {desc}\n---\n\n# {sname}\n\n1. Follow the team runbook for this.\n")
+        (skills / "stats-release").mkdir()
+        (skills / "stats-release" / "SKILL.md").write_text(release_skill(key))
+        ep = Endpoint(base / "ep", upstream=args.upstream)
+        h.configure(ep.url, args.model)
+        cmd = [str(CONSTRUCT), "run", "--json", "--no-learn", ROUTING_PROMPT]
+        res = run(cmd, h.full_env(), work, timeout=args.timeout)
+        recs = ep.records()
+        ep.close()
+        route = next((json.loads(l) for l in res["stdout"].splitlines() if '"event":"route"' in l), {})
+        loaded = [json.loads(l) for l in res["stdout"].splitlines() if '"event":"tool_start"' in l and '"name":"skill"' in l]
+        ran_make = any('"event":"tool_start"' in l and "make release" in l for l in res["stdout"].splitlines())
+        checks = check_routing(work)
+        u = lambda x, k: (x.get("usage") or {}).get(k) or 0
+        return {
+            "checks": checks,
+            "success": all(checks.values()),
+            "suggested": [s[0] for s in route.get("skills", [])] if route else None,
+            "route_ms": route.get("ms"),
+            "route_source": route.get("source"),
+            "skill_loaded": bool(loaded),
+            "ran_make_release": ran_make,
+            "requests": len(recs),
+            "prompt_tokens": sum(u(x, "prompt_tokens") for x in recs),
+            "completion_tokens": sum(u(x, "completion_tokens") for x in recs),
+            "wall_s": res["wall_s"],
+        }
+
+    if not args.no_warmup:
+        for n in names:
+            m = once(n, "warm")
+            print(f"warm-up {n:14} success={m['success']} suggested={m['suggested']} loaded={m['skill_loaded']} requests={m['requests']}")
+    for r in range(args.rounds):
+        for n in order(names, r):
+            m = once(n, r)
+            results[n].append(m)
+            print(
+                f"round {r} {n:14} success={m['success']} {m['checks']} suggested={m['suggested']} loaded={m['skill_loaded']} "
+                f"make_release={m['ran_make_release']} requests={m['requests']} tokens={m['prompt_tokens']} wall {m['wall_s']:.0f}s route {m['route_ms']}ms"
+            )
+            time.sleep(args.pause)
+    summary = {
+        n: {
+            "success_rate": sum(x["success"] for x in v) / len(v) if v else None,
+            "suggested_right": sum("stats-release" in (x["suggested"] or []) for x in v),
+            "skill_loaded": sum(x["skill_loaded"] for x in v),
+            "ran_make_release": sum(x["ran_make_release"] for x in v),
+            "requests": stats([x["requests"] for x in v]),
+            "prompt_tokens": stats([x["prompt_tokens"] for x in v]),
+            "wall_s": stats([x["wall_s"] for x in v]),
+        }
+        for n, v in results.items()
+    }
+    save("routing", {"model": args.model, "rounds": args.rounds, "prompt": ROUTING_PROMPT, "raw": results, "summary": summary})
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task"])
+    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing"])
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--calls", type=int, default=15)
     ap.add_argument("--steps", type=int, default=120)
@@ -757,7 +905,7 @@ def main():
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
-    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task}[args.suite](args)
+    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing}[args.suite](args)
 
 
 if __name__ == "__main__":

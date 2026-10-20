@@ -93,12 +93,40 @@ pub struct Outcome {
 }
 
 /// Run one review over `messages`. Returns what changed.
-pub async fn review(cfg: &Config, paths: &Paths, messages: &[Message], kind: Kind) -> Result<Outcome> {
+///
+/// Skills are written from recurrence, not from one session: what this
+/// session taught goes into the observation ledger first, and a new skill is
+/// only written when the same problem class has come up in another session
+/// too. A skill that was loaded and turned out wrong can be patched at once.
+pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Message], kind: Kind) -> Result<Outcome> {
     let key = crate::secrets::api_key(&cfg.api_key_secret);
     let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
     let ctx = Arc::new(Ctx::new(std::env::current_dir().unwrap_or_default(), paths.clone(), memory, rx, None));
+    let wants_memory = matches!(kind, Kind::Memory | Kind::Both);
+    let mut ledger_note = Vec::new();
+
+    let loaded = skills_loaded(messages);
+    let mut recurring: Vec<(Observation, Vec<Observation>)> = Vec::new();
+    if matches!(kind, Kind::Skills | Kind::Both) {
+        let prior = ledger(paths);
+        let new = observe(&client, cfg.learn_model(), messages, session).await.unwrap_or_default();
+        append_ledger(paths, &new);
+        for o in &new {
+            ledger_note.push(format!("ledger: {}", o.problem_class));
+        }
+        recurring = recurrences(cfg, &new, &prior).await;
+    }
+    let skills_ok = !loaded.is_empty() || !recurring.is_empty();
+    if !wants_memory && !skills_ok {
+        let summary = if ledger_note.is_empty() {
+            "Nothing to save.".to_string()
+        } else {
+            format!("Recorded {} observation(s); a skill is written if they recur.", ledger_note.len())
+        };
+        return Ok(Outcome { summary, actions: ledger_note });
+    }
 
     let lib = ctx.skills.list();
     let mut task = String::new();
@@ -113,23 +141,174 @@ pub async fn review(cfg: &Config, paths: &Paths, messages: &[Message], kind: Kin
         }
     }
     let _ = writeln!(task);
-    if matches!(kind, Kind::Memory | Kind::Both) {
+    if wants_memory {
         let _ = writeln!(task, "{MEMORY_FOCUS}\n");
     }
-    if matches!(kind, Kind::Skills | Kind::Both) {
+    if skills_ok {
         let _ = writeln!(task, "{SKILL_FOCUS}\n");
+        if recurring.is_empty() {
+            let _ = writeln!(task, "Only patch the skills loaded this session ({}); don't create new skills. Anything else this session taught is already recorded and will become a skill if it recurs.\n", loaded.join(", "));
+        } else {
+            let _ = writeln!(task, "RECURRING PROBLEMS: these came up in more than one session, so they have earned a skill. Write or patch one class-level skill per problem class (fold it into an existing skill when one covers the territory). Use only what the evidence shows.");
+            for (o, earlier) in &recurring {
+                for e in std::iter::once(o).chain(earlier) {
+                    let _ = writeln!(task, "- [session {}] {}: {} | fix: {} | evidence: {}", e.session, e.problem_class, e.summary, e.fix, llm::truncate(&e.evidence, 300));
+                }
+            }
+            if !loaded.is_empty() {
+                let _ = writeln!(task, "You may also patch the skills loaded this session ({}).", loaded.join(", "));
+            }
+            let _ = writeln!(task, "Don't create skills for anything else.\n");
+        }
     }
     let _ = writeln!(task, "{NOTHING}");
 
     let mut groups = vec![];
-    if matches!(kind, Kind::Memory | Kind::Both) {
+    if wants_memory {
         groups.push(Group::Memory);
     }
-    if matches!(kind, Kind::Skills | Kind::Both) {
+    if skills_ok {
         groups.extend([Group::Skills, Group::SkillWrite]);
     }
     let defs = tools::definitions(&groups, &ctx);
-    run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(SYSTEM), Message::user(task)], &defs, 10).await
+    let mut out = run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(SYSTEM), Message::user(task)], &defs, 10).await?;
+    ledger_note.append(&mut out.actions);
+    out.actions = ledger_note;
+    Ok(out)
+}
+
+// ---------------------------------------------------------------- ledger
+
+/// One thing a session taught, kept until it recurs. `problem_class` is what
+/// recurrence is matched on: the kind of problem, not the task.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+#[serde(default)]
+pub struct Observation {
+    pub ts: u64,
+    pub session: String,
+    pub cwd: String,
+    pub problem_class: String,
+    pub summary: String,
+    pub fix: String,
+    pub evidence: String,
+}
+
+const OBSERVE: &str = "You read a finished agent session and note what it taught that would help a future, different task. Only these count:
+- a workaround for the assistant's own failed approach (wrong flags, a missing tool and what replaced it, an environment or project quirk);
+- a procedure or fact the user had to supply that the assistant couldn't have found;
+- a pitfall that cost several steps.
+Not: the task itself, failures in the user's code that the task was about, things a retry fixed, or anything already obvious from the repo.
+Reply with JSON only: {\"observations\": [{\"problem_class\": \"...\", \"summary\": \"...\", \"fix\": \"...\", \"evidence\": \"...\"}]}
+- problem_class: a few words naming the class of problem, general enough to recur (\"doctest inside markdown fences\", \"SSO token expiry before aws calls\"), never today's task or file names.
+- summary: one sentence. fix: the exact commands or steps that worked. evidence: the error text that showed it.
+Most sessions teach nothing: reply {\"observations\": []}.";
+
+fn ledger_path(paths: &Paths) -> std::path::PathBuf {
+    paths.home.join("learn").join("ledger.jsonl")
+}
+
+pub fn ledger(paths: &Paths) -> Vec<Observation> {
+    std::fs::read_to_string(ledger_path(paths))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+fn append_ledger(paths: &Paths, obs: &[Observation]) {
+    use std::io::Write;
+    if obs.is_empty() {
+        return;
+    }
+    let p = ledger_path(paths);
+    let _ = std::fs::create_dir_all(p.parent().unwrap());
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
+        for o in obs {
+            let _ = writeln!(f, "{}", serde_json::to_string(o).unwrap_or_default());
+        }
+    }
+}
+
+async fn observe(client: &llm::Client, model: &str, messages: &[Message], session: &str) -> Result<Vec<Observation>> {
+    let msgs = vec![Message::system(OBSERVE), Message::user(format!("<session>\n{}\n</session>", digest(messages, 40_000)))];
+    let c = client.complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(1500), temperature: None }).await?;
+    let text = c.message.content.unwrap_or_default();
+    let json_text = text.find('{').and_then(|a| text.rfind('}').map(|b| &text[a..=b])).unwrap_or("{}");
+    let v: Value = serde_json::from_str(json_text).unwrap_or(json!({}));
+    let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
+    let ts = crate::skills::now();
+    Ok(v["observations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|o| {
+            let class = o["problem_class"].as_str()?.trim();
+            (!class.is_empty()).then(|| Observation {
+                ts,
+                session: session.to_string(),
+                cwd: cwd.clone(),
+                problem_class: llm::truncate(class, 80),
+                summary: llm::truncate(o["summary"].as_str().unwrap_or(""), 300),
+                fix: llm::truncate(o["fix"].as_str().unwrap_or(""), 600),
+                evidence: llm::truncate(o["evidence"].as_str().unwrap_or(""), 400),
+            })
+        })
+        .take(5)
+        .collect())
+}
+
+/// For each new observation, the earlier ones (from other sessions) that are
+/// the same class of problem. Jev decides when a key resolves; word overlap
+/// on the problem class otherwise.
+async fn recurrences(cfg: &Config, new: &[Observation], prior: &[Observation]) -> Vec<(Observation, Vec<Observation>)> {
+    let mut out = Vec::new();
+    for o in new {
+        let others: Vec<&Observation> = prior.iter().filter(|p| p.session != o.session).rev().take(60).collect();
+        if others.is_empty() {
+            continue;
+        }
+        let jev = match crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off") {
+            Some(key) => same_problem_jev(cfg, &key, o, &others).await.ok(),
+            None => None,
+        };
+        let matched: Vec<Observation> = match jev {
+            Some(idx) => idx.into_iter().map(|i| others[i].clone()).collect(),
+            None => others
+                .iter()
+                .filter(|p| {
+                    p.problem_class.eq_ignore_ascii_case(&o.problem_class)
+                        || crate::router::overlap(&o.problem_class, &p.problem_class) >= 0.5
+                })
+                .map(|p| (*p).clone())
+                .collect(),
+        };
+        if !matched.is_empty() {
+            out.push((o.clone(), matched));
+        }
+    }
+    out
+}
+
+async fn same_problem_jev(cfg: &Config, key: &str, o: &Observation, others: &[&Observation]) -> Result<Vec<usize>, String> {
+    let mut criteria = serde_json::Map::new();
+    // "none" first: Jev favours the first option (see src/router.rs).
+    criteria.insert("none".into(), json!("none of these is the same kind of problem"));
+    for (i, p) in others.iter().enumerate() {
+        criteria.insert(format!("o{i}"), json!(format!("{}: {}", p.problem_class, llm::truncate(&p.summary, 200))));
+    }
+    let mut q = serde_json::Map::new();
+    q.insert(
+        "same".into(),
+        json!({ "type": "choice", "instructions": "Which earlier observation is the same kind of problem as `new` (would be solved by the same procedure), if any?", "criteria": criteria }),
+    );
+    let state = json!({ "new": format!("{}: {}", o.problem_class, o.summary) });
+    let v = crate::jev::ask(&cfg.router, &reqwest::Client::new(), key, "recurrence", state, q, std::time::Duration::from_secs(5)).await?;
+    let probs = v["answers"]["same"]["probabilities"].as_object().cloned().unwrap_or_default();
+    Ok(probs
+        .iter()
+        .filter(|(k, p)| *k != "none" && p.as_f64().unwrap_or(0.0) >= 0.4)
+        .filter_map(|(k, _)| k[1..].parse().ok())
+        .collect())
 }
 
 async fn run_loop(client: &llm::Client, model: &str, ctx: &Ctx, mut msgs: Vec<Message>, defs: &[Value], max: u32) -> Result<Outcome> {
@@ -166,7 +345,7 @@ async fn run_loop(client: &llm::Client, model: &str, ctx: &Ctx, mut msgs: Vec<Me
 const CURATOR: &str = "You maintain an agent-written skill library. Below is every agent-written skill with usage stats. Improve the library's shape:
 - merge skills that overlap into one class-level umbrella (patch or edit the umbrella first, then delete the others with absorbed_into);
 - archive skills that are stale (unused for a long time) and narrow, with delete and absorbed_into \"\";
-- tighten descriptions so it is obvious when each skill applies.
+- tighten descriptions so it is obvious when each skill applies. A skill suggested far more often than it is viewed has a description that attracts the wrong requests: rewrite it to say plainly what it is for and what it isn't.
 Never touch pinned skills. Deleting only archives, but be conservative: when unsure, leave a skill alone. Reply with one line summarizing what you changed.";
 
 pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
@@ -186,7 +365,7 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
         }
         n += 1;
         let idle = if u.last_used == 0 { "never".to_string() } else { format!("{}d ago", (now.saturating_sub(u.last_used)) / 86_400) };
-        let _ = writeln!(listing, "- {} (views {}, patches {}, last used {idle}): {}", s.name, u.views, u.patches, s.description);
+        let _ = writeln!(listing, "- {} (suggested {}, views {}, patches {}, last used {idle}): {}", s.name, u.suggested, u.views, u.patches, s.description);
     }
     if n < 3 {
         return Ok(None);

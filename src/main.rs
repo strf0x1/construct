@@ -313,7 +313,7 @@ async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: b
             let gate = learn::gate(&cfg, fresh).await;
             learn::log_line(&paths, &format!("session {id}: gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
             if let Some(kind) = gate.kind {
-                match learn::review(&cfg, &paths, fresh, kind).await {
+                match learn::review(&cfg, &paths, &id, fresh, kind).await {
                     Ok(o) => {
                         learn::log_line(&paths, &format!("session {id}: {} | {}", o.summary, o.actions.join("; ")));
                         println!("{}", o.summary);

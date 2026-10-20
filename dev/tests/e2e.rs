@@ -46,6 +46,7 @@ impl Env {
         let cfg = serve::Config {
             script: serde_json::from_value(steps["steps"].clone()).unwrap(),
             repeat_call: None,
+            side: serde_json::from_value(steps["side"].clone()).unwrap_or_default(),
             upstream: None,
             key: None,
             log: Some(dir.join("log.jsonl")),
@@ -192,45 +193,69 @@ fn model_can_enable_a_group_the_router_missed() {
 }
 
 #[test]
-fn learning_pass_writes_capped_memory_and_a_skill() {
-    let skill_md = "---\nname: rust-crate-release\ndescription: Release a Rust crate with changelog and tag\n---\n\n1. cargo test\n2. bump version\n3. git tag\n";
+fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
+    let skill_md = "---\nname: crate-release\ndescription: Releasing a Rust crate when the release dir is missing\n---\n\n1. mkdir -p dist\n2. cargo package\n";
     let big = "x".repeat(1500);
+    let obs = |s: &str| json!({ "observations": [{ "problem_class": "missing release output directory", "summary": s, "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
     let env = Env::new(
         "learn",
         json!({ "steps": [
+            // session 1
             { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
             { "call": "shell", "args": { "command": "exit 2" } },
             { "call": "shell", "args": { "command": "false" } },
             { "text": "released" },
-            // learning pass:
+            // its review: memory only, no skill yet
             { "call": "memory", "args": { "target": "user", "operations": [ { "action": "add", "content": big } ] } },
             { "call": "memory", "args": { "target": "user", "operations": [ { "action": "add", "content": "Releases crates on Fridays" } ] } },
-            { "call": "skill_manage", "args": { "action": "create", "name": "rust-crate-release", "content": skill_md } },
-            { "text": "Saved a preference and a release skill." }
-        ] }),
+            { "text": "Saved a preference." },
+            // session 2: the same landmine
+            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "call": "shell", "args": { "command": "exit 2" } },
+            { "call": "shell", "args": { "command": "false" } },
+            { "text": "released again" },
+            // its review: now it has recurred
+            { "call": "skill_manage", "args": { "action": "create", "name": "crate-release", "content": skill_md } },
+            { "text": "Wrote a release skill." }
+        ], "side": [obs("release dir was missing"), obs("release dir missing again")] }),
     );
     env.config("[memory]\nuser_chars = 1000\n");
+    let session = |n: usize| {
+        let mut ids: Vec<String> = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().map(|e| e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string()).collect();
+        ids.sort();
+        ids[n].clone()
+    };
+
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
-    let id = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().next().unwrap().file_name();
-    let id = id.to_string_lossy().trim_end_matches(".jsonl").to_string();
-
-    let out = env.run(&["learn", "--session", &id]);
+    let out = env.run(&["learn", "--session", &session(0)]);
     assert!(out.status.success(), "{}", text(&out));
+    let is_review = |r: &&Value| r["messages"][0]["content"].as_str().unwrap_or("").contains("learning pass");
     let reqs = env.requests();
-    let review = &reqs[4];
+    let review = reqs.iter().find(is_review).expect("review request");
     let names = tool_names(review);
-    assert!(names.contains(&"memory".into()) && names.contains(&"skill_manage".into()));
+    assert!(!names.contains(&"skill_manage".into()), "one session doesn't earn a skill: {names:?}");
     assert!(!names.contains(&"shell".into()), "the learning pass can only touch memory and skills");
     assert!(review["messages"][1]["content"].as_str().unwrap().contains("USER: release the crate"));
-    // The over-cap write was refused and the model was told why.
-    assert!(last_tool_result(&reqs[5]).contains("over the cap"));
-    let user = std::fs::read_to_string(env.home.join("memory/USER.md")).unwrap();
-    assert_eq!(user, "Releases crates on Fridays");
-    let skill = std::fs::read_to_string(env.home.join("skills/rust-crate-release/SKILL.md")).unwrap();
-    assert!(skill.contains("3. git tag"));
+    assert!(reqs.iter().any(|r| last_tool_result(r).contains("over the cap")), "over-cap write refused and explained");
+    assert_eq!(std::fs::read_to_string(env.home.join("memory/USER.md")).unwrap(), "Releases crates on Fridays");
+    assert!(!env.home.join("skills/crate-release").exists());
+    let ledger = std::fs::read_to_string(env.home.join("learn/ledger.jsonl")).unwrap();
+    assert_eq!(ledger.lines().count(), 1);
+    assert!(ledger.contains("missing release output directory"));
+
+    let out = env.run(&["run", "--no-learn", "release the crate"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let out = env.run(&["learn", "--session", &session(1)]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    let review = reqs.iter().rev().filter(is_review).find(|r| tool_names(r).contains(&"skill_manage".to_string())).expect("skill review after recurrence");
+    let prompt = review["messages"][1]["content"].as_str().unwrap();
+    assert!(prompt.contains("RECURRING PROBLEMS"), "{prompt}");
+    assert!(prompt.contains(&session(0)) && prompt.contains(&session(1)), "evidence from both sessions");
+    assert!(std::fs::read_to_string(env.home.join("skills/crate-release/SKILL.md")).unwrap().contains("mkdir -p dist"));
     let usage: Value = serde_json::from_str(&std::fs::read_to_string(env.home.join("skills/.usage.json")).unwrap()).unwrap();
-    assert_eq!(usage["rust-crate-release"]["author"], "agent");
+    assert_eq!(usage["crate-release"]["author"], "agent");
     // The next session starts knowing the user.
     let out = env.run(&["run", "--no-learn", "hi"]);
     assert!(out.status.success());

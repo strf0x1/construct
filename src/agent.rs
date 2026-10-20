@@ -238,6 +238,9 @@ impl Agent {
         self.log.event("route", json!({ "groups": route.groups.iter().map(Group::label).collect::<Vec<_>>(), "skills": route.skills, "source": route.source, "ms": route.ms, "note": route.note }));
         self.enable(route.groups.clone(), tx).await;
 
+        for (name, _) in &route.skills {
+            self.ctx.skills.suggested(name);
+        }
         let mut content = text.to_string();
         if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.skills) {
             content.push_str("\n\n");
