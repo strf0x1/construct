@@ -1,5 +1,5 @@
 ---
-source: dev/tests/snapshots.rs
+source: crates/construct-dev/tests/snapshots.rs
 expression: "screen(&env, &d)"
 ---
 

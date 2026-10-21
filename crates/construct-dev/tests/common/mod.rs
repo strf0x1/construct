@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::Once;
 
+/// The workspace root: this crate lives at `crates/construct-dev`.
 pub fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
+    Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2).unwrap().to_path_buf()
 }
 
 /// A timing limit in ms, doubled under `CONSTRUCT_E2E_SLOW=1` (set in CI).

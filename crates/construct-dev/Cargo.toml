@@ -1,0 +1,28 @@
+[package]
+name = "construct-dev"
+description = "Dev tools for construct: scripted/recording model endpoint, pty driver, bench helpers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum = "0.8"
+bytes = "1"
+clap.workspace = true
+futures.workspace = true
+portable-pty = "0.9"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["full"] }
+vt100 = "0.18"
+
+[dev-dependencies]
+insta = { version = "1.49.0", features = ["json"] }

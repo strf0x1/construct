@@ -1,24 +1,11 @@
-mod agent;
-mod config;
-mod jev;
-mod learn;
-mod llm;
-mod mcp;
-mod memory;
-mod project;
-mod prompt;
-mod router;
-mod sandbox;
-mod secrets;
-mod session;
-mod skills;
-mod tools;
-mod tui;
+//! The command line: clap types and the subcommand bodies. `main.rs` only
+//! handles the sandbox helper and calls [`run`].
 
-use agent::{Agent, Event};
+use crate::agent::{Agent, Event};
+use crate::config::{Config, Paths};
+use crate::{learn, llm, memory, router, secrets, session, skills, tools, tui};
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
-use config::{Config, Paths};
 use std::io::{IsTerminal, Read, Write};
 
 #[derive(Parser)]
@@ -90,13 +77,8 @@ enum SecretsCmd {
     Status,
 }
 
-fn main() -> Result<()> {
-    // The sandbox helper must stay single-threaded and do nothing else.
-    let argv: Vec<String> = std::env::args().collect();
-    if argv.get(1).map(String::as_str) == Some("__sandbox") {
-        sandbox::exec_child(&argv[2..]);
-    }
-    tui::trace("main");
+/// Parse the command line and run the subcommand.
+pub fn run() -> Result<()> {
     let cli = Cli::parse();
     let paths = Paths::resolve()?;
     let mut cfg = Config::load(&paths)?;

@@ -1,10 +1,10 @@
 ---
-source: dev/tests/snapshots.rs
-expression: "shaped(&env, &req)"
+source: crates/construct-dev/tests/snapshots.rs
+expression: snap
 ---
 {
-  "bytes": 4059,
-  "n_tools": 9,
+  "bytes": 3673,
+  "n_tools": 7,
   "request": {
     "model": "openrouter/free",
     "messages": [
@@ -14,7 +14,7 @@ expression: "shaped(&env, &req)"
       },
       {
         "role": "user",
-        "content": "use the calc server to add 2 and 3"
+        "content": "explain what this function does"
       }
     ],
     "stream": true,
@@ -170,46 +170,6 @@ expression: "shaped(&env, &req)"
             },
             "required": [
               "pattern"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "mcp__calc__add",
-          "description": "Add two integers",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "a": {
-                "type": "integer"
-              },
-              "b": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "a",
-              "b"
-            ]
-          }
-        }
-      },
-      {
-        "type": "function",
-        "function": {
-          "name": "mcp__calc__echo",
-          "description": "Echo text back",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "text": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "text"
             ]
           }
         }
