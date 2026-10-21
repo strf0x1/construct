@@ -177,6 +177,7 @@ impl App {
     pub(super) fn on_event(&mut self, ev: Event) {
         self.last_activity = Instant::now();
         match ev {
+            Event::Manifest(_) => {}
             Event::TurnStart => {
                 self.busy = true;
                 self.phase = Phase::Routing;

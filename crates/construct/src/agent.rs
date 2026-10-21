@@ -5,6 +5,7 @@
 
 use crate::config::{Config, Paths};
 use crate::llm::{self, Delta, Message, Usage};
+use crate::manifest::Manifest;
 use crate::router::{self, Route};
 use crate::session;
 use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
@@ -21,6 +22,8 @@ use tokio::sync::{mpsc, watch};
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
     TurnStart,
+    /// What is running: build, config hash, tools. Once, on the first turn.
+    Manifest(Manifest),
     Route {
         groups: Vec<String>,
         skills: Vec<String>,
@@ -92,6 +95,7 @@ pub struct Agent {
     pub client: llm::Client,
     pub ctx: Arc<Ctx>,
     pub catalog: Arc<Catalog>,
+    pub manifest: Manifest,
     pub messages: Vec<Message>,
     pub groups: BTreeSet<Group>,
     pub log: session::Log,
@@ -112,10 +116,11 @@ impl Agent {
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() { None } else { Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone()))) };
         let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
+        let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();
         let (log, mut messages) = match resume {
             Some(id) => session::Log::open(&paths, &id)?,
-            None => (session::Log::create(&paths, &cwd_s, &cfg.model)?, vec![]),
+            None => (session::Log::create(&paths, &cwd_s, &cfg.model, &manifest)?, vec![]),
         };
         let system = crate::prompt::build(&cwd, &memory);
         match messages.first() {
@@ -132,6 +137,7 @@ impl Agent {
             client,
             ctx,
             catalog,
+            manifest,
             messages,
             groups,
             log,
@@ -230,6 +236,9 @@ impl Agent {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
         let _ = tx.send(Event::TurnStart);
+        if self.user_turns == 0 {
+            let _ = tx.send(Event::Manifest(self.manifest.clone()));
+        }
         let route = self.route(text).await;
         let _ = tx.send(Event::Route {
             groups: route.groups.iter().map(Group::label).collect(),
