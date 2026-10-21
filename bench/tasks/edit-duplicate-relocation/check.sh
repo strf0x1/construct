@@ -15,7 +15,10 @@ t = text("access.py")
 body = t.split("def audit")[0]
 checks["final_return_changed"] = "    audit(user)\n    return user.id\n" in body
 checks["admin_added"] = "    if user.is_admin:\n        return None\n    if user.banned:" in body
-# Silent relocation: `return user.id` landed in the admin or banned branch.
-checks["no_wrong_line"] = "        return user.id" not in body
+# Silent relocation: an edit meant for the final return landed on a branch's
+# return. Its text keeps the final line's indent, so look at the branches.
+checks["no_wrong_line"] = "    if user.banned:\n        return None\n" in body and (
+    "if user.is_admin" not in body or "    if user.is_admin:\n        return None\n" in body
+)
 print(json.dumps(checks))
 PY

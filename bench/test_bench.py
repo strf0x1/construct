@@ -123,13 +123,33 @@ class Tasks(unittest.TestCase):
         self.assertFalse(all(tasklib.check(task, work).values()))
         self.assertIn('"jitter": True', (task.dir / "expected" / "config.py").read_text())
 
+    def test_stale_duplicate_hooks_add_a_copy_above_the_target(self):
+        for name in ("edit-stale-duplicate", "edit-stale-duplicate-gap"):
+            with self.subTest(name):
+                task, _, work = self.materialize(name)
+                p = work / "access.py"
+                self.assertEqual(p.read_text().count("return None"), 2)
+                tasklib.after_turn(task, 1, work)
+                hooked = p.read_text()
+                self.assertEqual(hooked.count("return None"), 3)
+                # The right edit on the hooked file is exactly the expected file.
+                right = hooked.replace("    audit(user)\n    return None", "    audit(user)\n    return user.id")
+                self.assertEqual(right, (task.dir / "expected" / "access.py").read_text())
+                # Where a stale rank-2 anchor lands: the banned branch's return,
+                # set to the text meant for the final line (its indent too).
+                for wrong in ("    return user.id", "        return user.id"):
+                    p.write_text(hooked.replace("    if user.banned:\n        return None", "    if user.banned:\n" + wrong))
+                    c = tasklib.check(task, work)
+                    self.assertFalse(c["no_wrong_line"], wrong)
+                    self.assertTrue(c["teammate_change_kept"])
+
     def test_wrong_line_edits_are_caught(self):
         task, _, work = self.materialize("edit-duplicate-relocation")
         # Silent relocation: the second edit lands on the banned branch's return.
         (work / "access.py").write_text(
             (task.dir / "expected" / "access.py").read_text()
             .replace("    audit(user)\n    return user.id", "    audit(user)\n    return None")
-            .replace("    if user.banned:\n        return None", "    if user.banned:\n        return user.id")
+            .replace("    if user.banned:\n        return None", "    if user.banned:\n    return user.id")
         )
         c = tasklib.check(task, work)
         self.assertFalse(c["exact"])
@@ -196,6 +216,21 @@ class Process(unittest.TestCase):
         self.assertEqual((e["recoveries"], e["unrecovered"], e["rereads_after_rejection"]), (1, 1, 1))
         self.assertEqual(e["echo_stripped"], 1)
         self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 60) / 3)
+        self.assertEqual(e["rewrites"], 0)
+
+    def test_a_fixed_wrong_line_edit_is_a_rewrite(self):
+        # The hash-only shape from issue #26: a stale anchor sets line 6 (the
+        # wrong copy), the model notices, puts line 6 back and sets line 8.
+        def edit(id, *regions):
+            rs = [{"index": i, "kind": "set", "old_start": s, "old_end": e, "new_start": s, "new_end": e} for i, (s, e) in enumerate(regions)]
+            return {"id": id, "name": "edit", "ok": True, "args": {"path": "access.py"}, "step": 0, "completion_tokens": 0,
+                    "data": {"path": "access.py", "status": "applied", "regions": rs}}
+
+        self.assertEqual(process.metrics([edit("a", (6, 6)), edit("b", (6, 6), (8, 8))])["edit"]["rewrites"], 1)
+        self.assertEqual(process.metrics([edit("a", (6, 6)), edit("b", (8, 8))])["edit"]["rewrites"], 0)
+        # replace records no regions, so it never counts
+        plain = {**edit("a", (1, 1)), "data": None}
+        self.assertEqual(process.metrics([plain, plain])["edit"]["rewrites"], 0)
 
 
 class Arms(unittest.TestCase):

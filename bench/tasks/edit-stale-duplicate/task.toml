@@ -1,0 +1,14 @@
+description = "Issue #26: identical lines, then a teammate adds a three-line block holding another copy above them between turns. A stale hash-only anchor names the wrong copy; a stale line+hash anchor is rejected."
+turns = [
+  "Read access.py and tell me what check() returns for a banned user. Don't change anything yet.",
+  "Change the final `return None` of check() (the one after `audit(user)`) to `return user.id`. Don't change anything else.",
+]
+timeout_s = 300
+changes = ["access.py"]
+
+[budget]
+# Tight: a model that sees the unexplained change can spend the whole
+# timeout investigating it. The edit is settled within a few requests of turn
+# 2, and a stopped run still records exact and no_wrong_line.
+max_requests = 25
+max_prompt_tokens = 600000

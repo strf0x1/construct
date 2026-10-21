@@ -52,6 +52,11 @@ def metrics(events: list) -> dict:
                 applied edit of the same path.
     rereads:    a rejected edit followed by a read of the same path before the
                 next edit of it.
+    rewrites:   an applied edit that rewrites a line an earlier applied edit of
+                the same path wrote: the trace of a wrong-line edit that was
+                noticed and fixed (one never noticed fails the task's check).
+                Only editors that report line regions (hashline) can show one,
+                and positions are not shifted for edits in between.
     """
     edits = [i for i, e in enumerate(events) if e["name"] == "edit"]
     rejected = [i for i in edits if not events[i]["ok"]]
@@ -69,6 +74,16 @@ def metrics(events: list) -> dict:
                 break
             if e["name"] == "edit":
                 break
+    rewrites, written = 0, {}
+    for i in edits:
+        regions = (events[i].get("data") or {}).get("regions") or []
+        if not events[i]["ok"] or not regions:
+            continue
+        p = path_of(events[i])
+        before = written.get(p, [])
+        if any(r["old_start"] <= e and s <= r["old_end"] for r in regions for s, e in before):
+            rewrites += 1
+        written[p] = before + [(r["new_start"], r["new_end"]) for r in regions]
     codes = {}
     for i in rejected:
         codes[events[i].get("code") or "error"] = codes.get(events[i].get("code") or "error", 0) + 1
@@ -82,6 +97,7 @@ def metrics(events: list) -> dict:
             "rejected": len(rejected),
             "unrecovered": len(rejected) - recoveries,
             "recoveries": recoveries,
+            "rewrites": rewrites,
             "rereads_after_rejection": rereads,
             "echo_stripped": sum(len((events[i].get("data") or {}).get("echo_stripped") or []) for i in edits),
             "completion_tokens_per_call": edit_tokens / len(edits) if edits else None,

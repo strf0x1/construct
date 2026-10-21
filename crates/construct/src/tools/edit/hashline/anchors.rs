@@ -377,6 +377,37 @@ mod tests {
         assert_eq!(resolve(&new, &hash_map(&["if (a) {", "}"]).anchor(2)).ok(), None, "one to two copies is loud");
     }
 
+    /// line+hash has the same hole in one geometry: a block holding a new
+    /// copy, inserted above, exactly as tall as the gap between two copies.
+    /// The previous copy then lands on the stale line with the stale rank, so
+    /// the stale anchor checks out and names the wrong line.
+    #[test]
+    fn line_hash_accepts_a_stale_duplicate_when_the_insert_matches_the_gap() {
+        let old = map(&["def f(u):", "    if u.banned:", "        return None", "    audit(u)", "    return None"]);
+        let new = map(&[
+            "def f(u):",
+            "    if u.admin:",
+            "        return None",
+            "    if u.banned:",
+            "        return None",
+            "    audit(u)",
+            "    return None",
+        ]);
+        assert_eq!(resolve(&new, &old.anchor(5)).ok(), Some(5), "the banned branch, not line 7");
+        // One line taller than the gap and the same anchor is rejected.
+        let taller = map(&[
+            "def f(u):",
+            "    # admins skip the audit",
+            "    if u.admin:",
+            "        return None",
+            "    if u.banned:",
+            "        return None",
+            "    audit(u)",
+            "    return None",
+        ]);
+        assert_eq!(resolve(&taller, &old.anchor(5)).err().unwrap().failure, Failure::Mismatch);
+    }
+
     /// Whole maps from the TypeScript reference, covering rank salts,
     /// NFC, full-width spaces and a shift by one inserted line.
     #[test]
