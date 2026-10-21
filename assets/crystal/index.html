@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construct · Living crystal</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090f12;color:#dbeae6;font:14px system-ui,sans-serif}main{min-height:100svh;display:grid;grid-template-rows:auto 1fr auto;max-width:1400px;margin:auto;padding:32px 5vw}header{display:flex;justify-content:space-between;align-items:center;gap:20px}h1{font-size:16px;font-weight:600;letter-spacing:.14em;margin:0}.diamond{color:#b9aff5;margin-right:12px}small,.sub{color:#819b94;font-size:12px}.stage{min-height:420px;height:65svh;position:relative}canvas{width:100%;height:100%;display:block}.caption{position:absolute;bottom:12px;left:0;pointer-events:none}.caption strong{display:block;font-size:28px;font-weight:400;letter-spacing:-.04em;margin-bottom:8px}footer{border-top:1px solid #24332f;padding-top:22px;display:flex;align-items:center;flex-wrap:wrap;gap:24px}label{display:grid;gap:9px;color:#819b94;font-size:12px}input{accent-color:#b9aff5;width:130px}select,button{background:#12211e;color:#dbeae6;border:1px solid #31483f;padding:10px 14px;border-radius:7px;font:inherit;cursor:pointer}button:hover,select:hover{border-color:#b9aff5}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #b9aff5;outline-offset:4px}#phase{font-variant-numeric:tabular-nums;min-width:105px} @media(max-width:600px){main{padding:24px}header small{display:none}.stage{height:60svh;min-height:350px}.caption strong{font-size:24px}footer{gap:18px}input{width:110px}}
+</style>
+<main>
+<header><h1><span class="diamond">◆</span>CONSTRUCT</h1><small>PROCEDURAL FORM / 001</small></header>
+<div class="stage"><canvas aria-label="Animated three-dimensional faceted crystal breaking apart and reassembling"></canvas><div class="caption"><strong>Order, briefly undone.</strong><span class="sub" id="fragment-caption">24 fragments. One continuous form.</span></div></div>
+<footer><label>Mineral<select id="palette"><option value="jade">Jade / mint</option><option value="ocean">Ocean / ice</option><option value="lavender" selected>Lavender / silver</option></select></label><label>Fragment count · <output id="fragment-count">24</output><input id="detail" aria-label="Fragment count" type="range" min="0" max="4" step="1" value="0"></label><label>Rotation<input id="speed" aria-label="Rotation speed" type="range" min="0" max="1" step=".01" value=".22"></label><label>Separation<input id="spread" aria-label="Fragment separation" type="range" min="0" max="1.6" step=".01" value=".85"></label><button id="pause">Pause</button><button id="burst">Break apart</button><span class="sub" id="phase" role="status">Assembled</span></footer>
+</main>
+<script>
+// Dependency-free Canvas renderer. Each triangular surface belongs to a solid
+// tetrahedral fragment, so separation reveals real interior faces, not sprites.
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+const speed=document.querySelector('#speed'),spread=document.querySelector('#spread'),phase=document.querySelector('#phase');
+const add=(a,b)=>a.map((v,i)=>v+b[i]),mul=(a,s)=>a.map(v=>v*s),sub=(a,b)=>add(a,mul(b,-1));
+const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const unit=a=>mul(a,1/(Math.hypot(...a)||1)),mean=ps=>mul(ps.reduce(add,[0,0,0]),1/ps.length);
+function rotate(p,y,x,z=0){let [a,b,c]=p;[a,b]=[a*Math.cos(z)-b*Math.sin(z),a*Math.sin(z)+b*Math.cos(z)];[a,c]=[a*Math.cos(y)+c*Math.sin(y),-a*Math.sin(y)+c*Math.cos(y)];return[a,b*Math.cos(x)-c*Math.sin(x),b*Math.sin(x)+c*Math.cos(x)]}
+const ring=[[1,0,0],[0,0,.72],[-1,0,0],[0,0,-.72]],pieces=[];
+const detail=document.querySelector('#detail');
+// Bisect the longest edge at each level. Midpoints are shared exactly, so
+// the assembled surface stays closed while fragment count doubles per step.
+function subdivide(tri,level){
+ if(level===0){
+  const vertices=[...tri,[0,0,0]],center=mean(vertices),id=pieces.length;
+  pieces.push({vertices,center,direction:unit(add(mean(tri),[Math.sin(id*2.4)*.15,0,Math.cos(id*1.7)*.15])),id});
+  return;
+ }
+ let edge=0;
+ const lengths=tri.map((p,i)=>Math.hypot(...sub(p,tri[(i+1)%3])));
+ for(let i=1;i<3;i++)if(lengths[i]>lengths[edge])edge=i;
+ const a=tri[edge],b=tri[(edge+1)%3],c=tri[(edge+2)%3],mid=mean([a,b]);
+ subdivide([a,mid,c],level-1);subdivide([mid,b,c],level-1);
+}
+function buildCrystal(level){
+ pieces.length=0;
+for(let half=0;half<2;half++)for(let side=0;side<4;side++){
+ const a=[0,half?-1.25:1.25,0],b=ring[side],c=ring[(side+1)%4];
+ // An offset ridge gives the surface its folded, asymmetric crystal facets.
+ const ridge=add(add(mul(a,.38),mul(b,.34)),mul(c,.28));
+ const peak=add(ridge,mul(unit(cross(sub(b,a),sub(c,a))),half?-.10:.10));
+ for(const tri of [[a,b,peak],[b,c,peak],[c,a,peak]]){
+  subdivide(tri,level);
+ }
+}
+ document.querySelector('#fragment-count').value=pieces.length;
+ document.querySelector('#fragment-caption').textContent=`${pieces.length} fragments. One continuous form.`;
+}
+detail.addEventListener('input',()=>buildCrystal(Number(detail.value)));
+buildCrystal(Number(detail.value));
+const palettes={jade:[153,63,57],ocean:[205,85,62],lavender:[246,48,72]};
+let width=0,height=0,time=0,angle=.22,last=performance.now(),paused=matchMedia('(prefers-reduced-motion: reduce)').matches,manualStart=null;
+const pause=document.querySelector('#pause');pause.textContent=paused?'Resume':'Pause';
+pause.onclick=()=>{paused=!paused;pause.textContent=paused?'Resume':'Pause'};
+document.querySelector('#burst').onclick=()=>{manualStart=time;if(paused){paused=false;pause.textContent='Pause'}};
+function resize(){const r=canvas.getBoundingClientRect();width=r.width;height=r.height;const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+new ResizeObserver(resize).observe(canvas);
+const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
+function envelope(t){return smooth(t/1.8)*(1-smooth((t-3.1)/2.5))}
+function draw(now){const dt=Math.min((now-last)/1000,.05);last=now;if(!paused){time+=dt;angle+=dt*Number(speed.value)*.6}
+ const loop=time%15;let t=loop-4;if(manualStart!==null){t=time-manualStart;if(t>5.6){manualStart=null;t=loop-4}}
+ const amount=envelope(t),faces=[],scale=Math.min(width*.23,height*.22)/Math.max(1,Number(spread.value)*.95),origin=[width/2,height*.46];
+ ctx.clearRect(0,0,width,height);
+ const glow=ctx.createRadialGradient(...origin,0,...origin,Math.min(width,height)*.48);glow.addColorStop(0,'#142c292f');glow.addColorStop(1,'#142c2900');ctx.fillStyle=glow;ctx.fillRect(0,0,width,height);
+ for(const piece of pieces){const delay=(piece.id%5)*.055,e=envelope(t-delay)*Number(spread.value);
+  const offset=mul(piece.direction,e*(.65+(piece.id%4)*.12));
+  const points=piece.vertices.map(v=>rotate(add(add(rotate(sub(v,piece.center),e*.27*Math.sin(piece.id),e*.20,e*.18*Math.cos(piece.id)),piece.center),offset),angle,-.12,.05));
+  for(const indices of [[0,1,2],[0,3,1],[1,3,2],[2,3,0]]){
+   let vs=indices.map(i=>points[i]),normal=unit(cross(sub(vs[1],vs[0]),sub(vs[2],vs[0])));
+   if(dot(normal,sub(mean(vs),mean(points)))<0)normal=mul(normal,-1);
+   const center=mean(vs),view=sub([0,0,5],center);if(dot(normal,view)<=0)continue;
+   const light=Math.max(0,dot(normal,unit([-.6,1,2]))),[h,s,l]=palettes[document.querySelector('#palette').value];
+   const variation=Math.sin(piece.id*4.1)*5,lum=17+light*(l-5)+variation;
+   faces.push({vs,z:center[2],color:`hsl(${h+Math.sin(piece.id)*7} ${s}% ${lum}%)`,edge:`hsla(${h} 65% 85% / .16)`});
+  }
+ }
+ faces.sort((a,b)=>a.z-b.z);
+ for(const face of faces){ctx.beginPath();face.vs.forEach((p,i)=>{const perspective=5/(5-p[2]);const x=origin[0]+p[0]*scale*perspective,y=origin[1]-p[1]*scale*perspective;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fillStyle=face.color;ctx.fill();ctx.lineWidth=.6;ctx.strokeStyle=face.edge;ctx.stroke()}
+ const text=amount<.01?'Assembled':t<1.8?'Separating':t<3.1?'Suspended':'Reassembling';if(phase.textContent!==text)phase.textContent=text;
+ requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</html>
