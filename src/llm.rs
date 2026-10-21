@@ -54,7 +54,13 @@ impl Message {
         Self { role: role.into(), content: Some(text.into()), tool_calls: vec![], tool_call_id: None, reasoning: None }
     }
     pub fn tool(id: &str, text: impl Into<String>) -> Self {
-        Self { role: "tool".into(), content: Some(text.into()), tool_calls: vec![], tool_call_id: Some(id.into()), reasoning: None }
+        Self {
+            role: "tool".into(),
+            content: Some(text.into()),
+            tool_calls: vec![],
+            tool_call_id: Some(id.into()),
+            reasoning: None,
+        }
     }
     /// The wire form: reasoning stripped, empty assistant content as null.
     fn wire(&self) -> Value {
@@ -95,7 +101,9 @@ pub enum Delta {
     Text(String),
     Reasoning(String),
     /// A tool call's name is known; its arguments are still streaming.
-    ToolStarted { name: String },
+    ToolStarted {
+        name: String,
+    },
     /// The response stream has opened (first byte from the endpoint).
     Opened,
 }
@@ -257,10 +265,8 @@ impl Accumulator {
         if let Some(u) = v.get("usage").filter(|u| u.is_object()) {
             self.usage.prompt_tokens = u["prompt_tokens"].as_u64().unwrap_or(0);
             self.usage.completion_tokens = u["completion_tokens"].as_u64().unwrap_or(0);
-            self.usage.cached_tokens = u
-                .pointer("/prompt_tokens_details/cached_tokens")
-                .and_then(Value::as_u64)
-                .unwrap_or(0);
+            self.usage.cached_tokens =
+                u.pointer("/prompt_tokens_details/cached_tokens").and_then(Value::as_u64).unwrap_or(0);
         }
         let Some(choice) = v.get("choices").and_then(|c| c.get(0)) else { return };
         if let Some(f) = choice.get("finish_reason").and_then(Value::as_str) {

@@ -95,7 +95,12 @@ fn normalize(url: &str) -> String {
 mod tests {
     #[test]
     fn remotes_normalize_to_one_identity() {
-        for u in ["git@github.com:Me/Repo.git", "https://github.com/me/repo", "ssh://git@github.com/me/repo.git", "https://user@github.com/me/repo/"] {
+        for u in [
+            "git@github.com:Me/Repo.git",
+            "https://github.com/me/repo",
+            "ssh://git@github.com/me/repo.git",
+            "https://user@github.com/me/repo/",
+        ] {
             assert_eq!(super::normalize(u), "github.com/me/repo", "{u}");
         }
     }

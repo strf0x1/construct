@@ -98,7 +98,12 @@ impl Manager {
 
 async fn start(cfg: &McpServer) -> Result<Conn> {
     let mut cmd = tokio::process::Command::new(&cfg.command);
-    cmd.args(&cfg.args).envs(&cfg.env).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+    cmd.args(&cfg.args)
+        .envs(&cfg.env)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     let mut child = cmd.spawn()?;
     let stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();

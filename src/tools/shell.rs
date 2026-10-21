@@ -13,12 +13,9 @@ const MAX_TIMEOUT_S: u64 = 1800;
 
 pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
-    let timeout = a
-        .get("timeout")
-        .and_then(Value::as_u64)
-        .unwrap_or(DEFAULT_TIMEOUT_S)
-        .clamp(1, MAX_TIMEOUT_S);
-    let cwd = a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
+    let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
+    let cwd =
+        a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
     ctx.sandbox.check_read(&cwd)?;
 
     let shell = if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" };
@@ -81,11 +78,12 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
             // Landlock denials look like ordinary permission errors; say why.
-            let hint = if !ctx.sandbox.off && (out.contains("Permission denied") || out.contains("Operation not permitted")) {
-                "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
-            } else {
-                ""
-            };
+            let hint =
+                if !ctx.sandbox.off && (out.contains("Permission denied") || out.contains("Operation not permitted")) {
+                    "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
+                } else {
+                    ""
+                };
             Err(format!("{out}\n[exit {c}]{hint}"))
         }
         (None, None) => Err(format!("{out}\n[killed by signal]")),

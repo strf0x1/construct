@@ -132,7 +132,11 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let lib = ctx.skills.list();
     let mut task = String::new();
     let _ = writeln!(task, "<session>\n{}\n</session>\n", digest(messages, 60_000));
-    let _ = writeln!(task, "Current memory:{}", if ctx.memory.prompt_block().is_empty() { " (empty)".to_string() } else { ctx.memory.prompt_block() });
+    let _ = writeln!(
+        task,
+        "Current memory:{}",
+        if ctx.memory.prompt_block().is_empty() { " (empty)".to_string() } else { ctx.memory.prompt_block() }
+    );
     let project_lib = ctx.project_skills.as_ref().map(|p| p.list()).unwrap_or_default();
     if lib.is_empty() && project_lib.is_empty() {
         let _ = writeln!(task, "\nSkill library: empty.");
@@ -152,12 +156,28 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     if skills_ok {
         let _ = writeln!(task, "{SKILL_FOCUS}\n");
         if recurring.is_empty() {
-            let _ = writeln!(task, "Only patch the skills loaded this session ({}); don't create new skills. Anything else this session taught is already recorded and will become a skill if it recurs.\n", loaded.join(", "));
+            let _ = writeln!(
+                task,
+                "Only patch the skills loaded this session ({}); don't create new skills. Anything else this session taught is already recorded and will become a skill if it recurs.\n",
+                loaded.join(", ")
+            );
         } else {
-            let _ = writeln!(task, "RECURRING PROBLEMS: these came up in more than one session, so they have earned a skill. Write or patch one class-level skill per problem class (fold it into an existing skill when one covers the territory). Use scope 'project' when every occurrence is in the same repo and the fix only makes sense there; 'global' when it is a method that carries across repos. When patching, add only what this evidence shows, never advice about today's task.");
+            let _ = writeln!(
+                task,
+                "RECURRING PROBLEMS: these came up in more than one session, so they have earned a skill. Write or patch one class-level skill per problem class (fold it into an existing skill when one covers the territory). Use scope 'project' when every occurrence is in the same repo and the fix only makes sense there; 'global' when it is a method that carries across repos. When patching, add only what this evidence shows, never advice about today's task."
+            );
             for (o, earlier) in &recurring {
                 for e in std::iter::once(o).chain(earlier) {
-                    let _ = writeln!(task, "- [session {} · repo {}] {}: {} | fix: {} | evidence: {}", e.session, e.cwd, e.problem_class, e.summary, e.fix, llm::truncate(&e.evidence, 300));
+                    let _ = writeln!(
+                        task,
+                        "- [session {} · repo {}] {}: {} | fix: {} | evidence: {}",
+                        e.session,
+                        e.cwd,
+                        e.problem_class,
+                        e.summary,
+                        e.fix,
+                        llm::truncate(&e.evidence, 300)
+                    );
                 }
             }
             if !loaded.is_empty() {
@@ -176,7 +196,9 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
         groups.extend([Group::Skills, Group::SkillWrite]);
     }
     let defs = tools::definitions(&groups, &ctx);
-    let mut out = run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(SYSTEM), Message::user(task)], &defs, 10).await?;
+    let mut out =
+        run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(SYSTEM), Message::user(task)], &defs, 10)
+            .await?;
     ledger_note.append(&mut out.actions);
     out.actions = ledger_note;
     Ok(out)
@@ -248,8 +270,11 @@ fn append_ledger(paths: &Paths, obs: &[Observation]) {
 }
 
 async fn observe(client: &llm::Client, model: &str, messages: &[Message], session: &str) -> Result<Vec<Observation>> {
-    let msgs = vec![Message::system(OBSERVE), Message::user(format!("<session>\n{}\n</session>", digest(messages, 40_000)))];
-    let c = client.complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(1500), temperature: None }).await?;
+    let msgs =
+        vec![Message::system(OBSERVE), Message::user(format!("<session>\n{}\n</session>", digest(messages, 40_000)))];
+    let c = client
+        .complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(1500), temperature: None })
+        .await?;
     let text = c.message.content.unwrap_or_default();
     let json_text = text.find('{').and_then(|a| text.rfind('}').map(|b| &text[a..=b])).unwrap_or("{}");
     let v: Value = serde_json::from_str(json_text).unwrap_or(json!({}));
@@ -285,7 +310,9 @@ async fn recurrences(cfg: &Config, new: &[Observation], prior: &[Observation]) -
         if others.is_empty() {
             continue;
         }
-        let jev = match crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off") {
+        let jev = match crate::secrets::get("TYPESAFE_API_KEY")
+            .filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
+        {
             Some(key) => same_problem_jev(cfg, &key, o, &others).await.ok(),
             None => None,
         };
@@ -307,7 +334,12 @@ async fn recurrences(cfg: &Config, new: &[Observation], prior: &[Observation]) -
     out
 }
 
-async fn same_problem_jev(cfg: &Config, key: &str, o: &Observation, others: &[&Observation]) -> Result<Vec<usize>, String> {
+async fn same_problem_jev(
+    cfg: &Config,
+    key: &str,
+    o: &Observation,
+    others: &[&Observation],
+) -> Result<Vec<usize>, String> {
     let mut criteria = serde_json::Map::new();
     // "none" first: Jev favours the first option (see src/router.rs).
     criteria.insert("none".into(), json!("none of these is the same kind of problem"));
@@ -320,7 +352,16 @@ async fn same_problem_jev(cfg: &Config, key: &str, o: &Observation, others: &[&O
         json!({ "type": "choice", "instructions": "Which earlier observation is the same kind of problem as `new` (would be solved by the same procedure), if any?", "criteria": criteria }),
     );
     let state = json!({ "new": format!("{}: {}", o.problem_class, o.summary) });
-    let v = crate::jev::ask(&cfg.router, &reqwest::Client::new(), key, "recurrence", state, q, std::time::Duration::from_secs(5)).await?;
+    let v = crate::jev::ask(
+        &cfg.router,
+        &reqwest::Client::new(),
+        key,
+        "recurrence",
+        state,
+        q,
+        std::time::Duration::from_secs(5),
+    )
+    .await?;
     let probs = v["answers"]["same"]["probabilities"].as_object().cloned().unwrap_or_default();
     Ok(probs
         .iter()
@@ -329,8 +370,16 @@ async fn same_problem_jev(cfg: &Config, key: &str, o: &Observation, others: &[&O
         .collect())
 }
 
-async fn run_loop(client: &llm::Client, model: &str, ctx: &Ctx, mut msgs: Vec<Message>, defs: &[Value], max: u32) -> Result<Outcome> {
-    let allowed: Vec<String> = defs.iter().filter_map(|d| d.pointer("/function/name").and_then(Value::as_str).map(String::from)).collect();
+async fn run_loop(
+    client: &llm::Client,
+    model: &str,
+    ctx: &Ctx,
+    mut msgs: Vec<Message>,
+    defs: &[Value],
+    max: u32,
+) -> Result<Outcome> {
+    let allowed: Vec<String> =
+        defs.iter().filter_map(|d| d.pointer("/function/name").and_then(Value::as_str).map(String::from)).collect();
     let mut actions = Vec::new();
     for _ in 0..max {
         let c = client
@@ -351,7 +400,10 @@ async fn run_loop(client: &llm::Client, model: &str, ctx: &Ctx, mut msgs: Vec<Me
                 Ok(s) => s.clone(),
                 Err(e) => format!("Error: {e}"),
             };
-            if out.is_ok() && call.function.name != "skill" && !(call.function.name == "skill_manage" && call.function.arguments.contains("\"list\"")) {
+            if out.is_ok()
+                && call.function.name != "skill"
+                && !(call.function.name == "skill_manage" && call.function.arguments.contains("\"list\""))
+            {
                 actions.push(format!("{}: {}", call.function.name, llm::truncate(&text, 120)));
             }
             msgs.push(Message::tool(&call.id, text));
@@ -382,14 +434,24 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
             continue;
         }
         n += 1;
-        let idle = if u.last_used == 0 { "never".to_string() } else { format!("{}d ago", (now.saturating_sub(u.last_used)) / 86_400) };
-        let _ = writeln!(listing, "- {} (suggested {}, views {}, patches {}, last used {idle}): {}", s.name, u.suggested, u.views, u.patches, s.description);
+        let idle = if u.last_used == 0 {
+            "never".to_string()
+        } else {
+            format!("{}d ago", (now.saturating_sub(u.last_used)) / 86_400)
+        };
+        let _ = writeln!(
+            listing,
+            "- {} (suggested {}, views {}, patches {}, last used {idle}): {}",
+            s.name, u.suggested, u.views, u.patches, s.description
+        );
     }
     if n < 3 {
         return Ok(None);
     }
     let defs = tools::definitions(&[Group::Skills, Group::SkillWrite], &ctx);
-    let out = run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(CURATOR), Message::user(listing)], &defs, 16).await?;
+    let out =
+        run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(CURATOR), Message::user(listing)], &defs, 16)
+            .await?;
     Ok(Some(out))
 }
 
@@ -480,8 +542,24 @@ fn skills_loaded(messages: &[Message]) -> Vec<String> {
 }
 
 const PREFERENCE_HINTS: &[&str] = &[
-    "i prefer", "i like", "i don't like", "i hate", "i want you to", "always ", "never ", "stop ", "don't ", "do not ",
-    "remember", "from now on", "call me", "my name", "too verbose", "too long", "next time", "on my machine",
+    "i prefer",
+    "i like",
+    "i don't like",
+    "i hate",
+    "i want you to",
+    "always ",
+    "never ",
+    "stop ",
+    "don't ",
+    "do not ",
+    "remember",
+    "from now on",
+    "call me",
+    "my name",
+    "too verbose",
+    "too long",
+    "next time",
+    "on my machine",
 ];
 
 /// Decide whether a stretch of session holds anything worth an LLM review,
@@ -501,7 +579,9 @@ pub async fn gate(cfg: &Config, messages: &[Message]) -> Gate {
     // The user telling us something we've already been told is the strongest
     // sign of recurrence, even when it reads as an ordinary request.
     match repeats_ledger(cfg, &users).await {
-        Some(lesson) => Gate { kind: Some(Kind::Both), source: g.source, note: format!("{} repeats_ledger={lesson:?}", g.note) },
+        Some(lesson) => {
+            Gate { kind: Some(Kind::Both), source: g.source, note: format!("{} repeats_ledger={lesson:?}", g.note) }
+        }
         None => g,
     }
 }
@@ -514,8 +594,12 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
     if recent.is_empty() {
         return None;
     }
-    let lesson = |o: &Observation| format!("{}: {} (fix: {})", o.problem_class, llm::truncate(&o.summary, 160), llm::truncate(&o.fix, 160));
-    if let Some(key) = crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off") {
+    let lesson = |o: &Observation| {
+        format!("{}: {} (fix: {})", o.problem_class, llm::truncate(&o.summary, 160), llm::truncate(&o.fix, 160))
+    };
+    if let Some(key) =
+        crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
+    {
         let mut criteria = serde_json::Map::new();
         // "none" first: Jev favours the first option (see src/router.rs).
         criteria.insert("none".into(), json!("the user doesn't restate any of these"));
@@ -525,7 +609,17 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
         let mut q = serde_json::Map::new();
         q.insert("repeat".into(), json!({ "type": "choice", "instructions": "Does the user, in `user_messages`, tell the assistant one of these earlier lessons again?", "criteria": criteria }));
         let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
-        if let Ok(v) = crate::jev::ask(&cfg.router, &reqwest::Client::new(), &key, "repeat", json!({ "user_messages": users }), q, std::time::Duration::from_secs(5)).await {
+        if let Ok(v) = crate::jev::ask(
+            &cfg.router,
+            &reqwest::Client::new(),
+            &key,
+            "repeat",
+            json!({ "user_messages": users }),
+            q,
+            std::time::Duration::from_secs(5),
+        )
+        .await
+        {
             let probs = v["answers"]["repeat"]["probabilities"].as_object().cloned().unwrap_or_default();
             return probs
                 .iter()
@@ -563,10 +657,20 @@ pub async fn gate_parts(cfg: &Config, users: &[String], errors: &[String], loade
         (false, true) => Some(Kind::Skills),
         _ => None,
     };
-    Gate { kind, source: "local", note: format!("preference={pref} tool_errors={} skills_loaded={}", errors.len(), loaded.len()) }
+    Gate {
+        kind,
+        source: "local",
+        note: format!("preference={pref} tool_errors={} skills_loaded={}", errors.len(), loaded.len()),
+    }
 }
 
-async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], loaded: &[String]) -> Result<Gate, String> {
+async fn jev_gate(
+    cfg: &Config,
+    key: &str,
+    users: &[String],
+    errors: &[String],
+    loaded: &[String],
+) -> Result<Gate, String> {
     let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
     let errors: Vec<String> = errors.iter().take(8).cloned().collect();
     let noul = |q: &str| json!({ "type": "noul", "instructions": q });
@@ -599,7 +703,8 @@ async fn jev_gate(cfg: &Config, key: &str, users: &[String], errors: &[String], 
     }
     let http = reqwest::Client::new();
     let timeout = std::time::Duration::from_secs(5);
-    let pref_call = crate::jev::ask(&cfg.router, &http, key, "gate", json!({ "user_messages": users }), pref_q, timeout);
+    let pref_call =
+        crate::jev::ask(&cfg.router, &http, key, "gate", json!({ "user_messages": users }), pref_q, timeout);
     let skill_call = async {
         if skill_q.is_empty() {
             return Ok(json!({}));

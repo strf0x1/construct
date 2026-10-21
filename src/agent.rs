@@ -21,20 +21,59 @@ use tokio::sync::{mpsc, watch};
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
     TurnStart,
-    Route { groups: Vec<String>, skills: Vec<String>, source: String, ms: u64, note: String },
+    Route {
+        groups: Vec<String>,
+        skills: Vec<String>,
+        source: String,
+        ms: u64,
+        note: String,
+    },
     /// The model's response stream opened.
     Opened,
-    Text { text: String },
-    Reasoning { text: String },
+    Text {
+        text: String,
+    },
+    Reasoning {
+        text: String,
+    },
     /// The model has started emitting a tool call (arguments still streaming).
-    ToolPending { name: String },
-    ToolStart { id: String, name: String, args: String },
-    ToolEnd { id: String, name: String, ok: bool, output: String, ms: u64 },
-    Usage { prompt: u64, completion: u64, cached: u64 },
-    Compacted { before: usize, after: usize },
-    TurnEnd { steps: u32, prompt: u64, completion: u64, ms: u64, interrupted: bool },
-    Error { message: String },
-    Learn { status: String },
+    ToolPending {
+        name: String,
+    },
+    ToolStart {
+        id: String,
+        name: String,
+        args: String,
+    },
+    ToolEnd {
+        id: String,
+        name: String,
+        ok: bool,
+        output: String,
+        ms: u64,
+    },
+    Usage {
+        prompt: u64,
+        completion: u64,
+        cached: u64,
+    },
+    Compacted {
+        before: usize,
+        after: usize,
+    },
+    TurnEnd {
+        steps: u32,
+        prompt: u64,
+        completion: u64,
+        ms: u64,
+        interrupted: bool,
+    },
+    Error {
+        message: String,
+    },
+    Learn {
+        status: String,
+    },
 }
 
 pub type Events = mpsc::UnboundedSender<Event>;
@@ -221,7 +260,12 @@ impl Agent {
             .as_ref()
             .map(|m| m.servers().iter().map(|(k, v)| (k.clone(), v.description.clone())).collect())
             .unwrap_or_default();
-        router::route(&self.cfg.router, &self.ctx.http, router::Input { request: text, previous, skills: &skills, mcp: &mcp }).await
+        router::route(
+            &self.cfg.router,
+            &self.ctx.http,
+            router::Input { request: text, previous, skills: &skills, mcp: &mcp },
+        )
+        .await
     }
 
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
@@ -348,8 +392,18 @@ impl Agent {
                 let labels: Vec<String> = want.iter().map(Group::label).collect();
                 self.enable(want, tx).await;
                 let out = format!("enabled: {}. The new tools are available from your next step.", labels.join(", "));
-                let _ = tx.send(Event::ToolStart { id: c.id.clone(), name: c.function.name.clone(), args: c.function.arguments.clone() });
-                let _ = tx.send(Event::ToolEnd { id: c.id.clone(), name: c.function.name.clone(), ok: true, output: out.clone(), ms: 0 });
+                let _ = tx.send(Event::ToolStart {
+                    id: c.id.clone(),
+                    name: c.function.name.clone(),
+                    args: c.function.arguments.clone(),
+                });
+                let _ = tx.send(Event::ToolEnd {
+                    id: c.id.clone(),
+                    name: c.function.name.clone(),
+                    ok: true,
+                    output: out.clone(),
+                    ms: 0,
+                });
                 results[i] = Some((true, out));
             } else if let Some(g) = Self::group_for_tool(&c.function.name) {
                 // The model called a tool it wasn't shown: honour it and keep the group on.
@@ -364,7 +418,11 @@ impl Agent {
             let ctx = ctx.clone();
             let tx = tx.clone();
             async move {
-                let _ = tx.send(Event::ToolStart { id: c.id.clone(), name: c.function.name.clone(), args: c.function.arguments.clone() });
+                let _ = tx.send(Event::ToolStart {
+                    id: c.id.clone(),
+                    name: c.function.name.clone(),
+                    args: c.function.arguments.clone(),
+                });
                 let t = Instant::now();
                 let r = tools::call(&ctx, &c.function.name, &c.function.arguments).await;
                 let ms = t.elapsed().as_millis() as u64;
@@ -372,7 +430,13 @@ impl Agent {
                     Ok(s) => (true, s),
                     Err(e) => (false, format!("Error: {e}")),
                 };
-                let _ = tx.send(Event::ToolEnd { id: c.id.clone(), name: c.function.name.clone(), ok, output: out.clone(), ms });
+                let _ = tx.send(Event::ToolEnd {
+                    id: c.id.clone(),
+                    name: c.function.name.clone(),
+                    ok,
+                    output: out.clone(),
+                    ms,
+                });
                 (ok, out)
             }
         };
@@ -410,19 +474,28 @@ impl Agent {
         }
         // Keep the system prompt and the last few user turns verbatim; cut
         // only at a user message so tool calls stay paired with results.
-        let user_idx: Vec<usize> = self.messages.iter().enumerate().filter(|(_, m)| m.role == "user").map(|(i, _)| i).collect();
+        let user_idx: Vec<usize> =
+            self.messages.iter().enumerate().filter(|(_, m)| m.role == "user").map(|(i, _)| i).collect();
         let Some(&cut) = user_idx.iter().rev().nth(1).or(user_idx.last()) else { return };
         if cut <= 1 {
             return;
         }
         let transcript = crate::learn::digest(&self.messages[1..cut], 120_000);
         let req = vec![
-            Message::system("You compress agent transcripts. Write a dense summary another agent can continue from: the user's goals and constraints, decisions made, files touched and their current state, commands that worked, open problems, and next steps. No preamble."),
+            Message::system(
+                "You compress agent transcripts. Write a dense summary another agent can continue from: the user's goals and constraints, decisions made, files touched and their current state, commands that worked, open problems, and next steps. No preamble.",
+            ),
             Message::user(transcript),
         ];
         let r = self
             .client
-            .complete(llm::Request { model: &self.cfg.model, messages: &req, tools: &[], max_tokens: Some(4000), temperature: None })
+            .complete(llm::Request {
+                model: &self.cfg.model,
+                messages: &req,
+                tools: &[],
+                max_tokens: Some(4000),
+                temperature: None,
+            })
             .await;
         let Ok(c) = r else { return };
         let summary = c.message.content.unwrap_or_default();
@@ -432,7 +505,9 @@ impl Agent {
         let before = self.messages.len();
         let tail = self.messages.split_off(cut);
         self.messages.truncate(1);
-        self.messages.push(Message::user(format!("<system-reminder>\nEarlier conversation, summarized:\n{summary}\n</system-reminder>")));
+        self.messages.push(Message::user(format!(
+            "<system-reminder>\nEarlier conversation, summarized:\n{summary}\n</system-reminder>"
+        )));
         self.messages.push(Message::text("assistant", "Understood; continuing from that summary."));
         self.messages.extend(tail);
         self.last_prompt_tokens = 0;

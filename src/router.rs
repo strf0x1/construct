@@ -87,9 +87,11 @@ fn all_groups(input: &Input<'_>) -> Vec<Group> {
 // bench/jev); strict ones score 43/47, ahead of a single choice (40/47), with
 // no option-order bias and room for several groups at once. Wording borrowed
 // from thruwire/foreman. See bench/jev/.
-const NO_UNLESS: &str = "Answer no if it can be done with only the local files and a shell, or if the evidence is insufficient.";
+const NO_UNLESS: &str =
+    "Answer no if it can be done with only the local files and a shell, or if the evidence is insufficient.";
 const Q_WEB: &str = "the internet: web search, fetching URLs or online docs, checking current versions, CVEs or news";
-const Q_HISTORY: &str = "transcripts of earlier conversations with the assistant (what we did or decided in a past session)";
+const Q_HISTORY: &str =
+    "transcripts of earlier conversations with the assistant (what we did or decided in a past session)";
 const Q_MEMORY: &str = "Does `request` explicitly tell the assistant how to behave in future sessions, or share a lasting fact about the user or their machine? Answer no for ordinary task requests.";
 const Q_SKILL_WRITE: &str = "Does `request` explicitly ask to create, change or delete one of the assistant's saved skills? Answer no otherwise.";
 const Q_NEEDS_SKILL: &str = "Would a written procedure for a specific kind of task help with `request` (as opposed to a quick question or casual chat)?";
@@ -103,12 +105,14 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     questions.insert("memory".into(), noul(Q_MEMORY.into()));
     questions.insert("skill_write".into(), noul(Q_SKILL_WRITE.into()));
     for (name, desc) in input.mcp {
-        questions.insert(format!("mcp:{name}"), needs(&format!("the {name} tools: {}", crate::llm::truncate(desc, 300))));
+        questions
+            .insert(format!("mcp:{name}"), needs(&format!("the {name} tools: {}", crate::llm::truncate(desc, 300))));
     }
     // Choice allows at most 255 options; keep the best-matching 254 + none.
     let mut candidates: Vec<&Skill> = input.skills.iter().collect();
     if candidates.len() > 254 {
-        let mut scored: Vec<(f32, &Skill)> = candidates.iter().map(|s| (overlap(input.request, &skill_text(s)), *s)).collect();
+        let mut scored: Vec<(f32, &Skill)> =
+            candidates.iter().map(|s| (overlap(input.request, &skill_text(s)), *s)).collect();
         scored.sort_by(|a, b| b.0.total_cmp(&a.0));
         candidates = scored.into_iter().take(254).map(|(_, s)| s).collect();
     }
@@ -169,13 +173,7 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     if !skills.is_empty() || groups.contains(&Group::SkillWrite) {
         groups.push(Group::Skills);
     }
-    Ok(Route {
-        groups,
-        skills,
-        source: v["model"].as_str().unwrap_or("jev").to_string(),
-        ms: 0,
-        note: note.join(" "),
-    })
+    Ok(Route { groups, skills, source: v["model"].as_str().unwrap_or("jev").to_string(), ms: 0, note: note.join(" ") })
 }
 
 fn skill_text(s: &Skill) -> String {
@@ -191,7 +189,9 @@ fn words(s: &str) -> Vec<String> {
 }
 
 const STOP: &[&str] = &[
-    "the", "and", "for", "with", "this", "that", "you", "your", "are", "can", "how", "what", "when", "use", "from", "into", "not", "all", "any", "but", "have", "has", "was", "will", "about", "then", "them", "their", "its", "our", "out", "get", "set", "make", "please", "want", "need", "like", "just",
+    "the", "and", "for", "with", "this", "that", "you", "your", "are", "can", "how", "what", "when", "use", "from",
+    "into", "not", "all", "any", "but", "have", "has", "was", "will", "about", "then", "them", "their", "its", "our",
+    "out", "get", "set", "make", "please", "want", "need", "like", "just",
 ];
 
 /// Share of the skill's words that appear in the request, weighted toward
@@ -215,13 +215,67 @@ fn local(cfg: &RouterConfig, input: &Input<'_>) -> Route {
     let _ = cfg;
     let t = input.request.to_lowercase();
     let mut groups = Vec::new();
-    if any(&t, &["http://", "https://", "www.", "search the web", "web search", "google", "look up", "lookup", "online", "internet", "website", "docs for", "documentation", "latest version", "release notes", "news", "research"]) {
+    if any(
+        &t,
+        &[
+            "http://",
+            "https://",
+            "www.",
+            "search the web",
+            "web search",
+            "google",
+            "look up",
+            "lookup",
+            "online",
+            "internet",
+            "website",
+            "docs for",
+            "documentation",
+            "latest version",
+            "release notes",
+            "news",
+            "research",
+        ],
+    ) {
         groups.push(Group::Web);
     }
-    if any(&t, &["remember", "forget", "i prefer", "i like", "i hate", "i don't like", "always ", "never ", "call me", "my name", "from now on", "stop doing", "don't ever"]) {
+    if any(
+        &t,
+        &[
+            "remember",
+            "forget",
+            "i prefer",
+            "i like",
+            "i hate",
+            "i don't like",
+            "always ",
+            "never ",
+            "call me",
+            "my name",
+            "from now on",
+            "stop doing",
+            "don't ever",
+        ],
+    ) {
         groups.push(Group::Memory);
     }
-    if any(&t, &["last time", "previous session", "past session", "earlier session", "we did", "yesterday", "last week", "before, we", "remember when", "chatstrata", "other session", "you said"]) {
+    if any(
+        &t,
+        &[
+            "last time",
+            "previous session",
+            "past session",
+            "earlier session",
+            "we did",
+            "yesterday",
+            "last week",
+            "before, we",
+            "remember when",
+            "chatstrata",
+            "other session",
+            "you said",
+        ],
+    ) {
         groups.push(Group::History);
     }
     if t.contains("skill") && any(&t, &["save", "write", "create", "update", "make", "delete", "add"]) {
@@ -262,9 +316,18 @@ mod tests {
             dir: Default::default(),
         }];
         let mcp = BTreeMap::new();
-        let r = local(&cfg, &Input { request: "publish a new release of this crate with a changelog", previous: "", skills: &skills, mcp: &mcp });
+        let r = local(
+            &cfg,
+            &Input {
+                request: "publish a new release of this crate with a changelog",
+                previous: "",
+                skills: &skills,
+                mcp: &mcp,
+            },
+        );
         assert_eq!(r.skills.first().map(|s| s.0.as_str()), Some("rust-release"));
-        let r = local(&cfg, &Input { request: "what's in https://example.com", previous: "", skills: &skills, mcp: &mcp });
+        let r =
+            local(&cfg, &Input { request: "what's in https://example.com", previous: "", skills: &skills, mcp: &mcp });
         assert!(r.groups.contains(&Group::Web));
         assert!(r.skills.is_empty());
         let r = local(&cfg, &Input { request: "remember that I prefer tabs", previous: "", skills: &[], mcp: &mcp });

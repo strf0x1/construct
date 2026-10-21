@@ -9,7 +9,12 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Word-wrap styled spans to `width`, prefixing every line with `indent`
 /// (first line) / `hang` (continuations).
-pub fn wrap(spans: Vec<Span<'static>>, width: usize, indent: Vec<Span<'static>>, hang: Vec<Span<'static>>) -> Vec<Line<'static>> {
+pub fn wrap(
+    spans: Vec<Span<'static>>,
+    width: usize,
+    indent: Vec<Span<'static>>,
+    hang: Vec<Span<'static>>,
+) -> Vec<Line<'static>> {
     let iw = indent.iter().map(|s| s.content.width()).sum::<usize>();
     let hw = hang.iter().map(|s| s.content.width()).sum::<usize>();
     let mut lines: Vec<Line<'static>> = Vec::new();

@@ -32,12 +32,37 @@ pub struct Policy {
 }
 
 /// Read-only, executable everywhere a shell needs to look.
-const SYSTEM: &[&str] = &["/dev/fd", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/opt", "/nix", "/run/current-system", "/sys", "/proc"];
+const SYSTEM: &[&str] = &[
+    "/dev/fd",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/lib",
+    "/lib64",
+    "/etc",
+    "/opt",
+    "/nix",
+    "/run/current-system",
+    "/sys",
+    "/proc",
+];
 /// Writable devices the shell can't work without. Not all of /dev: /dev/shm
 /// would be a shared scratch space outside the workspace.
-const SYSTEM_RW: &[&str] = &["/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom", "/dev/tty", "/dev/pts", "/dev/ptmx"];
+const SYSTEM_RW: &[&str] =
+    &["/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom", "/dev/tty", "/dev/pts", "/dev/ptmx"];
 /// Toolchains and caches under $HOME. Read-only unless listed in HOME_RW.
-const HOME_RO: &[&str] = &[".local/share/mise", ".config/mise", ".local/bin", ".rustup", ".gitconfig", ".config/git", ".nvm", ".pyenv", ".bun/bin", "go/bin"];
+const HOME_RO: &[&str] = &[
+    ".local/share/mise",
+    ".config/mise",
+    ".local/bin",
+    ".rustup",
+    ".gitconfig",
+    ".config/git",
+    ".nvm",
+    ".pyenv",
+    ".bun/bin",
+    "go/bin",
+];
 const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg"];
 
 impl Policy {
@@ -143,7 +168,11 @@ impl Policy {
 pub fn is_secret_name(name: &str) -> bool {
     let n = name.to_ascii_uppercase();
     const MARKS: &[&str] = &["KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "AUTH", "COOKIE", "SESSION"];
-    MARKS.iter().any(|m| n.contains(m)) && !matches!(n.as_str(), "SSH_AUTH_SOCK" | "XDG_SESSION_TYPE" | "XDG_SESSION_ID" | "XDG_SESSION_CLASS" | "XDG_SESSION_DESKTOP")
+    MARKS.iter().any(|m| n.contains(m))
+        && !matches!(
+            n.as_str(),
+            "SSH_AUTH_SOCK" | "XDG_SESSION_TYPE" | "XDG_SESSION_ID" | "XDG_SESSION_CLASS" | "XDG_SESSION_DESKTOP"
+        )
 }
 
 pub fn scrub_env(cmd: &mut tokio::process::Command) {
@@ -161,13 +190,17 @@ pub fn scrub_env(cmd: &mut tokio::process::Command) {
 /// `construct __sandbox <policy-json> -- <program> [args...]`: restrict this
 /// process with Landlock, then exec the program. Never returns on success.
 pub fn exec_child(args: &[String]) -> ! {
-    use landlock::{ABI, Access, AccessFs, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, Scope, path_beneath_rules};
+    use landlock::{
+        ABI, Access, AccessFs, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, Scope,
+        path_beneath_rules,
+    };
     use std::os::unix::process::CommandExt;
     let fail = |msg: String| -> ! {
         eprintln!("construct sandbox: {msg}");
         std::process::exit(126)
     };
-    let policy: Policy = args.first().and_then(|j| serde_json::from_str(j).ok()).unwrap_or_else(|| fail("bad policy".into()));
+    let policy: Policy =
+        args.first().and_then(|j| serde_json::from_str(j).ok()).unwrap_or_else(|| fail("bad policy".into()));
     let Some(sep) = args.iter().position(|a| a == "--") else { fail("missing --".into()) };
     let prog = &args[sep + 1..];
     if prog.is_empty() {

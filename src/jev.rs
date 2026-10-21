@@ -108,7 +108,10 @@ fn fit(state: &mut Value, budget: usize) -> usize {
     }
     if cut > 0 {
         if let Some(o) = state.as_object_mut() {
-            o.insert("evidence_budget".into(), json!("Some text was shortened to fit; omitted text is unknown, not evidence of absence."));
+            o.insert(
+                "evidence_budget".into(),
+                json!("Some text was shortened to fit; omitted text is unknown, not evidence of absence."),
+            );
         }
     }
     cut

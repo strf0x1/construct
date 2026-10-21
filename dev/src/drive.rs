@@ -180,9 +180,11 @@ impl Driver {
                     }
                 }
             } else if rest.starts_with(b"\x1b]") {
-                let end = rest.iter().position(|&b| b == 0x07).map(|p| (p, p + 1)).or_else(|| {
-                    rest.windows(2).position(|w| w == b"\x1b\\").map(|p| (p, p + 2))
-                });
+                let end = rest
+                    .iter()
+                    .position(|&b| b == 0x07)
+                    .map(|p| (p, p + 1))
+                    .or_else(|| rest.windows(2).position(|w| w == b"\x1b\\").map(|p| (p, p + 2)));
                 match end {
                     None => break,
                     Some((body_end, total)) => {
@@ -245,7 +247,11 @@ impl Driver {
                 return Ok(self.start.elapsed());
             }
             if Instant::now() >= deadline {
-                bail!("timed out waiting for {}{needle:?}\n--- screen ---\n{}", if present { "" } else { "absence of " }, self.text());
+                bail!(
+                    "timed out waiting for {}{needle:?}\n--- screen ---\n{}",
+                    if present { "" } else { "absence of " },
+                    self.text()
+                );
             }
             if !self.pump(Duration::from_millis(5)) && self.text().contains(needle) != present {
                 bail!("program exited while waiting for {needle:?}\n--- screen ---\n{}", self.text());
