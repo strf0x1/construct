@@ -196,6 +196,12 @@ Editor paired run (proposal 04 step 6): replace 40/40, hashline 37/40, hashonly 
 
 - `bench/results/task-20261021-121125.json`: model minimax/minimax-m3.1-flash:free; bench e442b69 dirty; replace 6ea1f93 dirty editor=replace router=local; hashline 6ea1f93 dirty editor=hashline anchor=line+hash router=local; hashonly 6ea1f93 dirty editor=hashline anchor=hash router=local
 
+## 2026-10-21 17:28 note
+
+Issue #26 paired run (stale anchors on duplicate lines): two-turn tasks edit-stale-duplicate (3-line block with a new copy added above between turns) and -gap (2-line block, as tall as the gap between copies). Runs with a silent wrong-line edit: replace 0/20, line+hash 0/10 + 6/10 (gap), hash-only 7/10 + 4/10; Fisher hashline vs hashonly on the issue's shape p=0.003, replace vs line+hash on gap p=0.011. Stale edits carry the final line's indent, so a wrong-line edit breaks the file; 4 hashline gap runs timed out investigating it. Replace never misplaced but investigated the unexplained change (median 138 s, 69k prompt tokens on gap). Pilot the same day (57/60, killed by a tool time limit, never saved) agreed in direction; it also exposed a no_wrong_line check that looked only at the branch indent (fixed in e34fbe1 before this run). compare's spread rule calls edit.rewrites 'same' at 0 vs 7/10: counts that are almost always 0/1 need a rate test. Proposal in docs/adr/0007.
+
+- `bench/results/task-20261021-172610.json`: model minimax/minimax-m3.1-flash:free; bench e34fbe1; replace 6ea1f93 dirty editor=replace router=local; hashline 6ea1f93 dirty editor=hashline anchor=line+hash router=local; hashonly 6ea1f93 dirty editor=hashline anchor=hash router=local
+
 ## 2026-10-21 17:54 note
 
 issue #9: sandbox helper supervises shell calls (subreaper + sweep). tools before (main 0131fe5) vs after: read/shell/wall all 'same'; shell p50 2.32 -> 2.36 ms
