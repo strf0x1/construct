@@ -85,6 +85,45 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
 `CONSTRUCT_HOME` and its own scripted endpoint; read requests back with
 `Env::requests()`.
 
+## Verification tiers
+
+Every change needs tier 0. Anything in the right-hand column also needs the
+tier named; post the number either way.
+
+| Tier | Command | Deterministic | Cost | Required for |
+|---|---|---|---|---|
+| 0 check | `cargo xtask check` | yes | ~1 min warm, no network | every PR |
+| 1 overhead | `bench.py size frame tools memory` (mock model) | timing noise only | ~5 min, no network | startup, the TUI loop, tool execution, request building |
+| 2 behaviour | `bench.py task\|routing\|loop --model …` (real model) | no | minutes to an hour, costs money | prompts, tool schemas or wording, router, learning, editor |
+
+Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
+(below). A decision they settle gets an ADR in `docs/adr/` (see `docs/README.md`).
+
+## Conventions
+
+1. `main.rs` only parses arguments and hands off. Anything testable lives in
+   the lib.
+2. Every module starts with a `//!` paragraph: what it is for and the one
+   design choice a reader must know.
+3. A file is one concern. Soft ceiling 300 lines; `tui/view.rs` and
+   `tools/mod.rs` may run longer. Split by concern, never by line count.
+4. Errors: `anyhow::Result` at the binary and in glue; `Result<T, String>` at
+   the tool boundary stays, because that string is prose for the model. No
+   `unwrap()` outside tests except on a `Mutex` lock, with a comment.
+5. Tool names, group labels and other wire strings are declared once and
+   referenced, never retyped as literals in another module.
+6. Tests: unit tests inline under `#[cfg(test)]` for pure functions; contract
+   tests in `crates/construct/tests/` for a module's promise to the rest of the
+   harness; e2e in `construct-dev` for what a user or model observes. Prefer
+   the highest tier that can observe the behaviour.
+7. `cargo xtask check` must pass before a PR is opened. A refactor PR must also
+   leave the golden request snapshots unchanged.
+8. Dependencies: add one only if it removes more code than it adds; pin in
+   `[workspace.dependencies]`; no git deps.
+9. Formatting is `cargo fmt`'s opinion, never hand-tuned.
+10. A decision that constrains future work gets an ADR (`docs/adr/`); check
+    there before changing a settled behaviour.
+
 ## Rules of thumb
 
 - A tool's wire name appears only in its `impl Tool` (`Shell::NAME` elsewhere).
