@@ -87,3 +87,23 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
   `python3 bench/report.py`. Never rebuild `target/release/construct` while a
   bench is running.
+
+## Benchmarking against Hermes and opencode
+
+The competitor harnesses aren't vendored — `research/src/` is gitignored. Only
+their CLIs are needed, and the bench finds them on `$PATH` (or via `mise
+which`, or a `BENCH_HERMES` / `BENCH_OPENCODE` override), so no version is
+pinned. To bootstrap from nothing:
+
+```sh
+mise use -g pipx:hermes-agent opencode   # the two competitor CLIs
+sudo pacman -S bubblewrap                 # or: apt install bubblewrap
+cargo build --release -p construct && cargo build -p construct-dev
+python3 bench/bench.py task --harness construct hermes opencode --model <id>
+```
+
+`preflight()` stops the run up front with an install hint if a requested
+harness or `bwrap` is missing. hermes and opencode are always launched inside
+bwrap (confined like construct's own Landlock sandbox — see `Sandboxed` in
+bench.py); construct is not, because it sandboxes itself. Real-model runs still
+need the key files and the proxy — see the security notes above.

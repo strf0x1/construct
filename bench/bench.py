@@ -36,9 +36,42 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
 DEV = ROOT / "target" / "debug" / "construct-dev"
 CONSTRUCT = ROOT / "target" / "release" / "construct"
-HERMES_VENV = Path.home() / ".local/share/mise/installs/pipx-hermes-agent/0.19.0/hermes-agent"
-HERMES = HERMES_VENV / "bin" / "hermes"
-OPENCODE = Path.home() / ".local/share/mise/installs/opencode/1.18.34/opencode"
+def resolve_bin(name: str, env_var: str):
+    """Find a competitor binary without pinning a version or a machine: an
+    explicit override first, then $PATH (mise/pipx put a shim there), then
+    `mise which`. Returns None if it isn't installed — preflight() reports that
+    with an install hint rather than failing deep inside a run."""
+    override = os.environ.get(env_var)
+    if override:
+        return Path(override)
+    found = shutil.which(name)
+    if found:
+        return Path(found)
+    try:
+        r = subprocess.run(["mise", "which", name], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+    except Exception:
+        pass
+    return None
+
+
+# Resolved lazily-ish at import; may be None when the tool isn't installed.
+HERMES = resolve_bin("hermes", "BENCH_HERMES")
+OPENCODE = resolve_bin("opencode", "BENCH_OPENCODE")
+# Install dir (for the `size` suite only): the real path mise points at, not
+# the shim. Best-effort — None when hermes isn't installed.
+try:
+    _hv = subprocess.run(["mise", "which", "hermes"], capture_output=True, text=True, timeout=10)
+    HERMES_VENV = Path(_hv.stdout.strip()).parent.parent if _hv.returncode == 0 and _hv.stdout.strip() else None
+except Exception:
+    HERMES_VENV = None
+
+# How to get each competitor, shown by preflight() when one is missing.
+INSTALL_HINTS = {
+    "hermes": "mise use -g pipx:hermes-agent   (or set BENCH_HERMES=/path/to/hermes)",
+    "opencode": "mise use -g opencode           (or set BENCH_OPENCODE=/path/to/opencode)",
+}
 KEY_FILE = Path.home() / ".config" / "construct-bench.key"
 JEV_KEY_FILE = Path.home() / ".config" / "construct-bench-jev.key"
 
@@ -467,9 +500,11 @@ def tool_gaps(records):
 def suite_size(args):
     out = {}
     out["construct"] = {"install": du(CONSTRUCT), "parts": {"binary": du(CONSTRUCT)}}
-    py = Path(os.path.realpath(HERMES_VENV / "bin" / "python")).parent.parent
-    out["hermes"] = {"install": du(HERMES_VENV) + du(py), "parts": {"venv": du(HERMES_VENV), "python": du(py)}}
-    out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
+    if HERMES_VENV:
+        py = Path(os.path.realpath(HERMES_VENV / "bin" / "python")).parent.parent
+        out["hermes"] = {"install": du(HERMES_VENV) + du(py), "parts": {"venv": du(HERMES_VENV), "python": du(py)}}
+    if OPENCODE:
+        out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
     # What a first run adds to a fresh home (bundled skills, npm packages...).
     homes = fresh_homes(HARNESSES, "size")
     ep = Endpoint(WORK / "size" / "ep", script=[])
@@ -1106,6 +1141,24 @@ def suite_loop(args):
         print(f"round {r} control        s3 pass={c['checks']['tests_pass']} hits={c['landmine_hits']} s3 requests={c['requests']}")
     save("loop", {"model": args.model, "rounds": args.rounds, "hint": LOOP_HINT, "tasks": LOOP_TASKS, "raw": results})
 
+def preflight(names):
+    """Stop early, with an install hint, if a requested competitor harness or
+    its sandbox isn't available — rather than failing deep inside a round."""
+    bins = {"hermes": HERMES, "opencode": OPENCODE}
+    missing = []
+    for n in names:
+        if n in bins and (bins[n] is None or not bins[n].exists()):
+            missing.append(f"  {n}: not installed — {INSTALL_HINTS[n]}")
+    if missing:
+        sys.exit("missing competitor harness(es):\n" + "\n".join(missing))
+    competitors = [n for n in names if n in bins]
+    if competitors and not BWRAP and os.environ.get("BENCH_ALLOW_UNSANDBOXED") != "1":
+        sys.exit(
+            f"bwrap is required to sandbox {', '.join(competitors)} but was not found: "
+            "install bubblewrap (e.g. `sudo pacman -S bubblewrap` or `apt install bubblewrap`)."
+        )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop"])
@@ -1136,6 +1189,7 @@ def main():
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
+    preflight(args.harness)
     {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop}[args.suite](args)
 
 
