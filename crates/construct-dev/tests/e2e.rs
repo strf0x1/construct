@@ -103,6 +103,49 @@ fn model_can_enable_a_group_the_router_missed() {
 }
 
 #[test]
+fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
+    // Anchors are pinned: they are the FNV-1a hashes the TypeScript reference
+    // gives these lines, before and after "inserted" lands on top.
+    let env = Env::new(
+        "hashline",
+        json!({ "steps": [
+            { "call": "read", "args": { "path": "notes.txt" } },
+            { "call": "shell", "args": { "command": "sed -i '1i inserted' notes.txt" } },
+            { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "2:ds", "text": "BETA" } ] } },
+            { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "3:ds", "text": "BETA" } ] } },
+            { "text": "done" }
+        ] }),
+    );
+    std::fs::write(env.work.join("notes.txt"), "alpha\nbeta\ngamma\ndelta\n").unwrap();
+    let out =
+        env.run_with(&[("CONSTRUCT_TOOLS_EDITOR", "hashline")], &["run", "--json", "--no-learn", "capitalise beta"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(tool_names(&reqs[0]), ["shell", "read", "write", "edit", "grep", "glob", "enable_tools"]);
+    let edit = reqs[0]["tools"].as_array().unwrap().iter().find(|t| t["function"]["name"] == "edit").unwrap();
+    assert!(edit["function"]["parameters"]["properties"]["edits"].is_object(), "{edit}");
+    assert_eq!(last_tool_result(&reqs[1]), "1:jk|alpha\n2:ds|beta\n3:ab|gamma\n4:ld|delta\n");
+    // The file moved under the model: the old anchor is refused, nothing is
+    // written, and the window carries the line's new anchor.
+    let rejected = last_tool_result(&reqs[3]);
+    assert!(rejected.starts_with("Error: REJECTED: 1 of 1 edit(s)"), "{rejected}");
+    assert!(rejected.contains("ANCHOR_MISMATCH") && rejected.contains("3:ds|beta"), "{rejected}");
+    let applied = last_tool_result(&reqs[4]);
+    assert!(applied.starts_with("ok: applied 1 edit(s) to notes.txt: replaced line 3"), "{applied}");
+    assert!(applied.lines().any(|l| l.starts_with("3:") && l.ends_with("|BETA")), "fresh anchors: {applied}");
+    assert_eq!(std::fs::read_to_string(env.work.join("notes.txt")).unwrap(), "inserted\nalpha\nBETA\ngamma\ndelta\n");
+    // Scorers read outcomes from events, not prose.
+    let events: Vec<Value> =
+        String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let edits: Vec<&Value> = events.iter().filter(|e| e["event"] == "tool_end" && e["name"] == "edit").collect();
+    assert_eq!((edits[0]["ok"].clone(), edits[0]["code"].clone()), (json!(false), json!("ANCHOR_MISMATCH")));
+    assert_eq!(edits[0]["data"]["errors"][0]["code"], "ANCHOR_MISMATCH");
+    assert_eq!((edits[1]["ok"].clone(), edits[1]["data"]["status"].clone()), (json!(true), json!("applied")));
+    let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
+    assert_eq!(manifest["editor"], "hashline");
+}
+
+#[test]
 fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     let obs = json!({ "observations": [{ "problem_class": "missing release output directory", "summary": "release dir was missing", "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
     let env = Env::new(

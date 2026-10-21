@@ -155,11 +155,17 @@ pub struct ToolError {
     /// Stable code for scorers ("not_found", "ambiguous", "sandbox", …).
     pub code: &'static str,
     pub kind: OutputKind,
+    /// Machine-readable detail for logs and scorers, as on `Output`.
+    pub data: Option<Value>,
 }
 
 impl ToolError {
     pub fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self { message: message.into(), code, kind: OutputKind::Plain }
+        Self { message: message.into(), code, kind: OutputKind::Plain, data: None }
+    }
+    pub fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
     }
     pub fn sandbox(message: String) -> Self {
         Self::new("sandbox", message)
@@ -255,7 +261,12 @@ impl Catalog {
                 tools.push(Arc::new(write::Write));
                 tools.push(Arc::new(edit::Edit));
             }
-            other => bail!("tools.editor: unknown editor {other:?} (expected \"replace\")"),
+            "hashline" => {
+                tools.push(Arc::new(edit::hashline::HashlineRead::new(&cfg.hashline)));
+                tools.push(Arc::new(write::Write));
+                tools.push(Arc::new(edit::hashline::HashlineEdit::new(&cfg.hashline)));
+            }
+            other => bail!("tools.editor: unknown editor {other:?} (expected \"replace\" or \"hashline\")"),
         }
         tools.push(Arc::new(grep::Grep));
         tools.push(Arc::new(glob::Glob));
