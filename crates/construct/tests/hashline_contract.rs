@@ -3,7 +3,7 @@
 //! shown are anchors accepted, any stale anchor rejects the whole batch with
 //! fresh ones, nothing is relocated, and the file round-trips byte for byte.
 
-use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct::config::{AnchorMode, MemoryConfig, Paths, SandboxConfig, ToolsConfig};
 use construct::memory::Store;
 use construct::sandbox::Policy;
 use construct::tools::edit::hashline::anchors;
@@ -15,10 +15,15 @@ struct Fixture {
     root: PathBuf,
     ctx: Ctx,
     catalog: Catalog,
+    mode: AnchorMode,
 }
 
 impl Fixture {
     fn new(name: &str) -> Self {
+        Self::with(name, AnchorMode::LineHash)
+    }
+
+    fn with(name: &str, mode: AnchorMode) -> Self {
         let root = std::env::temp_dir().join(format!("construct-hashline-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let work = root.join("work");
@@ -28,8 +33,10 @@ impl Fixture {
         let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
         let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
-        let catalog = Catalog::build(&ToolsConfig { editor: "hashline".into(), ..Default::default() }, None).unwrap();
-        Self { root, ctx, catalog }
+        let mut cfg = ToolsConfig { editor: "hashline".into(), ..Default::default() };
+        cfg.hashline.anchor = mode;
+        let catalog = Catalog::build(&cfg, None).unwrap();
+        Self { root, ctx, catalog, mode }
     }
 
     fn file(&self, name: &str, content: &str) -> String {
@@ -44,7 +51,7 @@ impl Fixture {
     /// Anchors for the file as it is now, the way read would show them.
     fn anchors(&self, name: &str) -> anchors::AnchorMap {
         let text = self.content(name);
-        anchors::build(construct::tools::edit::hashline::fsio::split(&text).0, 2)
+        anchors::build(construct::tools::edit::hashline::fsio::split(&text).0, 2, self.mode)
     }
 
     async fn edit(&self, path: &str, edits: Value) -> Result<(String, Value), ToolError> {
@@ -293,4 +300,65 @@ async fn other_encodings_are_refused_with_the_way_out() {
     assert!(e.message.contains("iconv -f UTF-16"), "{}", e.message);
     let e = f.edit("utf16.txt", json!([{ "op": "delete", "anchor": "1:aa" }])).await.unwrap_err();
     assert_eq!(e.code, "utf16");
+}
+
+// anchor = "hash": the hash alone names content wherever it is now.
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hash_mode_reads_and_describes_bare_hashes() {
+    let f = Fixture::with("hash-read", AnchorMode::Hash);
+    let p = f.file("a.txt", "alpha\nbeta\ngamma\ndelta\n");
+    let (text, _) = f.call("read", json!({ "path": p })).await.unwrap();
+    assert_eq!(text, "jk|alpha\nds|beta\nab|gamma\nld|delta\n");
+    let defs = f.catalog.definitions(&[construct::tools::Group::Core]).to_vec();
+    for name in ["read", "edit"] {
+        let d = defs.iter().find(|d| d["function"]["name"] == name).unwrap().to_string();
+        assert!(!d.contains("LINE:HASH") && !d.contains("12:ax"), "{name} teaches line anchors: {d}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hash_mode_follows_content_that_moved() {
+    let f = Fixture::with("hash-move", AnchorMode::Hash);
+    let p = f.file("a.txt", "alpha\nbeta\ngamma\ndelta\n");
+    // read showed beta as `ds|beta`; then a line lands on top.
+    f.file(&p, "inserted\nalpha\nbeta\ngamma\ndelta\n");
+    let (text, data) = f.edit(&p, json!([{ "op": "set", "anchor": "ds", "text": "BETA" }])).await.unwrap();
+    assert_eq!(f.content(&p), "inserted\nalpha\nBETA\ngamma\ndelta\n", "relocated to line 3");
+    assert_eq!(data["regions"][0]["old_start"], 3);
+    assert_rows_are_fresh_hash(&text, &f.anchors(&p));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hash_mode_rejects_changed_content_and_line_anchors() {
+    let f = Fixture::with("hash-gone", AnchorMode::Hash);
+    let p = f.file("a.txt", "alpha\nbeta\ngamma\n");
+    f.file(&p, "alpha\nBETA-CHANGED\ngamma\n");
+    let e = f
+        .edit(
+            &p,
+            json!([{ "op": "set", "anchor": "jk", "text": "ALPHA" }, { "op": "set", "anchor": "ds", "text": "x" }]),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(e.code, "ANCHOR_NOT_FOUND");
+    assert!(e.message.contains("no line has hash \"ds\""), "{}", e.message);
+    assert_eq!(f.content(&p), "alpha\nBETA-CHANGED\ngamma\n", "nothing applied");
+    let e = f.edit(&p, json!([{ "op": "set", "anchor": "1:jk", "text": "x" }])).await.unwrap_err();
+    assert_eq!(e.code, "BAD_ANCHOR");
+    assert!(e.message.contains("expected \"HASH\""), "{}", e.message);
+    // An echoed read row still names its hash.
+    f.edit(&p, json!([{ "op": "set", "anchor": "jk|alpha", "text": "ALPHA" }])).await.unwrap();
+    assert!(f.content(&p).starts_with("ALPHA\n"));
+}
+
+/// Hash-mode rows (`HASH|content`) in a tool result must hold for the file now.
+fn assert_rows_are_fresh_hash(text: &str, map: &anchors::AnchorMap) {
+    let rows: Vec<&str> = text.lines().filter(|l| anchors::parse_hash(l).is_some() && l.contains('|')).collect();
+    assert!(!rows.is_empty(), "no anchored rows in {text:?}");
+    for row in rows {
+        let (hash, content) = row.split_once('|').unwrap();
+        let line = map.hashes.iter().position(|h| h == hash).unwrap_or_else(|| panic!("stale anchor: {row}"));
+        assert_eq!(content, map.lines[line]);
+    }
 }

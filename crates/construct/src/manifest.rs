@@ -2,7 +2,7 @@
 //! Written at the top of every session log, sent as the first event of a
 //! session, and printed by `construct manifest` for the bench to record.
 
-use crate::config::Config;
+use crate::config::{Config, HashlineConfig};
 use crate::tools::Catalog;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -20,6 +20,10 @@ pub struct Manifest {
     pub config_sha256: String,
     pub tools: Vec<&'static str>,
     pub editor: String,
+    /// The editor's knobs, when it has any, so bench arms that differ only
+    /// in them (`anchor`, `window_radius`) are told apart.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hashline: Option<HashlineConfig>,
     pub model: String,
     pub router_mode: String,
 }
@@ -34,6 +38,7 @@ impl Manifest {
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools: catalog.names(),
             editor: cfg.tools.editor.clone(),
+            hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),
         }

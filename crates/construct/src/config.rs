@@ -168,11 +168,32 @@ pub struct HashlineConfig {
     pub max_ops: usize,
     /// Strip anchors the model echoed into edit text. Every strip is reported.
     pub strip_echoes: bool,
+    /// What an anchor is: `LINE:HASH`, or the hash alone.
+    pub anchor: AnchorMode,
+}
+
+/// `"line+hash"` pins where and what, so moved content is a loud mismatch.
+/// `"hash"` names content wherever it is now, so an edit follows content
+/// that moved: relocation, kept as a knob so a bench can measure it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum AnchorMode {
+    #[default]
+    #[serde(rename = "line+hash")]
+    LineHash,
+    #[serde(rename = "hash")]
+    Hash,
 }
 
 impl Default for HashlineConfig {
     fn default() -> Self {
-        Self { window_radius: 4, min_hash_len: 2, context_lines: 1, max_ops: 256, strip_echoes: true }
+        Self {
+            window_radius: 4,
+            min_hash_len: 2,
+            context_lines: 1,
+            max_ops: 256,
+            strip_echoes: true,
+            anchor: AnchorMode::LineHash,
+        }
     }
 }
 

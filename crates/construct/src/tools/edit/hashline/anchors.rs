@@ -6,8 +6,12 @@
 //! depends on the line's normalized content, its rank among identical lines
 //! and prefix-collision pressure, never on its line number, except the
 //! last-resort salt).
+//!
+//! Under `anchor = "hash"` the model sees and sends the hash alone, and it
+//! resolves to whichever line shows that hash now.
 
 use super::hash::{MAX_HASH_LEN, fnv1a64, stream};
+use crate::config::AnchorMode;
 use std::collections::HashMap;
 use unicode_normalization::UnicodeNormalization;
 
@@ -16,6 +20,7 @@ pub struct AnchorMap {
     pub hashes: Vec<String>,
     /// Line contents, no EOL.
     pub lines: Vec<String>,
+    pub mode: AnchorMode,
 }
 
 impl AnchorMap {
@@ -27,7 +32,14 @@ impl AnchorMap {
     }
     /// The anchor of a 1-based line, as the model sees it.
     pub fn anchor(&self, line: usize) -> String {
-        format!("{line}:{}", self.hashes[line - 1])
+        match self.mode {
+            AnchorMode::LineHash => format!("{line}:{}", self.hashes[line - 1]),
+            AnchorMode::Hash => self.hashes[line - 1].clone(),
+        }
+    }
+    /// A line as read output shows it: `anchor|content`.
+    pub fn row(&self, line: usize) -> String {
+        format!("{}|{}", self.anchor(line), self.lines[line - 1])
     }
 }
 
@@ -46,7 +58,7 @@ pub fn normalize(line: &str) -> String {
     line.nfc().filter(|c| !js_space(*c)).collect()
 }
 
-pub fn build(lines: Vec<String>, min_hash_len: usize) -> AnchorMap {
+pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode) -> AnchorMap {
     let norm: Vec<String> = lines.iter().map(|l| normalize(l)).collect();
     let mut counts: HashMap<&str, usize> = HashMap::new();
     for n in &norm {
@@ -103,7 +115,7 @@ pub fn build(lines: Vec<String>, min_hash_len: usize) -> AnchorMap {
     }
 
     let hashes = streams.iter().zip(&lens).map(|(s, &n)| s[..n].to_string()).collect();
-    AnchorMap { hashes, lines }
+    AnchorMap { hashes, lines, mode }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,17 +141,70 @@ pub fn parse(raw: &str) -> Option<Anchor> {
     Some(Anchor { line, hash: hash.to_string() })
 }
 
+/// A bare `HASH` (or an echoed `HASH|content`), for `anchor = "hash"`.
+pub fn parse_hash(raw: &str) -> Option<String> {
+    let head = raw.split_once('|').map_or(raw, |(h, _)| h).trim().to_lowercase();
+    ((2..=MAX_HASH_LEN).contains(&head.len()) && head.bytes().all(|b| b.is_ascii_lowercase())).then_some(head)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Failure {
+    Bad,
     OutOfRange,
     Mismatch,
+    /// Hash mode: no line shows this hash now.
+    NotFound,
 }
 
 impl Failure {
     pub fn code(self) -> &'static str {
         match self {
+            Failure::Bad => "BAD_ANCHOR",
             Failure::OutOfRange => "LINE_OUT_OF_RANGE",
             Failure::Mismatch => "ANCHOR_MISMATCH",
+            Failure::NotFound => "ANCHOR_NOT_FOUND",
+        }
+    }
+}
+
+/// Why an anchor didn't resolve, and the line worth showing around it.
+pub struct Unresolved {
+    pub failure: Failure,
+    pub message: String,
+    pub window_line: Option<usize>,
+}
+
+/// Resolve an anchor string to a 1-based line under the map's mode.
+pub fn resolve(map: &AnchorMap, raw: &str) -> Result<usize, Unresolved> {
+    match map.mode {
+        AnchorMode::LineHash => {
+            let a = parse(raw).ok_or_else(|| Unresolved {
+                failure: Failure::Bad,
+                message: format!("\"{raw}\" is not a valid anchor; expected \"LINE:HASH\" like \"12:ax\", copied exactly from the latest read/edit output"),
+                window_line: None,
+            })?;
+            check(map, &a).map(|()| a.line).map_err(|(failure, message)| Unresolved {
+                failure,
+                message,
+                window_line: Some(a.line.min(map.len().max(1))),
+            })
+        }
+        AnchorMode::Hash => {
+            let hash = parse_hash(raw).ok_or_else(|| Unresolved {
+                failure: Failure::Bad,
+                message: format!("\"{raw}\" is not a valid anchor; expected \"HASH\" like \"ax\", copied exactly from the latest read/edit output"),
+                window_line: None,
+            })?;
+            match map.hashes.iter().position(|h| *h == hash) {
+                Some(i) => Ok(i + 1),
+                None => Err(Unresolved {
+                    failure: Failure::NotFound,
+                    message: format!(
+                        "no line has hash \"{hash}\" now; the content you targeted was changed or removed"
+                    ),
+                    window_line: None,
+                }),
+            }
         }
     }
 }
@@ -165,7 +230,12 @@ pub fn check(map: &AnchorMap, a: &Anchor) -> Result<(), (Failure, String)> {
 
 #[cfg(test)]
 pub(super) fn map(lines: &[&str]) -> AnchorMap {
-    build(lines.iter().map(|s| s.to_string()).collect(), 2)
+    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::LineHash)
+}
+
+#[cfg(test)]
+pub(super) fn hash_map(lines: &[&str]) -> AnchorMap {
+    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::Hash)
 }
 
 #[cfg(test)]
@@ -263,6 +333,48 @@ mod tests {
     fn a_duplicate_hash_names_its_occurrence() {
         let m = map(&["}", "x", "}"]);
         assert_eq!(check(&m, &anchor(3, &m.hashes[0])).unwrap_err().0, Failure::Mismatch);
+    }
+
+    #[test]
+    fn parse_hash_takes_a_bare_hash_or_an_echoed_row() {
+        assert_eq!(parse_hash(" AX "), Some("ax".into()));
+        assert_eq!(parse_hash("ax|return x;"), Some("ax".into()));
+        for bad in ["a", "12:ax", "ax9", "", "abcdefghijklmn"] {
+            assert_eq!(parse_hash(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn line_hash_resolution_never_relocates() {
+        let m = map(&["inserted", "alpha", "beta"]);
+        let old = map(&["alpha", "beta"]).anchor(2);
+        let u = resolve(&m, &old).err().unwrap();
+        assert_eq!((u.failure, u.window_line), (Failure::Mismatch, Some(2)));
+        assert_eq!(resolve(&m, &m.anchor(3)).ok(), Some(3));
+        assert_eq!(resolve(&m, "ax").err().unwrap().failure, Failure::Bad);
+    }
+
+    #[test]
+    fn hash_resolution_follows_content_and_fails_when_it_is_gone() {
+        let old = hash_map(&["alpha", "beta"]);
+        let moved = hash_map(&["inserted", "alpha", "beta"]);
+        assert_eq!(resolve(&moved, &old.anchor(2)).ok(), Some(3));
+        let changed = hash_map(&["alpha", "BETA"]);
+        assert_eq!(resolve(&changed, &old.anchor(2)).err().unwrap().failure, Failure::NotFound);
+        assert_eq!(resolve(&changed, &old.anchor(1)).ok(), Some(1));
+        assert_eq!(resolve(&changed, "1:ax").err().unwrap().failure, Failure::Bad);
+    }
+
+    /// The accepted hazard of hash-only anchors: a duplicate's hash names its
+    /// rank, so a new duplicate above silently moves which line it names.
+    /// (Going from one copy to two re-salts them all, which is loud.)
+    #[test]
+    fn hash_mode_relocates_a_duplicate_when_one_is_added_above() {
+        let old = hash_map(&["if (a) {", "}", "if (b) {", "}"]);
+        let new = hash_map(&["}", "if (a) {", "}", "if (b) {", "}"]);
+        assert_eq!(resolve(&new, &old.anchor(4)).ok(), Some(3), "names if (a)'s brace, not line 5");
+        let new = hash_map(&["}", "if (a) {", "}"]);
+        assert_eq!(resolve(&new, &hash_map(&["if (a) {", "}"]).anchor(2)).ok(), None, "one to two copies is loud");
     }
 
     /// Whole maps from the TypeScript reference, covering rank salts,

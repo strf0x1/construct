@@ -143,6 +143,35 @@ fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
     assert_eq!((edits[1]["ok"].clone(), edits[1]["data"]["status"].clone()), (json!(true), json!("applied")));
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert_eq!(manifest["editor"], "hashline");
+    assert_eq!(manifest["hashline"]["anchor"], "line+hash");
+}
+
+#[test]
+fn hashline_hash_mode_follows_moved_content() {
+    // The same shift as above, but the bare hash names content wherever it is.
+    let env = Env::new(
+        "hashline-hash",
+        json!({ "steps": [
+            { "call": "read", "args": { "path": "notes.txt" } },
+            { "call": "shell", "args": { "command": "sed -i '1i inserted' notes.txt" } },
+            { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "ds", "text": "BETA" } ] } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config("[tools]\neditor = \"hashline\"\n\n[tools.hashline]\nanchor = \"hash\"\n");
+    std::fs::write(env.work.join("notes.txt"), "alpha\nbeta\ngamma\ndelta\n").unwrap();
+    let out = env.run(&["run", "--json", "--no-learn", "capitalise beta"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(last_tool_result(&reqs[1]), "jk|alpha\nds|beta\nab|gamma\nld|delta\n");
+    assert!(last_tool_result(&reqs[3]).starts_with("ok: applied 1 edit(s) to notes.txt: replaced line 3"));
+    assert_eq!(std::fs::read_to_string(env.work.join("notes.txt")).unwrap(), "inserted\nalpha\nBETA\ngamma\ndelta\n");
+    let manifest: Value = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .find(|e| e["event"] == "manifest")
+        .expect("manifest event");
+    assert_eq!(manifest["hashline"]["anchor"], "hash");
 }
 
 #[test]

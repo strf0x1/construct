@@ -3,6 +3,7 @@
 //! collected, and any error rejects the batch.
 
 use super::anchors::{self, AnchorMap};
+use crate::config::AnchorMode;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -120,6 +121,10 @@ pub fn strip_echoed_anchors(lines: Vec<String>) -> Vec<String> {
 /// (a) every non-blank line has a `LINE:HASH|` prefix: strip them.
 /// (b) the first line starts with the op's own validated anchor, `3:ab|` or
 ///     `ab|` (seen in the wild: `"ab|GAMMA"` for an op anchored at `3:ab`).
+///
+/// Under `anchor = "hash"` only (b) can fire in practice: read shows no line
+/// numbers, and a bare `ab|` on every line is too easy to hit in real content
+/// (`ls|wc`) to strip on shape alone.
 fn forgive_echoes(insert: Vec<String>, target: Option<(usize, &str)>, enabled: bool) -> (Vec<String>, bool) {
     if !enabled || insert.is_empty() {
         return (insert, false);
@@ -146,31 +151,31 @@ fn anchor_field(
     errors: &mut Vec<OpError>,
 ) -> Option<usize> {
     let Some(raw) = value.and_then(Value::as_str).filter(|s| !s.trim().is_empty()) else {
+        let form = match map.mode {
+            AnchorMode::LineHash => "LINE:HASH",
+            AnchorMode::Hash => "HASH",
+        };
         errors.push(OpError::new(
             index,
             "MISSING_FIELD",
-            format!("\"{field}\" is required and must be a \"LINE:HASH\" anchor string copied from the latest read/edit output"),
+            format!(
+                "\"{field}\" is required and must be a \"{form}\" anchor string copied from the latest read/edit output"
+            ),
         ));
         return None;
     };
-    let Some(a) = anchors::parse(raw) else {
-        errors.push(OpError::new(
-            index,
-            "BAD_ANCHOR",
-            format!("\"{field}\": \"{raw}\" is not a valid anchor; expected \"LINE:HASH\" like \"12:ax\", copied exactly from the latest read/edit output"),
-        ));
-        return None;
-    };
-    if let Err((failure, message)) = anchors::check(map, &a) {
-        errors.push(OpError {
-            index,
-            code: failure.code(),
-            message: format!("\"{field}\": {message}"),
-            window_line: Some(a.line.min(map.len().max(1))),
-        });
-        return None;
+    match anchors::resolve(map, raw) {
+        Ok(line) => Some(line),
+        Err(u) => {
+            errors.push(OpError {
+                index,
+                code: u.failure.code(),
+                message: format!("\"{field}\": {}", u.message),
+                window_line: u.window_line,
+            });
+            None
+        }
     }
-    Some(a.line)
 }
 
 fn require_text(op: &Value, kind: &str, index: usize, errors: &mut Vec<OpError>) -> Option<Vec<String>> {

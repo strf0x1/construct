@@ -15,11 +15,13 @@ pub mod ops;
 use super::super::fs::{encoding_error, resolve};
 use super::super::read::{LINE_MAX, READ_LINES, list_dir};
 use super::super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
-use crate::config::HashlineConfig;
+use crate::config::{AnchorMode, HashlineConfig};
 use fsio::ReadError;
 use serde_json::{Value, json};
 
 const READ_DESCRIPTION: &str = "Read a text file (or list a directory). Every line is returned as `LINE:HASH|content`, e.g. `12:ax|return x;`. `LINE:HASH` is that line's anchor: copy it exactly into `edit` operations. Anchors change whenever the file changes, so always take them from the LATEST read or edit output for the file. Reads up to 2000 lines; use offset/limit for more.";
+
+const READ_DESCRIPTION_HASH: &str = "Read a text file (or list a directory). Every line is returned as `HASH|content`, e.g. `ax|return x;`. `HASH` is that line's anchor: copy it exactly into `edit` operations. Anchors change whenever the file changes, so always take them from the LATEST read or edit output for the file. Reads up to 2000 lines; use offset/limit for more.";
 
 const EDIT_DESCRIPTION: &str = r#"Edit a text file using hash-anchored line operations.
 
@@ -47,14 +49,41 @@ Example call:
   {"op":"insert_after","anchor":"10:vm","text":"const t0 = performance.now();"}
 ]}"#;
 
+const EDIT_DESCRIPTION_HASH: &str = r#"Edit a text file using hash-anchored line operations.
+
+Every line in `read` output looks like `HASH|content`, e.g. `ax|return x;`. The `HASH` before the `|` is that line's anchor: it names that line's content. If the content you targeted was changed or removed since you read it, the batch is REJECTED — nothing is applied.
+
+Operations (entries in `edits`):
+- {"op":"set","anchor":"ax","text":"new content"} — replace one line
+- {"op":"replace_range","start":"ax","end":"qy","text":"..."} — replace the lines from ax to qy (inclusive)
+- {"op":"insert_after","anchor":"ax","text":"..."} — insert new line(s) after line ax
+- {"op":"insert_before","anchor":"ax","text":"..."} — insert new line(s) before line ax
+- {"op":"delete","anchor":"ax"} — delete one line
+- {"op":"delete_range","start":"ax","end":"qy"} — delete the lines from ax to qy (inclusive)
+
+Rules:
+- Copy anchors EXACTLY from the most recent read or edit output for this file. Never guess a hash, reuse a stale one, or fabricate one.
+- `text` may hold multiple lines (separate with \n) and becomes file content verbatim — do NOT include anchors or hashes in it. For a row shown as `ax|old`, the replacement text is `"new"` — never `"ax|new"`.
+- The batch is atomic: if ANY edit fails validation, NOTHING is applied, and the error says which edits failed so you can fix and resend in one turn.
+- A successful edit returns fresh anchors for the edited region. Use those anchors for follow-up edits — do NOT re-read the file just to get new anchors.
+- Edits in one batch must not overlap: each line may be touched by at most one op.
+- To create a new file, or to fully rewrite one, use `write` instead.
+
+Example call:
+{"path":"src/app.ts","edits":[
+  {"op":"set","anchor":"kf","text":"import { z } from \"zod\";"},
+  {"op":"insert_after","anchor":"vm","text":"const t0 = performance.now();"}
+]}"#;
+
 pub struct HashlineRead {
     min_hash_len: usize,
+    mode: AnchorMode,
 }
 
 impl HashlineRead {
     pub const NAME: &str = "read";
     pub fn new(cfg: &HashlineConfig) -> Self {
-        Self { min_hash_len: cfg.min_hash_len }
+        Self { min_hash_len: cfg.min_hash_len, mode: cfg.anchor }
     }
 }
 
@@ -69,7 +98,10 @@ impl Tool for HashlineRead {
     fn definition(&self) -> Value {
         def(
             Self::NAME,
-            READ_DESCRIPTION,
+            match self.mode {
+                AnchorMode::LineHash => READ_DESCRIPTION,
+                AnchorMode::Hash => READ_DESCRIPTION_HASH,
+            },
             obj(
                 json!({
                     "path": { "type": "string" },
@@ -111,7 +143,7 @@ impl HashlineRead {
             Err(ReadError::Io(e)) => return Err(format!("{}: {e}", path.display()).into()),
         };
         let (lines, _) = fsio::split(&text);
-        let map = anchors::build(lines, self.min_hash_len);
+        let map = anchors::build(lines, self.min_hash_len, self.mode);
         let total = map.len();
         let offset = num(a, "offset").unwrap_or(1).max(1);
         let limit = num(a, "limit").unwrap_or(READ_LINES);
@@ -125,7 +157,7 @@ impl HashlineRead {
                 out.push_str(&format!("{n}|{}\n", crate::llm::truncate(line, LINE_MAX)));
                 truncated.push(n.to_string());
             } else {
-                out.push_str(&format::row(n, &map.hashes[n - 1], line));
+                out.push_str(&map.row(n));
                 out.push('\n');
             }
         }
@@ -189,10 +221,14 @@ impl Tool for HashlineEdit {
         Group::Core
     }
     fn definition(&self) -> Value {
-        let anchor = |d: &str| json!({ "type": "string", "description": d });
+        let (description, form, example) = match self.cfg.anchor {
+            AnchorMode::LineHash => (EDIT_DESCRIPTION, "LINE:HASH", "12:ax"),
+            AnchorMode::Hash => (EDIT_DESCRIPTION_HASH, "HASH", "ax"),
+        };
+        let anchor = |d: &str| json!({ "type": "string", "description": d.replace("LINE:HASH", form).replace("12:ax", example) });
         def(
             Self::NAME,
-            EDIT_DESCRIPTION,
+            description,
             obj(
                 json!({
                     "path": { "type": "string", "description": "Path of the file to edit (absolute, or relative to the working directory)." },
@@ -276,7 +312,7 @@ impl HashlineEdit {
         }
 
         let cfg = &self.cfg;
-        let map = anchors::build(snap.lines.clone(), cfg.min_hash_len);
+        let map = anchors::build(snap.lines.clone(), cfg.min_hash_len, cfg.anchor);
         let (resolved, errors) = ops::validate(&map, edits, cfg.max_ops, cfg.strip_echoes);
 
         // Forgiveness is never silent: it is in the text and in the data, so
@@ -306,7 +342,7 @@ impl HashlineEdit {
         let outcome = apply::apply(&snap.lines, &resolved);
         fsio::write(&snap, &outcome.lines).map_err(|e| fail("io", format!("{raw}: {e}")))?;
         ctx.mark_read(&path);
-        let new = anchors::build(outcome.lines, cfg.min_hash_len);
+        let new = anchors::build(outcome.lines, cfg.min_hash_len, cfg.anchor);
         let text =
             format::success(raw, &outcome.regions, &new, snap.lines.len(), outcome.line_delta, cfg.context_lines);
         data["status"] = json!("applied");
