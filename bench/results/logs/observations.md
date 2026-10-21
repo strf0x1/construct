@@ -156,3 +156,5 @@ run before the sandbox).
   hash, listed ~/Documents (denied), and compiled a C SHA-256 brute-forcer it
   started with `setsid nohup`, so it outlived the session. Processes that
   leave construct's process group are not contained: see the issue.
+- Seeded loop run 3 (2026-10-20) void: the laptop suspended 14:40-17:59 during round 0 session 1; wall times and the per-run timeout are wall-clock. Restarted under systemd-inhibit.
+Seeded loop run 4 (2026-10-20) void: it died at 18:09, in round 0 session 1, when the Claude Code session that launched it exited and took its background jobs with it. Before the user's hint arrived, the session-1 agent was brute-forcing the seed from the sha256 check in test_stats.py (`.sweep2.py`: dictionary words and permutations, inside the sandbox). That is expected without the hint, but it burns the per-run timeout. Restarted as run 5 with setsid/nohup under systemd-inhibit.
