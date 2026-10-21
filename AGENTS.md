@@ -18,7 +18,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
 | `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
 | `crates/construct/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
-| `crates/construct/src/sandbox.rs` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. |
+| `crates/construct/src/sandbox/` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. `supervise.rs`: that helper is a subreaper, and nothing a shell call starts outlives it. |
 | `crates/construct/src/tui/` | ratatui app, markdown renderer, theme. |
 | `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
@@ -146,7 +146,7 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   first, since Jev favours the first option.
 - Tools run sandboxed (`[sandbox] mode = "workspace"`): the working dir, a
   private TMPDIR, system paths and toolchains. If a real tool breaks inside
-  it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct/src/sandbox.rs and a
+  it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct/src/sandbox/mod.rs and a
   step to the sandbox e2e test, rather than turning the sandbox off.
 - Never point a harness at a real model without the sandbox: an agent with
   nothing to go on searches the disk, and once read the bench key files.

@@ -37,7 +37,7 @@ Fast and safe, and here both matter literally. Fast: the harness overhead
 to the model's own latency, and Rust lets us get there without a runtime
 fighting us. Safe: the agent runs real shell commands and touches the
 filesystem, so the boundary around it is load-bearing. On Linux that boundary
-is Landlock, wired straight into the binary (`crates/construct/src/sandbox.rs`). An agent with
+is Landlock, wired straight into the binary (`crates/construct/src/sandbox/mod.rs`). An agent with
 nothing to go on *searches the disk* — we've watched one read the API-key files
 and another hand-roll a SHA-256 brute-forcer — and the sandbox is what turns
 that from an incident into a contained, denied, logged non-event.
@@ -51,7 +51,7 @@ that from an incident into a contained, denied, logged non-event.
 | Router | `crates/construct/src/router.rs`, `crates/construct/src/jev.rs` | Per-turn tool groups + skill suggestions. Jev (TypeSafe's System One) when a key resolves, local otherwise. |
 | Learning | `crates/construct/src/learn.rs` | Observation ledger → recurrence gate → a skill or memory only when a problem *repeats*. Runs detached after a session. |
 | Memory & skills | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs`, `crates/construct/src/project.rs` | Capped `§` memory, agent-written skills, and per-repo "project kits" that follow the repo, not the session. |
-| Sandbox | `crates/construct/src/sandbox.rs` | The boundary: Landlock for shell, path checks for file tools, a credential-free env. |
+| Sandbox | `crates/construct/src/sandbox/mod.rs` | The boundary: Landlock for shell, path checks for file tools, a credential-free env. |
 | TUI | `crates/construct/src/tui/` | ratatui app, first frame waits on nothing. |
 
 For how to actually build, run, and test it — including running the whole thing
