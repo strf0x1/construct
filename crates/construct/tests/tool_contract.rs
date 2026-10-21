@@ -166,6 +166,26 @@ async fn edit_reports_stable_codes() {
     assert_eq!(std::fs::read_to_string(f.ctx.cwd.join("a.txt")).unwrap(), "y\n");
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn other_encodings_are_refused_with_the_way_out() {
+    let f = Fixture::new("encoding");
+    std::fs::write(f.ctx.cwd.join("latin1.txt"), b"caf\xe9\n").unwrap();
+    let args = json!({ "path": "latin1.txt", "old_string": "caf", "new_string": "bar" });
+    let (msg, code) = f.call("edit", args).await.unwrap_err();
+    assert_eq!(code, "not_utf8");
+    assert!(msg.contains("shell"), "{msg}");
+    assert_eq!(std::fs::read(f.ctx.cwd.join("latin1.txt")).unwrap(), b"caf\xe9\n");
+    std::fs::write(f.ctx.cwd.join("utf16.txt"), b"\xff\xfea\0\n\0").unwrap();
+    for (name, args) in [
+        ("read", json!({ "path": "utf16.txt" })),
+        ("edit", json!({ "path": "utf16.txt", "old_string": "a", "new_string": "b" })),
+    ] {
+        let (msg, code) = f.call(name, args).await.unwrap_err();
+        assert_eq!(code, "utf16", "{name}: {msg}");
+        assert!(msg.contains("iconv -f UTF-16"), "{name}: {msg}");
+    }
+}
+
 #[test]
 fn disabled_tools_are_not_in_the_catalog() {
     let cfg =

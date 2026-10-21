@@ -21,7 +21,9 @@ pub struct Snapshot {
 pub enum ReadError {
     Io(std::io::Error),
     Binary,
-    NotUtf8,
+    Utf16,
+    /// The bytes, handed back so a read can still show them.
+    NotUtf8(Vec<u8>),
 }
 
 /// Split text into lines the way the anchor map counts them: CRLF and LF
@@ -38,10 +40,13 @@ pub fn split(text: &str) -> (Vec<String>, bool) {
 
 /// Decode file bytes into lines, refusing what a line edit can't round-trip.
 pub fn decode(bytes: Vec<u8>) -> Result<(String, bool), ReadError> {
+    if super::super::super::fs::is_utf16(&bytes) {
+        return Err(ReadError::Utf16);
+    }
     if bytes.contains(&0) {
         return Err(ReadError::Binary);
     }
-    let text = String::from_utf8(bytes).map_err(|_| ReadError::NotUtf8)?;
+    let text = String::from_utf8(bytes).map_err(|e| ReadError::NotUtf8(e.into_bytes()))?;
     match text.strip_prefix(BOM) {
         Some(rest) => Ok((rest.to_string(), true)),
         None => Ok((text, false)),
@@ -161,7 +166,8 @@ mod tests {
     #[test]
     fn nul_bytes_and_invalid_utf8_are_refused() {
         assert!(matches!(decode(vec![b'a', 0, b'b']), Err(ReadError::Binary)));
-        assert!(matches!(decode(vec![b'a', 0xff, b'b']), Err(ReadError::NotUtf8)));
+        assert!(matches!(decode(vec![b'a', 0xff, b'b']), Err(ReadError::NotUtf8(b)) if b == [b'a', 0xff, b'b']));
+        assert!(matches!(decode(vec![0xff, 0xfe, b'a', 0]), Err(ReadError::Utf16)));
     }
 
     #[test]

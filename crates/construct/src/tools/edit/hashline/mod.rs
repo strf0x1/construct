@@ -12,7 +12,7 @@ pub mod fsio;
 pub mod hash;
 pub mod ops;
 
-use super::super::fs::resolve;
+use super::super::fs::{encoding_error, resolve};
 use super::super::read::{LINE_MAX, READ_LINES, list_dir};
 use super::super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
 use crate::config::HashlineConfig;
@@ -106,11 +106,9 @@ impl HashlineRead {
             Err(ReadError::Binary) => {
                 return Err(format!("{} looks binary ({len} bytes); not shown", path.display()).into());
             }
-            Err(_) => {
-                return Err(
-                    format!("{} is not valid UTF-8; hashline reads and edits text files only", path.display()).into()
-                );
-            }
+            Err(ReadError::Utf16) => return Err(encoding_error(&path.display().to_string(), true)),
+            Err(ReadError::NotUtf8(bytes)) => return Ok(Self::unanchored(&path, &bytes, a)),
+            Err(ReadError::Io(e)) => return Err(format!("{}: {e}", path.display()).into()),
         };
         let (lines, _) = fsio::split(&text);
         let map = anchors::build(lines, self.min_hash_len);
@@ -145,6 +143,29 @@ impl HashlineRead {
         }
         ctx.mark_read(&path);
         Ok(out)
+    }
+
+    /// A file that isn't UTF-8, shown so the model can see it but without
+    /// anchors, since edit will refuse it. Not marked read either: a `write`
+    /// of what is shown here would turn every bad byte into U+FFFD.
+    fn unanchored(path: &std::path::Path, bytes: &[u8], a: &Value) -> String {
+        let text = String::from_utf8_lossy(bytes);
+        let (lines, _) = fsio::split(&text);
+        let offset = num(a, "offset").unwrap_or(1).max(1);
+        let limit = num(a, "limit").unwrap_or(READ_LINES);
+        let note = encoding_error(&path.display().to_string(), false).message;
+        let mut out = format!("({note} Shown with \u{fffd} for the bad bytes and without anchors.)\n");
+        for (i, line) in lines.iter().enumerate().skip(offset - 1).take(limit) {
+            out.push_str(&format!("{}|{}\n", i + 1, crate::llm::truncate(line, LINE_MAX)));
+        }
+        let shown_end = (offset - 1 + limit).min(lines.len());
+        if shown_end < lines.len() {
+            out.push_str(&format!(
+                "… {} lines total; showing {offset}-{shown_end}. Use offset to read more.\n",
+                lines.len()
+            ));
+        }
+        out
     }
 }
 
@@ -241,11 +262,9 @@ impl HashlineEdit {
                     format!("{raw} looks binary (contains NUL bytes); hashline edits work on text files only"),
                 ));
             }
-            Err(ReadError::NotUtf8) => {
-                return Err(fail(
-                    "not_utf8",
-                    format!("{raw} is not valid UTF-8; hashline edits work on text files only"),
-                ));
+            Err(e @ (ReadError::Utf16 | ReadError::NotUtf8(_))) => {
+                let e = encoding_error(raw, matches!(e, ReadError::Utf16));
+                return Err(fail(e.code, e.message));
             }
             Err(ReadError::Io(e)) => return Err(fail("io", format!("{raw}: {e}"))),
         };

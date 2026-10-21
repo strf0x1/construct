@@ -1,6 +1,6 @@
 //! read: a text file with line numbers, or a directory listing.
 
-use super::fs::resolve;
+use super::fs::{encoding_error, is_utf16, resolve};
 use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -55,6 +55,9 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
         return list_dir(&path);
     }
     let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    if is_utf16(&bytes) {
+        return Err(encoding_error(&path.display().to_string(), true));
+    }
     if bytes.iter().take(8192).any(|&b| b == 0) {
         return Err(format!("{} looks binary ({} bytes); not shown", path.display(), bytes.len()).into());
     }
