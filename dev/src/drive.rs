@@ -96,40 +96,35 @@ impl Driver {
     }
 
     /// Feed pending output into the screen. Returns false once the pty closed.
+    /// Blocks up to `wait` for the first chunk, then drains whatever else is
+    /// already queued without blocking.
     pub fn pump(&mut self, wait: Duration) -> bool {
-        let deadline = Instant::now() + wait;
-        loop {
-            let left = deadline.saturating_duration_since(Instant::now());
-            match self.rx.recv_timeout(left) {
-                Ok(b) => {
-                    if self.first_output.is_none() {
-                        self.first_output = Some(self.start.elapsed());
-                    }
-                    self.bytes += b.len();
-                    self.last_output = Some(self.start.elapsed());
-                    self.parser.process(&b);
-                    self.answer_queries(&b);
-                    if self.first_frame.is_none() && !self.text().trim().is_empty() {
-                        self.first_frame = Some(self.start.elapsed());
-                    }
-                    // keep draining without blocking
-                    while let Ok(b) = self.rx.try_recv() {
-                        self.bytes += b.len();
-                        self.last_output = Some(self.start.elapsed());
-                        self.parser.process(&b);
-                        self.answer_queries(&b);
-                        if self.first_frame.is_none() && !self.text().trim().is_empty() {
-                            self.first_frame = Some(self.start.elapsed());
-                        }
-                    }
-                    return true;
+        match self.rx.recv_timeout(wait) {
+            Ok(b) => {
+                self.ingest(&b);
+                while let Ok(b) = self.rx.try_recv() {
+                    self.ingest(&b);
                 }
-                Err(mpsc::RecvTimeoutError::Timeout) => return true,
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    self.closed = true;
-                    return false;
-                }
+                true
             }
+            Err(mpsc::RecvTimeoutError::Timeout) => true,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                self.closed = true;
+                false
+            }
+        }
+    }
+
+    fn ingest(&mut self, b: &[u8]) {
+        if self.first_output.is_none() {
+            self.first_output = Some(self.start.elapsed());
+        }
+        self.bytes += b.len();
+        self.last_output = Some(self.start.elapsed());
+        self.parser.process(b);
+        self.answer_queries(b);
+        if self.first_frame.is_none() && !self.text().trim().is_empty() {
+            self.first_frame = Some(self.start.elapsed());
         }
     }
 
@@ -180,9 +175,11 @@ impl Driver {
                     }
                 }
             } else if rest.starts_with(b"\x1b]") {
-                let end = rest.iter().position(|&b| b == 0x07).map(|p| (p, p + 1)).or_else(|| {
-                    rest.windows(2).position(|w| w == b"\x1b\\").map(|p| (p, p + 2))
-                });
+                let end = rest
+                    .iter()
+                    .position(|&b| b == 0x07)
+                    .map(|p| (p, p + 1))
+                    .or_else(|| rest.windows(2).position(|w| w == b"\x1b\\").map(|p| (p, p + 2)));
                 match end {
                     None => break,
                     Some((body_end, total)) => {
@@ -245,7 +242,11 @@ impl Driver {
                 return Ok(self.start.elapsed());
             }
             if Instant::now() >= deadline {
-                bail!("timed out waiting for {}{needle:?}\n--- screen ---\n{}", if present { "" } else { "absence of " }, self.text());
+                bail!(
+                    "timed out waiting for {}{needle:?}\n--- screen ---\n{}",
+                    if present { "" } else { "absence of " },
+                    self.text()
+                );
             }
             if !self.pump(Duration::from_millis(5)) && self.text().contains(needle) != present {
                 bail!("program exited while waiting for {needle:?}\n--- screen ---\n{}", self.text());
@@ -318,12 +319,12 @@ fn unquote(s: &str) -> String {
 /// Split `"text with spaces" 3000` into (text, Some(3000)).
 fn text_and_timeout(rest: &str) -> (String, Option<u64>) {
     let rest = rest.trim();
-    if rest.starts_with('"') {
-        if let Some(end) = rest[1..].find('"') {
-            let text = rest[1..end + 1].to_string();
-            let t = rest[end + 2..].trim().parse().ok();
-            return (text, t);
-        }
+    if rest.starts_with('"')
+        && let Some(end) = rest[1..].find('"')
+    {
+        let text = rest[1..end + 1].to_string();
+        let t = rest[end + 2..].trim().parse().ok();
+        return (text, t);
     }
     match rest.rsplit_once(' ') {
         Some((a, b)) if b.parse::<u64>().is_ok() => (unquote(a), b.parse().ok()),

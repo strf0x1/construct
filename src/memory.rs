@@ -77,7 +77,11 @@ impl Store {
         if t == Target::Project {
             match &self.project {
                 Some(p) => p.touch(),
-                None => return Err("not in a git repo, so there is no project to keep notes for; use target 'memory'".into()),
+                None => {
+                    return Err(
+                        "not in a git repo, so there is no project to keep notes for; use target 'memory'".into()
+                    );
+                }
             }
         }
         let mut work = self.entries(t);
@@ -191,9 +195,9 @@ fn scan(content: &str) -> Option<String> {
             return Some(format!("refused: memory entries can't contain {b:?}"));
         }
     }
-    let looks_like_key = content.split_whitespace().any(|w| {
-        (w.starts_with("sk-") || w.starts_with("ghp_") || w.starts_with("xoxb-")) && w.len() > 20
-    });
+    let looks_like_key = content
+        .split_whitespace()
+        .any(|w| (w.starts_with("sk-") || w.starts_with("ghp_") || w.starts_with("xoxb-")) && w.len() > 20);
     if looks_like_key {
         return Some("refused: that looks like a credential; secrets belong in secretspec".into());
     }

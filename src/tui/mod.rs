@@ -15,7 +15,9 @@ use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, MouseEventKind,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
-use crossterm::terminal::{self, BeginSynchronizedUpdate, EndSynchronizedUpdate, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    self, BeginSynchronizedUpdate, EndSynchronizedUpdate, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use crossterm::{execute, queue};
 use futures::StreamExt;
 use ratatui::Terminal;
@@ -320,7 +322,8 @@ impl App {
     }
 
     fn close_reasoning(&mut self) {
-        if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Reasoning && b.status == Status::Running) {
+        if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Reasoning && b.status == Status::Running)
+        {
             b.status = Status::Ok;
             b.ms = b.started.elapsed().as_millis() as u64;
             b.version += 1;
@@ -333,12 +336,13 @@ impl App {
         let expand = self.expand;
         let b = &self.blocks[i];
         let dynamic = b.status == Status::Running;
-        if !dynamic {
-            if let Some((w, v, e, lines)) = self.cache.get(&i) {
-                if *w == width && *v == b.version && *e == expand {
-                    return lines.clone();
-                }
-            }
+        if !dynamic
+            && let Some((w, v, e, lines)) = self.cache.get(&i)
+            && *w == width
+            && *v == b.version
+            && *e == expand
+        {
+            return lines.clone();
         }
         let w = width as usize;
         let mut out: Vec<Line<'static>> = Vec::new();
@@ -347,7 +351,12 @@ impl App {
                 let bar = Span::styled("▌ ", Style::new().fg(theme::ACCENT2));
                 for (n, para) in b.text.split('\n').enumerate() {
                     let style = Style::new().add_modifier(Modifier::BOLD);
-                    let lines = markdown::wrap(vec![Span::styled(para.to_string(), style)], w, vec![bar.clone()], vec![bar.clone()]);
+                    let lines = markdown::wrap(
+                        vec![Span::styled(para.to_string(), style)],
+                        w,
+                        vec![bar.clone()],
+                        vec![bar.clone()],
+                    );
                     let _ = n;
                     out.extend(lines);
                 }
@@ -370,7 +379,14 @@ impl App {
                     let text = b.text.trim();
                     let lines: Vec<Line<'static>> = text
                         .split('\n')
-                        .flat_map(|p| markdown::wrap(vec![Span::styled(p.to_string(), st)], w, vec![Span::raw("    ")], vec![Span::raw("    ")]))
+                        .flat_map(|p| {
+                            markdown::wrap(
+                                vec![Span::styled(p.to_string(), st)],
+                                w,
+                                vec![Span::raw("    ")],
+                                vec![Span::raw("    ")],
+                            )
+                        })
                         .collect();
                     let keep = if expand { 400 } else { 3 };
                     let skip = lines.len().saturating_sub(keep);
@@ -404,7 +420,13 @@ impl App {
                 head.push(Span::styled(time, theme::faint()));
                 out.push(Line::from(head));
                 if b.status != Status::Running && !b.text.is_empty() {
-                    let max = if expand { 60 } else if b.status == Status::Err { 4 } else { tool_preview_lines(&b.title) };
+                    let max = if expand {
+                        60
+                    } else if b.status == Status::Err {
+                        4
+                    } else {
+                        tool_preview_lines(&b.title)
+                    };
                     let body = tool_body(&b.title, &b.text);
                     let lines: Vec<&str> = body.lines().collect();
                     for l in lines.iter().take(max) {
@@ -419,13 +441,20 @@ impl App {
                         } else {
                             theme::faint()
                         };
-                        out.push(Line::from(vec![Span::styled("    │ ", theme::faint()), Span::styled(fit(&l.replace('\t', "  "), w.saturating_sub(6)), style)]));
+                        out.push(Line::from(vec![
+                            Span::styled("    │ ", theme::faint()),
+                            Span::styled(fit(&l.replace('\t', "  "), w.saturating_sub(6)), style),
+                        ]));
                     }
                     if max == 0 && !expand {
                         out.push(Line::from(Span::styled(format!("    │ {} lines", lines.len()), theme::faint())));
                     } else if lines.len() > max {
                         out.push(Line::from(Span::styled(
-                            format!("    │ … {} more lines{}", lines.len() - max, if expand { "" } else { " (ctrl+o)" }),
+                            format!(
+                                "    │ … {} more lines{}",
+                                lines.len() - max,
+                                if expand { "" } else { " (ctrl+o)" }
+                            ),
                             theme::faint(),
                         )));
                     }
@@ -433,7 +462,12 @@ impl App {
             }
             Kind::Notice(color) => {
                 let st = Style::new().fg(*color);
-                out.extend(markdown::wrap(vec![Span::styled(b.text.clone(), st)], w, vec![Span::raw("  ")], vec![Span::raw("    ")]));
+                out.extend(markdown::wrap(
+                    vec![Span::styled(b.text.clone(), st)],
+                    w,
+                    vec![Span::raw("  ")],
+                    vec![Span::raw("    ")],
+                ));
             }
         }
         // spacing: a blank line before user turns and assistant text
@@ -468,13 +502,20 @@ impl App {
             t.extend(theme::shimmer(title, phase, theme::ACCENT, Color::Rgb(235, 235, 255)));
         } else {
             t.extend(title.chars().enumerate().map(|(i, c)| {
-                Span::styled(c.to_string(), Style::new().fg(theme::lerp(theme::ACCENT, theme::ACCENT2, i as f32 / 10.0)).add_modifier(Modifier::BOLD))
+                Span::styled(
+                    c.to_string(),
+                    Style::new()
+                        .fg(theme::lerp(theme::ACCENT, theme::ACCENT2, i as f32 / 10.0))
+                        .add_modifier(Modifier::BOLD),
+                )
             }));
         }
         lines.push(Line::from(t));
         lines.push(Line::from(Span::styled("  lean · fast · learns as it goes", theme::dim())));
         lines.push(Line::default());
-        let row = |k: &str, v: String| Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())]);
+        let row = |k: &str, v: String| {
+            Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())])
+        };
         lines.push(row("model", self.cfg.model.clone()));
         lines.push(row("endpoint", self.cfg.base_url.clone()));
         lines.push(row("router", self.cfg.router.mode.clone()));
@@ -495,7 +536,8 @@ impl App {
         let mut offset = 0usize;
         let placeholder = self.input.is_empty();
         let text = if placeholder {
-            if self.busy { "queue a message… (esc to interrupt)" } else { "ask construct anything… (/help)" }.to_string()
+            if self.busy { "queue a message… (esc to interrupt)" } else { "ask construct anything… (/help)" }
+                .to_string()
         } else {
             self.input.clone()
         };
@@ -516,7 +558,11 @@ impl App {
             }
             chunks.push((chunk, start));
             for (ci, (c, s)) in chunks.iter().enumerate() {
-                let prefix = if pi == 0 && ci == 0 { Span::styled("› ", Style::new().fg(theme::ACCENT2).add_modifier(Modifier::BOLD)) } else { Span::raw("  ") };
+                let prefix = if pi == 0 && ci == 0 {
+                    Span::styled("› ", Style::new().fg(theme::ACCENT2).add_modifier(Modifier::BOLD))
+                } else {
+                    Span::raw("  ")
+                };
                 let style = if placeholder { theme::faint() } else { Style::default() };
                 lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
                 if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
@@ -567,18 +613,24 @@ impl App {
         ];
         let mut right: Vec<Span<'static>> = vec![];
         if let Some((s, _)) = &self.learning {
-            right.push(Span::styled(format!("◇ {s}  "), Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2))));
-        } else if let Some((t, c, at)) = &self.toast {
-            if at.elapsed() < Duration::from_secs(6) {
-                right.push(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)));
-            }
+            right.push(Span::styled(
+                format!("◇ {s}  "),
+                Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2)),
+            ));
+        } else if let Some((t, c, at)) = &self.toast
+            && at.elapsed() < Duration::from_secs(6)
+        {
+            right.push(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)));
         }
         if !self.groups.is_empty() {
             right.push(Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
         }
         right.push(Span::styled(format!("{} tok", human(self.tokens)), theme::faint()));
         if self.context_pct > 0 {
-            right.push(Span::styled(format!(" · ctx {}%", self.context_pct), if self.context_pct > 70 { Style::new().fg(theme::YELLOW) } else { theme::faint() }));
+            right.push(Span::styled(
+                format!(" · ctx {}%", self.context_pct),
+                if self.context_pct > 70 { Style::new().fg(theme::YELLOW) } else { theme::faint() },
+            ));
         }
         if self.scroll > 0 {
             right.push(Span::styled(format!(" · ↑{}", self.scroll), Style::new().fg(theme::CYAN)));
@@ -601,7 +653,11 @@ impl App {
         let input_h = (input.len() as u16).clamp(1, 8);
         let bottom = input_h + 3; // activity + rule + input + status
         let main_h = area.height.saturating_sub(bottom);
-        let body = if self.blocks.is_empty() { self.splash(area, phase) } else { self.transcript(width.saturating_sub(1), phase) };
+        let body = if self.blocks.is_empty() {
+            self.splash(area, phase)
+        } else {
+            self.transcript(width.saturating_sub(1), phase)
+        };
         let total = body.len();
         if self.scroll > 0 && total > self.last_total {
             self.scroll += total - self.last_total;
@@ -627,7 +683,10 @@ impl App {
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),
                 Rect::new(0, main_h + 1, width, 1),
             );
-            f.render_widget(Paragraph::new(input.clone()).scroll((input_scroll, 0)), Rect::new(0, main_h + 2, width, input_h));
+            f.render_widget(
+                Paragraph::new(input.clone()).scroll((input_scroll, 0)),
+                Rect::new(0, main_h + 2, width, input_h),
+            );
             f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + 2 + input_h, width, 1));
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), main_h + 2 + cy));
@@ -668,7 +727,11 @@ fn tool_body(name: &str, out: &str) -> String {
         "edit" => out.lines().skip(1).collect::<Vec<_>>().join("\n"),
         "shell" => {
             let lines: Vec<&str> = out.lines().collect();
-            if lines.len() > 4 { lines[lines.len() - 4..].join("\n") + &format!("\n({} lines)", lines.len()) } else { out.to_string() }
+            if lines.len() > 4 {
+                lines[lines.len() - 4..].join("\n") + &format!("\n({} lines)", lines.len())
+            } else {
+                out.to_string()
+            }
         }
         _ => out.to_string(),
     }
@@ -777,7 +840,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     // Build the agent off the UI path; the first frame is already up.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<Event>();
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
-    let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<(String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>)>();
+    let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
     let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx));
 
     let mut events = EventStream::new();
@@ -804,11 +867,10 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                 dirty = true;
             }
             Some(ev) = ev_rx.recv() => {
-                if let Event::Error { message } = &ev {
-                    if message.starts_with("fatal:") {
+                if let Event::Error { message } = &ev
+                    && message.starts_with("fatal:") {
                         app.notice(theme::RED, message.clone());
                     }
-                }
                 if let Event::Route { groups, .. } = &ev {
                     for g in groups { if !app.groups.contains(g) { app.groups.push(g.clone()); } }
                 }
@@ -931,7 +993,9 @@ fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) -> b
         KeyCode::Left => app.cursor = app.prev_boundary(),
         KeyCode::Right => app.cursor = app.next_boundary(),
         KeyCode::Home => app.cursor = app.input[..app.cursor].rfind('\n').map(|i| i + 1).unwrap_or(0),
-        KeyCode::End => app.cursor = app.input[app.cursor..].find('\n').map(|i| app.cursor + i).unwrap_or(app.input.len()),
+        KeyCode::End => {
+            app.cursor = app.input[app.cursor..].find('\n').map(|i| app.cursor + i).unwrap_or(app.input.len())
+        }
         KeyCode::Char('a') if ctrl => app.cursor = 0,
         KeyCode::Char('e') if ctrl => app.cursor = app.input.len(),
         KeyCode::Char('u') if ctrl => {
@@ -983,10 +1047,10 @@ pub fn trace(what: &str) {
     }
     static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
     let t = START.get_or_init(Instant::now).elapsed();
-    if let Ok(p) = Paths::resolve() {
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p.home.join("trace.log")) {
-            let _ = writeln!(f, "{:>8.2}ms {what}", t.as_secs_f64() * 1000.0);
-        }
+    if let Ok(p) = Paths::resolve()
+        && let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p.home.join("trace.log"))
+    {
+        let _ = writeln!(f, "{:>8.2}ms {what}", t.as_secs_f64() * 1000.0);
     }
 }
 
@@ -1041,13 +1105,17 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
     false
 }
 
+/// What the agent task hands the UI once it is built: session id, turn
+/// canceller, enabled groups, resumed history.
+type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>);
+
 async fn agent_task(
     cfg: Config,
     paths: Paths,
     resume: Option<String>,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
     tx: mpsc::UnboundedSender<Event>,
-    ready: mpsc::UnboundedSender<(String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>)>,
+    ready: mpsc::UnboundedSender<Ready>,
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
@@ -1126,7 +1194,8 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
     agent.tool_calls_since_skill = 0;
     let slice = agent.messages[*reviewed..].to_vec();
     *reviewed = agent.messages.len();
-    let (cfg, paths, tx, id, upto) = (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.log.id.clone(), *reviewed);
+    let (cfg, paths, tx, id, upto) =
+        (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.log.id.clone(), *reviewed);
     tokio::spawn(async move {
         let _ = tx.send(Event::Learn { status: "learning from this session".into() });
         let gate = learn::gate(&cfg, &slice).await;
@@ -1146,7 +1215,14 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
         let status = match learn::review(&cfg, &paths, &id, &slice, kind).await {
             Ok(o) => {
                 learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));
-                if o.actions.is_empty() { "learned nothing new".to_string() } else { format!("learned: {}", o.actions.iter().map(|a| a.split(':').next().unwrap_or("")).collect::<Vec<_>>().join(", ")) }
+                if o.actions.is_empty() {
+                    "learned nothing new".to_string()
+                } else {
+                    format!(
+                        "learned: {}",
+                        o.actions.iter().map(|a| a.split(':').next().unwrap_or("")).collect::<Vec<_>>().join(", ")
+                    )
+                }
             }
             Err(e) => format!("learning failed: {e}"),
         };

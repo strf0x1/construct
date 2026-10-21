@@ -67,10 +67,10 @@ impl Log {
         let mut msgs = Vec::new();
         for line in text.lines() {
             let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
-            if v["type"] == "message" {
-                if let Ok(m) = serde_json::from_value::<Message>(v["message"].clone()) {
-                    msgs.push(m);
-                }
+            if v["type"] == "message"
+                && let Ok(m) = serde_json::from_value::<Message>(v["message"].clone())
+            {
+                msgs.push(m);
             }
         }
         Ok((Self { id: id.to_string(), path, file: None }, msgs))

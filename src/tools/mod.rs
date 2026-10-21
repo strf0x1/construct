@@ -75,7 +75,18 @@ impl Ctx {
             .expect("http client");
         let skills = Library::new(&paths);
         let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
-        Self { cwd, paths, http, cancel, memory, skills, project_skills, mcp, sandbox, read_files: Mutex::new(HashSet::new()) }
+        Self {
+            cwd,
+            paths,
+            http,
+            cancel,
+            memory,
+            skills,
+            project_skills,
+            mcp,
+            sandbox,
+            read_files: Mutex::new(HashSet::new()),
+        }
     }
     pub fn mark_read(&self, p: &Path) {
         self.read_files.lock().unwrap().insert(p.to_path_buf());
@@ -311,7 +322,8 @@ async fn blocking(ctx: &Ctx, a: Value, f: fn(&Ctx, &Value) -> Result<String, Str
 }
 
 fn memory_call(ctx: &Ctx, a: &Value) -> Result<String, String> {
-    let target: Target = serde_json::from_value(a["target"].clone()).map_err(|_| "target must be user, memory or project")?;
+    let target: Target =
+        serde_json::from_value(a["target"].clone()).map_err(|_| "target must be user, memory or project")?;
     let ops: Vec<memory::Op> = match a.get("operations") {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("operations: {e}"))?,
         None => vec![serde_json::from_value(a.clone()).map_err(|e| format!("{e}"))?],
@@ -346,17 +358,17 @@ fn skill_manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
             }
             Ok(lines.join("\n"))
         }
-        "create" => lib.create(&name()?, s("content").ok_or("content is required")?, "agent"),
-        "edit" => lib.edit(&name()?, s("content").ok_or("content is required")?),
+        "create" => lib.create(name()?, s("content").ok_or("content is required")?, "agent"),
+        "edit" => lib.edit(name()?, s("content").ok_or("content is required")?),
         "patch" => lib.patch(
-            &name()?,
+            name()?,
             s("file"),
             s("old_string").ok_or("old_string is required")?,
             s("new_string").ok_or("new_string is required")?,
         ),
-        "write_file" => lib.write_file(&name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
-        "remove_file" => lib.remove_file(&name()?, s("file").ok_or("file is required")?),
-        "delete" => lib.archive(&name()?, s("absorbed_into")),
+        "write_file" => lib.write_file(name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
+        "remove_file" => lib.remove_file(name()?, s("file").ok_or("file is required")?),
+        "delete" => lib.archive(name()?, s("absorbed_into")),
         other => Err(format!("unknown action {other:?}")),
     }
 }

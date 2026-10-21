@@ -41,7 +41,9 @@ pub async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
 }
 
 fn html_to_markdown(html: &str) -> String {
-    let conv = htmd::HtmlToMarkdown::builder().skip_tags(vec!["script", "style", "noscript", "svg", "nav", "footer", "iframe", "form"]).build();
+    let conv = htmd::HtmlToMarkdown::builder()
+        .skip_tags(vec!["script", "style", "noscript", "svg", "nav", "footer", "iframe", "form"])
+        .build();
     let md = conv.convert(html).unwrap_or_else(|_| html.to_string());
     // Collapse the blank-line runs that layout markup leaves behind.
     let mut out = String::with_capacity(md.len());
@@ -102,8 +104,15 @@ async fn exa(ctx: &Ctx, key: &str, q: &str, n: usize) -> Result<Vec<Hit>, String
         .map(|r| {
             r.iter()
                 .map(|x| {
-                    let snippet = x["highlights"].as_array().map(|h| h.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" ")).unwrap_or_default();
-                    (x["title"].as_str().unwrap_or("").to_string(), x["url"].as_str().unwrap_or("").to_string(), snippet)
+                    let snippet = x["highlights"]
+                        .as_array()
+                        .map(|h| h.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" "))
+                        .unwrap_or_default();
+                    (
+                        x["title"].as_str().unwrap_or("").to_string(),
+                        x["url"].as_str().unwrap_or("").to_string(),
+                        snippet,
+                    )
                 })
                 .collect()
         })
@@ -175,7 +184,10 @@ async fn ddg(ctx: &Ctx, q: &str, n: usize) -> Result<Vec<Hit>, String> {
         }
     }
     if out.is_empty() && html.contains("anomaly") {
-        return Err("DuckDuckGo rate-limited this request; set EXA_API_KEY or BRAVE_API_KEY with `construct secrets set`".into());
+        return Err(
+            "DuckDuckGo rate-limited this request; set EXA_API_KEY or BRAVE_API_KEY with `construct secrets set`"
+                .into(),
+        );
     }
     Ok(out)
 }
@@ -201,7 +213,12 @@ fn strip_tags(s: &str) -> String {
 }
 
 fn decode_entities(s: &str) -> String {
-    s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#x27;", "'").replace("&#39;", "'")
+    s.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#x27;", "'")
+        .replace("&#39;", "'")
 }
 
 fn percent_decode(s: &str) -> String {
@@ -209,12 +226,14 @@ fn percent_decode(s: &str) -> String {
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
     while i < b.len() {
-        if b[i] == b'%' && i + 2 < b.len() + 0 && i + 2 <= b.len() - 1 {
-            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                out.push(v);
-                i += 3;
-                continue;
-            }
+        if b[i] == b'%'
+            && i + 2 < b.len()
+            && i + 2 < b.len()
+            && let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16)
+        {
+            out.push(v);
+            i += 3;
+            continue;
         }
         out.push(if b[i] == b'+' { b' ' } else { b[i] });
         i += 1;

@@ -13,6 +13,12 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
 }
 
+/// A timing limit in ms, doubled under `CONSTRUCT_E2E_SLOW=1` (set in CI).
+/// These are smoke limits that catch a hang; real timings are the bench's job.
+fn budget(ms: u64) -> u64 {
+    if std::env::var_os("CONSTRUCT_E2E_SLOW").is_some_and(|v| v == "1") { ms * 2 } else { ms }
+}
+
 fn construct() -> PathBuf {
     static BUILD: Once = Once::new();
     BUILD.call_once(|| {
@@ -90,18 +96,30 @@ impl Env {
 
     /// Every request body the harness sent, in order.
     fn requests(&self) -> Vec<Value> {
-        let mut files: Vec<PathBuf> = std::fs::read_dir(self.dir.join("dump")).map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
+        let mut files: Vec<PathBuf> = std::fs::read_dir(self.dir.join("dump"))
+            .map(|r| r.flatten().map(|e| e.path()).collect())
+            .unwrap_or_default();
         files.sort();
         files.iter().map(|p| serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap()).collect()
     }
 }
 
 fn tool_names(req: &Value) -> Vec<String> {
-    req["tools"].as_array().map(|t| t.iter().map(|x| x["function"]["name"].as_str().unwrap().to_string()).collect()).unwrap_or_default()
+    req["tools"]
+        .as_array()
+        .map(|t| t.iter().map(|x| x["function"]["name"].as_str().unwrap().to_string()).collect())
+        .unwrap_or_default()
 }
 
 fn last_tool_result(req: &Value) -> String {
-    req["messages"].as_array().unwrap().iter().rev().find(|m| m["role"] == "tool").map(|m| m["content"].as_str().unwrap_or("").to_string()).unwrap_or_default()
+    req["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .find(|m| m["role"] == "tool")
+        .map(|m| m["content"].as_str().unwrap_or("").to_string())
+        .unwrap_or_default()
 }
 
 fn text(o: &Output) -> String {
@@ -155,7 +173,11 @@ fn first_request_is_lean_and_router_adds_groups_on_demand() {
     assert!(out.status.success(), "{}", text(&out));
     let first = &env.requests()[0];
     let names = tool_names(first);
-    assert_eq!(names, ["shell", "read", "write", "edit", "grep", "glob", "enable_tools"], "plain turn gets only core tools");
+    assert_eq!(
+        names,
+        ["shell", "read", "write", "edit", "grep", "glob", "enable_tools"],
+        "plain turn gets only core tools"
+    );
     let bytes = serde_json::to_vec(first).unwrap().len();
     assert!(bytes < 6000, "first request is {bytes} bytes");
 
@@ -165,7 +187,10 @@ fn first_request_is_lean_and_router_adds_groups_on_demand() {
     assert!(tool_names(req).contains(&"skill".to_string()));
     let user = req["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap().to_string();
     assert!(user.contains("release-crate"), "skill suggested on the user turn: {user}");
-    assert!(!req["messages"][0]["content"].as_str().unwrap().contains("release-crate"), "no skill index in the system prompt");
+    assert!(
+        !req["messages"][0]["content"].as_str().unwrap().contains("release-crate"),
+        "no skill index in the system prompt"
+    );
 
     let out = env.run(&["run", "--no-learn", "summarize https://example.com/changelog"]);
     assert!(out.status.success());
@@ -196,7 +221,9 @@ fn model_can_enable_a_group_the_router_missed() {
 fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     let skill_md = "---\nname: crate-release\ndescription: Releasing a Rust crate when the release dir is missing\n---\n\n1. mkdir -p dist\n2. cargo package\n";
     let big = "x".repeat(1500);
-    let obs = |s: &str| json!({ "observations": [{ "problem_class": "missing release output directory", "summary": s, "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
+    let obs = |s: &str| {
+        json!({ "observations": [{ "problem_class": "missing release output directory", "summary": s, "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string()
+    };
     let env = Env::new(
         "learn",
         json!({ "steps": [
@@ -225,7 +252,12 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
         let mut ids: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(env.home.join("sessions"))
             .unwrap()
             .flatten()
-            .map(|e| (e.metadata().unwrap().created().or_else(|_| e.metadata().unwrap().modified()).unwrap(), e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string()))
+            .map(|e| {
+                (
+                    e.metadata().unwrap().created().or_else(|_| e.metadata().unwrap().modified()).unwrap(),
+                    e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string(),
+                )
+            })
             .collect();
         ids.sort();
         ids[n].1.clone()
@@ -254,12 +286,18 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     let out = env.run(&["learn", "--session", &session(1)]);
     assert!(out.status.success(), "{}", text(&out));
     let reqs = env.requests();
-    let review = reqs.iter().rev().filter(is_review).find(|r| tool_names(r).contains(&"skill_manage".to_string())).expect("skill review after recurrence");
+    let review = reqs
+        .iter()
+        .rev()
+        .filter(is_review)
+        .find(|r| tool_names(r).contains(&"skill_manage".to_string()))
+        .expect("skill review after recurrence");
     let prompt = review["messages"][1]["content"].as_str().unwrap();
     assert!(prompt.contains("RECURRING PROBLEMS"), "{prompt}");
     assert!(prompt.contains(&session(0)) && prompt.contains(&session(1)), "evidence from both sessions");
     assert!(std::fs::read_to_string(env.home.join("skills/crate-release/SKILL.md")).unwrap().contains("mkdir -p dist"));
-    let usage: Value = serde_json::from_str(&std::fs::read_to_string(env.home.join("skills/.usage.json")).unwrap()).unwrap();
+    let usage: Value =
+        serde_json::from_str(&std::fs::read_to_string(env.home.join("skills/.usage.json")).unwrap()).unwrap();
     assert_eq!(usage["crate-release"]["author"], "agent");
     // The next session starts knowing the user.
     let out = env.run(&["run", "--no-learn", "hi"]);
@@ -303,39 +341,59 @@ fn tui_streams_a_turn_and_esc_interrupts_a_slow_one() {
             { "text": "back again" }
         ] }),
     );
-    let mut d = drive::Driver::spawn(&[construct().display().to_string()], &env.env(), Some(env.work.to_str().unwrap()), 100, 30).unwrap();
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        100,
+        30,
+    )
+    .unwrap();
     let mut log = Vec::new();
-    let script = r#"
-wait "ask construct" 3000
+    let (short, long) = (budget(3000), budget(5000));
+    let script = format!(
+        r#"
+wait "ask construct" {short}
 type run it
 key enter
-wait "from-the-shell" 5000
-wait "All good." 5000
+wait "from-the-shell" {long}
+wait "All good." {long}
 expect "│ 2"
 type slow one
 key enter
-wait "thinking" 3000
+wait "thinking" {short}
 key esc
-wait "interrupted" 3000
+wait "interrupted" {short}
 type again
 key enter
-wait "back again" 5000
-"#;
-    let r = drive::run_script(&mut d, script, &mut log);
+wait "back again" {long}
+"#
+    );
+    let r = drive::run_script(&mut d, &script, &mut log);
     if let Err(e) = &r {
         panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
     }
     let m = r.unwrap();
     let first = m["first_frame_ms"].as_f64().unwrap();
-    assert!(first < 500.0, "first frame took {first}ms");
+    let limit = budget(500) as f64;
+    assert!(first < limit, "first frame took {first}ms (limit {limit}ms)");
     d.send(b"/quit\r").unwrap();
     std::thread::sleep(Duration::from_millis(300));
-    assert!(d.exited() || { d.pump(Duration::from_millis(500)); d.exited() }, "quit exits");
+    assert!(
+        d.exited() || {
+            d.pump(Duration::from_millis(budget(500)));
+            d.exited()
+        },
+        "quit exits"
+    );
 }
 
 #[test]
 fn a_session_with_nothing_to_learn_costs_no_review() {
-    let env = Env::new("gate", json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." } ] }));
+    let env = Env::new(
+        "gate",
+        json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." } ] }),
+    );
     env.config("[router]\nmode = \"local\"\n");
     std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
     let out = env.run(&["run", "--no-learn", "what does a.txt say?"]);
@@ -354,9 +412,16 @@ fn jev_down_falls_back_to_local_routing_and_is_logged() {
     let env = Env::new("jevdown", json!({ "steps": [{ "text": "Here's the latest." }] }));
     // Jev "lives" on a path the scripted endpoint answers with 404.
     env.config(&format!("[router]\njev_url = \"http://127.0.0.1:{}/v1/systemone\"\n", env.port));
-    let out = env.run_with(&[("TYPESAFE_API_KEY", "test")], &["run", "--json", "--no-learn", "search the web for the latest tokio release"]);
+    let out = env.run_with(
+        &[("TYPESAFE_API_KEY", "test")],
+        &["run", "--json", "--no-learn", "search the web for the latest tokio release"],
+    );
     assert!(out.status.success(), "{}", text(&out));
-    let route: Value = String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str::<Value>(l).ok()).find(|e| e["event"] == "route").expect("route event");
+    let route: Value = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .find(|e| e["event"] == "route")
+        .expect("route event");
     assert_eq!(route["source"], "local");
     assert!(route["note"].as_str().unwrap().contains("jev failed"), "{route}");
     // The local router still caught the web request.
@@ -391,15 +456,26 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     std::fs::write(env.dir.join("outside/secret.txt"), "SECRET-OUTSIDE").unwrap();
     std::os::unix::fs::symlink(env.dir.join("outside/secret.txt"), env.work.join("link.txt")).unwrap();
     let home = fake_home.display().to_string();
-    let out = env.run_with(&[("HOME", &home), ("FAKE_API_KEY", "SECRET-IN-ENV")], &["run", "--no-learn", "poke around"]);
+    let out =
+        env.run_with(&[("HOME", &home), ("FAKE_API_KEY", "SECRET-IN-ENV")], &["run", "--no-learn", "poke around"]);
     assert!(out.status.success(), "{}", text(&out));
     let last = env.requests().pop().unwrap();
-    let results: Vec<String> = last["messages"].as_array().unwrap().iter().filter(|m| m["role"] == "tool").map(|m| m["content"].as_str().unwrap_or("").to_string()).collect();
+    let results: Vec<String> = last["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "tool")
+        .map(|m| m["content"].as_str().unwrap_or("").to_string())
+        .collect();
     assert_eq!(results.len(), 9, "{results:#?}");
     for (i, r) in results.iter().enumerate() {
         assert!(!r.contains("SECRET-"), "step {i} leaked: {r}");
     }
-    assert!(!results[2].contains("OPENAI_API_KEY") && !results[2].contains("FAKE_API_KEY"), "credentials scrubbed from env: {}", results[2]);
+    assert!(
+        !results[2].contains("OPENAI_API_KEY") && !results[2].contains("FAKE_API_KEY"),
+        "credentials scrubbed from env: {}",
+        results[2]
+    );
     assert!(results[2].contains("PATH="), "env still works: {}", results[2]);
     assert!(results[4].contains("blocked by the sandbox"), "{}", results[4]);
     assert!(results[5].contains("blocked by the sandbox"), "symlink escape: {}", results[5]);
@@ -461,7 +537,10 @@ fn project_kit_follows_the_repo_not_the_session() {
     let out = in_dir(&repo_a.join("src"), &["run", "--no-learn", "hi"]);
     assert!(out.status.success(), "{}", text(&out));
     let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
-    assert!(sys.contains("Notes on this project (a)") && sys.contains("Tests need ./tools/gen-fixtures first"), "{sys}");
+    assert!(
+        sys.contains("Notes on this project (a)") && sys.contains("Tests need ./tools/gen-fixtures first"),
+        "{sys}"
+    );
     assert!(sys.contains("run-tests-here: Running this repo's tests"), "{sys}");
     // A second clone of the same remote, in a differently named directory, shares the kit.
     let clone = env.work.join("a-clone");

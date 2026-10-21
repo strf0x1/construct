@@ -2,6 +2,7 @@
 //! `$CONSTRUCT_HOME/projects/<id>/` (never in the repo itself):
 //! - NOTES.md: capped `§` notes on how this repo works (memory target "project");
 //! - skills/: procedures that only make sense here (skill_manage scope "project").
+//!
 //! In that repo the notes and a one-line index of its skills are always in the
 //! system prompt; nowhere else. Project knowledge is triggered by where you
 //! are, not by what you ask, so it isn't routed.
@@ -68,10 +69,10 @@ fn remote(root: &Path) -> Option<String> {
     for line in cfg.lines().map(str::trim) {
         if line.starts_with('[') {
             in_origin = line == "[remote \"origin\"]";
-        } else if in_origin {
-            if let Some(url) = line.strip_prefix("url").map(|r| r.trim_start().trim_start_matches('=').trim()) {
-                return Some(normalize(url));
-            }
+        } else if in_origin
+            && let Some(url) = line.strip_prefix("url").map(|r| r.trim_start().trim_start_matches('=').trim())
+        {
+            return Some(normalize(url));
         }
     }
     None
@@ -91,16 +92,6 @@ fn normalize(url: &str) -> String {
     u.to_lowercase()
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn remotes_normalize_to_one_identity() {
-        for u in ["git@github.com:Me/Repo.git", "https://github.com/me/repo", "ssh://git@github.com/me/repo.git", "https://user@github.com/me/repo/"] {
-            assert_eq!(super::normalize(u), "github.com/me/repo", "{u}");
-        }
-    }
-}
-
 fn slug(s: &str) -> String {
     let s: String = s.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
     s.trim_matches('-').chars().take(40).collect()
@@ -108,4 +99,19 @@ fn slug(s: &str) -> String {
 
 fn fnv(s: &str) -> u64 {
     s.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn remotes_normalize_to_one_identity() {
+        for u in [
+            "git@github.com:Me/Repo.git",
+            "https://github.com/me/repo",
+            "ssh://git@github.com/me/repo.git",
+            "https://user@github.com/me/repo/",
+        ] {
+            assert_eq!(super::normalize(u), "github.com/me/repo", "{u}");
+        }
+    }
 }

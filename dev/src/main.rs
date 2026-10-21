@@ -4,6 +4,8 @@ use construct_dev::{drive, serve};
 use std::io::Read;
 use std::path::PathBuf;
 
+mod xtask;
+
 #[derive(Parser)]
 #[command(name = "construct-dev", about = "Drive and observe construct (and other harnesses) end to end")]
 struct Cli {
@@ -62,6 +64,10 @@ enum Cmd {
         #[arg(trailing_var_arg = true, required = true)]
         cmd: Vec<String>,
     },
+    /// fmt --check, clippy -D warnings, test --workspace. Prints one line per gate, then `ok` or `FAILED <gate>`.
+    Check,
+    /// Apply clippy's fixes, then cargo fmt.
+    Fix,
 }
 
 fn main() -> Result<()> {
@@ -82,7 +88,8 @@ fn main() -> Result<()> {
             let key = if upstream.is_some() { std::env::var(&key_env).ok() } else { None };
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async move {
-                let cfg = serve::Config { script: steps, side, repeat_call, upstream, key, log, dump_dir: dump, chunk_ms };
+                let cfg =
+                    serve::Config { script: steps, side, repeat_call, upstream, key, log, dump_dir: dump, chunk_ms };
                 let (port, h) = serve::serve(cfg, port).await?;
                 if let Some(f) = port_file {
                     std::fs::write(f, port.to_string())?;
@@ -93,6 +100,8 @@ fn main() -> Result<()> {
             })
         }
         Cmd::McpFake => mcp_fake(),
+        Cmd::Check => exit_with(xtask::check()?),
+        Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {
             let text = if script == "-" {
                 let mut s = String::new();
@@ -101,10 +110,8 @@ fn main() -> Result<()> {
             } else {
                 std::fs::read_to_string(&script)?
             };
-            let env: Vec<(String, String)> = env
-                .iter()
-                .filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
-                .collect();
+            let env: Vec<(String, String)> =
+                env.iter().filter_map(|kv| kv.split_once('=').map(|(k, v)| (k.to_string(), v.to_string()))).collect();
             let mut d = drive::Driver::spawn(&cmd, &env, cwd.as_deref(), cols, rows)?;
             let mut out = std::io::stdout();
             let r = drive::run_script(&mut d, &text, &mut out);
@@ -125,6 +132,10 @@ fn main() -> Result<()> {
     }
 }
 
+fn exit_with(ok: bool) -> Result<()> {
+    std::process::exit(if ok { 0 } else { 1 })
+}
+
 fn mcp_fake() -> Result<()> {
     use serde_json::{Value, json};
     use std::io::{BufRead, Write};
@@ -135,7 +146,9 @@ fn mcp_fake() -> Result<()> {
         let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
         let Some(id) = v.get("id").cloned() else { continue };
         let result = match v["method"].as_str().unwrap_or("") {
-            "initialize" => json!({ "protocolVersion": "2025-06-18", "capabilities": { "tools": {} }, "serverInfo": { "name": "fake", "version": "1" } }),
+            "initialize" => {
+                json!({ "protocolVersion": "2025-06-18", "capabilities": { "tools": {} }, "serverInfo": { "name": "fake", "version": "1" } })
+            }
             "tools/list" => json!({ "tools": [
                 { "name": "add", "description": "Add two integers", "inputSchema": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a", "b"] } },
                 { "name": "echo", "description": "Echo text back", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } }, "required": ["text"] } }

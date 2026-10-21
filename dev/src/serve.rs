@@ -30,9 +30,23 @@ use std::time::{Duration, Instant};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum Step {
-    Text { text: String, #[serde(default)] delay_ms: u64, #[serde(default)] reasoning: Option<String> },
-    Call { call: String, #[serde(default)] args: Value, #[serde(default)] delay_ms: u64 },
-    Calls { calls: Vec<Value> },
+    Text {
+        text: String,
+        #[serde(default)]
+        delay_ms: u64,
+        #[serde(default)]
+        reasoning: Option<String>,
+    },
+    Call {
+        call: String,
+        #[serde(default)]
+        args: Value,
+        #[serde(default)]
+        delay_ms: u64,
+    },
+    Calls {
+        calls: Vec<Value>,
+    },
 }
 
 pub struct Config {
@@ -74,10 +88,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         count: Mutex::new(0),
         http: reqwest::Client::builder().pool_idle_timeout(Duration::from_secs(120)).build()?,
     });
-    let app = Router::new()
-        .route("/{*path}", post(chat))
-        .route("/{*path}", get(models))
-        .with_state(shared);
+    let app = Router::new().route("/{*path}", post(chat)).route("/{*path}", get(models)).with_state(shared);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let port = listener.local_addr()?.port();
     // Without TCP_NODELAY the tail of a streamed response can wait ~40ms on
@@ -107,7 +118,8 @@ async fn models(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::htt
             Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
         };
     }
-    axum::Json(json!({ "object": "list", "data": [{ "id": "mock", "object": "model", "context_length": 131072 }] })).into_response()
+    axum::Json(json!({ "object": "list", "data": [{ "id": "mock", "object": "model", "context_length": 131072 }] }))
+        .into_response()
 }
 
 fn auth(s: &Shared, headers: &HeaderMap) -> Option<String> {
@@ -127,7 +139,9 @@ fn ms(s: &Shared) -> f64 {
 fn summarize(body: &Value) -> Value {
     let tools: Vec<String> = body["tools"]
         .as_array()
-        .map(|t| t.iter().filter_map(|x| x.pointer("/function/name").and_then(Value::as_str).map(String::from)).collect())
+        .map(|t| {
+            t.iter().filter_map(|x| x.pointer("/function/name").and_then(Value::as_str).map(String::from)).collect()
+        })
         .unwrap_or_default();
     let msgs = body["messages"].as_array().cloned().unwrap_or_default();
     let system_chars: usize = msgs
@@ -183,7 +197,14 @@ fn write_log(s: &Shared, rec: &Value) {
     }
 }
 
-async fn forward(s: Arc<Shared>, up: String, headers: HeaderMap, uri: axum::http::Uri, req: &mut Value, mut rec: Value) -> Response {
+async fn forward(
+    s: Arc<Shared>,
+    up: String,
+    headers: HeaderMap,
+    uri: axum::http::Uri,
+    req: &mut Value,
+    mut rec: Value,
+) -> Response {
     let stream = req["stream"].as_bool().unwrap_or(false);
     if stream {
         req["stream_options"] = json!({ "include_usage": true });
@@ -215,7 +236,9 @@ async fn forward(s: Arc<Shared>, up: String, headers: HeaderMap, uri: axum::http
         rec["t_end"] = rec["t_first_byte"].clone();
         if let Ok(v) = serde_json::from_slice::<Value>(&bytes) {
             rec["usage"] = v["usage"].clone();
-            rec["resp_tool_calls"] = json!(v.pointer("/choices/0/message/tool_calls").and_then(Value::as_array).map(|a| a.len()).unwrap_or(0));
+            rec["resp_tool_calls"] = json!(
+                v.pointer("/choices/0/message/tool_calls").and_then(Value::as_array).map(|a| a.len()).unwrap_or(0)
+            );
             rec["finish_reason"] = v.pointer("/choices/0/finish_reason").cloned().unwrap_or(Value::Null);
             if status != 200 {
                 rec["error"] = json!(String::from_utf8_lossy(&bytes).chars().take(400).collect::<String>());
@@ -246,21 +269,21 @@ async fn forward(s: Arc<Shared>, up: String, headers: HeaderMap, uri: axum::http
             buf.push_str(&String::from_utf8_lossy(&chunk));
             while let Some(p) = buf.find('\n') {
                 let line: String = buf.drain(..=p).collect();
-                if let Some(d) = line.trim().strip_prefix("data:") {
-                    if let Ok(v) = serde_json::from_str::<Value>(d.trim()) {
-                        if v["usage"].is_object() {
-                            usage = v["usage"].clone();
-                        }
-                        if let Some(tc) = v.pointer("/choices/0/delta/tool_calls").and_then(Value::as_array) {
-                            for c in tc {
-                                if c.pointer("/function/name").and_then(Value::as_str).is_some_and(|n| !n.is_empty()) {
-                                    calls += 1;
-                                }
+                if let Some(d) = line.trim().strip_prefix("data:")
+                    && let Ok(v) = serde_json::from_str::<Value>(d.trim())
+                {
+                    if v["usage"].is_object() {
+                        usage = v["usage"].clone();
+                    }
+                    if let Some(tc) = v.pointer("/choices/0/delta/tool_calls").and_then(Value::as_array) {
+                        for c in tc {
+                            if c.pointer("/function/name").and_then(Value::as_str).is_some_and(|n| !n.is_empty()) {
+                                calls += 1;
                             }
                         }
-                        if let Some(f) = v.pointer("/choices/0/finish_reason").filter(|f| !f.is_null()) {
-                            finish = f.clone();
-                        }
+                    }
+                    if let Some(f) = v.pointer("/choices/0/finish_reason").filter(|f| !f.is_null()) {
+                        finish = f.clone();
                     }
                 }
             }
@@ -283,7 +306,9 @@ async fn forward(s: Arc<Shared>, up: String, headers: HeaderMap, uri: axum::http
         .unwrap()
 }
 
-fn tokio_stream(mut rx: tokio::sync::mpsc::Receiver<Result<Bytes, std::io::Error>>) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>> {
+fn tokio_stream(
+    mut rx: tokio::sync::mpsc::Receiver<Result<Bytes, std::io::Error>>,
+) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>> {
     futures::stream::poll_fn(move |cx| rx.poll_recv(cx))
 }
 
@@ -298,7 +323,8 @@ fn adapt(req: &Value, call: &str, args: &Value) -> (String, Value) {
         "grep" => &["grep", "search_files", "Grep"],
         other => return (other.to_string(), args.clone()),
     };
-    let found = tools.iter().find(|t| names.contains(&t.pointer("/function/name").and_then(Value::as_str).unwrap_or("")));
+    let found =
+        tools.iter().find(|t| names.contains(&t.pointer("/function/name").and_then(Value::as_str).unwrap_or("")));
     let Some(tool) = found else { return (names[0].to_string(), args.clone()) };
     let name = tool.pointer("/function/name").and_then(Value::as_str).unwrap_or(names[0]).to_string();
     let props = tool.pointer("/function/parameters/properties").cloned().unwrap_or(json!({}));
@@ -362,10 +388,8 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     };
     let model = req["model"].as_str().unwrap_or("mock").to_string();
     let stream = req["stream"].as_bool().unwrap_or(false);
-    let base = |delta: Value, finish: Value| {
-        json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] })
-    };
-    let prompt_tokens = (rec["req_bytes"].as_u64().unwrap_or(0) / 4) as u64;
+    let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
+    let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
     let usage = json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
     let mut chunks: Vec<(u64, Bytes)> = vec![];
     let mut message = json!({ "role": "assistant", "content": Value::Null });

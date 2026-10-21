@@ -98,7 +98,12 @@ impl Manager {
 
 async fn start(cfg: &McpServer) -> Result<Conn> {
     let mut cmd = tokio::process::Command::new(&cfg.command);
-    cmd.args(&cfg.args).envs(&cfg.env).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+    cmd.args(&cfg.args)
+        .envs(&cfg.env)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     let mut child = cmd.spawn()?;
     let stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();
@@ -108,12 +113,11 @@ async fn start(cfg: &McpServer) -> Result<Conn> {
         let mut lines = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = lines.next_line().await {
             let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
-            if let Some(id) = v.get("id").and_then(Value::as_u64) {
-                if v.get("method").is_none() {
-                    if let Some(tx) = p.lock().await.remove(&id) {
-                        let _ = tx.send(v);
-                    }
-                }
+            if let Some(id) = v.get("id").and_then(Value::as_u64)
+                && v.get("method").is_none()
+                && let Some(tx) = p.lock().await.remove(&id)
+            {
+                let _ = tx.send(v);
             }
         }
     });

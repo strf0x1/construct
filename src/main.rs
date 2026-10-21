@@ -4,8 +4,8 @@ mod jev;
 mod learn;
 mod llm;
 mod mcp;
-mod project;
 mod memory;
+mod project;
 mod prompt;
 mod router;
 mod sandbox;
@@ -153,7 +153,13 @@ fn main() -> Result<()> {
                     let usage = lib.usage();
                     for s in lib.list() {
                         let u = usage.get(&s.name).cloned().unwrap_or_default();
-                        println!("{}{}  ({} views)  {}", s.name, if u.pinned { " 📌" } else { "" }, u.views, s.description);
+                        println!(
+                            "{}{}  ({} views)  {}",
+                            s.name,
+                            if u.pinned { " 📌" } else { "" },
+                            u.views,
+                            s.description
+                        );
                     }
                 }
                 ("show", Some(n)) => println!("{}", lib.view(&n, None).map_err(anyhow::Error::msg)?),
@@ -186,12 +192,14 @@ fn stdin_lines() -> Vec<serde_json::Value> {
 
 async fn route_cmd(cfg: Config, paths: Paths) -> Result<()> {
     let skills = skills::Library::new(&paths).list();
-    let mcp: std::collections::BTreeMap<String, String> = cfg.mcp.iter().map(|(k, v)| (k.clone(), v.description.clone())).collect();
+    let mcp: std::collections::BTreeMap<String, String> =
+        cfg.mcp.iter().map(|(k, v)| (k.clone(), v.description.clone())).collect();
     let http = reqwest::Client::builder().tcp_nodelay(true).build()?;
     for v in stdin_lines() {
         let request = v["request"].as_str().unwrap_or("");
         let previous = v["previous"].as_str().unwrap_or("");
-        let r = router::route(&cfg.router, &http, router::Input { request, previous, skills: &skills, mcp: &mcp }).await;
+        let r =
+            router::route(&cfg.router, &http, router::Input { request, previous, skills: &skills, mcp: &mcp }).await;
         let out = serde_json::json!({
             "request": request,
             "groups": r.groups.iter().map(tools::Group::label).collect::<Vec<_>>(),
@@ -206,7 +214,9 @@ async fn route_cmd(cfg: Config, paths: Paths) -> Result<()> {
 }
 
 async fn gate_cmd(cfg: Config) -> Result<()> {
-    let strs = |v: &serde_json::Value| -> Vec<String> { v.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect() };
+    let strs = |v: &serde_json::Value| -> Vec<String> {
+        v.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect()
+    };
     for v in stdin_lines() {
         let started = std::time::Instant::now();
         let g = learn::gate_parts(&cfg, &strs(&v["users"]), &strs(&v["errors"]), &strs(&v["loaded"])).await;
@@ -227,7 +237,14 @@ fn resolve_resume(resume: &Option<String>, cont: bool, paths: &Paths) -> Result<
     Ok(None)
 }
 
-async fn headless(cfg: Config, paths: Paths, resume: Option<String>, text: String, json: bool, learn: bool) -> Result<()> {
+async fn headless(
+    cfg: Config,
+    paths: Paths,
+    resume: Option<String>,
+    text: String,
+    json: bool,
+    learn: bool,
+) -> Result<()> {
     let learn = learn && cfg.learn.enabled;
     let cwd = std::env::current_dir()?;
     let mut agent = Agent::new(cfg, paths, cwd, resume)?;
@@ -268,10 +285,8 @@ async fn headless(cfg: Config, paths: Paths, resume: Option<String>, text: Strin
                     failed = true;
                     let _ = writeln!(err, "error: {message}");
                 }
-                Event::TurnEnd { .. } => {
-                    if !at_line_start {
-                        let _ = writeln!(out);
-                    }
+                Event::TurnEnd { .. } if !at_line_start => {
+                    let _ = writeln!(out);
                 }
                 _ => {}
             }
@@ -281,10 +296,8 @@ async fn headless(cfg: Config, paths: Paths, resume: Option<String>, text: Strin
     agent.turn(&text, &tx).await?;
     drop(tx);
     let failed = printer.await.unwrap_or(true);
-    if learn {
-        if learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
-            learn::spawn_detached(&agent.log.id);
-        }
+    if learn && learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
+        learn::spawn_detached(&agent.log.id);
     }
     if failed {
         std::process::exit(1);

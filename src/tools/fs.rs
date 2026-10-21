@@ -77,14 +77,22 @@ pub fn write(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let content = arg(a, "content").ok_or("content is required")?;
     let existed = path.exists();
     if existed && !ctx.was_read(&path) {
-        return Err(format!("{} exists and hasn't been read this session; read it first so nothing is lost", path.display()));
+        return Err(format!(
+            "{} exists and hasn't been read this session; read it first so nothing is lost",
+            path.display()
+        ));
     }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(&path, content).map_err(|e| format!("{}: {e}", path.display()))?;
     ctx.mark_read(&path);
-    Ok(format!("{} {} ({} lines)", if existed { "overwrote" } else { "created" }, path.display(), content.lines().count()))
+    Ok(format!(
+        "{} {} ({} lines)",
+        if existed { "overwrote" } else { "created" },
+        path.display(),
+        content.lines().count()
+    ))
 }
 
 pub fn edit(ctx: &Ctx, a: &Value) -> Result<String, String> {
@@ -132,8 +140,10 @@ pub fn glob(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
     ctx.sandbox.check_read(&root)?;
-    let pat = if pattern.contains('/') || pattern.starts_with("**") { pattern.to_string() } else { format!("**/{pattern}") };
-    let set = globset::GlobBuilder::new(&pat).literal_separator(true).build().map_err(|e| e.to_string())?.compile_matcher();
+    let pat =
+        if pattern.contains('/') || pattern.starts_with("**") { pattern.to_string() } else { format!("**/{pattern}") };
+    let set =
+        globset::GlobBuilder::new(&pat).literal_separator(true).build().map_err(|e| e.to_string())?.compile_matcher();
     let mut hits: Vec<(SystemTime, PathBuf)> = Vec::new();
     for e in walker(&root, pattern.starts_with('.')).build().flatten() {
         if !e.file_type().is_some_and(|t| t.is_file()) {
@@ -145,7 +155,7 @@ pub fn glob(ctx: &Ctx, a: &Value) -> Result<String, String> {
             hits.push((m, e.path().to_path_buf()));
         }
     }
-    hits.sort_by(|a, b| b.0.cmp(&a.0));
+    hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     let n = hits.len();
     let mut out: Vec<String> = hits.into_iter().take(GLOB_MAX).map(|(_, p)| display(ctx, &p)).collect();
     if n == 0 {

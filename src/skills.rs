@@ -90,10 +90,9 @@ impl Library {
             }
             let Ok(text) = std::fs::read_to_string(e.path().join("SKILL.md")) else { continue };
             let (fm, body) = frontmatter(&text);
-            let description = fm
-                .get("description")
-                .cloned()
-                .unwrap_or_else(|| body.lines().find(|l| !l.trim().is_empty() && !l.starts_with('#')).unwrap_or("").to_string());
+            let description = fm.get("description").cloned().unwrap_or_else(|| {
+                body.lines().find(|l| !l.trim().is_empty() && !l.starts_with('#')).unwrap_or("").to_string()
+            });
             out.push(Skill { name, description, dir: e.path() });
         }
         out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -217,10 +216,10 @@ impl Library {
         if self.usage().get(name).is_some_and(|u| u.pinned) {
             return Err(format!("{name} is pinned"));
         }
-        if let Some(into) = absorbed_into.filter(|s| !s.is_empty()) {
-            if self.get(into).is_none() {
-                return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
-            }
+        if let Some(into) = absorbed_into.filter(|s| !s.is_empty())
+            && self.get(into).is_none()
+        {
+            return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
         }
         let dest = self.dir.join(".archive").join(format!("{name}-{}", now()));
         std::fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -243,7 +242,9 @@ fn normalize(name: &str, content: &str) -> Result<String, String> {
     let (fm, body) = frontmatter(content);
     let description = fm.get("description").cloned().unwrap_or_default();
     if description.trim().is_empty() {
-        return Err("SKILL.md needs frontmatter with a description: ---\\nname: x\\ndescription: when to use it\\n---".into());
+        return Err(
+            "SKILL.md needs frontmatter with a description: ---\\nname: x\\ndescription: when to use it\\n---".into()
+        );
     }
     if description.len() > 300 {
         return Err("keep the description under 300 chars; put detail in the body".into());
