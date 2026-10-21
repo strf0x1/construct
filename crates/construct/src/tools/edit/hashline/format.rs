@@ -7,13 +7,9 @@ use super::apply::Region;
 use super::ops::{Kind, OpError};
 use std::collections::BTreeSet;
 
-pub fn row(line: usize, hash: &str, content: &str) -> String {
-    format!("{line}:{hash}|{content}")
-}
-
 /// Lines from..=to (1-based, clamped) as anchored rows.
 pub fn rows(map: &AnchorMap, from: usize, to: usize) -> Vec<String> {
-    (from.max(1)..=to.min(map.len())).map(|n| row(n, &map.hashes[n - 1], &map.lines[n - 1])).collect()
+    (from.max(1)..=to.min(map.len())).map(|n| map.row(n)).collect()
 }
 
 /// Windows of `radius` lines around each center, merged where they touch.
