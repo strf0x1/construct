@@ -1,0 +1,10 @@
+description = "One value deep in a 400-entry table: what finding and editing a single line in a long file costs."
+turns = [
+  "In rates.py, the rate for region r317 is wrong: set it to 1.25. Change nothing else.",
+]
+timeout_s = 600
+changes = ["rates.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

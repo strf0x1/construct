@@ -1,0 +1,10 @@
+description = "A whitespace-only change: reindent one function from 2 to 4 spaces per level."
+turns = [
+  "In calc.py, the body of `legacy()` is indented with 2 spaces per level. Reindent it to 4 spaces per level, like the rest of the file. Change nothing but whitespace, and don't touch the other functions.",
+]
+timeout_s = 600
+changes = ["calc.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

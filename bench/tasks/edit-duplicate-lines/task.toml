@@ -1,0 +1,10 @@
+description = "Change one of four identical lines; only the one in the named section may change."
+turns = [
+  "In settings.toml, turn on the cache: set `enabled = true` in the [cache] section only. Leave every other section exactly as it is.",
+]
+timeout_s = 600
+changes = ["settings.toml"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

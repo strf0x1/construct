@@ -4,6 +4,9 @@
     ├── task.toml   turns, timeout_s, changes, [vars], [budget]   (see below)
     ├── fixture/    copied into the work dir and committed to a fresh git repo
     ├── home/       optional: copied into the harness home (e.g. a skill)
+    ├── hooks/      optional: after-turn-N.sh runs in the work dir after turn
+    │               N, for a world that changes between turns
+    ├── expected/   optional: the files a correct run leaves, for check.sh
     └── check.sh    the scorer: runs in the work dir after the last turn and
                     prints one JSON object of named booleans. It never reads
                     the transcript, and the agent never sees it.
@@ -124,6 +127,13 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None):
 def seed_home(task: Task, home: Path, vars: dict):
     if (task.dir / "home").exists():
         _copy_filled(task.dir / "home", home, vars)
+
+
+def after_turn(task: Task, n: int, work: Path):
+    """Run hooks/after-turn-<n>.sh in the work dir, if the task has one."""
+    hook = task.dir / "hooks" / f"after-turn-{n}.sh"
+    if hook.exists():
+        subprocess.run(["bash", str(hook)], cwd=work, check=True, capture_output=True, timeout=60)
 
 
 def check(task: Task, work: Path, env=None) -> dict:

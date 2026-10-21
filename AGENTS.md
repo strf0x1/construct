@@ -119,6 +119,13 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
   `bench.py note "…" result.json`. A new task is a new directory in
   `bench/tasks/` whose `check.sh` scores the work dir, never the transcript;
   `bench.py task --tasks <name>` runs it.
+- A/B a construct setting with arms, not by hand: `bench.py task --arm
+  replace:'editor="replace"' --arm hashline:'editor="hashline"' --no-learn
+  --tasks edit-…` writes each arm's `[tools]` overlay into its own home,
+  interleaves the arms, records each arm's manifest, and `bench.py compare
+  result.json --a replace --b hashline` judges them. Edit outcomes (rejections
+  by code, recoveries, re-reads) come from the `tool` records in the session
+  log, never from prose.
 
 ## Benchmarking against Hermes and opencode
 

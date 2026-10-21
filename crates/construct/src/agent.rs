@@ -348,7 +348,8 @@ impl Agent {
 
     async fn run_tools(&mut self, calls: &[llm::ToolCall], tx: &Events) {
         // Model-facing switches first: they change state, not the world.
-        let mut results: Vec<Option<(bool, String)>> = vec![None; calls.len()];
+        // (ok, text for the model, the structured record for the session log)
+        let mut results: Vec<Option<(bool, String, Option<Value>)>> = vec![None; calls.len()];
         for (i, c) in calls.iter().enumerate() {
             if c.function.name == ENABLE_TOOLS {
                 let v: Value = serde_json::from_str(&c.function.arguments).unwrap_or_default();
@@ -374,7 +375,7 @@ impl Agent {
                     data: None,
                     code: None,
                 });
-                results[i] = Some((true, out));
+                results[i] = Some((true, out, None));
             } else if let Some(g) = self.catalog.group_of(&c.function.name) {
                 // The model called a tool it wasn't shown: honour it and keep the group on.
                 if !self.groups.contains(&g) {
@@ -402,6 +403,10 @@ impl Agent {
                     Ok(o) => (true, o.text, o.kind, o.data, None),
                     Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code)),
                 };
+                // What scorers read back from the session log: codes and data,
+                // never the prose.
+                let record =
+                    json!({ "id": c.id, "name": c.function.name, "ok": ok, "ms": ms, "code": code, "data": data });
                 let _ = tx.send(Event::ToolEnd {
                     id: c.id.clone(),
                     name: c.function.name.clone(),
@@ -412,7 +417,7 @@ impl Agent {
                     data,
                     code,
                 });
-                (ok, out)
+                (ok, out, Some(record))
             }
         };
         let pending: Vec<(usize, llm::ToolCall)> =
@@ -425,14 +430,17 @@ impl Agent {
         } else {
             for (i, c) in pending {
                 if self.cancelled() {
-                    results[i] = Some((false, "Error: interrupted by the user".into()));
+                    results[i] = Some((false, "Error: interrupted by the user".into(), None));
                     continue;
                 }
                 results[i] = Some(run(c).await);
             }
         }
         for (c, r) in calls.iter().zip(results) {
-            let (_, out) = r.unwrap_or((false, "Error: not run".into()));
+            let (_, out, record) = r.unwrap_or((false, "Error: not run".into(), None));
+            if let Some(record) = record {
+                self.log.event("tool", record);
+            }
             let m = Message::tool(&c.id, out);
             self.log.message(&m);
             self.messages.push(m);
