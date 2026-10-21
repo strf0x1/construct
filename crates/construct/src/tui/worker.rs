@@ -6,11 +6,13 @@ use super::trace;
 use crate::agent::{Agent, Event};
 use crate::config::{Config, Paths};
 use crate::learn;
+use crate::tools::Catalog;
+use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 
 /// What the agent task hands the UI once it is built: session id, turn
-/// canceller, enabled groups, resumed history.
-pub(super) type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>);
+/// canceller, enabled groups, resumed history, and the session's tools.
+pub(super) type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>);
 
 pub(super) async fn agent_task(
     cfg: Config,
@@ -32,7 +34,7 @@ pub(super) async fn agent_task(
     trace("agent ready");
     agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
-    let _ = ready.send((agent.log.id.clone(), agent.canceller(), vec![], history));
+    let _ = ready.send((agent.log.id.clone(), agent.canceller(), vec![], history, agent.catalog.clone()));
     let mut reviewed = agent.messages.len();
     while let Some(c) = cmds.recv().await {
         match c {
@@ -50,7 +52,13 @@ pub(super) async fn agent_task(
                     Ok(a) => {
                         agent = a;
                         reviewed = agent.messages.len();
-                        let _ = ready.send((agent.log.id.clone(), agent.canceller(), vec![], vec![]));
+                        let _ = ready.send((
+                            agent.log.id.clone(),
+                            agent.canceller(),
+                            vec![],
+                            vec![],
+                            agent.catalog.clone(),
+                        ));
                     }
                     Err(e) => {
                         let _ = tx.send(Event::Error { message: format!("{e:#}") });

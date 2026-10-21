@@ -4,9 +4,11 @@
 use super::theme;
 use crate::agent::Event;
 use crate::config::Config;
+use crate::tools::{Catalog, OutputKind};
 use ratatui::style::Color;
 use ratatui::text::Line;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 
@@ -36,6 +38,9 @@ pub(super) struct Block {
     pub(super) ms: u64,
     pub(super) id: String,
     pub(super) version: u64,
+    /// For tool blocks: lines of output to preview, and how to render it.
+    pub(super) preview: usize,
+    pub(super) out: OutputKind,
 }
 
 impl Block {
@@ -50,6 +55,8 @@ impl Block {
             ms: 0,
             id: String::new(),
             version: 0,
+            preview: 0,
+            out: OutputKind::Plain,
         }
     }
 }
@@ -97,22 +104,13 @@ pub(super) struct App {
     pub(super) canceller: Option<watch::Sender<bool>>,
     pub(super) quit_armed: Option<Instant>,
     pub(super) stream_chars: usize,
+    /// The session's tools, once the agent is built; display hints come from here.
+    pub(super) catalog: Option<Arc<Catalog>>,
 }
 
-fn primary_arg(name: &str, args: &str) -> String {
+/// The argument a tool's display hints name, or the raw arguments.
+fn primary_arg(key: &str, args: &str) -> String {
     let v: serde_json::Value = serde_json::from_str(args).unwrap_or_default();
-    let key = match name {
-        "shell" => "command",
-        "read" | "write" | "edit" => "path",
-        "grep" | "glob" => "pattern",
-        "web_fetch" => "url",
-        "web_search" | "session_search" => "query",
-        "skill" => "name",
-        "skill_manage" => "action",
-        "memory" => "target",
-        "enable_tools" => "groups",
-        _ => "",
-    };
     let s = match v.get(key) {
         Some(serde_json::Value::String(s)) => s.clone(),
         Some(other) => other.to_string(),
@@ -150,6 +148,7 @@ impl App {
             canceller: None,
             quit_armed: None,
             stream_chars: 0,
+            catalog: None,
         }
     }
 
@@ -242,18 +241,21 @@ impl App {
             Event::ToolStart { id, name, args } => {
                 self.close_reasoning();
                 let mut b = Block::new(Kind::Tool, "");
-                b.detail = primary_arg(&name, &args);
+                let d = self.catalog.as_ref().map(|c| c.display(&name)).unwrap_or_default();
+                b.detail = primary_arg(d.primary_arg, &args);
+                b.preview = d.preview_lines;
                 b.title = name.clone();
                 b.id = id;
                 b.status = Status::Running;
                 self.phase = Phase::Tool(name);
                 self.push(b);
             }
-            Event::ToolEnd { id, ok, output, ms, .. } => {
+            Event::ToolEnd { id, ok, output, ms, kind, .. } => {
                 if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id) {
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
                     b.ms = ms;
+                    b.out = kind;
                     b.version += 1;
                 }
                 if !self.blocks.iter().any(|b| b.kind == Kind::Tool && b.status == Status::Running) {

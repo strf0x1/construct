@@ -1,7 +1,7 @@
 //! Contract: `edit` finds the text the model meant, tolerating the ways a
 //! model's copy of a file drifts from the file, and refuses to guess.
 
-use construct::tools::edit::replace_once;
+use construct::tools::edit::replace::replace_once;
 
 #[test]
 fn tiers() {

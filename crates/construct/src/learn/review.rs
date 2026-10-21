@@ -1,11 +1,11 @@
 use super::gate::skills_loaded;
 use super::ledger::{append_ledger, ledger, observe, recurrences};
 use super::prompts::{MEMORY_FOCUS, NOTHING, SKILL_FOCUS, SYSTEM};
-use super::{Kind, Outcome, digest, learner_ctx, run_loop};
+use super::{Kind, Outcome, digest, learner, run_loop};
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
 use crate::memory::Store;
-use crate::tools::{self, Group};
+use crate::tools::Group;
 use anyhow::Result;
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -21,7 +21,8 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let ctx = Arc::new(learner_ctx(cfg, paths, memory, rx));
+    let (ctx, catalog) = learner(cfg, paths, memory, rx)?;
+    let ctx = Arc::new(ctx);
     let wants_memory = matches!(kind, Kind::Memory | Kind::Both);
     let mut ledger_note = Vec::new();
 
@@ -113,10 +114,17 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     if skills_ok {
         groups.extend([Group::Skills, Group::SkillWrite]);
     }
-    let defs = tools::definitions(&groups, &ctx);
-    let mut out =
-        run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(SYSTEM), Message::user(task)], &defs, 10)
-            .await?;
+    let defs = catalog.definitions(&groups);
+    let mut out = run_loop(
+        &client,
+        cfg.learn_model(),
+        &ctx,
+        &catalog,
+        vec![Message::system(SYSTEM), Message::user(task)],
+        &defs,
+        10,
+    )
+    .await?;
     ledger_note.append(&mut out.actions);
     out.actions = ledger_note;
     Ok(out)

@@ -3,6 +3,8 @@
 //! line-wise match that ignores trailing whitespace. CRLF files are matched in
 //! their LF view and keep their endings.
 
+use crate::tools::ToolError;
+
 #[derive(Clone, Copy)]
 struct Span {
     start: usize,
@@ -98,13 +100,14 @@ fn locate(view: &str, search: &str) -> Vec<Span> {
 }
 
 /// Replace `old` with `new` in `text`. Unless `all`, `old` must match exactly
-/// once. Errors are written for the model to act on.
-pub fn replace_once(text: &str, old: &str, new: &str, all: bool) -> Result<String, String> {
+/// once. Error messages are written for the model to act on; codes are
+/// `no_change`, `not_found` and `ambiguous`.
+pub fn replace_once(text: &str, old: &str, new: &str, all: bool) -> Result<String, ToolError> {
     if old.is_empty() {
-        return Err("old_string is empty; use write to create or overwrite a file".into());
+        return Err(ToolError::new("no_change", "old_string is empty; use write to create or overwrite a file"));
     }
     if old == new {
-        return Err("old_string and new_string are identical; nothing to change".into());
+        return Err(ToolError::new("no_change", "old_string and new_string are identical; nothing to change"));
     }
     let crlf = text.contains("\r\n");
     let view = if crlf { text.replace("\r\n", "\n") } else { text.to_string() };
@@ -112,11 +115,17 @@ pub fn replace_once(text: &str, old: &str, new: &str, all: bool) -> Result<Strin
     let replacement = new.replace("\r\n", "\n");
     let spans = locate(&view, &search);
     match spans.len() {
-        0 => return Err("old_string not found. It must match the file exactly, including indentation; re-read the file and copy the text".into()),
+        0 => {
+            return Err(ToolError::new(
+                "not_found",
+                "old_string not found. It must match the file exactly, including indentation; re-read the file and copy the text",
+            ));
+        }
         1 => {}
         n if !all => {
-            return Err(format!(
-                "old_string matches {n} places; add surrounding lines to make it unique, or set replace_all"
+            return Err(ToolError::new(
+                "ambiguous",
+                format!("old_string matches {n} places; add surrounding lines to make it unique, or set replace_all"),
             ));
         }
         _ => {}

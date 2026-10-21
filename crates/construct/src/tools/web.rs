@@ -2,13 +2,77 @@
 //! Search uses Exa or Brave when a key resolves, otherwise DuckDuckGo's HTML
 //! endpoint, so it works with no setup at all.
 
-use super::Ctx;
+use super::{Ctx, Display, Group, Output, Tool, ToolError, def, obj};
 use serde_json::{Value, json};
 use std::time::Duration;
 
 const FETCH_MAX_BYTES: usize = 5 * 1024 * 1024;
 
-pub async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
+pub struct WebSearch;
+
+impl WebSearch {
+    pub const NAME: &str = "web_search";
+}
+
+#[async_trait::async_trait]
+impl Tool for WebSearch {
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+    fn group(&self) -> Group {
+        Group::Web
+    }
+    fn definition(&self) -> Value {
+        def(
+            Self::NAME,
+            "Search the web. Returns titles, URLs and snippets.",
+            obj(json!({ "query": { "type": "string" }, "limit": { "type": "integer" } }), &["query"]),
+        )
+    }
+    fn readonly(&self) -> bool {
+        true
+    }
+    fn display(&self) -> Display {
+        Display { primary_arg: "query", ..Display::default() }
+    }
+    async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        search(ctx, &a).await.map(Output::plain).map_err(ToolError::from)
+    }
+}
+
+pub struct WebFetch;
+
+impl WebFetch {
+    pub const NAME: &str = "web_fetch";
+}
+
+#[async_trait::async_trait]
+impl Tool for WebFetch {
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+    fn group(&self) -> Group {
+        Group::Web
+    }
+    fn definition(&self) -> Value {
+        def(
+            Self::NAME,
+            "Fetch a URL and return it as markdown (HTML is converted).",
+            obj(json!({ "url": { "type": "string" } }), &["url"]),
+        )
+    }
+    fn readonly(&self) -> bool {
+        true
+    }
+    fn display(&self) -> Display {
+        Display { primary_arg: "url", ..Display::default() }
+    }
+    async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        fetch(ctx, &a).await.map(Output::plain).map_err(ToolError::from)
+    }
+}
+
+async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let url = a.get("url").and_then(Value::as_str).ok_or("url is required")?;
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err("url must start with http:// or https://".into());
@@ -63,7 +127,7 @@ fn html_to_markdown(html: &str) -> String {
     out
 }
 
-pub async fn search(ctx: &Ctx, a: &Value) -> Result<String, String> {
+async fn search(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
     let n = a.get("limit").and_then(Value::as_u64).unwrap_or(8).clamp(1, 20) as usize;
     let results = if let Some(key) = crate::secrets::get("EXA_API_KEY") {

@@ -7,7 +7,7 @@ use crate::config::{Config, Paths};
 use crate::llm::{self, Delta, Message, Usage};
 use crate::router::{self, Route};
 use crate::session;
-use crate::tools::{self, Ctx, Group};
+use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
 use anyhow::Result;
 use futures::future::join_all;
 use serde::Serialize;
@@ -51,6 +51,14 @@ pub enum Event {
         ok: bool,
         output: String,
         ms: u64,
+        /// How the UI renders `output`.
+        kind: OutputKind,
+        /// The tool's machine-readable result, for logs and scorers.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        data: Option<Value>,
+        /// Stable error code when `ok` is false.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        code: Option<&'static str>,
     },
     Usage {
         prompt: u64,
@@ -83,6 +91,7 @@ pub struct Agent {
     pub paths: Paths,
     pub client: llm::Client,
     pub ctx: Arc<Ctx>,
+    pub catalog: Arc<Catalog>,
     pub messages: Vec<Message>,
     pub groups: BTreeSet<Group>,
     pub log: session::Log,
@@ -95,9 +104,6 @@ pub struct Agent {
     cancel_tx: watch::Sender<bool>,
 }
 
-/// Optional groups the model can ask for itself when the router missed one.
-const ENABLE_TOOLS: &str = "enable_tools";
-
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
         let key = crate::secrets::api_key(&cfg.api_key_secret);
@@ -105,6 +111,7 @@ impl Agent {
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() { None } else { Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone()))) };
+        let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
         let cwd_s = cwd.display().to_string();
         let (log, mut messages) = match resume {
             Some(id) => session::Log::open(&paths, &id)?,
@@ -124,6 +131,7 @@ impl Agent {
             paths,
             client,
             ctx,
+            catalog,
             messages,
             groups,
             log,
@@ -158,9 +166,9 @@ impl Agent {
     }
 
     fn tool_defs(&self) -> Vec<Value> {
-        let groups: Vec<Group> = self.groups.iter().cloned().collect();
-        let mut defs = tools::definitions(&groups, &self.ctx);
-        let offer = self.offerable();
+        let mut defs = self.catalog.definitions(&self.groups);
+        let offer: Vec<(String, String)> =
+            self.catalog.offerable(&self.groups).into_iter().map(|(g, d)| (g.label(), d)).collect();
         if !offer.is_empty() {
             let desc = format!(
                 "Switch on more tools for this session when you need them: {}.",
@@ -180,55 +188,6 @@ impl Agent {
             }));
         }
         defs
-    }
-
-    /// Groups not yet on, with a short description for `enable_tools`.
-    fn offerable(&self) -> Vec<(String, String)> {
-        let mut out: Vec<(String, String)> = vec![];
-        let base = [
-            (Group::Web, "web_search, web_fetch"),
-            (Group::Memory, "durable memory of the user and machine"),
-            (Group::History, "search past sessions"),
-            (Group::Skills, "load saved procedures"),
-            (Group::SkillWrite, "write the skill library"),
-        ];
-        for (g, d) in base {
-            if !self.groups.contains(&g) {
-                out.push((g.label(), d.to_string()));
-            }
-        }
-        if let Some(m) = &self.ctx.mcp {
-            for (name, s) in m.servers() {
-                let g = Group::Mcp(name.clone());
-                if !self.groups.contains(&g) {
-                    out.push((g.label(), crate::llm::truncate(&s.description, 80)));
-                }
-            }
-        }
-        out
-    }
-
-    fn group_for_tool(name: &str) -> Option<Group> {
-        Some(match name {
-            "web_search" | "web_fetch" => Group::Web,
-            "memory" => Group::Memory,
-            "session_search" => Group::History,
-            "skill" => Group::Skills,
-            "skill_manage" => Group::SkillWrite,
-            n if n.starts_with("mcp__") => Group::Mcp(n[5..].split("__").next()?.to_string()),
-            _ => return None,
-        })
-    }
-
-    fn parse_group(label: &str) -> Option<Group> {
-        Some(match label {
-            "web" => Group::Web,
-            "memory" => Group::Memory,
-            "history" => Group::History,
-            "skills" => Group::Skills,
-            "skill-write" => Group::SkillWrite,
-            l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),
-        })
     }
 
     async fn enable(&mut self, groups: impl IntoIterator<Item = Group>, tx: &Events) {
@@ -386,7 +345,7 @@ impl Agent {
                 let v: Value = serde_json::from_str(&c.function.arguments).unwrap_or_default();
                 let want: Vec<Group> = v["groups"]
                     .as_array()
-                    .map(|a| a.iter().filter_map(Value::as_str).filter_map(Self::parse_group).collect())
+                    .map(|a| a.iter().filter_map(Value::as_str).filter_map(Group::parse).collect())
                     .unwrap_or_default();
                 let labels: Vec<String> = want.iter().map(Group::label).collect();
                 self.enable(want, tx).await;
@@ -402,19 +361,24 @@ impl Agent {
                     ok: true,
                     output: out.clone(),
                     ms: 0,
+                    kind: OutputKind::Plain,
+                    data: None,
+                    code: None,
                 });
                 results[i] = Some((true, out));
-            } else if let Some(g) = Self::group_for_tool(&c.function.name) {
+            } else if let Some(g) = self.catalog.group_of(&c.function.name) {
                 // The model called a tool it wasn't shown: honour it and keep the group on.
                 if !self.groups.contains(&g) {
                     self.enable([g], tx).await;
                 }
             }
         }
-        let parallel = calls.iter().all(|c| tools::is_readonly(&c.function.name) || c.function.name == ENABLE_TOOLS);
+        let parallel = calls.iter().all(|c| self.catalog.readonly(&c.function.name) || c.function.name == ENABLE_TOOLS);
         let ctx = self.ctx.clone();
+        let catalog = self.catalog.clone();
         let run = |c: llm::ToolCall| {
             let ctx = ctx.clone();
+            let catalog = catalog.clone();
             let tx = tx.clone();
             async move {
                 let _ = tx.send(Event::ToolStart {
@@ -423,11 +387,11 @@ impl Agent {
                     args: c.function.arguments.clone(),
                 });
                 let t = Instant::now();
-                let r = tools::call(&ctx, &c.function.name, &c.function.arguments).await;
+                let r = catalog.call(&ctx, &c.function.name, &c.function.arguments).await;
                 let ms = t.elapsed().as_millis() as u64;
-                let (ok, out) = match r {
-                    Ok(s) => (true, s),
-                    Err(e) => (false, format!("Error: {e}")),
+                let (ok, out, kind, data, code) = match r {
+                    Ok(o) => (true, o.text, o.kind, o.data, None),
+                    Err(e) => (false, format!("Error: {}", e.message), e.kind, None, Some(e.code)),
                 };
                 let _ = tx.send(Event::ToolEnd {
                     id: c.id.clone(),
@@ -435,6 +399,9 @@ impl Agent {
                     ok,
                     output: out.clone(),
                     ms,
+                    kind,
+                    data,
+                    code,
                 });
                 (ok, out)
             }

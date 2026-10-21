@@ -1,24 +1,42 @@
-//! The tool surface. Tools are grouped; the core group is always present and
-//! the others are switched on per turn by the router, so the model never has
-//! to pick from a huge list. Once on, a group stays on for the session: the
-//! tool list then only ever grows, which keeps provider prefix caches warm.
+//! The tool surface. Every tool is one `impl Tool` that owns its name,
+//! schema, group, execution and display hints; the `Catalog` is the set a
+//! session has, built from `[tools]` config, and is the only thing the agent,
+//! the learning pass and the UI ask about tools. A tool that is not in the
+//! catalog does not exist.
+//!
+//! Tools are grouped; the core group is always present and the others are
+//! switched on per turn by the router, so the model never has to pick from a
+//! huge list. Once on, a group stays on for the session: the tool list then
+//! only ever grows, which keeps provider prefix caches warm.
 
 pub mod edit;
 pub mod fs;
+pub mod glob;
+pub mod grep;
+pub mod history;
+pub mod memory;
+pub mod read;
 pub mod shell;
+pub mod skill;
 pub mod web;
+pub mod write;
 
-use crate::config::Paths;
+use crate::config::{Paths, ToolsConfig};
 use crate::mcp;
-use crate::memory::{self, Target};
 use crate::skills::Library;
+use anyhow::{Result, bail};
+use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
 
 pub const OUTPUT_MAX: usize = 30_000;
+
+/// The switch the model uses to turn on a group the router missed. The agent
+/// answers it itself; it is not a catalog tool.
+pub const ENABLE_TOOLS: &str = "enable_tools";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Group {
@@ -43,6 +61,127 @@ impl Group {
             Group::Mcp(s) => format!("mcp:{s}"),
         }
     }
+
+    /// The inverse of `label` for the groups the model may ask for.
+    pub fn parse(label: &str) -> Option<Group> {
+        Some(match label {
+            "web" => Group::Web,
+            "memory" => Group::Memory,
+            "history" => Group::History,
+            "skills" => Group::Skills,
+            "skill-write" => Group::SkillWrite,
+            l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),
+        })
+    }
+}
+
+/// One tool: everything about it lives in its `impl`, and its wire name is
+/// declared there and nowhere else.
+#[async_trait::async_trait]
+pub trait Tool: Send + Sync {
+    /// Wire name the model calls.
+    fn name(&self) -> &'static str;
+    fn group(&self) -> Group;
+    /// The OpenAI function definition.
+    fn definition(&self) -> Value;
+    /// Changes nothing, so it may run beside other read-only calls.
+    fn readonly(&self) -> bool {
+        false
+    }
+    /// How the UI should show a call.
+    fn display(&self) -> Display {
+        Display::default()
+    }
+    async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError>;
+}
+
+/// Presentation hints, so the UI never matches on tool names.
+#[derive(Debug, Clone, Copy)]
+pub struct Display {
+    /// Argument shown on the call line; empty shows the raw arguments.
+    pub primary_arg: &'static str,
+    /// Lines of output shown under a finished call (0 = collapse to a count).
+    pub preview_lines: usize,
+}
+
+impl Default for Display {
+    fn default() -> Self {
+        Self { primary_arg: "", preview_lines: 2 }
+    }
+}
+
+/// How the UI renders a result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputKind {
+    #[default]
+    Plain,
+    /// A one-line summary, then a unified diff.
+    Diff,
+    /// Only the end matters (command output).
+    Tail,
+}
+
+pub struct Output {
+    /// What the model receives.
+    pub text: String,
+    pub kind: OutputKind,
+    /// Machine-readable result for logs and scorers.
+    pub data: Option<Value>,
+}
+
+impl Output {
+    pub fn plain(text: impl Into<String>) -> Self {
+        Self { text: text.into(), kind: OutputKind::Plain, data: None }
+    }
+    pub fn with_kind(mut self, kind: OutputKind) -> Self {
+        self.kind = kind;
+        self
+    }
+    pub fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
+    }
+    /// False when the result says the call changed nothing (a listing).
+    pub fn changed(&self) -> bool {
+        self.data.as_ref().and_then(|d| d.get("changed")).and_then(Value::as_bool).unwrap_or(true)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolError {
+    /// Prose for the model.
+    pub message: String,
+    /// Stable code for scorers ("not_found", "ambiguous", "sandbox", …).
+    pub code: &'static str,
+    pub kind: OutputKind,
+}
+
+impl ToolError {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self { message: message.into(), code, kind: OutputKind::Plain }
+    }
+    pub fn sandbox(message: String) -> Self {
+        Self::new("sandbox", message)
+    }
+}
+
+impl From<String> for ToolError {
+    fn from(message: String) -> Self {
+        Self::new("error", message)
+    }
+}
+
+impl From<&str> for ToolError {
+    fn from(message: &str) -> Self {
+        Self::new("error", message)
+    }
+}
+
+impl std::fmt::Display for ToolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
 }
 
 pub struct Ctx {
@@ -50,7 +189,7 @@ pub struct Ctx {
     pub paths: Paths,
     pub http: reqwest::Client,
     pub cancel: watch::Receiver<bool>,
-    pub memory: memory::Store,
+    pub memory: crate::memory::Store,
     pub skills: Library,
     /// The current repo's kit skills, when construct runs inside a repo.
     pub project_skills: Option<Library>,
@@ -63,7 +202,7 @@ impl Ctx {
     pub fn new(
         cwd: PathBuf,
         paths: Paths,
-        memory: memory::Store,
+        memory: crate::memory::Store,
         cancel: watch::Receiver<bool>,
         mcp: Option<Arc<mcp::Manager>>,
         sandbox: crate::sandbox::Policy,
@@ -96,6 +235,149 @@ impl Ctx {
     }
 }
 
+/// The tools this session has. Definition order in requests is the order
+/// tools are pushed in `build`, grouped by `Group`'s order.
+pub struct Catalog {
+    tools: Vec<Arc<dyn Tool>>,
+    mcp: Option<Arc<mcp::Manager>>,
+    /// Names removed by `[tools] disabled`, kept to filter MCP tools, which
+    /// are only known once their server starts.
+    disabled: Vec<String>,
+}
+
+impl Catalog {
+    /// The one place implementations are chosen.
+    pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<mcp::Manager>>) -> Result<Catalog> {
+        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell)];
+        match cfg.editor.as_str() {
+            "replace" => {
+                tools.push(Arc::new(read::Read));
+                tools.push(Arc::new(write::Write));
+                tools.push(Arc::new(edit::Edit));
+            }
+            other => bail!("tools.editor: unknown editor {other:?} (expected \"replace\")"),
+        }
+        tools.push(Arc::new(grep::Grep));
+        tools.push(Arc::new(glob::Glob));
+        tools.push(Arc::new(web::WebSearch));
+        tools.push(Arc::new(web::WebFetch));
+        tools.push(Arc::new(memory::Memory));
+        tools.push(Arc::new(skill::SkillView));
+        tools.push(Arc::new(skill::SkillManage));
+        tools.push(Arc::new(history::SessionSearch));
+        for d in &cfg.disabled {
+            if !d.starts_with("mcp__") && !tools.iter().any(|t| t.name() == d) {
+                bail!("tools.disabled: unknown tool {d:?}");
+            }
+        }
+        tools.retain(|t| !cfg.disabled.iter().any(|d| d == t.name()));
+        Ok(Catalog { tools, mcp, disabled: cfg.disabled.clone() })
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Arc<dyn Tool>> {
+        self.tools.iter().find(|t| t.name() == name)
+    }
+
+    pub fn names(&self) -> Vec<&'static str> {
+        self.tools.iter().map(|t| t.name()).collect()
+    }
+
+    /// Tool definitions for the enabled groups, in a stable order.
+    pub fn definitions<'a>(&self, enabled: impl IntoIterator<Item = &'a Group>) -> Vec<Value> {
+        let enabled: BTreeSet<&Group> = enabled.into_iter().collect();
+        let mut out = Vec::new();
+        for g in enabled {
+            if let Group::Mcp(server) = g {
+                if let Some(m) = &self.mcp {
+                    out.extend(m.definitions(server).into_iter().filter(|d| {
+                        let name = d.pointer("/function/name").and_then(Value::as_str).unwrap_or("");
+                        !self.disabled.iter().any(|x| x == name)
+                    }));
+                }
+                continue;
+            }
+            out.extend(self.tools.iter().filter(|t| t.group() == *g).map(|t| t.definition()));
+        }
+        out
+    }
+
+    /// The group that owns `name`, so a call to a tool the model wasn't shown
+    /// can switch its group on. None for anything not in the catalog.
+    pub fn group_of(&self, name: &str) -> Option<Group> {
+        if let Some(t) = self.get(name) {
+            return Some(t.group());
+        }
+        if self.disabled.iter().any(|d| d == name) {
+            return None;
+        }
+        let server = name.strip_prefix("mcp__")?.split("__").next()?;
+        Some(Group::Mcp(server.to_string()))
+    }
+
+    pub fn readonly(&self, name: &str) -> bool {
+        self.get(name).is_some_and(|t| t.readonly())
+    }
+
+    pub fn display(&self, name: &str) -> Display {
+        match self.get(name) {
+            Some(t) => t.display(),
+            None if name == ENABLE_TOOLS => Display { primary_arg: "groups", ..Display::default() },
+            None => Display::default(),
+        }
+    }
+
+    /// Groups not yet on, with a short description for `enable_tools`.
+    pub fn offerable(&self, enabled: &BTreeSet<Group>) -> Vec<(Group, String)> {
+        let mut out = vec![];
+        let base = [
+            (Group::Web, ""),
+            (Group::Memory, "durable memory of the user and machine"),
+            (Group::History, "search past sessions"),
+            (Group::Skills, "load saved procedures"),
+            (Group::SkillWrite, "write the skill library"),
+        ];
+        for (g, d) in base {
+            let names: Vec<&str> = self.tools.iter().filter(|t| t.group() == g).map(|t| t.name()).collect();
+            if names.is_empty() || enabled.contains(&g) {
+                continue;
+            }
+            // The web pair is described by its tools' names.
+            let d = if d.is_empty() { names.join(", ") } else { d.to_string() };
+            out.push((g, d));
+        }
+        if let Some(m) = &self.mcp {
+            for (name, s) in m.servers() {
+                let g = Group::Mcp(name.clone());
+                if !enabled.contains(&g) {
+                    out.push((g, crate::llm::truncate(&s.description, 80)));
+                }
+            }
+        }
+        out
+    }
+
+    /// Run a call by name. Unknown and disabled tools are both "unknown tool".
+    pub async fn call(&self, ctx: &Ctx, name: &str, args: &str) -> Result<Output, ToolError> {
+        let a: Value = if args.trim().is_empty() {
+            json!({})
+        } else {
+            serde_json::from_str(args).map_err(|e| {
+                ToolError::new("bad_json", format!("arguments are not valid JSON ({e}); resend the call"))
+            })?
+        };
+        if let Some(t) = self.get(name) {
+            return t.call(ctx, a).await;
+        }
+        if name.starts_with("mcp__")
+            && !self.disabled.iter().any(|d| d == name)
+            && let Some(m) = &self.mcp
+        {
+            return m.call(name, a).await.map(Output::plain).map_err(ToolError::from);
+        }
+        Err(ToolError::new("unknown_tool", format!("unknown tool {name}")))
+    }
+}
+
 fn def(name: &str, description: &str, params: Value) -> Value {
     json!({ "type": "function", "function": { "name": name, "description": description, "parameters": params } })
 }
@@ -104,309 +386,19 @@ fn obj(props: Value, required: &[&str]) -> Value {
     json!({ "type": "object", "properties": props, "required": required })
 }
 
-/// Tool definitions for the given groups, in a stable order.
-pub fn definitions(groups: &[Group], ctx: &Ctx) -> Vec<Value> {
-    let mut out = Vec::new();
-    let mut groups = groups.to_vec();
-    groups.sort();
-    groups.dedup();
-    for g in &groups {
-        match g {
-            Group::Core => out.extend(core()),
-            Group::Web => out.extend(web_defs()),
-            Group::Memory => out.push(memory_def()),
-            Group::Skills => out.push(skill_def(ctx)),
-            Group::SkillWrite => out.push(skill_manage_def()),
-            Group::History => out.push(history_def()),
-            Group::Mcp(server) => {
-                if let Some(m) = &ctx.mcp {
-                    out.extend(m.definitions(server));
-                }
-            }
-        }
-    }
-    out
+fn arg<'a>(a: &'a Value, k: &str) -> Option<&'a str> {
+    a.get(k).and_then(Value::as_str)
 }
 
-fn core() -> Vec<Value> {
-    vec![
-        def(
-            "shell",
-            "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s.",
-            obj(
-                json!({
-                    "command": { "type": "string" },
-                    "workdir": { "type": "string", "description": "Directory to run in; defaults to the session's" },
-                    "timeout": { "type": "integer", "description": "Seconds, max 1800" }
-                }),
-                &["command"],
-            ),
-        ),
-        def(
-            "read",
-            "Read a text file with line numbers (or list a directory). Reads up to 2000 lines; use offset/limit for more.",
-            obj(
-                json!({
-                    "path": { "type": "string" },
-                    "offset": { "type": "integer", "description": "1-based first line" },
-                    "limit": { "type": "integer" }
-                }),
-                &["path"],
-            ),
-        ),
-        def(
-            "write",
-            "Create a file or replace its whole content. An existing file must be read first. Prefer edit for changes.",
-            obj(json!({ "path": { "type": "string" }, "content": { "type": "string" } }), &["path", "content"]),
-        ),
-        def(
-            "edit",
-            "Replace exact text in a file. old_string must match once (copy it from read output without the line-number prefix) unless replace_all is set. Tolerates quote/dash and trailing-whitespace differences.",
-            obj(
-                json!({
-                    "path": { "type": "string" },
-                    "old_string": { "type": "string" },
-                    "new_string": { "type": "string" },
-                    "replace_all": { "type": "boolean" }
-                }),
-                &["path", "old_string", "new_string"],
-            ),
-        ),
-        def(
-            "grep",
-            "Search file contents with a regex (ripgrep engine, respects .gitignore). Returns path:line: text.",
-            obj(
-                json!({
-                    "pattern": { "type": "string" },
-                    "path": { "type": "string", "description": "File or directory; defaults to the session's" },
-                    "include": { "type": "string", "description": "Glob filter, e.g. *.rs" },
-                    "ignore_case": { "type": "boolean" }
-                }),
-                &["pattern"],
-            ),
-        ),
-        def(
-            "glob",
-            "Find files by glob pattern (e.g. src/**/*.rs), newest first. Respects .gitignore.",
-            obj(json!({ "pattern": { "type": "string" }, "path": { "type": "string" } }), &["pattern"]),
-        ),
-    ]
-}
-
-fn web_defs() -> Vec<Value> {
-    vec![
-        def(
-            "web_search",
-            "Search the web. Returns titles, URLs and snippets.",
-            obj(json!({ "query": { "type": "string" }, "limit": { "type": "integer" } }), &["query"]),
-        ),
-        def(
-            "web_fetch",
-            "Fetch a URL and return it as markdown (HTML is converted).",
-            obj(json!({ "url": { "type": "string" } }), &["url"]),
-        ),
-    ]
-}
-
-fn memory_def() -> Value {
-    def(
-        "memory",
-        "Durable memory injected into future sessions. target 'user' = who the user is and how they like to work; 'memory' = facts about this machine and its tools; 'project' = how the current repo works (build/test steps, landmines, conventions), shown only when working in this repo. Both are capped: pass all changes as one operations array (applied atomically, cap checked on the result), removing stale entries to make room. Save preferences, corrections and stable facts; skip task progress and things easy to rediscover.",
-        obj(
-            json!({
-                "target": { "type": "string", "enum": ["user", "memory", "project"] },
-                "operations": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "action": { "type": "string", "enum": ["add", "replace", "remove"] },
-                            "content": { "type": "string" },
-                            "old_text": { "type": "string", "description": "Unique substring of the entry to replace/remove" }
-                        },
-                        "required": ["action"]
-                    }
-                }
-            }),
-            &["target", "operations"],
-        ),
-    )
-}
-
-fn skill_def(_ctx: &Ctx) -> Value {
-    def(
-        "skill",
-        "Load a skill: a procedure written down from past work. Returns its SKILL.md and linked files; pass file to read one of those.",
-        obj(json!({ "name": { "type": "string" }, "file": { "type": "string" } }), &["name"]),
-    )
-}
-
-fn skill_manage_def() -> Value {
-    def(
-        "skill_manage",
-        "Write the skill library. create (content = full SKILL.md with frontmatter name/description), patch (old_string/new_string, optional file), edit (full rewrite), write_file (file under references/, templates/ or scripts/), remove_file, delete (archives; absorbed_into names the skill that took over), list. Skills are class-level procedures: trigger, numbered steps with exact commands, pitfalls, how to verify. The description is how the skill gets found later: models deciding whether a skill fits their task see only its name and description, so say plainly what situations it is for (and what it isn't, if a similar skill exists) and keep the steps in the body.",
-        obj(
-            json!({
-                "action": { "type": "string", "enum": ["create", "patch", "edit", "write_file", "remove_file", "delete", "list"] },
-                "name": { "type": "string" },
-                "content": { "type": "string" },
-                "file": { "type": "string" },
-                "old_string": { "type": "string" },
-                "new_string": { "type": "string" },
-                "absorbed_into": { "type": "string" },
-                "scope": { "type": "string", "enum": ["global", "project"], "description": "For create: 'project' when the procedure only makes sense in the current repo (its build, landmines, conventions); 'global' for methods that work across repos. Default global." }
-            }),
-            &["action"],
-        ),
-    )
-}
-
-fn history_def() -> Value {
-    def(
-        "session_search",
-        "Search the user's past agent sessions (all harnesses, via chatstrata) by keywords. Use when the user refers to earlier work or you need a past decision.",
-        obj(
-            json!({
-                "query": { "type": "string" },
-                "limit": { "type": "integer" },
-                "since": { "type": "string", "description": "YYYY-MM-DD" }
-            }),
-            &["query"],
-        ),
-    )
-}
-
-/// Tools that change nothing can run side by side.
-pub fn is_readonly(name: &str) -> bool {
-    matches!(name, "read" | "grep" | "glob" | "web_search" | "web_fetch" | "skill" | "session_search")
-}
-
-pub async fn call(ctx: &Ctx, name: &str, args: &str) -> Result<String, String> {
-    let a: Value = if args.trim().is_empty() {
-        json!({})
-    } else {
-        serde_json::from_str(args).map_err(|e| format!("arguments are not valid JSON ({e}); resend the call"))?
-    };
-    match name {
-        "shell" => shell::run(ctx, &a).await,
-        "read" => blocking(ctx, a, fs::read).await,
-        "write" => fs::write(ctx, &a),
-        "edit" => fs::edit(ctx, &a),
-        "grep" => blocking(ctx, a, fs::grep).await,
-        "glob" => blocking(ctx, a, fs::glob).await,
-        "web_fetch" => web::fetch(ctx, &a).await,
-        "web_search" => web::search(ctx, &a).await,
-        "memory" => memory_call(ctx, &a),
-        "skill" => {
-            let n = a["name"].as_str().ok_or("name is required")?;
-            match ctx.project_skills.as_ref().filter(|p| p.get(n).is_some()) {
-                Some(p) => p.view(n, a["file"].as_str()),
-                None => ctx.skills.view(n, a["file"].as_str()),
-            }
-        }
-        "skill_manage" => skill_manage(ctx, &a),
-        "session_search" => session_search(&a).await,
-        other if other.starts_with("mcp__") => match &ctx.mcp {
-            Some(m) => m.call(other, a).await,
-            None => Err(format!("unknown tool {other}")),
-        },
-        other => Err(format!("unknown tool {other}")),
-    }
+fn num(a: &Value, k: &str) -> Option<usize> {
+    a.get(k).and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).map(|n| n as usize)
 }
 
 /// Filesystem walks are synchronous; keep them off the async workers.
-async fn blocking(ctx: &Ctx, a: Value, f: fn(&Ctx, &Value) -> Result<String, String>) -> Result<String, String> {
+fn blocking(ctx: &Ctx, f: impl FnOnce() -> Result<String, ToolError>) -> Result<Output, ToolError> {
     // The walk borrows ctx, so use block_in_place rather than spawn_blocking.
-    let r = tokio::task::block_in_place(|| f(ctx, &a))?;
-    Ok(cap_output(ctx, "out", &r))
-}
-
-fn memory_call(ctx: &Ctx, a: &Value) -> Result<String, String> {
-    let target: Target =
-        serde_json::from_value(a["target"].clone()).map_err(|_| "target must be user, memory or project")?;
-    let ops: Vec<memory::Op> = match a.get("operations") {
-        Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("operations: {e}"))?,
-        None => vec![serde_json::from_value(a.clone()).map_err(|e| format!("{e}"))?],
-    };
-    ctx.memory.apply(target, &ops)
-}
-
-fn skill_manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
-    let s = |k: &str| a.get(k).and_then(Value::as_str);
-    let name = || s("name").ok_or_else(|| "name is required".to_string());
-    // An existing skill is edited where it lives; a new one goes where `scope` says.
-    let project = ctx.project_skills.as_ref();
-    let lib = match (s("scope"), s("name").and_then(|n| project.filter(|p| p.get(n).is_some()))) {
-        (_, Some(p)) => p,
-        (Some("project"), None) => match (project, &ctx.memory.project) {
-            (Some(p), Some(pr)) => {
-                pr.touch();
-                p
-            }
-            _ => return Err("not in a git repo, so there is no project kit; use scope 'global'".into()),
-        },
-        _ => &ctx.skills,
-    };
-    match s("action").unwrap_or("") {
-        "list" => {
-            let mut lines: Vec<String> = project
-                .map(|p| p.list().iter().map(|k| format!("- {} (project): {}", k.name, k.description)).collect())
-                .unwrap_or_default();
-            lines.extend(ctx.skills.list().iter().map(|k| format!("- {}: {}", k.name, k.description)));
-            if lines.is_empty() {
-                return Ok("the skill library is empty".into());
-            }
-            Ok(lines.join("\n"))
-        }
-        "create" => lib.create(name()?, s("content").ok_or("content is required")?, "agent"),
-        "edit" => lib.edit(name()?, s("content").ok_or("content is required")?),
-        "patch" => lib.patch(
-            name()?,
-            s("file"),
-            s("old_string").ok_or("old_string is required")?,
-            s("new_string").ok_or("new_string is required")?,
-        ),
-        "write_file" => lib.write_file(name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
-        "remove_file" => lib.remove_file(name()?, s("file").ok_or("file is required")?),
-        "delete" => lib.archive(name()?, s("absorbed_into")),
-        other => Err(format!("unknown action {other:?}")),
-    }
-}
-
-async fn session_search(a: &Value) -> Result<String, String> {
-    let q = a["query"].as_str().ok_or("query is required")?;
-    let limit = a["limit"].as_u64().unwrap_or(8).clamp(1, 30).to_string();
-    let mut cmd = tokio::process::Command::new("chatstrata");
-    cmd.args(["search", "--json", "--limit", &limit]);
-    if let Some(since) = a["since"].as_str() {
-        cmd.args(["--since", since]);
-    }
-    cmd.arg(q);
-    let out = cmd
-        .output()
-        .await
-        .map_err(|e| format!("chatstrata isn't available ({e}); install it to search past sessions"))?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).to_string());
-    }
-    let hits: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap_or_default();
-    if hits.is_empty() {
-        return Ok("no past sessions matched".into());
-    }
-    Ok(hits
-        .iter()
-        .map(|h| {
-            format!(
-                "[{} · {} · {}] {}\n  {}",
-                h["created_at"].as_str().unwrap_or("").get(..16).unwrap_or(""),
-                h["source"].as_str().unwrap_or(""),
-                h["project"].as_str().unwrap_or(""),
-                crate::llm::truncate(h["title"].as_str().unwrap_or(""), 80),
-                h["snippet"].as_str().unwrap_or("").replace('\n', " ")
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n"))
+    let r = tokio::task::block_in_place(f)?;
+    Ok(Output::plain(cap_output(ctx, "out", &r)))
 }
 
 /// Keep tool output inside the context budget. Long output keeps its head and

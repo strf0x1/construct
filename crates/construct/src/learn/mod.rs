@@ -22,7 +22,7 @@ pub use review::review;
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
 use crate::memory::Store;
-use crate::tools::{self, Ctx};
+use crate::tools::{Catalog, Ctx, ToolError};
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
@@ -81,7 +81,14 @@ pub struct Outcome {
 
 /// The learner only gets memory and skill tools, but its context still
 /// carries a sandbox: read-only, so nothing it does can write the workspace.
-fn learner_ctx(cfg: &Config, paths: &Paths, memory: Store, rx: tokio::sync::watch::Receiver<bool>) -> Ctx {
+/// Its catalog is built from the same `[tools]` config as the session's, so a
+/// disabled tool doesn't exist here either.
+fn learner(
+    cfg: &Config,
+    paths: &Paths,
+    memory: Store,
+    rx: tokio::sync::watch::Receiver<bool>,
+) -> Result<(Ctx, Catalog)> {
     let cwd = std::env::current_dir().unwrap_or_default();
     let memory = memory.with_project(paths, &cwd);
     let mut sb = cfg.sandbox.clone();
@@ -89,13 +96,14 @@ fn learner_ctx(cfg: &Config, paths: &Paths, memory: Store, rx: tokio::sync::watc
         sb.mode = "read-only".into();
     }
     let policy = crate::sandbox::Policy::new(&sb, &cwd, paths);
-    Ctx::new(cwd, paths.clone(), memory, rx, None, policy)
+    Ok((Ctx::new(cwd, paths.clone(), memory, rx, None, policy), Catalog::build(&cfg.tools, None)?))
 }
 
 async fn run_loop(
     client: &llm::Client,
     model: &str,
     ctx: &Ctx,
+    catalog: &Catalog,
     mut msgs: Vec<Message>,
     defs: &[Value],
     max: u32,
@@ -114,18 +122,16 @@ async fn run_loop(
         }
         for call in &m.tool_calls {
             let out = if allowed.contains(&call.function.name) {
-                tools::call(ctx, &call.function.name, &call.function.arguments).await
+                catalog.call(ctx, &call.function.name, &call.function.arguments).await
             } else {
-                Err(format!("{} isn't available in the learning pass", call.function.name))
+                Err(ToolError::from(format!("{} isn't available in the learning pass", call.function.name)))
             };
             let text = match &out {
-                Ok(s) => s.clone(),
+                Ok(o) => o.text.clone(),
                 Err(e) => format!("Error: {e}"),
             };
-            if out.is_ok()
-                && call.function.name != "skill"
-                && !(call.function.name == "skill_manage" && call.function.arguments.contains("\"list\""))
-            {
+            // Loading a skill or listing the library changes nothing; it isn't an action.
+            if out.as_ref().is_ok_and(|o| o.changed()) && !catalog.readonly(&call.function.name) {
                 actions.push(format!("{}: {}", call.function.name, llm::truncate(&text, 120)));
             }
             msgs.push(Message::tool(&call.id, text));

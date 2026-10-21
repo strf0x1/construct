@@ -3,6 +3,7 @@
 
 use super::app::{App, Kind, Phase, Status};
 use super::{markdown, theme};
+use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
 use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
@@ -110,12 +111,12 @@ impl App {
                     } else if b.status == Status::Err {
                         4
                     } else {
-                        tool_preview_lines(&b.title)
+                        b.preview
                     };
-                    let body = tool_body(&b.title, &b.text);
+                    let body = tool_body(b.out, &b.text);
                     let lines: Vec<&str> = body.lines().collect();
                     for l in lines.iter().take(max) {
-                        let style = if b.title == "edit" || b.title == "write" {
+                        let style = if b.out == OutputKind::Diff {
                             match l.chars().next() {
                                 Some('+') => Style::new().fg(theme::GREEN),
                                 Some('-') => Style::new().fg(theme::RED),
@@ -382,20 +383,12 @@ impl App {
     }
 }
 
-fn tool_preview_lines(name: &str) -> usize {
-    match name {
-        "edit" | "write" => 8,
-        "shell" => 4,
-        "read" | "skill" => 0,
-        _ => 2,
-    }
-}
-
-/// What to show under a finished tool: diffs for edits, the tail of shell.
-fn tool_body(name: &str, out: &str) -> String {
-    match name {
-        "edit" => out.lines().skip(1).collect::<Vec<_>>().join("\n"),
-        "shell" => {
+/// What to show under a finished tool: the diff under an edit's summary
+/// line, the tail of command output.
+fn tool_body(kind: OutputKind, out: &str) -> String {
+    match kind {
+        OutputKind::Diff => out.lines().skip(1).collect::<Vec<_>>().join("\n"),
+        OutputKind::Tail => {
             let lines: Vec<&str> = out.lines().collect();
             if lines.len() > 4 {
                 lines[lines.len() - 4..].join("\n") + &format!("\n({} lines)", lines.len())
@@ -403,7 +396,7 @@ fn tool_body(name: &str, out: &str) -> String {
                 out.to_string()
             }
         }
-        _ => out.to_string(),
+        OutputKind::Plain => out.to_string(),
     }
 }
 

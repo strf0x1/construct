@@ -118,11 +118,12 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let animating = app.animating();
         tokio::select! {
             Some(ready) = ready_rx.recv() => {
-                let (session, canceller, groups, history) = ready;
+                let (session, canceller, groups, history, catalog) = ready;
                 app.ready = true;
                 app.session = session;
                 app.canceller = Some(canceller);
                 app.groups = groups;
+                app.catalog = Some(catalog);
                 for m in history {
                     match m.role.as_str() {
                         "user" => app.push(Block::new(Kind::User, m.content.unwrap_or_default().split("\n\n<system-reminder>").next().unwrap_or("").to_string())),
