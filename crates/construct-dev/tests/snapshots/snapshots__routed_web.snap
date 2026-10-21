@@ -1,10 +1,10 @@
 ---
-source: dev/tests/snapshots.rs
-expression: snap
+source: crates/construct-dev/tests/snapshots.rs
+expression: "shaped(&env, &req)"
 ---
 {
-  "bytes": 3673,
-  "n_tools": 7,
+  "bytes": 4102,
+  "n_tools": 9,
   "request": {
     "model": "openrouter/free",
     "messages": [
@@ -14,7 +14,7 @@ expression: snap
       },
       {
         "role": "user",
-        "content": "explain what this function does"
+        "content": "summarize https://example.com/changelog"
       }
     ],
     "stream": true,
@@ -177,8 +177,47 @@ expression: snap
       {
         "type": "function",
         "function": {
+          "name": "web_search",
+          "description": "Search the web. Returns titles, URLs and snippets.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "query"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "web_fetch",
+          "description": "Fetch a URL and return it as markdown (HTML is converted).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
           "name": "enable_tools",
-          "description": "Switch on more tools for this session when you need them: web (web_search, web_fetch); memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
+          "description": "Switch on more tools for this session when you need them: memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
           "parameters": {
             "type": "object",
             "properties": {
@@ -187,7 +226,6 @@ expression: snap
                 "items": {
                   "type": "string",
                   "enum": [
-                    "web",
                     "memory",
                     "history",
                     "skills",

@@ -1,9 +1,9 @@
 ---
-source: dev/tests/snapshots.rs
+source: crates/construct-dev/tests/snapshots.rs
 expression: "shaped(&env, &req)"
 ---
 {
-  "bytes": 4102,
+  "bytes": 4059,
   "n_tools": 9,
   "request": {
     "model": "openrouter/free",
@@ -14,7 +14,7 @@ expression: "shaped(&env, &req)"
       },
       {
         "role": "user",
-        "content": "summarize https://example.com/changelog"
+        "content": "use the calc server to add 2 and 3"
       }
     ],
     "stream": true,
@@ -177,20 +177,21 @@ expression: "shaped(&env, &req)"
       {
         "type": "function",
         "function": {
-          "name": "web_search",
-          "description": "Search the web. Returns titles, URLs and snippets.",
+          "name": "mcp__calc__add",
+          "description": "Add two integers",
           "parameters": {
             "type": "object",
             "properties": {
-              "query": {
-                "type": "string"
+              "a": {
+                "type": "integer"
               },
-              "limit": {
+              "b": {
                 "type": "integer"
               }
             },
             "required": [
-              "query"
+              "a",
+              "b"
             ]
           }
         }
@@ -198,17 +199,17 @@ expression: "shaped(&env, &req)"
       {
         "type": "function",
         "function": {
-          "name": "web_fetch",
-          "description": "Fetch a URL and return it as markdown (HTML is converted).",
+          "name": "mcp__calc__echo",
+          "description": "Echo text back",
           "parameters": {
             "type": "object",
             "properties": {
-              "url": {
+              "text": {
                 "type": "string"
               }
             },
             "required": [
-              "url"
+              "text"
             ]
           }
         }
@@ -217,7 +218,7 @@ expression: "shaped(&env, &req)"
         "type": "function",
         "function": {
           "name": "enable_tools",
-          "description": "Switch on more tools for this session when you need them: memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
+          "description": "Switch on more tools for this session when you need them: web (web_search, web_fetch); memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
           "parameters": {
             "type": "object",
             "properties": {
@@ -226,6 +227,7 @@ expression: "shaped(&env, &req)"
                 "items": {
                   "type": "string",
                   "enum": [
+                    "web",
                     "memory",
                     "history",
                     "skills",

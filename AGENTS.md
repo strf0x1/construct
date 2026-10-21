@@ -3,25 +3,27 @@
 construct is a single-binary agent harness in Rust: an OpenAI-compatible
 streaming loop, in-process tools, capped memory and agent-written skills, a
 background learning pass, a Jev/local router, secretspec secrets, and a
-full-screen TUI. `construct-dev` (in `dev/`) is the tooling that lets you run
+full-screen TUI. `construct-dev` (in `crates/construct-dev/`) is the tooling that lets you run
 and observe it end to end without a model or a terminal.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`. |
-| `src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
-| `src/tools/` | shell, read/write/edit/grep/glob (ripgrep crates), web, memory/skill/session_search dispatch. |
-| `src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
-| `src/memory.rs`, `src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
-| `src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
-| `src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
-| `src/sandbox.rs` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. |
-| `src/tui/` | ratatui app, markdown renderer, theme. |
-| `dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
-| `dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
-| `dev/tests/e2e.rs` | End-to-end tests (real binary, fresh home, scripted model). |
+| `crates/construct/src/cli.rs` | Clap types and subcommand bodies; `main.rs` is only the sandbox-helper exit and `cli::run()`. Logic lives in the lib. |
+| `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`. |
+| `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
+| `crates/construct/src/tools/` | shell, read/write/edit/grep/glob (ripgrep crates), web, memory/skill/session_search dispatch. |
+| `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
+| `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
+| `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
+| `crates/construct/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
+| `crates/construct/src/sandbox.rs` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. |
+| `crates/construct/src/tui/` | ratatui app, markdown renderer, theme. |
+| `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
+| `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
+| `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. |
+| `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
 | `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. |
 
 ## Run it without a model
@@ -58,7 +60,7 @@ prints first-output, first-frame and per-wait timings as JSON.
 ```sh
 cargo xtask check                 # fmt, clippy -D warnings, all tests; ends in `ok` or `FAILED <gate>`
 cargo xtask fix                   # clippy --fix, then cargo fmt
-cargo test                        # unit tests (edit tiers, router)
+cargo test -p construct           # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev       # end-to-end: headless, router, learning, MCP, TUI
 cargo xtask snapshots             # re-record golden snapshots after an intended change
 ```
@@ -69,7 +71,7 @@ command. Timing limits in e2e tests are smoke limits, doubled under
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` to skip the
 reformat commit in blame.
 
-`dev/tests/snapshots.rs` pins what the model sees (the first request for a
+`crates/construct-dev/tests/snapshots.rs` pins what the model sees (the first request for a
 plain turn, a routed skill, routed web, routed MCP, and the learning review,
 with `bytes` and `n_tools`) and what the user sees (first frame, a finished
 turn). A refactor must leave them unchanged. When a change is meant to alter
@@ -97,7 +99,7 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
   first, since Jev favours the first option.
 - Tools run sandboxed (`[sandbox] mode = "workspace"`): the working dir, a
   private TMPDIR, system paths and toolchains. If a real tool breaks inside
-  it, add the toolchain path to `HOME_RO`/`HOME_RW` in src/sandbox.rs and a
+  it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct/src/sandbox.rs and a
   step to the sandbox e2e test, rather than turning the sandbox off.
 - Never point a harness at a real model without the sandbox: an agent with
   nothing to go on searches the disk, and once read the bench key files.

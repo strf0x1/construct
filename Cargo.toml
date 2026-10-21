@@ -1,5 +1,26 @@
 [workspace]
-members = [".", "dev"]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+license = "MIT"
+repository = "https://github.com/strf0x1/construct"
+publish = false
+
+# Shared by both crates. Each crate adds the features it needs.
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4.6", features = ["derive"] }
+futures = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
+serde = { version = "1", features = ["derive"] }
+# preserve_order everywhere: JSON keeps wire order, and snapshot key order
+# doesn't depend on which crates a test run happens to unify.
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = "1"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
@@ -11,42 +32,6 @@ pedantic = { level = "allow", priority = -1 } # turn on individual pedantic lint
 dbg_macro = "warn"
 todo = "warn"
 unwrap_used = "allow" # see AGENTS.md conventions; revisit once tools return structured errors
-
-[package]
-name = "construct"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.90"
-description = "A lean, self-improving agent harness"
-license = "MIT"
-publish = false
-
-[lints]
-workspace = true
-
-[dependencies]
-anyhow = "1"
-clap = { version = "4.6", features = ["derive"] }
-crossterm = { version = "0.29", features = ["event-stream"] }
-futures = "0.3"
-globset = "0.4"
-grep-matcher = "0.1"
-grep-regex = "0.1"
-grep-searcher = "0.1"
-htmd = "0.5"
-ignore = "0.4"
-libc = "0.2"
-ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json", "gzip", "query", "form"] }
-secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["preserve_order"] }
-similar = "3"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time", "signal"] }
-toml = "1"
-unicode-width = "0.2"
-pulldown-cmark = { version = "0.13", default-features = false }
-landlock = "0.4"
 
 [profile.release]
 opt-level = 3

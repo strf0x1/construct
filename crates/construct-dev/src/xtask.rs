@@ -68,8 +68,10 @@ pub fn snapshots() -> Result<bool> {
         println!("FAILED snapshots");
         return Ok(false);
     }
-    let out =
-        Command::new("git").args(["status", "--short", "--", "dev/tests/snapshots"]).current_dir(&root).output()?;
+    let out = Command::new("git")
+        .args(["status", "--short", "--", "crates/construct-dev/tests/snapshots"])
+        .current_dir(&root)
+        .output()?;
     let changed = String::from_utf8_lossy(&out.stdout);
     print!("{}", if changed.trim().is_empty() { "no snapshot changed\n".into() } else { changed });
     println!("ok");
