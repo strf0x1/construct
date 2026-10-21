@@ -225,6 +225,14 @@ class Arms(unittest.TestCase):
         finally:
             bench.ARMS.pop(name, None)
 
+    def test_endpoint_records_skip_a_half_written_line(self):
+        import bench
+
+        ep = bench.Endpoint.__new__(bench.Endpoint)
+        ep.log = Path(tempfile.mkdtemp()) / "log.jsonl"
+        ep.log.write_text('{"i": 0}\n{"i": 1, "usage": {"prom')
+        self.assertEqual(ep.records(), [{"i": 0}])
+
     def test_bad_arms_are_refused(self):
         import bench
 

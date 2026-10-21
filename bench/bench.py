@@ -186,9 +186,17 @@ class Endpoint:
         self.url = f"http://127.0.0.1:{self.port}/v1"
 
     def records(self):
+        """Complete records only: the budget watcher reads while serve is
+        writing, so the last line may be half written."""
         if not self.log.exists():
             return []
-        return [json.loads(l) for l in self.log.read_text().splitlines() if l.strip()]
+        out = []
+        for l in self.log.read_text().splitlines():
+            try:
+                out.append(json.loads(l))
+            except ValueError:
+                pass
+        return out
 
     def close(self):
         self.proc.terminate()
