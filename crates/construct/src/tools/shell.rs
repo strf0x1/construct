@@ -2,8 +2,8 @@
 //! stderr folded into stdout so ordering is kept, its own process group so a
 //! timeout or an interrupt kills the whole tree.
 
-use super::Ctx;
-use serde_json::Value;
+use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, def, obj};
+use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 use tokio::io::AsyncReadExt;
@@ -11,12 +11,51 @@ use tokio::io::AsyncReadExt;
 const DEFAULT_TIMEOUT_S: u64 = 120;
 const MAX_TIMEOUT_S: u64 = 1800;
 
-pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
+pub struct Shell;
+
+impl Shell {
+    pub const NAME: &str = "shell";
+}
+
+#[async_trait::async_trait]
+impl Tool for Shell {
+    fn name(&self) -> &'static str {
+        Self::NAME
+    }
+    fn group(&self) -> Group {
+        Group::Core
+    }
+    fn definition(&self) -> Value {
+        def(
+            Self::NAME,
+            "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s.",
+            obj(
+                json!({
+                    "command": { "type": "string" },
+                    "workdir": { "type": "string", "description": "Directory to run in; defaults to the session's" },
+                    "timeout": { "type": "integer", "description": "Seconds, max 1800" }
+                }),
+                &["command"],
+            ),
+        )
+    }
+    fn display(&self) -> Display {
+        Display { primary_arg: "command", preview_lines: 4 }
+    }
+    async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        run(ctx, &a).await.map(|s| Output::plain(s).with_kind(OutputKind::Tail)).map_err(|mut e| {
+            e.kind = OutputKind::Tail;
+            e
+        })
+    }
+}
+
+async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
     let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
     let cwd =
         a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
-    ctx.sandbox.check_read(&cwd)?;
+    ctx.sandbox.check_read(&cwd).map_err(ToolError::sandbox)?;
 
     let shell = if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" };
     let mut cmd = ctx.sandbox.command(shell, &format!("exec 2>&1\n{command}"));
@@ -74,7 +113,10 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
     }
     let code = status.and_then(|s| s.code());
     match (stopped, code) {
-        (Some(why), _) => Err(format!("{out}\n[{why} after {:.1}s]", elapsed.as_secs_f32())),
+        (Some(why), _) => Err(ToolError::new(
+            if why == "timed out" { "timeout" } else { "interrupted" },
+            format!("{out}\n[{why} after {:.1}s]", elapsed.as_secs_f32()),
+        )),
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
             // Landlock denials look like ordinary permission errors; say why.
@@ -84,8 +126,8 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
                 } else {
                     ""
                 };
-            Err(format!("{out}\n[exit {c}]{hint}"))
+            Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
-        (None, None) => Err(format!("{out}\n[killed by signal]")),
+        (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),
     }
 }

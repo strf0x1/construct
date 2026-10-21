@@ -103,6 +103,62 @@ fn model_can_enable_a_group_the_router_missed() {
 }
 
 #[test]
+fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
+    let obs = json!({ "observations": [{ "problem_class": "missing release output directory", "summary": "release dir was missing", "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
+    let env = Env::new(
+        "disabled",
+        json!({ "steps": [
+            { "call": "write", "args": { "path": "x.txt", "content": "hi" } },
+            { "call": "memory", "args": { "target": "user", "operations": [ { "action": "add", "content": "Likes tea" } ] } },
+            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "call": "shell", "args": { "command": "exit 2" } },
+            { "call": "shell", "args": { "command": "false" } },
+            { "text": "done" },
+            { "text": "Nothing to save." }
+        ], "side": [obs] }),
+    );
+    env.config(
+        "[router]\nmode = \"local\"\n\n[tools]\ndisabled = [\"write\", \"memory\", \"web_search\", \"web_fetch\"]\n",
+    );
+    let out = env.run(&["run", "--json", "--no-learn", "release the crate. I always do this on Fridays."]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    // Absent from definitions, and from what enable_tools offers.
+    assert_eq!(tool_names(&reqs[0]), ["shell", "read", "edit", "grep", "glob", "enable_tools"]);
+    let enable = reqs[0]["tools"].as_array().unwrap().iter().find(|t| t["function"]["name"] == "enable_tools").unwrap();
+    let offer = enable["function"]["parameters"]["properties"]["groups"]["items"]["enum"].to_string();
+    assert!(!offer.contains("memory") && !offer.contains("web"), "{offer}");
+    // "unknown tool" when called anyway, and nothing happened.
+    assert_eq!(last_tool_result(&reqs[1]), "Error: unknown tool write");
+    assert_eq!(last_tool_result(&reqs[2]), "Error: unknown tool memory");
+    assert!(!tool_names(&reqs[2]).contains(&"memory".to_string()), "calling it didn't switch its group on");
+    assert!(!env.work.join("x.txt").exists());
+    assert!(!env.home.join("memory/USER.md").exists());
+    // Events and the session log carry the code and the manifest.
+    let events: Vec<Value> =
+        String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+    let end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "write").expect("tool_end");
+    assert_eq!((end["ok"].clone(), end["code"].clone()), (json!(false), json!("unknown_tool")));
+    let shell_end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "shell").unwrap();
+    assert_eq!((shell_end["code"].clone(), shell_end["kind"].clone()), (json!("exit"), json!("tail")));
+    let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
+    assert!(!manifest["tools"].to_string().contains("\"write\""), "{manifest}");
+    assert_eq!(manifest["editor"], "replace");
+    let log = std::fs::read_to_string(env.home.join("sessions").join(format!("{}.jsonl", env.sessions()[0]))).unwrap();
+    let header: Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
+    assert_eq!(header["manifest"]["tools"], manifest["tools"]);
+    // The learning pass builds its tools from the same config.
+    let out = env.run(&["learn", "--session", &env.sessions()[0]]);
+    assert!(out.status.success(), "{}", text(&out));
+    let review = env
+        .requests()
+        .into_iter()
+        .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("learning pass"))
+        .expect("review request");
+    assert!(!tool_names(&review).contains(&"memory".to_string()), "{:?}", tool_names(&review));
+}
+
+#[test]
 fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     let skill_md = "---\nname: crate-release\ndescription: Releasing a Rust crate when the release dir is missing\n---\n\n1. mkdir -p dist\n2. cargo package\n";
     let big = "x".repeat(1500);

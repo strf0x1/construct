@@ -905,6 +905,7 @@ name = "construct"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "crossterm",
  "futures",
@@ -922,6 +923,7 @@ dependencies = [
  "secretspec",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "similar 3.2.0",
  "tokio",
  "toml",

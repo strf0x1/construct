@@ -1,9 +1,9 @@
 use super::prompts::CURATOR;
-use super::{Outcome, learner_ctx, run_loop};
+use super::{Outcome, learner, run_loop};
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
 use crate::memory::Store;
-use crate::tools::{self, Group};
+use crate::tools::Group;
 use anyhow::Result;
 use std::fmt::Write as _;
 
@@ -12,7 +12,7 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let ctx = learner_ctx(cfg, paths, memory, rx);
+    let (ctx, catalog) = learner(cfg, paths, memory, rx)?;
     let usage = ctx.skills.usage();
     let now = crate::skills::now();
     let mut listing = String::new();
@@ -37,9 +37,16 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     if n < 3 {
         return Ok(None);
     }
-    let defs = tools::definitions(&[Group::Skills, Group::SkillWrite], &ctx);
-    let out =
-        run_loop(&client, cfg.learn_model(), &ctx, vec![Message::system(CURATOR), Message::user(listing)], &defs, 16)
-            .await?;
+    let defs = catalog.definitions(&[Group::Skills, Group::SkillWrite]);
+    let out = run_loop(
+        &client,
+        cfg.learn_model(),
+        &ctx,
+        &catalog,
+        vec![Message::system(CURATOR), Message::user(listing)],
+        &defs,
+        16,
+    )
+    .await?;
     Ok(Some(out))
 }

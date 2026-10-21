@@ -24,6 +24,7 @@ pub struct Config {
     pub learn: LearnConfig,
     pub router: RouterConfig,
     pub sandbox: SandboxConfig,
+    pub tools: ToolsConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
@@ -88,6 +89,7 @@ impl Default for Config {
             learn: LearnConfig::default(),
             router: RouterConfig::default(),
             sandbox: SandboxConfig::default(),
+            tools: ToolsConfig::default(),
             mcp: BTreeMap::new(),
             headers: BTreeMap::new(),
         }
@@ -129,6 +131,24 @@ pub struct SandboxConfig {
 impl Default for SandboxConfig {
     fn default() -> Self {
         Self { mode: "workspace".into(), allow_read: vec![], allow_write: vec![] }
+    }
+}
+
+/// Which tools exist this session. A profile for an experiment is just a
+/// config file with a different `[tools]` table.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ToolsConfig {
+    /// The read/edit family: "replace" (old_string/new_string). One key picks
+    /// a family, never a single tool, since the pair only works together.
+    pub editor: String,
+    /// Tool names that must not exist this session, even if the model asks.
+    pub disabled: Vec<String>,
+}
+
+impl Default for ToolsConfig {
+    fn default() -> Self {
+        Self { editor: "replace".into(), disabled: vec![] }
     }
 }
 
@@ -202,6 +222,9 @@ impl Config {
         }
         if let Ok(v) = std::env::var("CONSTRUCT_ROUTER") {
             cfg.router.mode = v;
+        }
+        if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_EDITOR") {
+            cfg.tools.editor = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         Ok(cfg)

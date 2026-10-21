@@ -1,0 +1,152 @@
+//! Contract: every tool in the catalog, checked without a model. A new tool
+//! is covered by being in the catalog: its schema is well-formed, a call with
+//! no arguments is refused in prose that names the missing one, file tools
+//! refuse what the sandbox denies, and output stays under `OUTPUT_MAX`.
+
+use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct::memory::Store;
+use construct::sandbox::Policy;
+use construct::tools::{Catalog, Ctx, Group, OUTPUT_MAX};
+use serde_json::{Value, json};
+use std::path::PathBuf;
+
+struct Fixture {
+    root: PathBuf,
+    ctx: Ctx,
+    catalog: Catalog,
+}
+
+impl Fixture {
+    fn new(name: &str) -> Self {
+        let root = std::env::temp_dir().join(format!("construct-contract-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let work = root.join("work");
+        std::fs::create_dir_all(&work).unwrap();
+        std::fs::create_dir_all(root.join("outside")).unwrap();
+        std::fs::write(root.join("outside/secret.txt"), "secret\n").unwrap();
+        let paths = Paths { home: root.join("home") };
+        let memory = Store::new(&paths, &MemoryConfig::default());
+        let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
+        let (_tx, rx) = tokio::sync::watch::channel(false);
+        let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
+        let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
+        Self { root, ctx, catalog }
+    }
+
+    async fn call(&self, name: &str, args: Value) -> Result<String, (String, &'static str)> {
+        self.catalog.call(&self.ctx, name, &args.to_string()).await.map(|o| o.text).map_err(|e| (e.message, e.code))
+    }
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+fn all_groups() -> Vec<Group> {
+    vec![Group::Core, Group::Web, Group::Memory, Group::Skills, Group::SkillWrite, Group::History]
+}
+
+#[test]
+fn every_schema_is_a_well_formed_function() {
+    let f = Fixture::new("schema");
+    let defs = f.catalog.definitions(&all_groups());
+    assert_eq!(defs.len(), f.catalog.names().len(), "every tool belongs to a group");
+    for (d, name) in defs.iter().zip(f.catalog.names()) {
+        assert_eq!(d["type"], "function");
+        assert_eq!(d["function"]["name"], name, "definition order follows the catalog");
+        assert!(!d["function"]["description"].as_str().unwrap_or("").is_empty(), "{name} has a description");
+        let params = &d["function"]["parameters"];
+        assert_eq!(params["type"], "object", "{name}");
+        let props = params["properties"].as_object().unwrap_or_else(|| panic!("{name} has properties"));
+        for r in params["required"].as_array().unwrap() {
+            assert!(props.contains_key(r.as_str().unwrap()), "{name}: required {r} is a property");
+        }
+        for (k, p) in props {
+            assert!(p.get("type").is_some(), "{name}.{k} has a type");
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_arguments_are_refused_in_prose() {
+    let f = Fixture::new("args");
+    for d in f.catalog.definitions(&all_groups()) {
+        let name = d["function"]["name"].as_str().unwrap();
+        let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
+        let (msg, _) = f.call(name, json!({})).await.expect_err(name);
+        assert!(msg.contains(first), "{name}: {msg:?} should name {first}");
+    }
+    let (msg, code) = f.call("read", json!("not an object")).await.expect_err("bad args");
+    assert!(msg.contains("path is required"), "{msg}");
+    assert_eq!(code, "error");
+    let err = f.catalog.call(&f.ctx, "read", "{not json").await.err().unwrap();
+    assert_eq!(err.code, "bad_json");
+    assert!(err.message.contains("resend the call"));
+    let err = f.catalog.call(&f.ctx, "no_such_tool", "{}").await.err().unwrap();
+    assert_eq!((err.code, err.message.as_str()), ("unknown_tool", "unknown tool no_such_tool"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn file_tools_refuse_what_the_sandbox_denies() {
+    let f = Fixture::new("sandbox");
+    let secret = f.root.join("outside/secret.txt");
+    let outside = f.root.join("outside");
+    let s = |p: &PathBuf| p.display().to_string();
+    let cases = [
+        ("read", json!({ "path": s(&secret) })),
+        ("write", json!({ "path": s(&outside.join("new.txt")), "content": "x" })),
+        ("edit", json!({ "path": s(&secret), "old_string": "secret", "new_string": "public" })),
+        ("grep", json!({ "pattern": "secret", "path": s(&outside) })),
+        ("glob", json!({ "pattern": "*.txt", "path": s(&outside) })),
+        ("shell", json!({ "command": "true", "workdir": s(&outside) })),
+    ];
+    for (name, args) in cases {
+        let (msg, code) = f.call(name, args).await.expect_err(name);
+        assert_eq!(code, "sandbox", "{name}: {msg}");
+        assert!(msg.contains("blocked by the sandbox"), "{name}: {msg}");
+    }
+    assert_eq!(std::fs::read_to_string(&secret).unwrap(), "secret\n");
+    assert!(!outside.join("new.txt").exists());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn output_stays_under_the_cap() {
+    let f = Fixture::new("cap");
+    let line = format!("{}\n", "needle ".repeat(40));
+    std::fs::write(f.ctx.cwd.join("big.txt"), line.repeat(3000)).unwrap();
+    for (name, args) in [("read", json!({ "path": "big.txt" })), ("grep", json!({ "pattern": "needle" }))] {
+        let out = f.call(name, args).await.unwrap();
+        assert!(out.len() <= OUTPUT_MAX, "{name}: {} bytes", out.len());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn edit_reports_stable_codes() {
+    let f = Fixture::new("edit");
+    std::fs::write(f.ctx.cwd.join("a.txt"), "x x\n").unwrap();
+    let edit = |old: &str, new: &str| json!({ "path": "a.txt", "old_string": old, "new_string": new });
+    assert_eq!(f.call("edit", edit("y", "z")).await.unwrap_err().1, "not_found");
+    assert_eq!(f.call("edit", edit("x", "z")).await.unwrap_err().1, "ambiguous");
+    assert_eq!(f.call("edit", edit("x", "x")).await.unwrap_err().1, "no_change");
+    let out = f.catalog.call(&f.ctx, "edit", &edit("x x", "y").to_string()).await.unwrap();
+    assert_eq!(out.kind, construct::tools::OutputKind::Diff);
+    assert!(out.text.starts_with("edited "), "{}", out.text);
+    assert_eq!(std::fs::read_to_string(f.ctx.cwd.join("a.txt")).unwrap(), "y\n");
+}
+
+#[test]
+fn disabled_tools_are_not_in_the_catalog() {
+    let cfg =
+        ToolsConfig { disabled: vec!["write".into(), "web_search".into(), "web_fetch".into()], ..Default::default() };
+    let c = Catalog::build(&cfg, None).unwrap();
+    assert!(c.get("write").is_none());
+    assert_eq!(c.group_of("web_fetch"), None, "a disabled tool can't switch its group on");
+    let offered: Vec<String> = c.offerable(&Default::default()).into_iter().map(|(g, _)| g.label()).collect();
+    assert!(!offered.contains(&"web".to_string()), "an empty group isn't offered: {offered:?}");
+    let bad = ToolsConfig { disabled: vec!["wirte".into()], ..Default::default() };
+    assert!(Catalog::build(&bad, None).err().unwrap().to_string().contains("unknown tool \"wirte\""));
+    let bad = ToolsConfig { editor: "nope".into(), ..Default::default() };
+    assert!(Catalog::build(&bad, None).is_err());
+}

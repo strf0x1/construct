@@ -183,7 +183,7 @@ impl Library {
         let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
         let path = safe_join(&skill.dir, file.unwrap_or("SKILL.md"))?;
         let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let updated = crate::tools::edit::replace_once(&text, old, new, false)?;
+        let updated = crate::tools::edit::replace::replace_once(&text, old, new, false).map_err(|e| e.message)?;
         write_atomic(&path, updated.as_bytes()).map_err(|e| e.to_string())?;
         self.touch(name, |u| u.patches += 1);
         Ok(format!("patched {name}/{}", file.unwrap_or("SKILL.md")))

@@ -13,7 +13,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/cli.rs` | Clap types and subcommand bodies; `main.rs` is only the sandbox-helper exit and `cli::run()`. Logic lives in the lib. |
 | `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`. |
 | `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
-| `crates/construct/src/tools/` | shell, read/write/edit/grep/glob (ripgrep crates), web, memory/skill/session_search dispatch. |
+| `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history); `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
 | `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
@@ -86,6 +86,11 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
 
 ## Rules of thumb
 
+- A tool's wire name appears only in its `impl Tool` (`Shell::NAME` elsewhere).
+  Nothing outside `tools/` matches on tool names: the UI uses `Display` and
+  `OutputKind`, policy uses `Group` and `readonly()`. A tool not in the
+  `Catalog` does not exist; `[tools] disabled` removes one, `editor` swaps the
+  read/edit family. `construct manifest` prints what a build and config run.
 - First frame must not wait on anything: no terminal queries before drawing,
   no secret or network work on the UI path. `CONSTRUCT_TRACE=1` writes startup
   milestones to `$CONSTRUCT_HOME/trace.log`.

@@ -9,6 +9,7 @@ pub mod config;
 pub mod jev;
 pub mod learn;
 pub mod llm;
+pub mod manifest;
 pub mod mcp;
 pub mod memory;
 pub mod project;

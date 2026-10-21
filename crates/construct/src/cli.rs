@@ -59,6 +59,9 @@ enum Cmd {
     Memory,
     /// Show the config path and current settings.
     Config,
+    /// Print what this build and config would run as JSON: git sha, binary
+    /// and config hashes, tools. Benchmarks record it with every result.
+    Manifest,
     /// Route requests read as JSON lines from stdin ({"request","previous"})
     /// and print each route as a JSON line. For router evals.
     #[command(hide = true)]
@@ -161,6 +164,12 @@ pub fn run() -> Result<()> {
         Some(Cmd::Gate) => rt.block_on(gate_cmd(cfg)),
         Some(Cmd::Config) => {
             println!("# {}\n{}", paths.config().display(), toml::to_string_pretty(&cfg)?);
+            Ok(())
+        }
+        Some(Cmd::Manifest) => {
+            let catalog = tools::Catalog::build(&cfg.tools, None)?;
+            let m = crate::manifest::Manifest::new(&cfg, &catalog).with_binary_hash();
+            println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
         }
     }

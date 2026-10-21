@@ -43,7 +43,7 @@ fn new_id() -> String {
 }
 
 impl Log {
-    pub fn create(paths: &Paths, cwd: &str, model: &str) -> Result<Self> {
+    pub fn create(paths: &Paths, cwd: &str, model: &str, manifest: &crate::manifest::Manifest) -> Result<Self> {
         let dir = paths.sessions_dir();
         std::fs::create_dir_all(&dir)?;
         let id = new_id();
@@ -56,6 +56,7 @@ impl Log {
             "version": env!("CARGO_PKG_VERSION"),
             "cwd": cwd,
             "model": model,
+            "manifest": manifest,
             "at": now_ms(),
         }));
         Ok(log)

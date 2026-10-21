@@ -1,0 +1,52 @@
+//! What produced a result: the build, the effective config and the tools.
+//! Written at the top of every session log, sent as the first event of a
+//! session, and printed by `construct manifest` for the bench to record.
+
+use crate::config::Config;
+use crate::tools::Catalog;
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Manifest {
+    pub version: &'static str,
+    pub git_sha: &'static str,
+    pub git_dirty: bool,
+    /// Only from `construct manifest`: hashing a debug binary takes too long
+    /// to do on every session start, and the git sha already names the build.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binary_sha256: Option<String>,
+    /// Hash of the effective config (file plus environment overrides).
+    pub config_sha256: String,
+    pub tools: Vec<&'static str>,
+    pub editor: String,
+    pub model: String,
+    pub router_mode: String,
+}
+
+impl Manifest {
+    pub fn new(cfg: &Config, catalog: &Catalog) -> Self {
+        Self {
+            version: env!("CARGO_PKG_VERSION"),
+            git_sha: env!("CONSTRUCT_GIT_SHA"),
+            git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
+            binary_sha256: None,
+            config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
+            tools: catalog.names(),
+            editor: cfg.tools.editor.clone(),
+            model: cfg.model.clone(),
+            router_mode: cfg.router.mode.clone(),
+        }
+    }
+
+    /// Add the running binary's hash.
+    pub fn with_binary_hash(mut self) -> Self {
+        self.binary_sha256 =
+            std::env::current_exe().ok().and_then(|p| std::fs::read(p).ok()).map(|bytes| sha256(&bytes));
+        self
+    }
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
