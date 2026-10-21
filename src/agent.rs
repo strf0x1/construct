@@ -233,13 +233,12 @@ impl Agent {
 
     async fn enable(&mut self, groups: impl IntoIterator<Item = Group>, tx: &Events) {
         for g in groups {
-            if let Group::Mcp(name) = &g {
-                if let Some(m) = &self.ctx.mcp {
-                    if let Err(e) = m.ensure(name).await {
-                        let _ = tx.send(Event::Error { message: format!("MCP {name}: {e:#}") });
-                        continue;
-                    }
-                }
+            if let Group::Mcp(name) = &g
+                && let Some(m) = &self.ctx.mcp
+                && let Err(e) = m.ensure(name).await
+            {
+                let _ = tx.send(Event::Error { message: format!("MCP {name}: {e:#}") });
+                continue;
             }
             self.groups.insert(g);
         }

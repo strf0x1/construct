@@ -336,12 +336,13 @@ impl App {
         let expand = self.expand;
         let b = &self.blocks[i];
         let dynamic = b.status == Status::Running;
-        if !dynamic {
-            if let Some((w, v, e, lines)) = self.cache.get(&i) {
-                if *w == width && *v == b.version && *e == expand {
-                    return lines.clone();
-                }
-            }
+        if !dynamic
+            && let Some((w, v, e, lines)) = self.cache.get(&i)
+            && *w == width
+            && *v == b.version
+            && *e == expand
+        {
+            return lines.clone();
         }
         let w = width as usize;
         let mut out: Vec<Line<'static>> = Vec::new();
@@ -616,10 +617,10 @@ impl App {
                 format!("◇ {s}  "),
                 Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2)),
             ));
-        } else if let Some((t, c, at)) = &self.toast {
-            if at.elapsed() < Duration::from_secs(6) {
-                right.push(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)));
-            }
+        } else if let Some((t, c, at)) = &self.toast
+            && at.elapsed() < Duration::from_secs(6)
+        {
+            right.push(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)));
         }
         if !self.groups.is_empty() {
             right.push(Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
@@ -839,8 +840,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     // Build the agent off the UI path; the first frame is already up.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<Event>();
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
-    let (ready_tx, mut ready_rx) =
-        mpsc::unbounded_channel::<(String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>)>();
+    let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
     let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx));
 
     let mut events = EventStream::new();
@@ -867,11 +867,10 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                 dirty = true;
             }
             Some(ev) = ev_rx.recv() => {
-                if let Event::Error { message } = &ev {
-                    if message.starts_with("fatal:") {
+                if let Event::Error { message } = &ev
+                    && message.starts_with("fatal:") {
                         app.notice(theme::RED, message.clone());
                     }
-                }
                 if let Event::Route { groups, .. } = &ev {
                     for g in groups { if !app.groups.contains(g) { app.groups.push(g.clone()); } }
                 }
@@ -1048,10 +1047,10 @@ pub fn trace(what: &str) {
     }
     static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
     let t = START.get_or_init(Instant::now).elapsed();
-    if let Ok(p) = Paths::resolve() {
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p.home.join("trace.log")) {
-            let _ = writeln!(f, "{:>8.2}ms {what}", t.as_secs_f64() * 1000.0);
-        }
+    if let Ok(p) = Paths::resolve()
+        && let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p.home.join("trace.log"))
+    {
+        let _ = writeln!(f, "{:>8.2}ms {what}", t.as_secs_f64() * 1000.0);
     }
 }
 
@@ -1106,13 +1105,17 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
     false
 }
 
+/// What the agent task hands the UI once it is built: session id, turn
+/// canceller, enabled groups, resumed history.
+type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>);
+
 async fn agent_task(
     cfg: Config,
     paths: Paths,
     resume: Option<String>,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
     tx: mpsc::UnboundedSender<Event>,
-    ready: mpsc::UnboundedSender<(String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>)>,
+    ready: mpsc::UnboundedSender<Ready>,
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);

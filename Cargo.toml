@@ -1,6 +1,17 @@
 [workspace]
 members = [".", "dev"]
 
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+missing_docs = "allow" # module docs are required by convention; item docs are not
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "allow", priority = -1 } # turn on individual pedantic lints later if they earn it
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "allow" # see AGENTS.md conventions; revisit once tools return structured errors
+
 [package]
 name = "construct"
 version = "0.1.0"
@@ -8,6 +19,10 @@ edition = "2024"
 rust-version = "1.90"
 description = "A lean, self-improving agent harness"
 license = "MIT"
+publish = false
+
+[lints]
+workspace = true
 
 [dependencies]
 anyhow = "1"

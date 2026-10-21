@@ -5,6 +5,9 @@ edition = "2024"
 publish = false
 description = "Dev tools for construct: scripted/recording model endpoint, pty driver, bench helpers"
 
+[lints]
+workspace = true
+
 [dependencies]
 anyhow = "1"
 axum = "0.8"

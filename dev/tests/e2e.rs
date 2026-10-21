@@ -13,6 +13,12 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
 }
 
+/// A timing limit in ms, doubled under `CONSTRUCT_E2E_SLOW=1` (set in CI).
+/// These are smoke limits that catch a hang; real timings are the bench's job.
+fn budget(ms: u64) -> u64 {
+    if std::env::var_os("CONSTRUCT_E2E_SLOW").is_some_and(|v| v == "1") { ms * 2 } else { ms }
+}
+
 fn construct() -> PathBuf {
     static BUILD: Once = Once::new();
     BUILD.call_once(|| {
@@ -344,34 +350,38 @@ fn tui_streams_a_turn_and_esc_interrupts_a_slow_one() {
     )
     .unwrap();
     let mut log = Vec::new();
-    let script = r#"
-wait "ask construct" 3000
+    let (short, long) = (budget(3000), budget(5000));
+    let script = format!(
+        r#"
+wait "ask construct" {short}
 type run it
 key enter
-wait "from-the-shell" 5000
-wait "All good." 5000
+wait "from-the-shell" {long}
+wait "All good." {long}
 expect "│ 2"
 type slow one
 key enter
-wait "thinking" 3000
+wait "thinking" {short}
 key esc
-wait "interrupted" 3000
+wait "interrupted" {short}
 type again
 key enter
-wait "back again" 5000
-"#;
-    let r = drive::run_script(&mut d, script, &mut log);
+wait "back again" {long}
+"#
+    );
+    let r = drive::run_script(&mut d, &script, &mut log);
     if let Err(e) = &r {
         panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
     }
     let m = r.unwrap();
     let first = m["first_frame_ms"].as_f64().unwrap();
-    assert!(first < 500.0, "first frame took {first}ms");
+    let limit = budget(500) as f64;
+    assert!(first < limit, "first frame took {first}ms (limit {limit}ms)");
     d.send(b"/quit\r").unwrap();
     std::thread::sleep(Duration::from_millis(300));
     assert!(
         d.exited() || {
-            d.pump(Duration::from_millis(500));
+            d.pump(Duration::from_millis(budget(500)));
             d.exited()
         },
         "quit exits"

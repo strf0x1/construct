@@ -358,17 +358,17 @@ fn skill_manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
             }
             Ok(lines.join("\n"))
         }
-        "create" => lib.create(&name()?, s("content").ok_or("content is required")?, "agent"),
-        "edit" => lib.edit(&name()?, s("content").ok_or("content is required")?),
+        "create" => lib.create(name()?, s("content").ok_or("content is required")?, "agent"),
+        "edit" => lib.edit(name()?, s("content").ok_or("content is required")?),
         "patch" => lib.patch(
-            &name()?,
+            name()?,
             s("file"),
             s("old_string").ok_or("old_string is required")?,
             s("new_string").ok_or("new_string is required")?,
         ),
-        "write_file" => lib.write_file(&name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
-        "remove_file" => lib.remove_file(&name()?, s("file").ok_or("file is required")?),
-        "delete" => lib.archive(&name()?, s("absorbed_into")),
+        "write_file" => lib.write_file(name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
+        "remove_file" => lib.remove_file(name()?, s("file").ok_or("file is required")?),
+        "delete" => lib.archive(name()?, s("absorbed_into")),
         other => Err(format!("unknown action {other:?}")),
     }
 }

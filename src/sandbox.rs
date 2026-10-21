@@ -9,6 +9,7 @@
 //!   /proc/<construct>/environ is out of reach.
 //! - the in-process file tools (read, write, edit, grep, glob) check every
 //!   path, after resolving symlinks, against the same roots.
+//!
 //! Tools also get an environment with credentials removed.
 //!
 //! Default ("workspace"): read and write the working directory, a private
@@ -177,10 +178,10 @@ pub fn is_secret_name(name: &str) -> bool {
 
 pub fn scrub_env(cmd: &mut tokio::process::Command) {
     for (k, _) in std::env::vars_os() {
-        if let Some(k) = k.to_str() {
-            if is_secret_name(k) || crate::secrets::KNOWN.iter().any(|(n, _)| *n == k) {
-                cmd.env_remove(k);
-            }
+        if let Some(k) = k.to_str()
+            && (is_secret_name(k) || crate::secrets::KNOWN.iter().any(|(n, _)| *n == k))
+        {
+            cmd.env_remove(k);
         }
     }
     // An agent with the user's ssh-agent can push anywhere the user can.

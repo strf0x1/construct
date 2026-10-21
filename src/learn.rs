@@ -640,12 +640,13 @@ pub async fn gate_parts(cfg: &Config, users: &[String], errors: &[String], loade
     if users.is_empty() {
         return Gate { kind: None, source: "local", note: "no user turns".into() };
     }
-    if cfg.router.mode != "local" && cfg.router.mode != "off" {
-        if let Some(key) = crate::secrets::get("TYPESAFE_API_KEY") {
-            match jev_gate(cfg, &key, users, errors, loaded).await {
-                Ok(g) => return g,
-                Err(e) => log_line_quiet(&format!("jev gate failed ({e}); using local heuristics")),
-            }
+    if cfg.router.mode != "local"
+        && cfg.router.mode != "off"
+        && let Some(key) = crate::secrets::get("TYPESAFE_API_KEY")
+    {
+        match jev_gate(cfg, &key, users, errors, loaded).await {
+            Ok(g) => return g,
+            Err(e) => log_line_quiet(&format!("jev gate failed ({e}); using local heuristics")),
         }
     }
     let joined = users.join("\n").to_lowercase();

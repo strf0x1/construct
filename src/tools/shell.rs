@@ -59,11 +59,11 @@ pub async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
             _ = cancel.changed() => { if *cancel.borrow() { stopped = Some("interrupted"); break; } }
         }
     }
-    if stopped.is_some() {
-        if let Some(pid) = pid {
-            // SAFETY: plain syscall on a process group we created.
-            unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
-        }
+    if stopped.is_some()
+        && let Some(pid) = pid
+    {
+        // SAFETY: plain syscall on a process group we created.
+        unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
     }
     let status = child.wait().await.ok();
     let elapsed = started.elapsed();

@@ -30,7 +30,7 @@ pub async fn ask(
     questions: Map<String, Value>,
     timeout: Duration,
 ) -> Result<Value, String> {
-    let now = crate::session::now_ms() as u64;
+    let now = crate::session::now_ms();
     if now < OPEN_UNTIL.load(Ordering::Relaxed) {
         return Err("skipped: jev failed 3 times in a row".into());
     }
@@ -106,13 +106,13 @@ fn fit(state: &mut Value, budget: usize) -> usize {
         *s = format!("{head} [... omitted ...] {tail}");
         cut += 1;
     }
-    if cut > 0 {
-        if let Some(o) = state.as_object_mut() {
-            o.insert(
-                "evidence_budget".into(),
-                json!("Some text was shortened to fit; omitted text is unknown, not evidence of absence."),
-            );
-        }
+    if cut > 0
+        && let Some(o) = state.as_object_mut()
+    {
+        o.insert(
+            "evidence_budget".into(),
+            json!("Some text was shortened to fit; omitted text is unknown, not evidence of absence."),
+        );
     }
     cut
 }

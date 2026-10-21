@@ -216,10 +216,10 @@ impl Library {
         if self.usage().get(name).is_some_and(|u| u.pinned) {
             return Err(format!("{name} is pinned"));
         }
-        if let Some(into) = absorbed_into.filter(|s| !s.is_empty()) {
-            if self.get(into).is_none() {
-                return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
-            }
+        if let Some(into) = absorbed_into.filter(|s| !s.is_empty())
+            && self.get(into).is_none()
+        {
+            return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
         }
         let dest = self.dir.join(".archive").join(format!("{name}-{}", now()));
         std::fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;

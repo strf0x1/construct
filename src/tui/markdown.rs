@@ -359,10 +359,10 @@ fn render_table(c: &mut Ctx, t: Table) {
     }
     for (ri, r) in t.rows.iter().enumerate() {
         let mut spans = Vec::new();
-        for i in 0..cols {
+        for (i, &w) in widths.iter().enumerate().take(cols) {
             let cell = r.get(i).map(String::as_str).unwrap_or("");
-            let cell = fit(cell, widths[i]);
-            let pad = widths[i].saturating_sub(cell.width());
+            let cell = fit(cell, w);
+            let pad = w.saturating_sub(cell.width());
             let padded = match t.align.get(i) {
                 Some(Alignment::Right) => format!("{}{cell}", " ".repeat(pad)),
                 Some(Alignment::Center) => format!("{}{cell}{}", " ".repeat(pad / 2), " ".repeat(pad - pad / 2)),

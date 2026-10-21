@@ -273,12 +273,12 @@ impl Accumulator {
             self.finish = f.to_string();
         }
         let Some(d) = choice.get("delta") else { return };
-        if let Some(t) = d.get("content").and_then(Value::as_str) {
-            if !t.is_empty() {
-                self.content.push_str(t);
-                if let Some(tx) = tx {
-                    let _ = tx.send(Delta::Text(t.to_string()));
-                }
+        if let Some(t) = d.get("content").and_then(Value::as_str)
+            && !t.is_empty()
+        {
+            self.content.push_str(t);
+            if let Some(tx) = tx {
+                let _ = tx.send(Delta::Text(t.to_string()));
             }
         }
         for key in ["reasoning_content", "reasoning"] {
@@ -296,18 +296,19 @@ impl Accumulator {
             for (pos, c) in calls.iter().enumerate() {
                 let index = c.get("index").and_then(Value::as_u64).map(|i| i as usize).unwrap_or(pos);
                 let entry = self.calls.entry(index).or_default();
-                if let Some(id) = c.get("id").and_then(Value::as_str) {
-                    if !id.is_empty() {
-                        entry.0 = id.to_string();
-                    }
+                if let Some(id) = c.get("id").and_then(Value::as_str)
+                    && !id.is_empty()
+                {
+                    entry.0 = id.to_string();
                 }
                 if let Some(f) = c.get("function") {
-                    if let Some(n) = f.get("name").and_then(Value::as_str) {
-                        if !n.is_empty() && entry.1.is_empty() {
-                            entry.1 = n.to_string();
-                            if let Some(tx) = tx {
-                                let _ = tx.send(Delta::ToolStarted { name: n.to_string() });
-                            }
+                    if let Some(n) = f.get("name").and_then(Value::as_str)
+                        && !n.is_empty()
+                        && entry.1.is_empty()
+                    {
+                        entry.1 = n.to_string();
+                        if let Some(tx) = tx {
+                            let _ = tx.send(Delta::ToolStarted { name: n.to_string() });
                         }
                     }
                     if let Some(a) = f.get("arguments").and_then(Value::as_str) {

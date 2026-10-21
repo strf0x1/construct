@@ -33,10 +33,10 @@ static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new()
 /// environment is checked directly first: it is the common case and costs
 /// nothing, while the keyring may wake a D-Bus service.
 pub fn get(name: &str) -> Option<String> {
-    if let Ok(v) = std::env::var(name) {
-        if !v.is_empty() {
-            return Some(v);
-        }
+    if let Ok(v) = std::env::var(name)
+        && !v.is_empty()
+    {
+        return Some(v);
     }
     let cache = CACHE.get_or_init(Default::default);
     if let Some(hit) = cache.lock().unwrap().get(name) {

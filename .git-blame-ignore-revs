@@ -1,0 +1,4 @@
+# Formatting-only commits. Use with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# style: apply rustfmt
+08bee1273eb102f42026eba9d8093fc93a04df25

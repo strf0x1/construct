@@ -56,9 +56,17 @@ prints first-output, first-frame and per-wait timings as JSON.
 ## Tests
 
 ```sh
+cargo xtask check                 # fmt, clippy -D warnings, all tests; ends in `ok` or `FAILED <gate>`
+cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test                        # unit tests (edit tiers, router)
 cargo test -p construct-dev       # end-to-end: headless, router, learning, MCP, TUI
 ```
+
+`cargo xtask check` must print `ok` before a PR is opened; CI runs the same
+command. Timing limits in e2e tests are smoke limits, doubled under
+`CONSTRUCT_E2E_SLOW=1` (set in CI). Formatting is `cargo fmt`'s opinion; run
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` to skip the
+reformat commit in blame.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh

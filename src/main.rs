@@ -285,10 +285,8 @@ async fn headless(
                     failed = true;
                     let _ = writeln!(err, "error: {message}");
                 }
-                Event::TurnEnd { .. } => {
-                    if !at_line_start {
-                        let _ = writeln!(out);
-                    }
+                Event::TurnEnd { .. } if !at_line_start => {
+                    let _ = writeln!(out);
                 }
                 _ => {}
             }
@@ -298,10 +296,8 @@ async fn headless(
     agent.turn(&text, &tx).await?;
     drop(tx);
     let failed = printer.await.unwrap_or(true);
-    if learn {
-        if learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
-            learn::spawn_detached(&agent.log.id);
-        }
+    if learn && learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
+        learn::spawn_detached(&agent.log.id);
     }
     if failed {
         std::process::exit(1);

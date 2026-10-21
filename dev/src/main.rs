@@ -4,6 +4,8 @@ use construct_dev::{drive, serve};
 use std::io::Read;
 use std::path::PathBuf;
 
+mod xtask;
+
 #[derive(Parser)]
 #[command(name = "construct-dev", about = "Drive and observe construct (and other harnesses) end to end")]
 struct Cli {
@@ -62,6 +64,10 @@ enum Cmd {
         #[arg(trailing_var_arg = true, required = true)]
         cmd: Vec<String>,
     },
+    /// fmt --check, clippy -D warnings, test --workspace. Prints one line per gate, then `ok` or `FAILED <gate>`.
+    Check,
+    /// Apply clippy's fixes, then cargo fmt.
+    Fix,
 }
 
 fn main() -> Result<()> {
@@ -94,6 +100,8 @@ fn main() -> Result<()> {
             })
         }
         Cmd::McpFake => mcp_fake(),
+        Cmd::Check => exit_with(xtask::check()?),
+        Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {
             let text = if script == "-" {
                 let mut s = String::new();
@@ -122,6 +130,10 @@ fn main() -> Result<()> {
             }
         }
     }
+}
+
+fn exit_with(ok: bool) -> Result<()> {
+    std::process::exit(if ok { 0 } else { 1 })
 }
 
 fn mcp_fake() -> Result<()> {

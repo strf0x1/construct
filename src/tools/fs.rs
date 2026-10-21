@@ -155,7 +155,7 @@ pub fn glob(ctx: &Ctx, a: &Value) -> Result<String, String> {
             hits.push((m, e.path().to_path_buf()));
         }
     }
-    hits.sort_by(|a, b| b.0.cmp(&a.0));
+    hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     let n = hits.len();
     let mut out: Vec<String> = hits.into_iter().take(GLOB_MAX).map(|(_, p)| display(ctx, &p)).collect();
     if n == 0 {

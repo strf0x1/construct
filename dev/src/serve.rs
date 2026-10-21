@@ -269,21 +269,21 @@ async fn forward(
             buf.push_str(&String::from_utf8_lossy(&chunk));
             while let Some(p) = buf.find('\n') {
                 let line: String = buf.drain(..=p).collect();
-                if let Some(d) = line.trim().strip_prefix("data:") {
-                    if let Ok(v) = serde_json::from_str::<Value>(d.trim()) {
-                        if v["usage"].is_object() {
-                            usage = v["usage"].clone();
-                        }
-                        if let Some(tc) = v.pointer("/choices/0/delta/tool_calls").and_then(Value::as_array) {
-                            for c in tc {
-                                if c.pointer("/function/name").and_then(Value::as_str).is_some_and(|n| !n.is_empty()) {
-                                    calls += 1;
-                                }
+                if let Some(d) = line.trim().strip_prefix("data:")
+                    && let Ok(v) = serde_json::from_str::<Value>(d.trim())
+                {
+                    if v["usage"].is_object() {
+                        usage = v["usage"].clone();
+                    }
+                    if let Some(tc) = v.pointer("/choices/0/delta/tool_calls").and_then(Value::as_array) {
+                        for c in tc {
+                            if c.pointer("/function/name").and_then(Value::as_str).is_some_and(|n| !n.is_empty()) {
+                                calls += 1;
                             }
                         }
-                        if let Some(f) = v.pointer("/choices/0/finish_reason").filter(|f| !f.is_null()) {
-                            finish = f.clone();
-                        }
+                    }
+                    if let Some(f) = v.pointer("/choices/0/finish_reason").filter(|f| !f.is_null()) {
+                        finish = f.clone();
                     }
                 }
             }
@@ -389,7 +389,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let model = req["model"].as_str().unwrap_or("mock").to_string();
     let stream = req["stream"].as_bool().unwrap_or(false);
     let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
-    let prompt_tokens = (rec["req_bytes"].as_u64().unwrap_or(0) / 4) as u64;
+    let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
     let usage = json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
     let mut chunks: Vec<(u64, Bytes)> = vec![];
     let mut message = json!({ "role": "assistant", "content": Value::Null });
