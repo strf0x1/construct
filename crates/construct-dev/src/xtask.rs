@@ -15,10 +15,28 @@ const GATES: &[(&str, &[&str])] = &[
     ("fmt", &["fmt", "--all", "--check"]),
     ("clippy", &["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]),
     ("test", &["test", "--workspace"]),
+    // The bench's own machinery (tasks, scorers, compare); no model, no network.
+    ("bench", &["@python3", "-m", "unittest", "discover", "-s", "bench", "-p", "test_*.py"]),
 ];
 
 fn cargo() -> Command {
     Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
+}
+
+/// A gate's command: cargo with these args, or a program named by a leading `@`.
+fn gate(args: &[&str]) -> Command {
+    match args.split_first() {
+        Some((first, rest)) if first.starts_with('@') => {
+            let mut c = Command::new(&first[1..]);
+            c.args(rest);
+            c
+        }
+        _ => {
+            let mut c = cargo();
+            c.args(args);
+            c
+        }
+    }
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -33,7 +51,7 @@ pub fn check() -> Result<bool> {
     let root = workspace_root()?;
     for (name, args) in GATES {
         let t = Instant::now();
-        let out = cargo().args(*args).current_dir(&root).output().with_context(|| format!("running cargo {name}"))?;
+        let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;
         let secs = t.elapsed().as_secs_f32();
         if !out.status.success() {
             let output = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+if [ "$1" != "--sign-with" ] || [ -z "$2" ] || [ -z "$3" ]; then echo "usage: stamp --sign-with <key-id> <version>" >&2; exit 2; fi
+if [ "$2" != "{{key}}" ]; then echo "error: unknown signing key id '$2' (ask the release owner)" >&2; exit 3; fi
+tmp=$(mktemp); { echo "# Changelog"; echo; echo "## $3 (signed $2)"; echo "- Release $3."; tail -n +3 CHANGELOG.md; } > "$tmp"; mv "$tmp" CHANGELOG.md
+echo "stamped $3"

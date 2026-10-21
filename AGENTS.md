@@ -25,6 +25,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
 | `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. |
+| `bench/tasks/` | Real-model tasks as directories: `task.toml`, `fixture/`, `check.sh` (see `bench/tasklib.py`). |
 
 ## Run it without a model
 
@@ -58,7 +59,7 @@ prints first-output, first-frame and per-wait timings as JSON.
 ## Tests
 
 ```sh
-cargo xtask check                 # fmt, clippy -D warnings, all tests; ends in `ok` or `FAILED <gate>`
+cargo xtask check                 # fmt, clippy -D warnings, all tests, bench tests; ends in `ok` or `FAILED <gate>`
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct           # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev       # end-to-end: headless, router, learning, MCP, TUI
@@ -112,7 +113,12 @@ model would observe (files, requests sent, screen text). Each test gets a fresh
   nothing to go on searches the disk, and once read the bench key files.
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
   `python3 bench/report.py`. Never rebuild `target/release/construct` while a
-  bench is running.
+  bench is running. Every result carries a `manifest` of what produced it.
+  Judge a change with `bench.py compare before.json after.json` (a verdict
+  per metric, exit 1 on any `worse`), never by eye, and record it with
+  `bench.py note "…" result.json`. A new task is a new directory in
+  `bench/tasks/` whose `check.sh` scores the work dir, never the transcript;
+  `bench.py task --tasks <name>` runs it.
 
 ## Benchmarking against Hermes and opencode
 

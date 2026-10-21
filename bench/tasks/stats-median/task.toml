@@ -1,0 +1,14 @@
+description = "Fix a bug in a tiny Python library, add median() with tests, document the API. Three turns, one session."
+turns = [
+  "This repo is a tiny Python library. `python3 -m unittest` fails. Find out why and fix the bug in the library (not the tests). Run the tests to confirm.",
+  "Add a function `median(values)` to stats.py that returns the median of a non-empty list of numbers (average the two middle values for even lengths) and raises ValueError on an empty list. Add unit tests for it in test_stats.py and run the whole suite.",
+  "Document both functions in README.md under a '## API' heading, with one short usage example each. Then tell me in one sentence what you changed across this session.",
+]
+# Seconds per turn.
+timeout_s = 900
+# Paths the task is expected to change; any other change is counted as unintended.
+changes = ["stats.py", "test_stats.py", "README.md"]
+
+[budget]
+max_requests = 120
+max_prompt_tokens = 3000000
