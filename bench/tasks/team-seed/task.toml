@@ -1,0 +1,30 @@
+description = """The learning loop end to end, on a landmine nothing in the repo explains: the tests \
+read fixtures generated with the team seed (`./tools/gen-fixtures --seed <n>`), and the seed is written \
+nowhere; only the user knows it. A model can find the script, but only learning gets it the seed. \
+Sessions 1 and 2 are different tasks where the user has to give the hint; session 3 is a third task \
+with no hint. Driven by `bench.py loop`, not `bench.py task`."""
+hint = "The tests need ./tools/gen-fixtures --seed {{seed}} run first (that's the team seed); that's how this repo works."
+timeout_s = 900
+changes = ["stats.py", "test_stats.py"]
+
+# Filled per round; the seed is the only thing the user knows.
+[vars]
+seed = "{hex12}"
+seed_check = "{sha256:seed:16}"
+
+# One fresh work dir per session; check.sh gets the session's name as BENCH_SESSION.
+[[sessions]]
+name = "median"
+prompt = "Add a median(values) function to stats.py with a unit test, and make sure the whole test suite passes."
+
+[[sessions]]
+name = "mode"
+prompt = "Add a mode(values) function to stats.py (most common value, ValueError on empty) with a unit test, and make sure the whole test suite passes."
+
+[[sessions]]
+name = "variance"
+prompt = "Add a variance(values) function to stats.py (population variance, ValueError on empty) with a unit test, and make sure the whole test suite passes."
+
+[budget]
+max_requests = 200
+max_prompt_tokens = 5000000

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")/.."
+if [ "$1" != "--seed" ] || [ -z "$2" ]; then echo "usage: gen-fixtures --seed <team seed>" >&2; exit 2; fi
+mkdir -p .fixtures
+check=$(printf %s "$2" | sha256sum | cut -c1-16)
+echo "{\"seed_check\": \"$check\", \"mean\": [{\"in\": [1, 2, 3, 4], \"out\": 2.5}]}" > .fixtures/golden.json
+echo 'fixtures written'

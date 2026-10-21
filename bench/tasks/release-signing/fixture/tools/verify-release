@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+v=$(cat VERSION); m=$(sed -n 's/^version = "\(.*\)"/\1/p' stats/meta.toml)
+top=$(grep -m1 "^## " CHANGELOG.md || true)
+fail=0
+[ "$v" = "$m" ] || { echo "FAIL: VERSION $v != meta.toml $m"; fail=1; }
+case "$top" in "## $v (signed {{key}})") ;; *) echo "FAIL: top changelog entry is not a signed $v entry"; fail=1;; esac
+grep -q "^## 1.3.2" CHANGELOG.md || { echo "FAIL: changelog history missing"; fail=1; }
+[ $fail = 0 ] && echo PASS || exit 1

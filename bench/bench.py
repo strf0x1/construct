@@ -10,16 +10,21 @@ measured the same way, outside the harnesses.
   bench.py frame     [--rounds N]                 first frame / ready, in a pty
   bench.py tools     [--rounds N] [--calls N]     tool-call latency (scripted model)
   bench.py memory    [--rounds N] [--steps N]     RSS over a long task (scripted model)
-  bench.py task      [--rounds N] --model M       multi-turn real task via OpenRouter
-  bench.py report                                  summarize results/*.json
+  bench.py task      [--rounds N] --model M [--tasks NAME ...]   real tasks (bench/tasks/) via OpenRouter
+  bench.py routing   [--rounds N] --model M       the router on the release-signing task
+  bench.py loop      [--rounds N] --model M       the learning loop on the team-seed task
+  bench.py compare   A.json [B.json] [--a SIDE --b SIDE]   verdict per metric; exit 1 on any `worse`
+  bench.py note      "text" [RESULT.json ...]     append a dated entry to results/logs/observations.md
 
-Results land in bench/results/<suite>-<timestamp>.json.
+Results land in bench/results/<suite>-<timestamp>.json, each with a manifest
+of what produced it. Tasks are directories: see bench/tasklib.py.
 """
 
 import argparse
 import hashlib
 import json
 import os
+import platform
 import random
 import re
 import shutil
@@ -31,6 +36,9 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+import compare as cmp
+import tasklib
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
@@ -364,8 +372,10 @@ def tree_rss_kb(pid):
     return total
 
 
-def run(cmd, env, cwd, timeout=900, sample=False):
-    """Run a command; optionally sample its process-tree RSS every 50ms."""
+def run(cmd, env, cwd, timeout=900, sample=False, stop_when=None):
+    """Run a command; optionally sample its process-tree RSS every 50ms.
+    `stop_when` is polled every half second; when it returns a reason, the
+    run's process group is killed and the reason returned as `stopped`."""
     t0 = time.perf_counter()
     # PWD must agree with cwd: opencode resolves the directory it works in
     # from $PWD, and an inherited one points the agent at another repo.
@@ -377,17 +387,30 @@ def run(cmd, env, cwd, timeout=900, sample=False):
     env = dict(env, PWD=str(cwd))
     p = subprocess.Popen(cmd, env=env, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     samples = []
+    stopped = []
     stop = threading.Event()
 
     def sampler():
+        last_poll = 0.0
         while not stop.is_set():
-            rss = tree_rss_kb(p.pid)
-            if rss:
-                samples.append((time.perf_counter() - t0, rss))
+            if sample:
+                rss = tree_rss_kb(p.pid)
+                if rss:
+                    samples.append((time.perf_counter() - t0, rss))
+            if stop_when and time.perf_counter() - last_poll >= 0.5:
+                last_poll = time.perf_counter()
+                reason = stop_when()
+                if reason:
+                    stopped.append(reason)
+                    try:
+                        os.killpg(p.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    return
             stop.wait(0.05)
 
     th = threading.Thread(target=sampler, daemon=True)
-    if sample:
+    if sample or stop_when:
         th.start()
     try:
         out, err = p.communicate(timeout=timeout)
@@ -397,7 +420,7 @@ def run(cmd, env, cwd, timeout=900, sample=False):
         out, err = p.communicate()
         timed_out = True
     stop.set()
-    if sample:
+    if sample or stop_when:
         th.join()
     return {
         "rc": p.returncode,
@@ -406,6 +429,7 @@ def run(cmd, env, cwd, timeout=900, sample=False):
         "stdout": out.decode(errors="replace")[-4000:],
         "stderr": err.decode(errors="replace")[-4000:],
         "rss": samples,
+        "stopped": stopped[0] if stopped else None,
     }
 
 
@@ -446,9 +470,49 @@ def stats(xs):
     return {"n": len(xs), "median": statistics.median(xs), "p10": p(0.1), "p90": p(0.9), "min": xs[0], "max": xs[-1], "mean": statistics.mean(xs)}
 
 
+STARTED = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+# Every harness home a suite configured, by name: save() asks each what it is.
+SEEN = {}
+
+
+def git_state(cwd=ROOT):
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=cwd, capture_output=True, text=True).stdout.strip()
+    dirty = bool(subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True).stdout.strip())
+    return sha, dirty
+
+
+def harness_manifest(h):
+    """construct describes itself (`construct manifest`, read with this home's
+    config); a competitor gives its version."""
+    try:
+        if isinstance(h, Construct):
+            r = subprocess.run([str(CONSTRUCT), "manifest"], env=h.full_env(), capture_output=True, text=True, timeout=60)
+            return json.loads(r.stdout)
+        exe = {"hermes": HERMES, "opencode": OPENCODE}.get(h.name)
+        r = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
+        return {"version": (r.stdout or r.stderr).strip()[:200], "path": str(exe)}
+    except Exception as e:
+        return {"error": str(e)[:200]}
+
+
+def manifest(model=None):
+    """What produced a result. A result without one is not citable."""
+    sha, dirty = git_state()
+    return {
+        "harnesses": {n: harness_manifest(h) for n, h in SEEN.items()},
+        "dev_git_sha": sha,
+        "dev_dirty": dirty,
+        "model": model,
+        "bench_py_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "host": platform.node(),
+        "started": STARTED,
+    }
+
+
 def save(suite, data):
     RESULTS.mkdir(parents=True, exist_ok=True)
     path = RESULTS / f"{suite}-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    data = {"manifest": manifest(data.get("model")), **data}
     path.write_text(json.dumps(data, indent=1))
     print(f"saved {path}")
     return path
@@ -458,7 +522,9 @@ def fresh_homes(names, tag):
     base = WORK / tag
     if base.exists():
         shutil.rmtree(base)
-    return {n: {**HARNESSES, **VARIANTS}[n](base / n / "home") for n in names}
+    homes = {n: {**HARNESSES, **VARIANTS}[n](base / n / "home") for n in names}
+    SEEN.update(homes)
+    return homes
 
 
 def order(names, r):
@@ -679,51 +745,10 @@ def suite_memory(args):
     save("memory", {"rounds": args.rounds, "steps": args.steps, "raw": results, "summary": summary, "stalls": STALLS})
 
 
-# ---------------------------------------------------------------- real task
-
-TASK_TURNS = [
-    "This repo is a tiny Python library. `python3 -m unittest` fails. Find out why and fix the bug in the library (not the tests). Run the tests to confirm.",
-    "Add a function `median(values)` to stats.py that returns the median of a non-empty list of numbers (average the two middle values for even lengths) and raises ValueError on an empty list. Add unit tests for it in test_stats.py and run the whole suite.",
-    "Document both functions in README.md under a '## API' heading, with one short usage example each. Then tell me in one sentence what you changed across this session.",
-]
-
-
-def task_fixture(dest: Path):
-    if dest.exists():
-        shutil.rmtree(dest)
-    dest.mkdir(parents=True)
-    (dest / "stats.py").write_text(
-        '"""Small statistics helpers."""\n\n\ndef mean(values):\n    """Arithmetic mean of a non-empty list."""\n    if not values:\n        raise ValueError("mean of empty list")\n    return sum(values) / (len(values) - 1)\n'
-    )
-    (dest / "test_stats.py").write_text(
-        "import unittest\n\nfrom stats import mean\n\n\nclass MeanTest(unittest.TestCase):\n    def test_mean(self):\n        self.assertEqual(mean([1, 2, 3, 4]), 2.5)\n\n    def test_single(self):\n        self.assertEqual(mean([7]), 7)\n\n    def test_empty(self):\n        with self.assertRaises(ValueError):\n            mean([])\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
-    )
-    (dest / "README.md").write_text("# stats\n\nSmall statistics helpers.\n")
-    subprocess.run(["git", "init", "-q"], cwd=dest)
-    subprocess.run(["git", "add", "-A"], cwd=dest)
-    subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
-
-
-def check_task(work: Path):
-    """What a reviewer would check, scripted."""
-    checks = {}
-    r = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=work, capture_output=True, timeout=60)
-    checks["tests_pass"] = r.returncode == 0
-    probe = (
-        "import stats\n"
-        "assert stats.mean([1,2,3,4]) == 2.5\n"
-        "assert stats.median([3,1,2]) == 2\n"
-        "assert stats.median([4,1,3,2]) == 2.5\n"
-        "try:\n    stats.median([])\n    raise SystemExit(1)\nexcept ValueError:\n    pass\n"
-    )
-    r = subprocess.run([sys.executable, "-c", probe], cwd=work, capture_output=True, timeout=60)
-    checks["behaviour"] = r.returncode == 0
-    tests = (work / "test_stats.py").read_text() if (work / "test_stats.py").exists() else ""
-    checks["median_tested"] = "median" in tests
-    checks["tests_untouched_for_mean"] = "assertEqual(mean([1, 2, 3, 4]), 2.5)" in tests
-    readme = (work / "README.md").read_text() if (work / "README.md").exists() else ""
-    checks["readme_api"] = "## API" in readme and "median" in readme and "mean" in readme
-    return checks
+# ---------------------------------------------------------------- real tasks
+# Each task is a directory in bench/tasks/ (see tasklib.py): turns, a fixture,
+# a budget and a check.sh that scores the work dir. `task` runs any set of
+# them; `routing` and `loop` drive one task each with their own protocol.
 
 
 def session_facts(home: Path, since: float):
@@ -758,22 +783,32 @@ def assert_no_keys(root: Path):
                 sys.exit(f"KEY LEAK: a bench key appears in {p}; stop, redact it and rotate the key")
 
 
+def usage_of(x, k):
+    return (x.get("usage") or {}).get(k) or 0
+
+
 def suite_task(args):
     names = args.harness
+    tasks = [tasklib.load(t) for t in args.tasks]
     homes = fresh_homes(names, "task")
     results = {n: [] for n in names}
 
-    def once(name, h, r):
-        work = WORK / "task" / name / f"work{r}"
-        task_fixture(work)
-        ep = Endpoint(WORK / "task" / name / f"ep{r}", upstream=args.upstream)
+    def once(name, h, task, r):
+        base = WORK / "task" / name / task.name / f"r{r}"
+        work = base / "work"
+        vars = tasklib.make_vars(task)
+        tasklib.materialize(task, work, vars)
+        ep = Endpoint(base / "ep", upstream=args.upstream)
         h.configure(ep.url, args.model)
-        turns = []
-        for i, prompt in enumerate(TASK_TURNS):
+        tasklib.seed_home(task, h.home, vars)
+        budget = tasklib.Budget(task, ep)
+        turns, stopped = [], None
+        for i, prompt in enumerate(task.turns):
+            prompt = tasklib.fill(prompt, vars)
             for attempt in range(2):
                 before = len(ep.records())
-                res = run(h.headless(prompt, cont=i > 0, cwd=work), h.full_env(), work, timeout=args.timeout, sample=True)
-                if len(ep.records()) > before:
+                res = run(h.headless(prompt, cont=i > 0, cwd=work), h.full_env(), work, timeout=args.timeout or task.timeout_s, sample=True, stop_when=budget)
+                if len(ep.records()) > before or res["stopped"]:
                     break
                 STALLS[name] = STALLS.get(name, 0) + 1
                 print(f"  {name}: turn {i + 1} stalled before any model request (attempt {attempt + 1})")
@@ -781,65 +816,81 @@ def suite_task(args):
             turns.append({
                 "rc": res["rc"],
                 "timed_out": res["timed_out"],
+                "stopped": res["stopped"],
                 "wall_s": res["wall_s"],
                 "peak_mb": max(rss) / 1024 if rss else None,
                 "stdout_tail": res["stdout"][-600:],
                 "stderr_tail": res["stderr"][-600:],
             })
+            if res["stopped"]:
+                stopped = res["stopped"]
+                print(f"  {name}: {task.name} turn {i + 1} {stopped}")
+                break
         # the detached learning pass belongs to this run's token bill too
         t_learn0 = time.time()
         wait_for_learners()
         learn_s = time.time() - t_learn0
         recs = ep.records()
         ep.close()
-        assert_no_keys(WORK / "task" / name)
-        checks = check_task(work)
+        assert_no_keys(base)
+        checks = tasklib.check(task, work)
+        unintended = tasklib.unintended(task, work)
         main = [x for x in recs if not x.get("side")]
         first = next((x for x in recs if x.get("n_tools")), None)
-        u = lambda x, k: (x.get("usage") or {}).get(k) or 0
         return {
+            "task": task.name,
             "turns": turns,
             "checks": checks,
-            "success": all(checks.values()),
+            "success": all(checks.values()) and not stopped,
+            "over_budget": bool(stopped),
+            "unintended": unintended,
+            "unintended_changes": len(unintended),
             "wall_s": sum(t["wall_s"] for t in turns),
             "requests": len(recs),
             "agent_requests": len(main),
             "errors": [x.get("error") for x in recs if x.get("error")][:5],
             "first_request": {
-                "prompt_tokens": u(first, "prompt_tokens") if first else None,
+                "prompt_tokens": usage_of(first, "prompt_tokens") if first else None,
                 "bytes": first["req_bytes"] if first else None,
                 "n_tools": first["n_tools"] if first else None,
                 "system_chars": first["system_chars"] if first else None,
                 "tools_chars": first["tools_chars"] if first else None,
             },
             "side_requests_before_first_agent": sum(1 for x in recs[: recs.index(first)] if first) if first else None,
-            "prompt_tokens": sum(u(x, "prompt_tokens") for x in recs),
-            "completion_tokens": sum(u(x, "completion_tokens") for x in recs),
+            "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
+            "completion_tokens": sum(usage_of(x, "completion_tokens") for x in recs),
             "tool_gaps_ms": tool_gaps(recs),
             "peak_mb": max((t["peak_mb"] or 0) for t in turns),
             "learn_wait_s": learn_s,
             "records": recs,
         }
 
+    def show(prefix, n, m):
+        print(
+            f"{prefix} {n:10} {m['task']:16} success={m['success']} {m['checks']} requests={m['requests']} tokens={m['prompt_tokens']}+{m['completion_tokens']} "
+            f"first={m['first_request']['prompt_tokens']} wall {m['wall_s']:.0f}s peak {m['peak_mb']:.0f}MB"
+            + (f" unintended={m['unintended']}" if m["unintended"] else "")
+            + (" OVER BUDGET" if m["over_budget"] else "")
+        )
+
     if not args.no_warmup:
         for n in names:
-            m = once(n, homes[n], "warm")
-            print(f"warm-up {n:10} success={m['success']} {m['checks']} requests={m['requests']} wall {m['wall_s']:.0f}s")
+            show("warm-up", n, once(n, homes[n], tasks[0], "warm"))
             time.sleep(args.pause)
     for r in range(args.rounds):
-        for n in order(names, r):
-            m = once(n, homes[n], r)
-            results[n].append(m)
-            print(
-                f"round {r} {n:10} success={m['success']} {m['checks']} requests={m['requests']} tokens={m['prompt_tokens']}+{m['completion_tokens']} "
-                f"first={m['first_request']['prompt_tokens']} wall {m['wall_s']:.0f}s peak {m['peak_mb']:.0f}MB"
-            )
-            time.sleep(args.pause)
-    summary = {}
-    for n, v in results.items():
-        summary[n] = {
+        for task in tasks:
+            for n in order(names, r):
+                m = once(n, homes[n], task, r)
+                results[n].append(m)
+                show(f"round {r}", n, m)
+                time.sleep(args.pause)
+
+    def summarize(v):
+        return {
             "success_rate": sum(x["success"] for x in v) / len(v) if v else None,
             "checks_passed": stats([sum(x["checks"].values()) for x in v]),
+            "over_budget": sum(x["over_budget"] for x in v),
+            "unintended_changes": stats([x["unintended_changes"] for x in v]),
             "wall_s": stats([x["wall_s"] for x in v]),
             "requests": stats([x["requests"] for x in v]),
             "prompt_tokens": stats([x["prompt_tokens"] for x in v]),
@@ -848,88 +899,23 @@ def suite_task(args):
             "tool_gap_ms": stats([g for x in v for g in x["tool_gaps_ms"]]),
             "peak_mb": stats([x["peak_mb"] for x in v]),
         }
-    save("task", {"model": args.model, "rounds": args.rounds, "turns": TASK_TURNS, "raw": results, "summary": summary, "stalls": STALLS, "jev": args.jev})
 
+    summary = {n: summarize(v) for n, v in results.items()}
+    by_task = {t.name: {n: summarize([x for x in v if x["task"] == t.name]) for n, v in results.items()} for t in tasks}
+    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "jev": args.jev})
 
 
 # ---------------------------------------------------------------- routing
-# A task that only succeeds with knowledge from one skill in a library of 15:
-# the signing key id and the landmine (`make release` wipes the changelog) are
-# written nowhere in the repo. Measures whether the router puts the right skill
-# in front of the model when the request doesn't use the skill's words.
-# The key id is random per run and lives only in that run's skill and stamp
-# script: agents do search the disk (one found this file), and sibling runs'
-# homes sit next to each other.
-
-ROUTING_PROMPT = "Get version 1.4.0 out to customers."
-RELEASE_SKILL_T = """---
-name: stats-release
-description: Ship a new version of the stats package to customers - version bump in VERSION and stats/meta.toml, signed changelog stamp, release verification. Not for publishing docs.
----
-
-# Releasing stats
-
-1. Write the new version to `VERSION` and to `version = "..."` in `stats/meta.toml`.
-2. Run `./tools/stamp --sign-with {key} <version>`. The key id is `{key}`; nothing else is accepted.
-3. Run `./tools/verify-release`; it must print PASS.
-
-Pitfall: `make release` is deprecated and empties CHANGELOG.md. Don't run it.
-"""
-
-
-def routing_fixture(dest: Path, key: str):
-    if dest.exists():
-        shutil.rmtree(dest)
-    (dest / "stats").mkdir(parents=True)
-    (dest / "tools").mkdir()
-    (dest / "VERSION").write_text("1.3.2\n")
-    (dest / "stats" / "meta.toml").write_text('name = "stats"\nversion = "1.3.2"\n')
-    (dest / "stats" / "__init__.py").write_text('"""Small statistics helpers."""\n')
-    (dest / "CHANGELOG.md").write_text("# Changelog\n\n## 1.3.2 (signed ledger-2025, retired)\n- Fix mean of one value.\n")
-    (dest / "README.md").write_text("# stats\n\nSmall statistics helpers. Releases are signed.\n")
-    (dest / "Makefile").write_text("release:\n\t@: > CHANGELOG.md\n\t@echo released $$(cat VERSION)\n")
-    stamp = dest / "tools" / "stamp"
-    stamp.write_text(
-        "#!/usr/bin/env bash\nset -e\n"
-        'if [ "$1" != "--sign-with" ] || [ -z "$2" ] || [ -z "$3" ]; then echo "usage: stamp --sign-with <key-id> <version>" >&2; exit 2; fi\n'
-        'if [ "$2" != "{key}" ]; then echo "error: unknown signing key id \'$2\' (ask the release owner)" >&2; exit 3; fi\n'
-        'tmp=$(mktemp); { echo "# Changelog"; echo; echo "## $3 (signed $2)"; echo "- Release $3."; tail -n +3 CHANGELOG.md; } > "$tmp"; mv "$tmp" CHANGELOG.md\n'
-        'echo "stamped $3"\n'
-    )
-    verify = dest / "tools" / "verify-release"
-    verify.write_text(
-        "#!/usr/bin/env bash\n"
-        'v=$(cat VERSION); m=$(sed -n \'s/^version = "\\(.*\\)"/\\1/p\' stats/meta.toml)\n'
-        'top=$(grep -m1 "^## " CHANGELOG.md || true)\n'
-        'fail=0\n'
-        '[ "$v" = "$m" ] || { echo "FAIL: VERSION $v != meta.toml $m"; fail=1; }\n'
-        'case "$top" in "## $v (signed {key})") ;; *) echo "FAIL: top changelog entry is not a signed $v entry"; fail=1;; esac\n'
-        'grep -q "^## 1.3.2" CHANGELOG.md || { echo "FAIL: changelog history missing"; fail=1; }\n'
-        '[ $fail = 0 ] && echo PASS || exit 1\n'
-    )
-    for f in (stamp, verify):
-        f.write_text(f.read_text().replace("{key}", key))
-        f.chmod(0o755)
-    subprocess.run(["git", "init", "-q"], cwd=dest)
-    subprocess.run(["git", "add", "-A"], cwd=dest)
-    subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
-
-
-def release_skill(key: str):
-    return RELEASE_SKILL_T.replace("{key}", key)
-
-
-def check_routing(work: Path):
-    r = subprocess.run(["./tools/verify-release"], cwd=work, capture_output=True, text=True, timeout=30)
-    return {
-        "verify_pass": r.returncode == 0 and "PASS" in r.stdout,
-        "version_1_4_0": (work / "VERSION").read_text().strip() == "1.4.0",
-        "history_kept": "## 1.3.2" in (work / "CHANGELOG.md").read_text(),
-    }
+# bench/tasks/release-signing: a task that only succeeds with knowledge from
+# one skill in a library of 16. Measures whether the router puts the right
+# skill in front of the model when the request doesn't use the skill's words.
+# The key id is random per run and lives only in that run's skill and fixture:
+# agents do search the disk, and sibling runs' homes sit next to each other.
 
 
 def suite_routing(args):
     names = args.harness
+    task = tasklib.load("release-signing")
     lib = json.loads((ROOT / "bench" / "jev" / "library.json").read_text())
     results = {n: [] for n in names}
 
@@ -938,20 +924,20 @@ def suite_routing(args):
         if base.exists():
             shutil.rmtree(base)
         h = {**HARNESSES, **VARIANTS}[name](base / "home")
+        SEEN[name] = h
         work = base / "work"
-        key = f"ledger-{random.randrange(16**4):04x}"
-        routing_fixture(work, key)
+        vars = tasklib.make_vars(task)
+        tasklib.materialize(task, work, vars)
         skills = h.home / "skills"
         for sname, desc in lib["skills"].items():
             (skills / sname).mkdir(parents=True)
             (skills / sname / "SKILL.md").write_text(f"---\nname: {sname}\ndescription: {desc}\n---\n\n# {sname}\n\n1. Follow the team runbook for this.\n")
-        (skills / "stats-release").mkdir()
-        (skills / "stats-release" / "SKILL.md").write_text(release_skill(key))
+        tasklib.seed_home(task, h.home, vars)
         ep = Endpoint(base / "ep", upstream=args.upstream)
         h.configure(ep.url, args.model)
-        cmd = [str(CONSTRUCT), "run", "--json", "--no-learn", ROUTING_PROMPT]
+        cmd = [str(CONSTRUCT), "run", "--json", "--no-learn", task.turns[0]]
         t0 = time.time()
-        res = run(cmd, h.full_env(), work, timeout=args.timeout)
+        res = run(cmd, h.full_env(), work, timeout=args.timeout or task.timeout_s, stop_when=tasklib.Budget(task, ep))
         routes, calls = session_facts(h.home, t0)
         recs = ep.records()
         ep.close()
@@ -959,19 +945,19 @@ def suite_routing(args):
         route = routes[0] if routes else {}
         loaded = [c for c in calls if c["name"] == "skill"]
         ran_make = any("make release" in c["args"] for c in calls)
-        checks = check_routing(work)
-        u = lambda x, k: (x.get("usage") or {}).get(k) or 0
+        checks = tasklib.check(task, work)
         return {
             "checks": checks,
-            "success": all(checks.values()),
+            "success": all(checks.values()) and not res["stopped"],
+            "over_budget": bool(res["stopped"]),
             "suggested": [s[0] for s in route.get("skills", [])] if route else None,
             "route_ms": route.get("ms"),
             "route_source": route.get("source"),
             "skill_loaded": bool(loaded),
             "ran_make_release": ran_make,
             "requests": len(recs),
-            "prompt_tokens": sum(u(x, "prompt_tokens") for x in recs),
-            "completion_tokens": sum(u(x, "completion_tokens") for x in recs),
+            "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
+            "completion_tokens": sum(usage_of(x, "completion_tokens") for x in recs),
             "wall_s": res["wall_s"],
         }
 
@@ -1000,61 +986,16 @@ def suite_routing(args):
         }
         for n, v in results.items()
     }
-    save("routing", {"model": args.model, "rounds": args.rounds, "prompt": ROUTING_PROMPT, "raw": results, "summary": summary})
+    save("routing", {"model": args.model, "rounds": args.rounds, "prompt": task.turns[0], "raw": results, "summary": summary})
 
 
 # ---------------------------------------------------------------- loop
-# The learning loop end to end, on a landmine nothing in the repo explains:
-# the tests read fixtures generated with the team seed (`./tools/gen-fixtures
-# --seed <n>`), and the seed is written nowhere: only the user knows it. A
-# model can find the script, but only learning gets it the seed. The seed is
-# random per round and the sandbox keeps rounds from reading each other.
+# bench/tasks/team-seed: the learning loop end to end. The tests read fixtures
+# generated with a team seed that is written nowhere; only the user knows it.
 # Sessions 1 and 2 are different tasks where the user has to say so; session
 # 3 is a third task with no hint. A control runs session 3 in a fresh home.
-
-LOOP_HINT = "The tests need ./tools/gen-fixtures --seed {seed} run first (that's the team seed); that's how this repo works."
-LOOP_TASKS = [
-    ("median", "Add a median(values) function to stats.py with a unit test, and make sure the whole test suite passes."),
-    ("mode", "Add a mode(values) function to stats.py (most common value, ValueError on empty) with a unit test, and make sure the whole test suite passes."),
-    ("variance", "Add a variance(values) function to stats.py (population variance, ValueError on empty) with a unit test, and make sure the whole test suite passes."),
-]
-
-
-def loop_fixture(dest: Path, seed: str, remote: str = "git@example.com:team/stats.git"):
-    if dest.exists():
-        shutil.rmtree(dest)
-    (dest / "tools").mkdir(parents=True)
-    (dest / "stats.py").write_text('"""Small statistics helpers."""\n\n\ndef mean(values):\n    if not values:\n        raise ValueError("mean of empty list")\n    return sum(values) / len(values)\n')
-    (dest / "test_stats.py").write_text(
-        "import json\nimport unittest\nfrom pathlib import Path\n\nfrom stats import mean\n\n"
-        "GOLDEN = json.loads((Path(__file__).parent / '.fixtures' / 'golden.json').read_text())\n"
-        f"assert GOLDEN.get('seed_check') == '{hashlib.sha256(seed.encode()).hexdigest()[:16]}', 'fixtures were generated with the wrong seed'\n\n\n"
-        "class MeanTest(unittest.TestCase):\n    def test_golden(self):\n        for case in GOLDEN['mean']:\n            self.assertAlmostEqual(mean(case['in']), case['out'])\n\n\n"
-        "if __name__ == '__main__':\n    unittest.main()\n"
-    )
-    gen = dest / "tools" / "gen-fixtures"
-    gen.write_text(
-        "#!/usr/bin/env bash\nset -e\ncd \"$(dirname \"$0\")/..\"\n"
-        'if [ "$1" != "--seed" ] || [ -z "$2" ]; then echo "usage: gen-fixtures --seed <team seed>" >&2; exit 2; fi\n'
-        "mkdir -p .fixtures\n"
-        'check=$(printf %s "$2" | sha256sum | cut -c1-16)\n'
-        'echo "{\\"seed_check\\": \\"$check\\", \\"mean\\": [{\\"in\\": [1, 2, 3, 4], \\"out\\": 2.5}]}" > .fixtures/golden.json\n'
-        "echo 'fixtures written'\n"
-    )
-    gen.chmod(0o755)
-    (dest / "README.md").write_text("# stats\n\nSmall statistics helpers.\n")
-    (dest / ".gitignore").write_text(".fixtures/\n")
-    subprocess.run(["git", "init", "-q"], cwd=dest)
-    # Every session of a round is the same repo (same remote), so they share a project kit.
-    subprocess.run(["git", "remote", "add", "origin", remote], cwd=dest)
-    subprocess.run(["git", "add", "-A"], cwd=dest)
-    subprocess.run(["git", "-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init"], cwd=dest)
-
-
-def check_loop(work: Path, fn: str):
-    r = subprocess.run([sys.executable, "-m", "unittest", "-q"], cwd=work, capture_output=True, timeout=60)
-    tests = (work / "test_stats.py").read_text()
-    return {"tests_pass": r.returncode == 0, f"{fn}_tested": fn in tests, "fixtures_built": (work / ".fixtures" / "golden.json").exists()}
+# The seed is random per round and the sandbox keeps rounds from reading each
+# other.
 
 
 def landmine_hits(home: Path, since: float):
@@ -1076,20 +1017,23 @@ def landmine_hits(home: Path, since: float):
                 hits += 1
     return hits
 
-
 def suite_loop(args):
     names = args.harness
+    task = tasklib.load("team-seed")
+    sessions = task.spec["sessions"]
     results = {n: [] for n in names + ["control"]}
 
-    def session(h, ep, base, i, hint, seed):
-        fn, prompt = LOOP_TASKS[i]
+    def session(h, ep, base, i, hint, vars):
+        fn, prompt = sessions[i]["name"], sessions[i]["prompt"]
         work = base / f"work{i}"
-        loop_fixture(work, seed, f"git@example.com:team/stats-{base.parent.name}-{base.name}.git")
+        tasklib.materialize(task, work, vars, remote=f"git@example.com:team/stats-{base.parent.name}-{base.name}.git")
         before = len(ep.records())
+        budget = tasklib.Budget(task, ep, before)
+        timeout = args.timeout or task.timeout_s
         t0 = time.time()
-        run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=args.timeout)
-        if hint:
-            run([str(CONSTRUCT), "run", "--json", "-c", LOOP_HINT.format(seed=seed)], h.full_env(), work, timeout=args.timeout)
+        res = run([str(CONSTRUCT), "run", "--json", prompt], h.full_env(), work, timeout=timeout, stop_when=budget)
+        if hint and not res["stopped"]:
+            res = run([str(CONSTRUCT), "run", "--json", "-c", tasklib.fill(task.spec["hint"], vars)], h.full_env(), work, timeout=timeout, stop_when=budget)
         wait_for_learners()
         recs = ep.records()[before:]
         routes, calls = session_facts(h.home, t0)
@@ -1097,10 +1041,11 @@ def suite_loop(args):
         return {
             "landmine_hits": landmine_hits(h.home, t0),
             "task": fn,
-            "checks": check_loop(work, fn),
+            "checks": tasklib.check(task, work, {"BENCH_SESSION": fn}),
+            "over_budget": bool(res["stopped"]),
             "requests": sum(1 for x in recs if x.get("n_tools")),
-            "learn_requests": sum(1 for x in recs if not x.get("n_tools")) ,
-            "prompt_tokens": sum((x.get("usage") or {}).get("prompt_tokens") or 0 for x in recs),
+            "learn_requests": sum(1 for x in recs if not x.get("n_tools")),
+            "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
             "suggested": [s[0] for s in route.get("skills", [])],
             "skill_loaded": any(c.get("name") == "skill" for c in calls),
             "outside_workdir": sum(1 for c in calls if "~" in c["args"] or "/home/" in c["args"]),
@@ -1112,10 +1057,11 @@ def suite_loop(args):
             if base.exists():
                 shutil.rmtree(base)
             h = {**HARNESSES, **VARIANTS}[n](base / "home")
+            SEEN[n] = h
             ep = Endpoint(base / "ep", upstream=args.upstream)
             h.configure(ep.url, args.model)
-            seed = f"{random.getrandbits(48):012x}"
-            s = [session(h, ep, base, 0, True, seed), session(h, ep, base, 1, True, seed), session(h, ep, base, 2, False, seed)]
+            vars = tasklib.make_vars(task)
+            s = [session(h, ep, base, 0, True, vars), session(h, ep, base, 1, True, vars), session(h, ep, base, 2, False, vars)]
             ledger = (h.home / "learn" / "ledger.jsonl")
             learned = {
                 "ledger": [json.loads(l)["problem_class"] for l in ledger.read_text().splitlines()] if ledger.exists() else [],
@@ -1133,13 +1079,15 @@ def suite_loop(args):
         if base.exists():
             shutil.rmtree(base)
         h = Construct(base / "home")
+        SEEN["control"] = h
         ep = Endpoint(base / "ep", upstream=args.upstream)
         h.configure(ep.url, args.model)
-        c = session(h, ep, base, 2, False, f"{random.getrandbits(48):012x}")
+        c = session(h, ep, base, 2, False, tasklib.make_vars(task))
         ep.close()
         results["control"].append({"sessions": [c]})
         print(f"round {r} control        s3 pass={c['checks']['tests_pass']} hits={c['landmine_hits']} s3 requests={c['requests']}")
-    save("loop", {"model": args.model, "rounds": args.rounds, "hint": LOOP_HINT, "tasks": LOOP_TASKS, "raw": results})
+    save("loop", {"model": args.model, "rounds": args.rounds, "hint": task.spec["hint"], "tasks": [[s["name"], s["prompt"]] for s in sessions], "raw": results})
+
 
 def preflight(names):
     """Stop early, with an install hint, if a requested competitor harness or
@@ -1159,7 +1107,76 @@ def preflight(names):
         )
 
 
+OBSERVATIONS = RESULTS / "logs" / "observations.md"
+
+
+def cmd_compare(argv):
+    ap = argparse.ArgumentParser(prog="bench.py compare", description=cmp.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("a", type=Path)
+    ap.add_argument("b", type=Path, nargs="?", help="omit to compare two sides of one file (--a and --b required)")
+    ap.add_argument("--a", dest="side_a", help="side of A (harness or arm); default: every side both files share")
+    ap.add_argument("--b", dest="side_b", help="side of B; default: same as --a")
+    ap.add_argument("--only", help="regex: compare only matching metrics")
+    args = ap.parse_args(argv)
+    da = json.loads(args.a.read_text())
+    db = json.loads(args.b.read_text()) if args.b else da
+    sa, sb = cmp.sides(da), cmp.sides(db)
+    if args.b is None and not (args.side_a and args.side_b):
+        sys.exit(f"one file: name the two sides with --a and --b (have: {', '.join(sa)})")
+    if args.side_a:
+        pairs = [(args.side_a, args.side_b or args.side_a)]
+    else:
+        pairs = [(n, n) for n in sa if n in sb]
+    for a, b in pairs:
+        for name, have in ((a, sa), (b, sb)):
+            if name not in have:
+                sys.exit(f"no side {name!r} (have: {', '.join(have)})")
+    out, worse = [], False
+    for a, b in pairs:
+        label_a = f"{args.a.stem}:{a}"
+        label_b = f"{(args.b or args.a).stem}:{b}"
+        rows = cmp.compare(sa[a], sb[b], args.only)
+        worse |= any(r["verdict"] == "worse" for r in rows)
+        print(f"\n{label_a} -> {label_b}\n")
+        print(cmp.table(rows, label_a, label_b))
+        out.append({"a": label_a, "b": label_b, "rows": rows})
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    path = next(p for i in range(1000) if not (p := RESULTS / f"compare-{stamp}{f'-{i}' if i else ''}.json").exists())
+    path.write_text(json.dumps({"a": str(args.a), "b": str(args.b or args.a), "comparisons": out}, indent=1))
+    print(f"\nsaved {path}")
+    print("worse" if worse else "ok")
+    return 1 if worse else 0
+
+
+def cmd_note(argv):
+    ap = argparse.ArgumentParser(prog="bench.py note", description="Append a dated entry, with each result's manifest, to observations.md.")
+    ap.add_argument("text")
+    ap.add_argument("results", type=Path, nargs="*")
+    args = ap.parse_args(argv)
+    lines = [f"\n## {time.strftime('%Y-%m-%d %H:%M')} note\n", args.text.strip(), ""]
+    for r in args.results:
+        m = json.loads(r.read_text()).get("manifest")
+        if not m:
+            sys.exit(f"{r} has no manifest; a result without one is not citable")
+        parts = []
+        for n, h in m.get("harnesses", {}).items():
+            if "git_sha" in h:
+                tools = f" editor={h.get('editor')}" + (f" anchor={h['hashline']['anchor']}" if h.get("hashline") else "")
+                parts.append(f"{n} {h['git_sha'][:7]}{' dirty' if h.get('git_dirty') else ''}{tools} router={h.get('router_mode')}")
+            else:
+                parts.append(f"{n} {h.get('version', '?')}")
+        rel = r.resolve().relative_to(ROOT) if r.resolve().is_relative_to(ROOT) else r
+        lines.append(f"- `{rel}`: model {m.get('model')}; bench {m['dev_git_sha'][:7]}{' dirty' if m.get('dev_dirty') else ''}; " + "; ".join(parts))
+    OBSERVATIONS.parent.mkdir(parents=True, exist_ok=True)
+    with OBSERVATIONS.open("a") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"appended to {OBSERVATIONS}")
+    return 0
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("compare", "note"):
+        sys.exit({"compare": cmd_compare, "note": cmd_note}[sys.argv[1]](sys.argv[2:]))
     ap = argparse.ArgumentParser()
     ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop"])
     ap.add_argument("--rounds", type=int, default=5)
@@ -1167,13 +1184,15 @@ def main():
     ap.add_argument("--steps", type=int, default=120)
     ap.add_argument("--model", default="mock-model")
     ap.add_argument("--upstream", default="https://openrouter.ai/api/v1")
-    ap.add_argument("--timeout", type=int, default=900)
+    ap.add_argument("--timeout", type=int, default=None, help="seconds per turn (default: the task's timeout_s)")
+    ap.add_argument("--tasks", nargs="+", default=["stats-median"], help=f"task directories to run (have: {', '.join(tasklib.names())})")
     ap.add_argument("--pause", type=float, default=2.0)
     ap.add_argument("--no-warmup", action="store_true")
     ap.add_argument("--harness", nargs="+", default=list(HARNESSES))
     ap.add_argument("--jev", action="store_true", help="give construct the TypeSafe key (Jev router)")
     ap.add_argument("--seed-skills", action="store_true", help="seed construct homes with bench/jev/library.json skills")
     args = ap.parse_args()
+    args.tasks = [t for x in args.tasks for t in x.split(",") if t]
     Construct.jev = Construct.jev or args.jev
     Construct.seed_skills = args.seed_skills
     # One bench at a time: two runs share WORK and would corrupt each other.

@@ -1,0 +1,15 @@
+description = """Release a version using knowledge written only in one skill of a library of 16: \
+the signing key id and the `make release` landmine. Measures whether the router puts that skill \
+in front of the model when the request doesn't use the skill's words. The key id is random per run \
+and lives only in that run's skill and fixture."""
+turns = ["Get version 1.4.0 out to customers."]
+timeout_s = 900
+changes = ["VERSION", "stats/meta.toml", "CHANGELOG.md"]
+
+[budget]
+max_requests = 100
+max_prompt_tokens = 3000000
+
+# Filled per run into fixture/ and home/ as {{key}}.
+[vars]
+key = "ledger-{hex4}"
