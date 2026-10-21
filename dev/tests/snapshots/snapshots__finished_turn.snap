@@ -1,0 +1,34 @@
+---
+source: dev/tests/snapshots.rs
+expression: "screen(&env, &d)"
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+▌ run it
+
+  ✓ shell echo from-the-shell [T]
+    │ from-the-shell
+
+  Done
+
+  a │ b
+  ──┼──
+  1 │ 2
+
+  All good.
+  · 2 steps · [T]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+› ask construct anything… (/help)
+ ◆ openrouter/free                                                                         1.9k tok
