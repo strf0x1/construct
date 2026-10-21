@@ -1,14 +1,16 @@
 """`bench.py compare`: two sides of a bench result, one verdict per metric.
 
 A side is a harness (or arm) in a result file. Every numeric leaf of a run is
-a metric; booleans are rates (and only booleans: a count of 0 or 1 is still a count). Runs that carry a "task" are compared per task.
+a metric; booleans are rates (and only booleans: a count of 0 or 1 is still a count). Runs that carry a "task" are compared per task, and pooled as `all/` when a file has
+several tasks. `--only` matches the metric name without its task.
 
 Verdicts:
   continuous  `same` when the median delta is inside the larger p10-p90
               spread, else `better`/`worse`; `inconclusive` under 3 runs a side.
   rates       Fisher's exact test: `better`/`worse` at p < 0.05, `same` when
               the rates are equal, else `inconclusive`.
-Lower is better unless the metric's name says otherwise (HIGHER).
+Lower is better unless the metric's name says otherwise (HIGHER); counts with
+no better direction (NEUTRAL) get `higher`/`lower`, never `worse`.
 """
 
 import math
@@ -17,11 +19,14 @@ import statistics
 
 MIN_N = 3
 # Raw fields that are logs or series, not metrics.
-SKIP = {"turns", "records", "series", "rss", "stdout_tail", "stderr_tail", "errors", "check_error", "learned", "manifest", "tool_gaps_ms"}
+SKIP = {"rejection_codes", "unintended", "turns", "records", "series", "rss", "stdout_tail", "stderr_tail", "errors", "check_error", "learned", "manifest", "tool_gaps_ms"}
 # Higher is better for these; everything else (time, tokens, requests, errors,
 # rejections, sizes) is lower-better. Boolean checks are higher-better unless
 # their name is in LOWER_BOOL.
-HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|applied)($|[._])|^checks\.")
+HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries)($|[._])|^checks\.")
+# No better direction: a different editor may rightly take more or fewer calls.
+# These get `higher`/`lower` instead of `better`/`worse`.
+NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|n_tools)$")
 LOWER_BOOL = re.compile(r"(^|[._/])(ran_make_release|over_budget|timed_out|stopped|wrong_line)($|[._])")
 
 
@@ -58,10 +63,14 @@ def sides(data):
                 if isinstance(v, list) and all(isinstance(x, (int, float)) for x in v):
                     m[k] = list(v)
         else:
+            tasks = {run.get("task") for run in raw if isinstance(run, dict)}
             for run in raw:
-                prefix = f"{run['task']}/" if isinstance(run, dict) and run.get("task") else ""
+                task = run.get("task") if isinstance(run, dict) else None
                 for k, v in flatten(run).items():
-                    m.setdefault(prefix + k, []).append(v)
+                    m.setdefault(f"{task}/{k}" if task else k, []).append(v)
+                    # Runs of several tasks also pool, so a rate has every run behind it.
+                    if task and len(tasks) > 1:
+                        m.setdefault(f"all/{k}", []).append(v)
         out[side] = m
     return out
 
@@ -111,6 +120,8 @@ def verdict(metric, a, b):
         width = max(row["a_spread"][1] - row["a_spread"][0], row["b_spread"][1] - row["b_spread"][0])
         if abs(mb - ma) <= width:
             row["verdict"] = "same"
+        elif NEUTRAL.search(metric):
+            row["verdict"] = "higher" if mb > ma else "lower"
         else:
             row["verdict"] = "better" if (mb > ma) == up else "worse"
     return row
@@ -120,7 +131,7 @@ def compare(a: dict, b: dict, only=None):
     """Rows for every metric both sides share, in a stable order."""
     rows = []
     for metric in sorted(set(a) & set(b)):
-        if only and not re.search(only, metric):
+        if only and not re.search(only, metric.rpartition("/")[2]):
             continue
         if a[metric] and b[metric]:
             rows.append(verdict(metric, a[metric], b[metric]))

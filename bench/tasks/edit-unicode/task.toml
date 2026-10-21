@@ -1,0 +1,10 @@
+description = "Two edits in a file full of non-ASCII text; every other character must survive byte for byte."
+turns = [
+  "In greetings.py, change the French greeting to \"Bienvenue au Café crème\" and add a full-width exclamation mark (！) to the end of the Japanese greeting. Nothing else in the file may change.",
+]
+timeout_s = 600
+changes = ["greetings.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

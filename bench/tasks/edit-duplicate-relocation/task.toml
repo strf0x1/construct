@@ -1,0 +1,10 @@
+description = "Issue #26: identical lines, a new copy added above them, then an edit aimed at the last copy. Detects an edit that lands on the wrong copy."
+turns = [
+  "In access.py, make two changes to check(), in this order:\n1. At the top of check(), before the banned check, add an early exit for admins:\n    if user.is_admin:\n        return None\n2. Change the final `return None` of check() (the one after `audit(user)`) to `return user.id`.\nDon't change anything else.",
+]
+timeout_s = 600
+changes = ["access.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

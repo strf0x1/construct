@@ -38,6 +38,7 @@ import time
 from pathlib import Path
 
 import compare as cmp
+import process
 import tasklib
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -185,9 +186,17 @@ class Endpoint:
         self.url = f"http://127.0.0.1:{self.port}/v1"
 
     def records(self):
+        """Complete records only: the budget watcher reads while serve is
+        writing, so the last line may be half written."""
         if not self.log.exists():
             return []
-        return [json.loads(l) for l in self.log.read_text().splitlines() if l.strip()]
+        out = []
+        for l in self.log.read_text().splitlines():
+            try:
+                out.append(json.loads(l))
+            except ValueError:
+                pass
+        return out
 
     def close(self):
         self.proc.terminate()
@@ -240,6 +249,11 @@ class Construct(Harness):
     jev = False
 
     seed_skills = False
+    # --no-learn: every construct home gets [learn] enabled = false, so a skill
+    # written in round 1 cannot help round 3.
+    learn = True
+    # An arm's [tools] overlay, as the body of an inline table (see --arm).
+    tools = ""
 
     def env(self):
         e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy"}
@@ -251,7 +265,12 @@ class Construct(Harness):
 
     def configure(self, url, model):
         self.home.mkdir(parents=True, exist_ok=True)
-        (self.home / "config.toml").write_text(f'base_url = "{url}"\nmodel = "{model}"\n')
+        cfg = f'base_url = "{url}"\nmodel = "{model}"\n'
+        if self.tools:
+            cfg += f"tools = {{ {self.tools} }}\n"
+        if not self.learn:
+            cfg += "\n[learn]\nenabled = false\n"
+        (self.home / "config.toml").write_text(cfg)
         skills = self.home / "skills"
         if self.seed_skills and not skills.exists():
             # A realistic existing library (bench/jev/library.json): the router
@@ -342,6 +361,34 @@ class Opencode(Sandboxed, Harness):
 HARNESSES = {"construct": Construct, "hermes": Hermes, "opencode": Opencode}
 # Variants, only run when named with --harness.
 VARIANTS = {"construct-jev": ConstructJev}
+# Arms from --arm: construct with a [tools] overlay, by arm name.
+ARMS = {}
+
+
+def parse_arm(spec: str):
+    """`name:key=value, ...` -> (name, overlay). The overlay is the body of the
+    [tools] table as an inline table, e.g.
+    hashonly:'editor="hashline", hashline={anchor="hash"}'."""
+    name, sep, body = spec.partition(":")
+    if not sep or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
+        sys.exit(f"--arm {spec!r}: expected NAME:TOOLS, e.g. hashline:'editor=\"hashline\"'")
+    if name in HARNESSES or name in VARIANTS:
+        sys.exit(f"--arm {name}: that name is a harness")
+    try:
+        import tomllib
+
+        tomllib.loads(f"tools = {{ {body} }}")
+    except Exception as e:
+        sys.exit(f"--arm {name}: {body!r} is not a TOML inline-table body: {e}")
+    return name, body
+
+
+def make_harness(name: str, home: Path):
+    if name in ARMS:
+        h = Construct(home)
+        h.name, h.tools = name, ARMS[name]
+        return h
+    return {**HARNESSES, **VARIANTS}[name](home)
 
 
 # ---------------------------------------------------------------- helpers
@@ -522,7 +569,7 @@ def fresh_homes(names, tag):
     base = WORK / tag
     if base.exists():
         shutil.rmtree(base)
-    homes = {n: {**HARNESSES, **VARIANTS}[n](base / n / "home") for n in names}
+    homes = {n: make_harness(n, base / n / "home") for n in names}
     SEEN.update(homes)
     return homes
 
@@ -803,6 +850,7 @@ def suite_task(args):
         tasklib.seed_home(task, h.home, vars)
         budget = tasklib.Budget(task, ep)
         turns, stopped = [], None
+        t0 = time.time()
         for i, prompt in enumerate(task.turns):
             prompt = tasklib.fill(prompt, vars)
             for attempt in range(2):
@@ -826,6 +874,7 @@ def suite_task(args):
                 stopped = res["stopped"]
                 print(f"  {name}: {task.name} turn {i + 1} {stopped}")
                 break
+            tasklib.after_turn(task, i + 1, work)
         # the detached learning pass belongs to this run's token bill too
         t_learn0 = time.time()
         wait_for_learners()
@@ -837,7 +886,10 @@ def suite_task(args):
         unintended = tasklib.unintended(task, work)
         main = [x for x in recs if not x.get("side")]
         first = next((x for x in recs if x.get("n_tools")), None)
+        # How it got there, from construct's own tool records.
+        proc = process.metrics(process.tool_events(h.home, t0)) if isinstance(h, Construct) else {}
         return {
+            **proc,
             "task": task.name,
             "turns": turns,
             "checks": checks,
@@ -869,6 +921,7 @@ def suite_task(args):
         print(
             f"{prefix} {n:10} {m['task']:16} success={m['success']} {m['checks']} requests={m['requests']} tokens={m['prompt_tokens']}+{m['completion_tokens']} "
             f"first={m['first_request']['prompt_tokens']} wall {m['wall_s']:.0f}s peak {m['peak_mb']:.0f}MB"
+            + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
             + (" OVER BUDGET" if m["over_budget"] else "")
         )
@@ -898,11 +951,14 @@ def suite_task(args):
             "first_request_tokens": stats([x["first_request"]["prompt_tokens"] for x in v]),
             "tool_gap_ms": stats([g for x in v for g in x["tool_gaps_ms"]]),
             "peak_mb": stats([x["peak_mb"] for x in v]),
+            "edit_calls": stats([x["edit"]["calls"] for x in v if "edit" in x]),
+            "edit_rejected": stats([x["edit"]["rejected"] for x in v if "edit" in x]),
+            "edit_unrecovered": stats([x["edit"]["unrecovered"] for x in v if "edit" in x]),
         }
 
     summary = {n: summarize(v) for n, v in results.items()}
     by_task = {t.name: {n: summarize([x for x in v if x["task"] == t.name]) for n, v in results.items()} for t in tasks}
-    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "jev": args.jev})
+    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "jev": args.jev, "arms": ARMS, "learn": Construct.learn})
 
 
 # ---------------------------------------------------------------- routing
@@ -923,7 +979,7 @@ def suite_routing(args):
         base = WORK / "routing" / name / f"r{r}"
         if base.exists():
             shutil.rmtree(base)
-        h = {**HARNESSES, **VARIANTS}[name](base / "home")
+        h = make_harness(name, base / "home")
         SEEN[name] = h
         work = base / "work"
         vars = tasklib.make_vars(task)
@@ -1056,7 +1112,7 @@ def suite_loop(args):
             base = WORK / "loop" / n / f"r{r}"
             if base.exists():
                 shutil.rmtree(base)
-            h = {**HARNESSES, **VARIANTS}[n](base / "home")
+            h = make_harness(n, base / "home")
             SEEN[n] = h
             ep = Endpoint(base / "ep", upstream=args.upstream)
             h.configure(ep.url, args.model)
@@ -1188,11 +1244,18 @@ def main():
     ap.add_argument("--tasks", nargs="+", default=["stats-median"], help=f"task directories to run (have: {', '.join(tasklib.names())})")
     ap.add_argument("--pause", type=float, default=2.0)
     ap.add_argument("--no-warmup", action="store_true")
-    ap.add_argument("--harness", nargs="+", default=list(HARNESSES))
+    ap.add_argument("--harness", nargs="+", default=None, help="default: all three, or none when --arm is given")
+    ap.add_argument("--arm", action="append", default=[], metavar="NAME:TOOLS",
+                    help="a construct arm with a [tools] overlay, e.g. hashline:'editor=\"hashline\"'; repeat for each arm")
+    ap.add_argument("--no-learn", action="store_true", help="[learn] enabled = false in every construct home")
     ap.add_argument("--jev", action="store_true", help="give construct the TypeSafe key (Jev router)")
     ap.add_argument("--seed-skills", action="store_true", help="seed construct homes with bench/jev/library.json skills")
     args = ap.parse_args()
     args.tasks = [t for x in args.tasks for t in x.split(",") if t]
+    ARMS.update(parse_arm(a) for a in args.arm)
+    Construct.learn = not args.no_learn
+    competitors = args.harness if args.harness is not None else ([] if ARMS else list(HARNESSES))
+    args.harness = list(ARMS) + competitors
     Construct.jev = Construct.jev or args.jev
     Construct.seed_skills = args.seed_skills
     # One bench at a time: two runs share WORK and would corrupt each other.
@@ -1208,7 +1271,7 @@ def main():
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
-    preflight(args.harness)
+    preflight(competitors)
     {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop}[args.suite](args)
 
 

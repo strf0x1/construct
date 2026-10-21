@@ -1,0 +1,11 @@
+description = "The file changes underneath the agent between turns (a teammate's commit lands); the second edit must keep that change."
+turns = [
+  "Read config.py and tell me the current default timeout. Don't change anything yet.",
+  "Set the default timeout to 45 seconds.",
+]
+timeout_s = 600
+changes = ["config.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

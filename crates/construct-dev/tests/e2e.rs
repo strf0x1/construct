@@ -144,6 +144,18 @@ fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert_eq!(manifest["editor"], "hashline");
     assert_eq!(manifest["hashline"]["anchor"], "line+hash");
+    // The session log keeps the same record for the bench, joined to the call by id.
+    let log = std::fs::read_to_string(env.home.join("sessions").join(format!("{}.jsonl", env.sessions()[0]))).unwrap();
+    let logged: Vec<Value> = log
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v["type"] == "tool" && v["data"]["name"] == "edit")
+        .map(|v| v["data"].clone())
+        .collect();
+    assert_eq!(logged.len(), 2, "{log}");
+    assert_eq!((logged[0]["ok"].clone(), logged[0]["code"].clone()), (json!(false), json!("ANCHOR_MISMATCH")));
+    assert_eq!((logged[1]["ok"].clone(), logged[1]["data"]["status"].clone()), (json!(true), json!("applied")));
+    assert_eq!(logged[0]["id"], edits[0]["id"]);
 }
 
 #[test]

@@ -1,0 +1,10 @@
+description = "Two edits in one turn where the first inserts lines above the second, so anything addressed by line number moves."
+turns = [
+  "In circle.py, make two changes. First, add this module docstring at the very top of the file, followed by one blank line:\n\n\"\"\"Circle helpers.\n\nAll functions take a radius in metres and raise ValueError when it is negative.\n\"\"\"\n\nSecond, change `describe()` to return f\"circle of radius {r} m\". Don't change anything else.",
+]
+timeout_s = 600
+changes = ["circle.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

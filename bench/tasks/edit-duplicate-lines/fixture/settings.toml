@@ -1,0 +1,16 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+enabled = false
+
+[cache]
+size_mb = 256
+enabled = false
+
+[metrics]
+interval_s = 15
+enabled = false
+
+[tracing]
+sample = 0.1
+enabled = false

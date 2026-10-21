@@ -1,0 +1,10 @@
+description = "An ordinary multi-file change: rename a function at its definition, its import and every call site, tests included."
+turns = [
+  "Rename `total_qty` to `total_quantity` everywhere in this repo (definition, imports, call sites, tests). Run the tests to confirm.",
+]
+timeout_s = 600
+changes = ["inventory.py", "app.py", "test_inventory.py"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 600000

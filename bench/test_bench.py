@@ -3,13 +3,17 @@
     python3 -m unittest discover -s bench -p 'test_*.py'     (part of `cargo xtask check`)
 """
 
+import json
+import os
 import random
+import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 import compare as cmp
+import process
 import tasklib
 
 
@@ -41,6 +45,16 @@ SOLUTIONS = {
     ),
 }
 CHECK_ENV = {"team-seed": {"BENCH_SESSION": "median"}}
+
+
+def copy_expected(task):
+    return lambda w, v: shutil.copytree(task.dir / "expected", w, dirs_exist_ok=True)
+
+
+# A task with expected/ is solved by those files.
+for _name in tasklib.names():
+    if (tasklib.TASKS / _name / "expected").exists():
+        SOLUTIONS.setdefault(_name, copy_expected(tasklib.load(_name)))
 
 
 class Tasks(unittest.TestCase):
@@ -93,6 +107,37 @@ class Tasks(unittest.TestCase):
         sh("git mv README.md README.rst", work)  # rename: both sides count
         self.assertEqual(tasklib.unintended(task, work), ["README.rst", "notes.txt"])
 
+    def test_every_task_with_expected_files_has_a_solution(self):
+        for name in tasklib.names():
+            if (tasklib.TASKS / name / "expected").exists():
+                self.assertIn(name, SOLUTIONS)
+
+    def test_the_stale_reference_hook_changes_the_file_between_turns(self):
+        task, vars, work = self.materialize("edit-stale-reference")
+        before = (work / "config.py").read_text()
+        tasklib.after_turn(task, 1, work)
+        after = (work / "config.py").read_text()
+        self.assertNotEqual(before, after)
+        self.assertIn('"jitter": True', after)
+        # the teammate's change alone is not a solution, and the expected file keeps it
+        self.assertFalse(all(tasklib.check(task, work).values()))
+        self.assertIn('"jitter": True', (task.dir / "expected" / "config.py").read_text())
+
+    def test_wrong_line_edits_are_caught(self):
+        task, _, work = self.materialize("edit-duplicate-relocation")
+        # Silent relocation: the second edit lands on the banned branch's return.
+        (work / "access.py").write_text(
+            (task.dir / "expected" / "access.py").read_text()
+            .replace("    audit(user)\n    return user.id", "    audit(user)\n    return None")
+            .replace("    if user.banned:\n        return None", "    if user.banned:\n        return user.id")
+        )
+        c = tasklib.check(task, work)
+        self.assertFalse(c["exact"])
+        self.assertFalse(c["no_wrong_line"])
+        task, _, work = self.materialize("edit-duplicate-lines")
+        (work / "settings.toml").write_text((work / "settings.toml").read_text().replace("enabled = false", "enabled = true", 1))
+        self.assertFalse(tasklib.check(task, work)["no_wrong_line"])
+
     def test_a_broken_scorer_is_a_failed_check(self):
         task, _, work = self.materialize("team-seed")
         self.assertEqual(tasklib.check(task, work), {"check_ran": False})  # BENCH_SESSION missing
@@ -114,6 +159,86 @@ class Tasks(unittest.TestCase):
         ep.recs = [{"usage": {"prompt_tokens": 60}}] * 2
         self.assertIn("prompt tokens", b())
         self.assertIsNone(tasklib.Budget(task, ep, since=1)())
+
+
+class Process(unittest.TestCase):
+    def test_edit_outcomes_from_a_session_log(self):
+        home = Path(tempfile.mkdtemp())
+        (home / "sessions").mkdir()
+
+        def call(id, name, args):
+            return {"id": id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}
+
+        lines = [
+            {"type": "session"},
+            {"type": "usage", "usage": {"completion_tokens": 40}},
+            {"type": "message", "message": {"role": "assistant", "tool_calls": [call("a", "read", {"path": "f.py"})]}},
+            {"type": "tool", "data": {"id": "a", "name": "read", "ok": True, "code": None, "data": None}},
+            {"type": "usage", "usage": {"completion_tokens": 100}},
+            {"type": "message", "message": {"role": "assistant", "tool_calls": [call("b", "edit", {"path": "f.py"}), call("c", "edit", {"path": "g.py"})]}},
+            {"type": "tool", "data": {"id": "b", "name": "edit", "ok": False, "code": "ANCHOR_MISMATCH", "data": {"status": "rejected"}}},
+            {"type": "tool", "data": {"id": "c", "name": "edit", "ok": False, "code": "not_found", "data": None}},
+            {"type": "usage", "usage": {"completion_tokens": 30}},
+            {"type": "message", "message": {"role": "assistant", "tool_calls": [call("d", "read", {"path": "f.py"})]}},
+            {"type": "tool", "data": {"id": "d", "name": "read", "ok": True}},
+            {"type": "usage", "usage": {"completion_tokens": 60}},
+            {"type": "message", "message": {"role": "assistant", "tool_calls": [call("e", "edit", {"path": "f.py"})]}},
+            {"type": "tool", "data": {"id": "e", "name": "edit", "ok": True, "data": {"status": "applied", "echo_stripped": [0]}}},
+        ]
+        (home / "sessions" / "s.jsonl").write_text("\n".join(json.dumps(l) for l in lines) + "\n")
+        m = process.metrics(process.tool_events(home, 0))
+        self.assertEqual(m["tool_calls"], 5)
+        self.assertEqual(m["reads"], 2)
+        self.assertEqual(m["rejection_codes"], {"ANCHOR_MISMATCH": 1, "not_found": 1})
+        e = m["edit"]
+        self.assertEqual((e["calls"], e["applied"], e["rejected"]), (3, 1, 2))
+        # f.py: rejected, re-read, then applied two steps later; g.py never recovers
+        self.assertEqual((e["recoveries"], e["unrecovered"], e["rereads_after_rejection"]), (1, 1, 1))
+        self.assertEqual(e["echo_stripped"], 1)
+        self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 60) / 3)
+
+
+class Arms(unittest.TestCase):
+    def test_an_arm_is_construct_with_a_tools_overlay(self):
+        import bench
+
+        name, body = bench.parse_arm('hashonly:editor="hashline", hashline={anchor="hash"}')
+        self.assertEqual(name, "hashonly")
+        bench.ARMS[name] = body
+        try:
+            h = bench.make_harness(name, Path(tempfile.mkdtemp()) / "home")
+            h.learn = False
+            h.configure("http://127.0.0.1:9/v1", "m")
+            cfg = (h.home / "config.toml").read_text()
+            import tomllib
+
+            parsed = tomllib.loads(cfg)
+            self.assertEqual(parsed["tools"], {"editor": "hashline", "hashline": {"anchor": "hash"}})
+            self.assertEqual(parsed["learn"], {"enabled": False})
+            # construct itself reads it that way
+            exe = next((p for p in (bench.ROOT / "target" / "debug" / "construct", bench.CONSTRUCT) if p.exists()), None)
+            if exe is None:
+                self.skipTest("no construct binary built")
+            r = subprocess.run([str(exe), "manifest"], env={**h.full_env(), "PATH": os.environ.get("PATH", "")}, capture_output=True, text=True, timeout=60)
+            m = json.loads(r.stdout)
+            self.assertEqual((m["editor"], m["hashline"]["anchor"]), ("hashline", "hash"))
+        finally:
+            bench.ARMS.pop(name, None)
+
+    def test_endpoint_records_skip_a_half_written_line(self):
+        import bench
+
+        ep = bench.Endpoint.__new__(bench.Endpoint)
+        ep.log = Path(tempfile.mkdtemp()) / "log.jsonl"
+        ep.log.write_text('{"i": 0}\n{"i": 1, "usage": {"prom')
+        self.assertEqual(ep.records(), [{"i": 0}])
+
+    def test_bad_arms_are_refused(self):
+        import bench
+
+        for spec in ["noname", "construct:editor=\"x\"", "a:editor=hashline"]:
+            with self.subTest(spec), self.assertRaises(SystemExit):
+                bench.parse_arm(spec)
 
 
 class Compare(unittest.TestCase):
@@ -151,7 +276,16 @@ class Compare(unittest.TestCase):
             }
         }
         s = cmp.sides(data)
-        self.assertEqual(s["construct"], {"a/success": [True], "a/requests": [3], "a/checks.ok": [True], "b/success": [False], "b/requests": [5], "b/checks.ok": [False]})
+        self.assertEqual(
+            s["construct"],
+            {
+                "a/success": [True], "a/requests": [3], "a/checks.ok": [True],
+                "b/success": [False], "b/requests": [5], "b/checks.ok": [False],
+                "all/success": [True, False], "all/requests": [3, 5], "all/checks.ok": [True, False],
+            },
+        )
+        rows = cmp.compare(s["construct"], s["construct"], only="^success$")
+        self.assertEqual([r["metric"] for r in rows], ["a/success", "all/success", "b/success"])
         self.assertEqual(s["tools-shape"], {"read": [1.0, 2.0]})
         self.assertEqual(s["loop-shape"], {"sessions.0.requests": [4], "sessions.variance.requests": [6]})
 
