@@ -36,9 +36,42 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
 DEV = ROOT / "target" / "debug" / "construct-dev"
 CONSTRUCT = ROOT / "target" / "release" / "construct"
-HERMES_VENV = Path.home() / ".local/share/mise/installs/pipx-hermes-agent/0.19.0/hermes-agent"
-HERMES = HERMES_VENV / "bin" / "hermes"
-OPENCODE = Path.home() / ".local/share/mise/installs/opencode/1.18.34/opencode"
+def resolve_bin(name: str, env_var: str):
+    """Find a competitor binary without pinning a version or a machine: an
+    explicit override first, then $PATH (mise/pipx put a shim there), then
+    `mise which`. Returns None if it isn't installed — preflight() reports that
+    with an install hint rather than failing deep inside a run."""
+    override = os.environ.get(env_var)
+    if override:
+        return Path(override)
+    found = shutil.which(name)
+    if found:
+        return Path(found)
+    try:
+        r = subprocess.run(["mise", "which", name], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+    except Exception:
+        pass
+    return None
+
+
+# Resolved lazily-ish at import; may be None when the tool isn't installed.
+HERMES = resolve_bin("hermes", "BENCH_HERMES")
+OPENCODE = resolve_bin("opencode", "BENCH_OPENCODE")
+# Install dir (for the `size` suite only): the real path mise points at, not
+# the shim. Best-effort — None when hermes isn't installed.
+try:
+    _hv = subprocess.run(["mise", "which", "hermes"], capture_output=True, text=True, timeout=10)
+    HERMES_VENV = Path(_hv.stdout.strip()).parent.parent if _hv.returncode == 0 and _hv.stdout.strip() else None
+except Exception:
+    HERMES_VENV = None
+
+# How to get each competitor, shown by preflight() when one is missing.
+INSTALL_HINTS = {
+    "hermes": "mise use -g pipx:hermes-agent   (or set BENCH_HERMES=/path/to/hermes)",
+    "opencode": "mise use -g opencode           (or set BENCH_OPENCODE=/path/to/opencode)",
+}
 KEY_FILE = Path.home() / ".config" / "construct-bench.key"
 JEV_KEY_FILE = Path.home() / ".config" / "construct-bench-jev.key"
 
@@ -50,6 +83,56 @@ def read_key(path: Path):
 
 
 WORK = Path(os.environ.get("BENCH_WORK", tempfile.gettempdir())) / "construct-bench"
+
+
+# ---------------------------------------------------------------- sandbox
+# construct sandboxes itself (Landlock, src/sandbox.rs). The competitor
+# harnesses don't, so the bench confines them with bwrap instead — and it does
+# so inside their adapters (see Sandboxed), not at the call site, so there is
+# no way to launch hermes or opencode unsandboxed by forgetting a wrapper.
+# An un-contained agent on a real model searches the disk: one read the bench
+# key files. The policy mirrors src/sandbox.rs: writable only inside WORK
+# (every bench home and work dir lives there), system paths and toolchains
+# read-only, a private /tmp and PID namespace, and no reach to the real $HOME,
+# the key files, the construct repo or other processes. Network stays shared so
+# the harness can still reach the proxy.
+BWRAP = shutil.which("bwrap")
+_SYS_RO = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/opt", "/nix", "/run/current-system", "/sys"]
+_HOME_RO = [".local/share/mise", ".config/mise", ".local/bin", ".rustup", ".nvm", ".pyenv", ".bun/bin", "go/bin"]
+_HOME_RW = [".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg"]
+
+
+def bwrap_prefix(cwd: Path) -> list:
+    """The bwrap argv that a competitor command is launched behind."""
+    if not BWRAP:
+        if os.environ.get("BENCH_ALLOW_UNSANDBOXED") == "1":
+            print("!!! BENCH_ALLOW_UNSANDBOXED=1: launching a competitor harness WITHOUT a sandbox", file=sys.stderr)
+            return []
+        sys.exit(
+            "bwrap not found: hermes/opencode must be sandboxed before a real-model run. "
+            "Install bubblewrap, or (never for a real model) set BENCH_ALLOW_UNSANDBOXED=1."
+        )
+    home = Path.home()
+    argv = [BWRAP, "--die-with-parent", "--unshare-pid", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp"]
+    for p in _SYS_RO:
+        argv += ["--ro-bind-try", p, p]
+    for rel in _HOME_RO:
+        argv += ["--ro-bind-try", str(home / rel), str(home / rel)]
+    for rel in _HOME_RW:
+        argv += ["--bind-try", str(home / rel), str(home / rel)]
+    argv += ["--bind", str(WORK), str(WORK)]
+    argv += ["--setenv", "TMPDIR", "/tmp", "--chdir", str(cwd), "--"]
+    return argv
+
+
+class Sandboxed:
+    """Mixin: every command a harness hands back is already wrapped in bwrap.
+    Order matters — put it before Harness in the bases."""
+
+    def wrap(self, cmd: list, cwd) -> list:
+        if cwd is None:
+            raise ValueError(f"{self.name}: a sandboxed harness needs cwd to confine the run")
+        return bwrap_prefix(Path(cwd)) + cmd
 
 
 # ---------------------------------------------------------------- endpoint
@@ -122,11 +205,16 @@ class Harness:
     def configure(self, url, model):
         raise NotImplementedError
 
-    def headless(self, prompt, cont=False):
+    def headless(self, prompt, cont=False, cwd=None):
         raise NotImplementedError
 
-    def tui(self):
+    def tui(self, cwd=None):
         raise NotImplementedError
+
+    def wrap(self, cmd: list, cwd) -> list:
+        """No sandbox by default. construct confines itself; the Sandboxed
+        mixin overrides this for harnesses that don't."""
+        return cmd
 
     def full_env(self):
         e = dict(os.environ)
@@ -166,10 +254,10 @@ class Construct(Harness):
                 d.mkdir(parents=True)
                 (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\n1. Follow the team runbook for this.\n")
 
-    def headless(self, prompt, cont=False):
+    def headless(self, prompt, cont=False, cwd=None):
         return [str(CONSTRUCT), "run"] + (["-c"] if cont else []) + [prompt]
 
-    def tui(self):
+    def tui(self, cwd=None):
         return [str(CONSTRUCT)]
 
 
@@ -180,7 +268,7 @@ class ConstructJev(Construct):
     jev = True
 
 
-class Hermes(Harness):
+class Hermes(Sandboxed, Harness):
     name = "hermes"
     ready = "❯"
 
@@ -195,14 +283,14 @@ class Hermes(Harness):
             "agent:\n  max_turns: 200\n"
         )
 
-    def headless(self, prompt, cont=False):
-        return [str(HERMES), "--yolo"] + (["-c"] if cont else []) + ["-z", prompt]
+    def headless(self, prompt, cont=False, cwd=None):
+        return self.wrap([str(HERMES), "--yolo"] + (["-c"] if cont else []) + ["-z", prompt], cwd)
 
-    def tui(self):
-        return [str(HERMES)]
+    def tui(self, cwd=None):
+        return self.wrap([str(HERMES)], cwd)
 
 
-class Opencode(Harness):
+class Opencode(Sandboxed, Harness):
     name = "opencode"
     ready = "Ask anything"
 
@@ -236,11 +324,11 @@ class Opencode(Harness):
         }
         (d / "opencode.json").write_text(json.dumps(cfg, indent=1))
 
-    def headless(self, prompt, cont=False):
-        return [str(OPENCODE), "run", "--auto"] + (["-c"] if cont else []) + [prompt]
+    def headless(self, prompt, cont=False, cwd=None):
+        return self.wrap([str(OPENCODE), "run", "--auto"] + (["-c"] if cont else []) + [prompt], cwd)
 
-    def tui(self):
-        return [str(OPENCODE)]
+    def tui(self, cwd=None):
+        return self.wrap([str(OPENCODE)], cwd)
 
 
 HARNESSES = {"construct": Construct, "hermes": Hermes, "opencode": Opencode}
@@ -412,9 +500,11 @@ def tool_gaps(records):
 def suite_size(args):
     out = {}
     out["construct"] = {"install": du(CONSTRUCT), "parts": {"binary": du(CONSTRUCT)}}
-    py = Path(os.path.realpath(HERMES_VENV / "bin" / "python")).parent.parent
-    out["hermes"] = {"install": du(HERMES_VENV) + du(py), "parts": {"venv": du(HERMES_VENV), "python": du(py)}}
-    out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
+    if HERMES_VENV:
+        py = Path(os.path.realpath(HERMES_VENV / "bin" / "python")).parent.parent
+        out["hermes"] = {"install": du(HERMES_VENV) + du(py), "parts": {"venv": du(HERMES_VENV), "python": du(py)}}
+    if OPENCODE:
+        out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
     # What a first run adds to a fresh home (bundled skills, npm packages...).
     homes = fresh_homes(HARNESSES, "size")
     ep = Endpoint(WORK / "size" / "ep", script=[])
@@ -422,7 +512,7 @@ def suite_size(args):
     work.mkdir(parents=True, exist_ok=True)
     for name, h in homes.items():
         h.configure(ep.url, "mock-model")
-        r = run(h.headless("say hi"), h.full_env(), work, timeout=300)
+        r = run(h.headless("say hi", cwd=work), h.full_env(), work, timeout=300)
         wait_for_learners()
         out[name]["fresh_home_after_first_run"] = du(h.home)
         out[name]["first_run_s"] = r["wall_s"]
@@ -449,7 +539,7 @@ def suite_frame(args):
             env_args += ["--env", f"{k}={v}"]
         script = f'wait "{h.ready}" 30000\n'
         r = subprocess.run(
-            [str(DEV), "drive", "--metrics", "--cols", "120", "--rows", "36", "--cwd", str(work)] + env_args + ["--"] + h.tui(),
+            [str(DEV), "drive", "--metrics", "--cols", "120", "--rows", "36", "--cwd", str(work)] + env_args + ["--"] + h.tui(cwd=work),
             input=script.encode(),
             capture_output=True,
             timeout=60,
@@ -495,7 +585,7 @@ def suite_tools(args):
         work = WORK / "tools" / name / f"work{r}"
         work.mkdir(parents=True, exist_ok=True)
         (work / "data.txt").write_text("".join(f"line {i}: the quick brown fox\n" for i in range(60)))
-        res = run(h.headless("go"), h.full_env(), work, timeout=180)
+        res = run(h.headless("go", cwd=work), h.full_env(), work, timeout=180)
         wait_for_learners()
         recs = ep.records()
         ep.close()
@@ -557,7 +647,7 @@ def suite_memory(args):
         shutil.copytree(corpus, work, ignore=shutil.ignore_patterns("node_modules"))
         ep = Endpoint(WORK / "memory" / name / f"ep{r}", script=memory_script(args.steps, corpus))
         h.configure(ep.url, "mock-model")
-        res = run(h.headless("explore this package"), h.full_env(), work, timeout=300, sample=True)
+        res = run(h.headless("explore this package", cwd=work), h.full_env(), work, timeout=300, sample=True)
         wait_for_learners()
         recs = ep.records()
         ep.close()
@@ -682,7 +772,7 @@ def suite_task(args):
         for i, prompt in enumerate(TASK_TURNS):
             for attempt in range(2):
                 before = len(ep.records())
-                res = run(h.headless(prompt, cont=i > 0), h.full_env(), work, timeout=args.timeout, sample=True)
+                res = run(h.headless(prompt, cont=i > 0, cwd=work), h.full_env(), work, timeout=args.timeout, sample=True)
                 if len(ep.records()) > before:
                     break
                 STALLS[name] = STALLS.get(name, 0) + 1
@@ -1051,6 +1141,24 @@ def suite_loop(args):
         print(f"round {r} control        s3 pass={c['checks']['tests_pass']} hits={c['landmine_hits']} s3 requests={c['requests']}")
     save("loop", {"model": args.model, "rounds": args.rounds, "hint": LOOP_HINT, "tasks": LOOP_TASKS, "raw": results})
 
+def preflight(names):
+    """Stop early, with an install hint, if a requested competitor harness or
+    its sandbox isn't available — rather than failing deep inside a round."""
+    bins = {"hermes": HERMES, "opencode": OPENCODE}
+    missing = []
+    for n in names:
+        if n in bins and (bins[n] is None or not bins[n].exists()):
+            missing.append(f"  {n}: not installed — {INSTALL_HINTS[n]}")
+    if missing:
+        sys.exit("missing competitor harness(es):\n" + "\n".join(missing))
+    competitors = [n for n in names if n in bins]
+    if competitors and not BWRAP and os.environ.get("BENCH_ALLOW_UNSANDBOXED") != "1":
+        sys.exit(
+            f"bwrap is required to sandbox {', '.join(competitors)} but was not found: "
+            "install bubblewrap (e.g. `sudo pacman -S bubblewrap` or `apt install bubblewrap`)."
+        )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop"])
@@ -1081,6 +1189,7 @@ def main():
     for b in (DEV, CONSTRUCT):
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
+    preflight(args.harness)
     {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop}[args.suite](args)
 
 
