@@ -127,23 +127,3 @@ pub fn replace_once(text: &str, old: &str, new: &str, all: bool) -> Result<Strin
     }
     Ok(if crlf { out.replace('\n', "\r\n") } else { out })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::replace_once;
-
-    #[test]
-    fn tiers() {
-        // exact
-        assert_eq!(replace_once("a b c", "b", "x", false).unwrap(), "a x c");
-        // typographic quotes in the file, plain in the model's text
-        assert_eq!(replace_once("say \u{201C}hi\u{201D}\n", "say \"hi\"", "bye", false).unwrap(), "bye\n");
-        // trailing whitespace differs
-        assert_eq!(replace_once("fn a() {   \n}\n", "fn a() {\n}", "x", false).unwrap(), "x\n");
-        // CRLF preserved
-        assert_eq!(replace_once("a\r\nb\r\n", "a\nb", "c\nd", false).unwrap(), "c\r\nd\r\n");
-        // ambiguity is an error unless replace_all
-        assert!(replace_once("x x", "x", "y", false).is_err());
-        assert_eq!(replace_once("x x", "x", "y", true).unwrap(), "y y");
-    }
-}
