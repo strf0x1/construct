@@ -53,7 +53,7 @@ enum Cmd {
         cols: u16,
         #[arg(long, default_value_t = 36)]
         rows: u16,
-        /// KEY=VALUE environment for the program.
+        /// KEY=VALUE environment for the program; an empty VALUE unsets KEY.
         #[arg(long = "env")]
         env: Vec<String>,
         #[arg(long)]
@@ -68,6 +68,8 @@ enum Cmd {
     Check,
     /// Apply clippy's fixes, then cargo fmt.
     Fix,
+    /// Re-record the golden snapshots (accepting an intended change) and list what changed.
+    Snapshots,
 }
 
 fn main() -> Result<()> {
@@ -102,6 +104,7 @@ fn main() -> Result<()> {
         Cmd::McpFake => mcp_fake(),
         Cmd::Check => exit_with(xtask::check()?),
         Cmd::Fix => exit_with(xtask::fix()?),
+        Cmd::Snapshots => exit_with(xtask::snapshots()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {
             let text = if script == "-" {
                 let mut s = String::new();

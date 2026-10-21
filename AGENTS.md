@@ -60,6 +60,7 @@ cargo xtask check                 # fmt, clippy -D warnings, all tests; ends in 
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test                        # unit tests (edit tiers, router)
 cargo test -p construct-dev       # end-to-end: headless, router, learning, MCP, TUI
+cargo xtask snapshots             # re-record golden snapshots after an intended change
 ```
 
 `cargo xtask check` must print `ok` before a PR is opened; CI runs the same
@@ -67,6 +68,14 @@ command. Timing limits in e2e tests are smoke limits, doubled under
 `CONSTRUCT_E2E_SLOW=1` (set in CI). Formatting is `cargo fmt`'s opinion; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` to skip the
 reformat commit in blame.
+
+`dev/tests/snapshots.rs` pins what the model sees (the first request for a
+plain turn, a routed skill, routed web, routed MCP, and the learning review,
+with `bytes` and `n_tools`) and what the user sees (first frame, a finished
+turn). A refactor must leave them unchanged. When a change is meant to alter
+them, `cargo xtask check` prints `FAILED snapshots` with a diff: read it, run
+`cargo xtask snapshots` to accept, and say so in the PR. Never edit a `.snap`
+by hand.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh
