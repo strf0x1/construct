@@ -158,3 +158,34 @@ run before the sandbox).
   leave construct's process group are not contained: see the issue.
 - Seeded loop run 3 (2026-10-20) void: the laptop suspended 14:40-17:59 during round 0 session 1; wall times and the per-run timeout are wall-clock. Restarted under systemd-inhibit.
 Seeded loop run 4 (2026-10-20) void: it died at 18:09, in round 0 session 1, when the Claude Code session that launched it exited and took its background jobs with it. Before the user's hint arrived, the session-1 agent was brute-forcing the seed from the sha256 check in test_stats.py (`.sweep2.py`: dictionary words and permutations, inside the sandbox). That is expected without the hint, but it burns the per-run timeout. Restarted as run 5 with setsid/nohup under systemd-inhibit.
+
+## Seeded loop run 5 (2026-10-20, loop-20261020-211806.json) — first valid live result
+
+minimax-m3.1-flash:free, 3 rounds, construct-jev vs control. The learning loop
+worked end to end for the first time.
+
+S3 (the measured, hintless session): jev 3/3 pass, control 0/3. S3 median
+requests jev 12 vs control 45. S3 median outside-workdir probes jev 0 vs
+control 13.
+
+- r0: kit carried NOTES only; s3 passed in 9 req.
+- r1, r2: recurrence gate fired (missing-fixtures seen in s1+s2), learner wrote
+  project skill `golden-fixture-prerequisites` (seed, hash check, "ask the user,
+  don't scan"); s3 loaded it and passed (12, 19 req).
+- control fails every round, 43-61 req, 10-27 outside-workdir probes, all
+  denied by the sandbox. Baseline cost of no memory.
+
+Losses / caveats:
+- Session 1 is expensive for jev too (56-84 req, 11-46 outside probes, up to 2M
+  prompt tokens): it runs blind before the hint and tries to crack the 48-bit
+  seed. Sandbox contains it but does not stop the waste -> motivates a
+  stop-and-ask prompt rule ("if a task needs a value only the user can know,
+  stop and ask; don't guess or search outside the workspace"). Measure with
+  s1 outside_workdir + requests on a rerun.
+- landmine_hits in this JSON is the OLD over-counting counter (counts reads of
+  test source, not just failed runs). Fixed in bench.py this session: count
+  only failing shell output. Corrected r1-s3 = 0 hits, not 4. pass/requests/
+  outside_workdir are unaffected.
+- A stray GLOBAL memory ("the sandbox only reaches the workspace, ask the
+  user") was saved each round. Useful but it's tooling lore, not repo
+  knowledge. Filed as a learner-scope issue rather than changed mid-run.

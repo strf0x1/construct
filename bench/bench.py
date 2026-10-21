@@ -968,15 +968,21 @@ def check_loop(work: Path, fn: str):
 
 
 def landmine_hits(home: Path, since: float):
-    """Tool results showing the fixture landmine (missing, unseeded or wrongly seeded)."""
+    """Shell results where the fixture landmine went off (missing, unseeded or
+    wrongly seeded fixtures). Only command output counts: reading
+    test_stats.py or tools/gen-fixtures shows the same strings as source."""
+    failed = re.compile(r"FileNotFoundError.*golden\.json|golden\.json.*No such file|AssertionError: fixtures were generated with the wrong seed|^usage: gen-fixtures", re.M)
     hits = 0
     for f in sorted((home / "sessions").glob("*.jsonl")):
         if f.stat().st_mtime < since:
             continue
+        shell_ids = set()
         for line in f.read_text().splitlines():
             m = json.loads(line).get("message") or {}
-            c = m.get("content") or ""
-            if m.get("role") == "tool" and ("golden.json" in c and ("No such file" in c or "FileNotFoundError" in c) or "wrong seed" in c or "usage: gen-fixtures" in c):
+            for t in m.get("tool_calls") or []:
+                if t.get("function", {}).get("name") == "shell":
+                    shell_ids.add(t.get("id"))
+            if m.get("role") == "tool" and m.get("tool_call_id") in shell_ids and failed.search(str(m.get("content") or "")):
                 hits += 1
     return hits
 
