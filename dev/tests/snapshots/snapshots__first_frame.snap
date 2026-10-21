@@ -1,0 +1,34 @@
+---
+source: dev/tests/snapshots.rs
+expression: "screen(&env, &d)"
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ◆ construct
+  lean · fast · learns as it goes
+
+  model    openrouter/free
+  endpoint http://127.0.0.1:[PORT]/v1
+  router   auto
+
+  enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+› ask construct anything… (/help)
+ ◆ openrouter/free                                                                            0 tok

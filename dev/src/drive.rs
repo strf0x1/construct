@@ -47,8 +47,14 @@ impl Driver {
         b.args(&cmd[1..]);
         b.env("TERM", "xterm-256color");
         b.env("COLORTERM", "truecolor");
+        // An empty value unsets the variable, so callers can keep the parent's
+        // settings (CONSTRUCT_MODEL, …) from leaking into the child.
         for (k, v) in env {
-            b.env(k, v);
+            if v.is_empty() {
+                b.env_remove(k);
+            } else {
+                b.env(k, v);
+            }
         }
         if let Some(d) = cwd {
             b.cwd(d);

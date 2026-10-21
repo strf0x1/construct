@@ -1,0 +1,207 @@
+---
+source: dev/tests/snapshots.rs
+expression: snap
+---
+{
+  "bytes": 3673,
+  "n_tools": 7,
+  "request": {
+    "model": "openrouter/free",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are construct, a coding agent working in the user's terminal. Use your tools to do what the user asks, then stop.\n\n- Read before you edit. Make the smallest change that does the job and match the surrounding code.\n- Prefer read/grep/glob/edit over shell for files. Run independent tool calls in parallel.\n- Verify your work (build, test, run) when you can, and report failures honestly.\n- Be brief. Use GitHub markdown. Refer to code as path:line.\n- Don't narrate before tool calls. When done, say what changed and how you verified it in a few sentences.\n- <system-reminder> blocks come from the harness, not the user.\n\n# Environment\n- cwd: [WORK]\n- os: [OS]\n- date: [DATE]\n"
+      },
+      {
+        "role": "user",
+        "content": "explain what this function does"
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "shell",
+          "description": "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "workdir": {
+                "type": "string",
+                "description": "Directory to run in; defaults to the session's"
+              },
+              "timeout": {
+                "type": "integer",
+                "description": "Seconds, max 1800"
+              }
+            },
+            "required": [
+              "command"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "read",
+          "description": "Read a text file with line numbers (or list a directory). Reads up to 2000 lines; use offset/limit for more.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "1-based first line"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "write",
+          "description": "Create a file or replace its whole content. An existing file must be read first. Prefer edit for changes.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "content"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "edit",
+          "description": "Replace exact text in a file. old_string must match once (copy it from read output without the line-number prefix) unless replace_all is set. Tolerates quote/dash and trailing-whitespace differences.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "old_string": {
+                "type": "string"
+              },
+              "new_string": {
+                "type": "string"
+              },
+              "replace_all": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "path",
+              "old_string",
+              "new_string"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "grep",
+          "description": "Search file contents with a regex (ripgrep engine, respects .gitignore). Returns path:line: text.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string",
+                "description": "File or directory; defaults to the session's"
+              },
+              "include": {
+                "type": "string",
+                "description": "Glob filter, e.g. *.rs"
+              },
+              "ignore_case": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pattern"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "glob",
+          "description": "Find files by glob pattern (e.g. src/**/*.rs), newest first. Respects .gitignore.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pattern"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "enable_tools",
+          "description": "Switch on more tools for this session when you need them: web (web_search, web_fetch); memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "web",
+                    "memory",
+                    "history",
+                    "skills",
+                    "skill-write"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "groups"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
