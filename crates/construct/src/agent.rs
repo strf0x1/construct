@@ -400,7 +400,7 @@ impl Agent {
                 let ms = t.elapsed().as_millis() as u64;
                 let (ok, out, kind, data, code) = match r {
                     Ok(o) => (true, o.text, o.kind, o.data, None),
-                    Err(e) => (false, format!("Error: {}", e.message), e.kind, None, Some(e.code)),
+                    Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code)),
                 };
                 let _ = tx.send(Event::ToolEnd {
                     id: c.id.clone(),

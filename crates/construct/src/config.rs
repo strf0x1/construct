@@ -139,16 +139,40 @@ impl Default for SandboxConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ToolsConfig {
-    /// The read/edit family: "replace" (old_string/new_string). One key picks
-    /// a family, never a single tool, since the pair only works together.
+    /// The read/edit family: "replace" (old_string/new_string) or "hashline"
+    /// (`LINE:HASH` anchors). One key picks a family, never a single tool,
+    /// since the pair only works together.
     pub editor: String,
     /// Tool names that must not exist this session, even if the model asks.
     pub disabled: Vec<String>,
+    pub hashline: HashlineConfig,
 }
 
 impl Default for ToolsConfig {
     fn default() -> Self {
-        Self { editor: "replace".into(), disabled: vec![] }
+        Self { editor: "replace".into(), disabled: vec![], hashline: HashlineConfig::default() }
+    }
+}
+
+/// Knobs for `editor = "hashline"`, the ones a bench sweeps.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HashlineConfig {
+    /// Lines of context on each side of a failed anchor in a rejection.
+    pub window_radius: usize,
+    /// Starting displayed-hash length; colliding hashes grow past it.
+    pub min_hash_len: usize,
+    /// Lines of context around each edited region in a success.
+    pub context_lines: usize,
+    /// Most ops accepted in one edit call.
+    pub max_ops: usize,
+    /// Strip anchors the model echoed into edit text. Every strip is reported.
+    pub strip_echoes: bool,
+}
+
+impl Default for HashlineConfig {
+    fn default() -> Self {
+        Self { window_radius: 4, min_hash_len: 2, context_lines: 1, max_ops: 256, strip_echoes: true }
     }
 }
 

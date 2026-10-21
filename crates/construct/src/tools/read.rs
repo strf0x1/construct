@@ -1,11 +1,12 @@
 //! read: a text file with line numbers, or a directory listing.
 
-use super::fs::resolve;
+use super::fs::{encoding_error, is_utf16, resolve};
 use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
 use serde_json::{Value, json};
+use std::path::Path;
 
-const READ_LINES: usize = 2000;
-const LINE_MAX: usize = 2000;
+pub(super) const READ_LINES: usize = 2000;
+pub(super) const LINE_MAX: usize = 2000;
 
 pub struct Read;
 
@@ -51,18 +52,12 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     ctx.sandbox.check_read(&path).map_err(ToolError::sandbox)?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     if meta.is_dir() {
-        let mut names: Vec<String> = std::fs::read_dir(&path)
-            .map_err(|e| e.to_string())?
-            .flatten()
-            .map(|e| {
-                let n = e.file_name().to_string_lossy().to_string();
-                if e.path().is_dir() { format!("{n}/") } else { n }
-            })
-            .collect();
-        names.sort();
-        return Ok(format!("{} is a directory:\n{}", path.display(), names.join("\n")));
+        return list_dir(&path);
     }
     let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    if is_utf16(&bytes) {
+        return Err(encoding_error(&path.display().to_string(), true));
+    }
     if bytes.iter().take(8192).any(|&b| b == 0) {
         return Err(format!("{} looks binary ({} bytes); not shown", path.display(), bytes.len()).into());
     }
@@ -84,4 +79,17 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     }
     ctx.mark_read(&path);
     Ok(out)
+}
+
+pub(super) fn list_dir(path: &Path) -> Result<String, ToolError> {
+    let mut names: Vec<String> = std::fs::read_dir(path)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .map(|e| {
+            let n = e.file_name().to_string_lossy().to_string();
+            if e.path().is_dir() { format!("{n}/") } else { n }
+        })
+        .collect();
+    names.sort();
+    Ok(format!("{} is a directory:\n{}", path.display(), names.join("\n")))
 }

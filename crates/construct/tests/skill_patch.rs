@@ -11,7 +11,7 @@ use construct::tools::Catalog;
 use construct::tools::Ctx;
 use serde_json::json;
 
-const EDITORS: &[&str] = &["replace"];
+const EDITORS: &[&str] = &["replace", "hashline"];
 
 const SKILL: &str = "---\nname: crate-release\ndescription: Releasing a Rust crate\n---\n\n1. Run \u{201C}cargo package\u{201D}\n2. Tag it\n";
 

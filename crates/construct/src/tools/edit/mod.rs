@@ -1,10 +1,11 @@
 //! edit: exact-text replacement through `replace::replace_once`. The
 //! replacement itself is a plain function, also used to patch skills, and is
-//! never swapped by `[tools] editor`.
+//! never swapped by `[tools] editor`. `hashline` is the other editor family.
 
+pub mod hashline;
 pub mod replace;
 
-use super::fs::resolve;
+use super::fs::{encoding_error, is_utf16, resolve};
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, arg, def, obj};
 use serde_json::{Value, json};
 
@@ -51,7 +52,12 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let old = arg(a, "old_string").ok_or("old_string is required")?;
     let new = arg(a, "new_string").ok_or("new_string is required")?;
     let all = a.get("replace_all").and_then(Value::as_bool).unwrap_or(false);
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let shown = path.display().to_string();
+    if is_utf16(&bytes) {
+        return Err(encoding_error(&shown, true));
+    }
+    let text = String::from_utf8(bytes).map_err(|_| encoding_error(&shown, false))?;
     let updated = replace::replace_once(&text, old, new, all)?;
     std::fs::write(&path, &updated).map_err(|e| e.to_string())?;
     ctx.mark_read(&path);

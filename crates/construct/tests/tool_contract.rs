@@ -2,6 +2,7 @@
 //! is covered by being in the catalog: its schema is well-formed, a call with
 //! no arguments is refused in prose that names the missing one, file tools
 //! refuse what the sandbox denies, and output stays under `OUTPUT_MAX`.
+//! Each check runs under every editor in `EDITORS`.
 
 use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
 use construct::memory::Store;
@@ -9,6 +10,8 @@ use construct::sandbox::Policy;
 use construct::tools::{Catalog, Ctx, Group, OUTPUT_MAX};
 use serde_json::{Value, json};
 use std::path::PathBuf;
+
+const EDITORS: &[&str] = &["replace", "hashline"];
 
 struct Fixture {
     root: PathBuf,
@@ -18,7 +21,11 @@ struct Fixture {
 
 impl Fixture {
     fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!("construct-contract-{name}-{}", std::process::id()));
+        Self::with(name, "replace")
+    }
+
+    fn with(name: &str, editor: &str) -> Self {
+        let root = std::env::temp_dir().join(format!("construct-contract-{name}-{editor}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let work = root.join("work");
         std::fs::create_dir_all(&work).unwrap();
@@ -29,7 +36,7 @@ impl Fixture {
         let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
         let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
-        let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
+        let catalog = Catalog::build(&ToolsConfig { editor: editor.into(), ..Default::default() }, None).unwrap();
         Self { root, ctx, catalog }
     }
 
@@ -50,7 +57,12 @@ fn all_groups() -> Vec<Group> {
 
 #[test]
 fn every_schema_is_a_well_formed_function() {
-    let f = Fixture::new("schema");
+    for editor in EDITORS {
+        schemas_are_well_formed(&Fixture::with("schema", editor));
+    }
+}
+
+fn schemas_are_well_formed(f: &Fixture) {
     let defs = f.catalog.definitions(&all_groups());
     assert_eq!(defs.len(), f.catalog.names().len(), "every tool belongs to a group");
     for (d, name) in defs.iter().zip(f.catalog.names()) {
@@ -71,13 +83,16 @@ fn every_schema_is_a_well_formed_function() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_arguments_are_refused_in_prose() {
-    let f = Fixture::new("args");
-    for d in f.catalog.definitions(&all_groups()) {
-        let name = d["function"]["name"].as_str().unwrap();
-        let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
-        let (msg, _) = f.call(name, json!({})).await.expect_err(name);
-        assert!(msg.contains(first), "{name}: {msg:?} should name {first}");
+    for editor in EDITORS {
+        let f = Fixture::with("args", editor);
+        for d in f.catalog.definitions(&all_groups()) {
+            let name = d["function"]["name"].as_str().unwrap();
+            let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
+            let (msg, _) = f.call(name, json!({})).await.expect_err(name);
+            assert!(msg.contains(first), "{editor} {name}: {msg:?} should name {first}");
+        }
     }
+    let f = Fixture::new("args");
     let (msg, code) = f.call("read", json!("not an object")).await.expect_err("bad args");
     assert!(msg.contains("path is required"), "{msg}");
     assert_eq!(code, "error");
@@ -90,22 +105,32 @@ async fn missing_arguments_are_refused_in_prose() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn file_tools_refuse_what_the_sandbox_denies() {
-    let f = Fixture::new("sandbox");
+    for editor in EDITORS {
+        sandbox_refusals(&Fixture::with("sandbox", editor), editor).await;
+    }
+}
+
+async fn sandbox_refusals(f: &Fixture, editor: &str) {
     let secret = f.root.join("outside/secret.txt");
     let outside = f.root.join("outside");
     let s = |p: &PathBuf| p.display().to_string();
     let cases = [
         ("read", json!({ "path": s(&secret) })),
         ("write", json!({ "path": s(&outside.join("new.txt")), "content": "x" })),
-        ("edit", json!({ "path": s(&secret), "old_string": "secret", "new_string": "public" })),
+        match editor {
+            "hashline" => {
+                ("edit", json!({ "path": s(&secret), "edits": [{ "op": "set", "anchor": "1:aa", "text": "public" }] }))
+            }
+            _ => ("edit", json!({ "path": s(&secret), "old_string": "secret", "new_string": "public" })),
+        },
         ("grep", json!({ "pattern": "secret", "path": s(&outside) })),
         ("glob", json!({ "pattern": "*.txt", "path": s(&outside) })),
         ("shell", json!({ "command": "true", "workdir": s(&outside) })),
     ];
     for (name, args) in cases {
         let (msg, code) = f.call(name, args).await.expect_err(name);
-        assert_eq!(code, "sandbox", "{name}: {msg}");
-        assert!(msg.contains("blocked by the sandbox"), "{name}: {msg}");
+        assert_eq!(code, "sandbox", "{editor} {name}: {msg}");
+        assert!(msg.contains("blocked by the sandbox"), "{editor} {name}: {msg}");
     }
     assert_eq!(std::fs::read_to_string(&secret).unwrap(), "secret\n");
     assert!(!outside.join("new.txt").exists());
@@ -113,12 +138,17 @@ async fn file_tools_refuse_what_the_sandbox_denies() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn output_stays_under_the_cap() {
-    let f = Fixture::new("cap");
+    for editor in EDITORS {
+        output_capped(&Fixture::with("cap", editor), editor).await;
+    }
+}
+
+async fn output_capped(f: &Fixture, editor: &str) {
     let line = format!("{}\n", "needle ".repeat(40));
     std::fs::write(f.ctx.cwd.join("big.txt"), line.repeat(3000)).unwrap();
     for (name, args) in [("read", json!({ "path": "big.txt" })), ("grep", json!({ "pattern": "needle" }))] {
         let out = f.call(name, args).await.unwrap();
-        assert!(out.len() <= OUTPUT_MAX, "{name}: {} bytes", out.len());
+        assert!(out.len() <= OUTPUT_MAX, "{editor} {name}: {} bytes", out.len());
     }
 }
 
@@ -134,6 +164,26 @@ async fn edit_reports_stable_codes() {
     assert_eq!(out.kind, construct::tools::OutputKind::Diff);
     assert!(out.text.starts_with("edited "), "{}", out.text);
     assert_eq!(std::fs::read_to_string(f.ctx.cwd.join("a.txt")).unwrap(), "y\n");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn other_encodings_are_refused_with_the_way_out() {
+    let f = Fixture::new("encoding");
+    std::fs::write(f.ctx.cwd.join("latin1.txt"), b"caf\xe9\n").unwrap();
+    let args = json!({ "path": "latin1.txt", "old_string": "caf", "new_string": "bar" });
+    let (msg, code) = f.call("edit", args).await.unwrap_err();
+    assert_eq!(code, "not_utf8");
+    assert!(msg.contains("shell"), "{msg}");
+    assert_eq!(std::fs::read(f.ctx.cwd.join("latin1.txt")).unwrap(), b"caf\xe9\n");
+    std::fs::write(f.ctx.cwd.join("utf16.txt"), b"\xff\xfea\0\n\0").unwrap();
+    for (name, args) in [
+        ("read", json!({ "path": "utf16.txt" })),
+        ("edit", json!({ "path": "utf16.txt", "old_string": "a", "new_string": "b" })),
+    ] {
+        let (msg, code) = f.call(name, args).await.unwrap_err();
+        assert_eq!(code, "utf16", "{name}: {msg}");
+        assert!(msg.contains("iconv -f UTF-16"), "{name}: {msg}");
+    }
 }
 
 #[test]
