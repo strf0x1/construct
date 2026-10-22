@@ -2,7 +2,8 @@
 //!
 //! Given a snapshot's lines, the map is deterministic (same content, same
 //! map), unique (no two lines display the same hash, even identical ones:
-//! duplicates are salted with their occurrence rank) and stable (a hash
+//! duplicates are salted with their occurrence rank, and under
+//! `salt = "count"` with the number of copies too) and stable (a hash
 //! depends on the line's normalized content, its rank among identical lines
 //! and prefix-collision pressure, never on its line number, except the
 //! last-resort salt).
@@ -11,7 +12,7 @@
 //! resolves to whichever line shows that hash now.
 
 use super::hash::{MAX_HASH_LEN, fnv1a64, stream};
-use crate::config::AnchorMode;
+use crate::config::{AnchorMode, Salt};
 use std::collections::HashMap;
 use unicode_normalization::UnicodeNormalization;
 
@@ -58,7 +59,7 @@ pub fn normalize(line: &str) -> String {
     line.nfc().filter(|c| !js_space(*c)).collect()
 }
 
-pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode) -> AnchorMap {
+pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode, salt: Salt) -> AnchorMap {
     let norm: Vec<String> = lines.iter().map(|l| normalize(l)).collect();
     let mut counts: HashMap<&str, usize> = HashMap::new();
     for n in &norm {
@@ -67,7 +68,8 @@ pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode) -> Ancho
 
     // Identical lines (blank lines, lone braces) get their occurrence rank as
     // a salt. Rank, not line number: shifts that keep the duplicates' order
-    // keep their anchors.
+    // keep their anchors. The count salt also names how many copies there
+    // are, so adding or removing one re-hashes every copy.
     let mut rank: HashMap<&str, usize> = HashMap::new();
     let mut streams: Vec<String> = norm
         .iter()
@@ -75,7 +77,10 @@ pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode) -> Ancho
             if counts[n.as_str()] > 1 {
                 let r = rank.entry(n).or_default();
                 *r += 1;
-                stream(fnv1a64(&format!("{n} {r}")))
+                match salt {
+                    Salt::Rank => stream(fnv1a64(&format!("{n} {r}"))),
+                    Salt::Count => stream(fnv1a64(&format!("{n} {r}/{}", counts[n.as_str()]))),
+                }
             } else {
                 stream(fnv1a64(n))
             }
@@ -230,12 +235,17 @@ pub fn check(map: &AnchorMap, a: &Anchor) -> Result<(), (Failure, String)> {
 
 #[cfg(test)]
 pub(super) fn map(lines: &[&str]) -> AnchorMap {
-    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::LineHash)
+    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::LineHash, Salt::Rank)
 }
 
 #[cfg(test)]
 pub(super) fn hash_map(lines: &[&str]) -> AnchorMap {
-    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::Hash)
+    build(lines.iter().map(|s| s.to_string()).collect(), 2, AnchorMode::Hash, Salt::Rank)
+}
+
+#[cfg(test)]
+fn counted(lines: &[&str], mode: AnchorMode) -> AnchorMap {
+    build(lines.iter().map(|s| s.to_string()).collect(), 2, mode, Salt::Count)
 }
 
 #[cfg(test)]
@@ -365,7 +375,7 @@ mod tests {
         assert_eq!(resolve(&changed, "1:ax").err().unwrap().failure, Failure::Bad);
     }
 
-    /// The accepted hazard of hash-only anchors: a duplicate's hash names its
+    /// The hazard of hash-only anchors under the rank salt: a duplicate's hash names its
     /// rank, so a new duplicate above silently moves which line it names.
     /// (Going from one copy to two re-salts them all, which is loud.)
     #[test]
@@ -406,6 +416,63 @@ mod tests {
             "    return None",
         ]);
         assert_eq!(resolve(&taller, &old.anchor(5)).err().unwrap().failure, Failure::Mismatch);
+    }
+
+    /// The count salt closes #26: the new copy above re-hashes every copy,
+    /// so the stale anchor is gone instead of naming if (a)'s brace.
+    #[test]
+    fn count_salt_rejects_a_stale_duplicate_in_hash_mode() {
+        let old = counted(&["if (a) {", "}", "if (b) {", "}"], AnchorMode::Hash);
+        let new = counted(&["}", "if (a) {", "}", "if (b) {", "}"], AnchorMode::Hash);
+        assert_eq!(resolve(&new, &old.anchor(4)).err().unwrap().failure, Failure::NotFound);
+        assert_eq!(resolve(&new, &old.anchor(2)).err().unwrap().failure, Failure::NotFound);
+        let old = counted(&["if (a) {", "}"], AnchorMode::Hash);
+        let new = counted(&["}", "if (a) {", "}"], AnchorMode::Hash);
+        assert_eq!(resolve(&new, &old.anchor(2)).ok(), None, "one to two copies is still loud");
+    }
+
+    /// And the gap geometry under line+hash: the previous copy lands on the
+    /// stale line with the stale rank, but not the stale count.
+    #[test]
+    fn count_salt_rejects_the_gap_case_in_line_hash_mode() {
+        let old = counted(
+            &["def f(u):", "    if u.banned:", "        return None", "    audit(u)", "    return None"],
+            AnchorMode::LineHash,
+        );
+        let new = counted(
+            &[
+                "def f(u):",
+                "    if u.admin:",
+                "        return None",
+                "    if u.banned:",
+                "        return None",
+                "    audit(u)",
+                "    return None",
+            ],
+            AnchorMode::LineHash,
+        );
+        assert_eq!(resolve(&new, &old.anchor(5)).err().unwrap().failure, Failure::Mismatch);
+        assert_eq!(resolve(&new, &new.anchor(7)).ok(), Some(7));
+    }
+
+    /// The hole the count salt leaves: one copy removed and another added
+    /// between a read and an edit keeps the count, so ranks shift silently.
+    #[test]
+    fn count_salt_still_relocates_when_the_count_is_unchanged() {
+        let old = counted(&["if (a) {", "}", "if (b) {", "}"], AnchorMode::Hash);
+        let new = counted(&["if (a) {", "if (b) {", "}", "if (c) {", "}"], AnchorMode::Hash);
+        assert_eq!(resolve(&new, &old.anchor(4)).ok(), Some(5), "names if (c)'s brace, not if (b)'s on line 3");
+    }
+
+    #[test]
+    fn count_salt_leaves_unique_lines_and_the_rank_default_alone() {
+        let lines = ["fn main() {", "", "    let x = 1;", "", "}"];
+        let (rank, count) = (map(&lines), counted(&lines, AnchorMode::LineHash));
+        for i in [0, 2, 4] {
+            assert_eq!(rank.hashes[i], count.hashes[i], "line {}", i + 1);
+        }
+        assert_ne!((&rank.hashes[1], &rank.hashes[3]), (&count.hashes[1], &count.hashes[3]));
+        assert_eq!(crate::config::HashlineConfig::default().salt, Salt::Rank);
     }
 
     /// Whole maps from the TypeScript reference, covering rank salts,

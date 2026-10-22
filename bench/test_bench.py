@@ -292,6 +292,19 @@ class Compare(unittest.TestCase):
         # a count that happens to be 0 or 1 is a count, not a rate
         self.assertFalse(cmp.verdict("unintended_changes", [0, 1, 0], [1, 1, 1])["binary"])
 
+    def test_mostly_zero_counts_are_judged_as_a_rate(self):
+        # Issue #26's run: 0 vs 7 of 10 runs with a rewrite, medians inside a 0-1 spread.
+        a, b = [0] * 10, [1] * 6 + [2] + [0] * 3
+        row = cmp.verdict("edit.rewrites", a, b)
+        self.assertEqual((row["verdict"], row["nonzero"]), ("worse", (0.0, 0.7)))
+        self.assertLess(row["p"], 0.01)
+        self.assertEqual(cmp.verdict("edit.rewrites", b, a)["verdict"], "better")
+        self.assertEqual(cmp.verdict("edit.rewrites", [0] * 10, [1] * 2 + [0] * 8)["verdict"], "inconclusive")
+        self.assertEqual(cmp.verdict("edit.rewrites", [0, 1, 0, 1], [1, 0, 1, 0])["verdict"], "same")
+        self.assertEqual(cmp.verdict("edit.calls", [0, 1, 1, 1, 1, 1], [0] * 6)["verdict"], "lower")
+        self.assertEqual(cmp.verdict("wall_s", [0.0, 1.5, 0.5], [0.5, 1.0, 0.0])["verdict"], "same")
+        self.assertIn("runs >0: 0% vs 70%", cmp.table([row], "a", "b"))
+
     def test_rate_verdicts(self):
         self.assertEqual(cmp.verdict("success", [False] * 6, [True] * 6)["verdict"], "better")
         self.assertEqual(cmp.verdict("success", [False] * 3, [True] * 3)["verdict"], "inconclusive")

@@ -15,7 +15,7 @@ pub mod ops;
 use super::super::fs::{encoding_error, resolve};
 use super::super::read::{LINE_MAX, READ_LINES, list_dir};
 use super::super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
-use crate::config::{AnchorMode, HashlineConfig};
+use crate::config::{AnchorMode, HashlineConfig, Salt};
 use fsio::ReadError;
 use serde_json::{Value, json};
 
@@ -78,12 +78,13 @@ Example call:
 pub struct HashlineRead {
     min_hash_len: usize,
     mode: AnchorMode,
+    salt: Salt,
 }
 
 impl HashlineRead {
     pub const NAME: &str = "read";
     pub fn new(cfg: &HashlineConfig) -> Self {
-        Self { min_hash_len: cfg.min_hash_len, mode: cfg.anchor }
+        Self { min_hash_len: cfg.min_hash_len, mode: cfg.anchor, salt: cfg.salt }
     }
 }
 
@@ -143,7 +144,7 @@ impl HashlineRead {
             Err(ReadError::Io(e)) => return Err(format!("{}: {e}", path.display()).into()),
         };
         let (lines, _) = fsio::split(&text);
-        let map = anchors::build(lines, self.min_hash_len, self.mode);
+        let map = anchors::build(lines, self.min_hash_len, self.mode, self.salt);
         let total = map.len();
         let offset = num(a, "offset").unwrap_or(1).max(1);
         let limit = num(a, "limit").unwrap_or(READ_LINES);
@@ -312,7 +313,7 @@ impl HashlineEdit {
         }
 
         let cfg = &self.cfg;
-        let map = anchors::build(snap.lines.clone(), cfg.min_hash_len, cfg.anchor);
+        let map = anchors::build(snap.lines.clone(), cfg.min_hash_len, cfg.anchor, cfg.salt);
         let (resolved, errors) = ops::validate(&map, edits, cfg.max_ops, cfg.strip_echoes);
 
         // Forgiveness is never silent: it is in the text and in the data, so
@@ -342,7 +343,7 @@ impl HashlineEdit {
         let outcome = apply::apply(&snap.lines, &resolved);
         fsio::write(&snap, &outcome.lines).map_err(|e| fail("io", format!("{raw}: {e}")))?;
         ctx.mark_read(&path);
-        let new = anchors::build(outcome.lines, cfg.min_hash_len, cfg.anchor);
+        let new = anchors::build(outcome.lines, cfg.min_hash_len, cfg.anchor, cfg.salt);
         let text =
             format::success(raw, &outcome.regions, &new, snap.lines.len(), outcome.line_delta, cfg.context_lines);
         data["status"] = json!("applied");

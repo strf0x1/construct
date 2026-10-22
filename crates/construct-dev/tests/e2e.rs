@@ -187,6 +187,53 @@ fn hashline_hash_mode_follows_moved_content() {
 }
 
 #[test]
+fn hashline_count_salt_rejects_a_stale_duplicate_and_the_retry_lands() {
+    // Issue #26's shape: a block holding another `return None` lands above
+    // the final one. Under the rank salt the stale `gg` would name the banned
+    // branch's return; the count salt re-hashes every copy, so it is gone.
+    let rewrite = "printf 'def f(u):\\n    if u.admin:\\n        return None\\n    if u.banned:\\n        return None\\n    audit(u)\\n    return None\\n' > f.py";
+    let env = Env::new(
+        "hashline-count",
+        json!({ "steps": [
+            { "call": "read", "args": { "path": "f.py" } },
+            { "call": "shell", "args": { "command": rewrite } },
+            { "call": "edit", "args": { "path": "f.py", "edits": [ { "op": "set", "anchor": "gg", "text": "    return u" } ] } },
+            { "call": "edit", "args": { "path": "f.py", "edits": [ { "op": "set", "anchor": "yf", "text": "    return u" } ] } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config("[tools]\neditor = \"hashline\"\n\n[tools.hashline]\nanchor = \"hash\"\nsalt = \"count\"\n");
+    std::fs::write(
+        env.work.join("f.py"),
+        "def f(u):\n    if u.banned:\n        return None\n    audit(u)\n    return None\n",
+    )
+    .unwrap();
+    let out = env.run(&["run", "--json", "--no-learn", "return the user at the end"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert!(last_tool_result(&reqs[1]).ends_with("gg|    return None\n"), "{}", last_tool_result(&reqs[1]));
+    let rejected = last_tool_result(&reqs[3]);
+    assert!(
+        rejected.starts_with("Error: REJECTED: 1 of 1 edit(s)") && rejected.contains("ANCHOR_NOT_FOUND"),
+        "{rejected}"
+    );
+    assert!(last_tool_result(&reqs[4]).starts_with("ok: applied 1 edit(s) to f.py: replaced line 7"));
+    assert_eq!(
+        std::fs::read_to_string(env.work.join("f.py")).unwrap(),
+        "def f(u):\n    if u.admin:\n        return None\n    if u.banned:\n        return None\n    audit(u)\n    return u\n"
+    );
+    let manifest: Value = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .find(|e| e["event"] == "manifest")
+        .expect("manifest event");
+    assert_eq!(
+        (manifest["hashline"]["anchor"].clone(), manifest["hashline"]["salt"].clone()),
+        (json!("hash"), json!("count"))
+    );
+}
+
+#[test]
 fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     let obs = json!({ "observations": [{ "problem_class": "missing release output directory", "summary": "release dir was missing", "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
     let env = Env::new(

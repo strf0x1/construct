@@ -9,6 +9,10 @@ Verdicts:
               spread, else `better`/`worse`; `inconclusive` under 3 runs a side.
   rates       Fisher's exact test: `better`/`worse` at p < 0.05, `same` when
               the rates are equal, else `inconclusive`.
+  counts      (non-negative integers, a zero on either side) judged `same` by
+              the spread rule are also judged as the rate of runs with a
+              count > 0: 0 vs 7 of 10 `edit.rewrites` is a difference even
+              though the medians sit inside a 0-1 spread.
 Lower is better unless the metric's name says otherwise (HIGHER); counts with
 no better direction (NEUTRAL) get `higher`/`lower`, never `worse`.
 """
@@ -124,7 +128,29 @@ def verdict(metric, a, b):
             row["verdict"] = "higher" if mb > ma else "lower"
         else:
             row["verdict"] = "better" if (mb > ma) == up else "worse"
+        if row["verdict"] == "same" and is_count(a + b):
+            nonzero(row, metric, a, b, up)
     return row
+
+
+def is_count(xs):
+    return all(x >= 0 and x == int(x) for x in xs) and 0 in xs
+
+
+def nonzero(row, metric, a, b, up):
+    """Re-judge a `same` count by its rate of runs with a count > 0."""
+    ha, hb = sum(x > 0 for x in a), sum(x > 0 for x in b)
+    if ha * len(b) == hb * len(a):
+        return
+    row["nonzero"] = (ha / len(a), hb / len(b))
+    row["p"] = fisher(ha, len(a), hb, len(b))
+    more = hb / len(b) > ha / len(a)
+    if row["p"] >= 0.05:
+        row["verdict"] = "inconclusive"
+    elif NEUTRAL.search(metric):
+        row["verdict"] = "higher" if more else "lower"
+    else:
+        row["verdict"] = "better" if more == up else "worse"
 
 
 def compare(a: dict, b: dict, only=None):
@@ -152,5 +178,7 @@ def table(rows, a_label, b_label):
         else:
             cell = lambda side: f"{fmt(r[side])} [{fmt(r[side + '_spread'][0])}–{fmt(r[side + '_spread'][1])}] (n={r['n_' + side]})"
         p = f" p={r['p']:.2f}" if "p" in r else ""
+        if "nonzero" in r:
+            p += f" (runs >0: {r['nonzero'][0]:.0%} vs {r['nonzero'][1]:.0%})"
         lines.append(f"| {r['metric']} | {cell('a')} | {cell('b')} | {fmt(r['delta'])} | {r['verdict']}{p} |")
     return "\n".join(lines)
