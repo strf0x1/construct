@@ -1,93 +1,24 @@
 //! The agent loop. One user turn: route, stream the model, run the tools it
 //! asks for (read-only ones in parallel), repeat until it answers in text.
 //! Everything the UI shows arrives as an `Event`, so the TUI, the headless
-//! runner and the tests all observe the same thing.
+//! runner and the tests all observe the same thing, and every durable event
+//! is journaled on the way out (`journal::Writer::emit`).
 
 use crate::config::{Config, Paths};
+use crate::journal;
 use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
-use crate::session;
 use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
 use anyhow::Result;
 use futures::future::join_all;
-use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{mpsc, watch};
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "event", rename_all = "snake_case")]
-pub enum Event {
-    TurnStart,
-    /// What is running: build, config hash, tools. Once, on the first turn.
-    Manifest(Manifest),
-    Route {
-        groups: Vec<String>,
-        skills: Vec<String>,
-        source: String,
-        ms: u64,
-        note: String,
-    },
-    /// The model's response stream opened.
-    Opened,
-    Text {
-        text: String,
-    },
-    Reasoning {
-        text: String,
-    },
-    /// The model has started emitting a tool call (arguments still streaming).
-    ToolPending {
-        name: String,
-    },
-    ToolStart {
-        id: String,
-        name: String,
-        args: String,
-    },
-    ToolEnd {
-        id: String,
-        name: String,
-        ok: bool,
-        output: String,
-        ms: u64,
-        /// How the UI renders `output`.
-        kind: OutputKind,
-        /// The tool's machine-readable result, for logs and scorers.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        data: Option<Value>,
-        /// Stable error code when `ok` is false.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        code: Option<&'static str>,
-    },
-    Usage {
-        prompt: u64,
-        completion: u64,
-        cached: u64,
-    },
-    Compacted {
-        before: usize,
-        after: usize,
-    },
-    TurnEnd {
-        steps: u32,
-        prompt: u64,
-        completion: u64,
-        ms: u64,
-        interrupted: bool,
-    },
-    Error {
-        message: String,
-    },
-    Learn {
-        status: String,
-    },
-}
-
-pub type Events = mpsc::UnboundedSender<Event>;
+pub use crate::event::{Event, Events};
 
 pub struct Agent {
     pub cfg: Config,
@@ -98,7 +29,9 @@ pub struct Agent {
     pub manifest: Manifest,
     pub messages: Vec<Message>,
     pub groups: BTreeSet<Group>,
-    pub log: session::Log,
+    pub journal: Arc<journal::Writer>,
+    /// Journaled before there was a UI to send them to; sent at the first turn.
+    unsent: Vec<Event>,
     pub usage: Usage,
     pub last_prompt_tokens: u64,
     pub turns_since_memory: u32,
@@ -114,13 +47,32 @@ impl Agent {
         let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
-        let mcp = if cfg.mcp.is_empty() { None } else { Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone()))) };
+        let mcp = if cfg.mcp.is_empty() {
+            None
+        } else {
+            Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
+        };
         let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
         let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();
-        let (log, mut messages) = match resume {
-            Some(id) => session::Log::open(&paths, &id)?,
-            None => (session::Log::create(&paths, &cwd_s, &cfg.model, &manifest)?, vec![]),
+        let file = journal::path(&paths, &cwd);
+        let mut unsent = vec![];
+        let (writer, mut messages) = match resume {
+            Some(id) => journal::Writer::resume(&file, &id)?,
+            None => {
+                let (w, head) = journal::Writer::create(&file, |id| Event::Head {
+                    id,
+                    harness: "construct".into(),
+                    version: env!("CARGO_PKG_VERSION").into(),
+                    cwd: cwd_s.clone(),
+                    model: cfg.model.clone(),
+                    manifest: manifest.clone(),
+                    parent_session: None,
+                    parent_call_id: None,
+                })?;
+                unsent.push(head);
+                (w, vec![])
+            }
         };
         let system = crate::prompt::build(&cwd, &memory);
         match messages.first() {
@@ -140,7 +92,8 @@ impl Agent {
             manifest,
             messages,
             groups,
-            log,
+            journal: Arc::new(writer),
+            unsent,
             usage: Usage::default(),
             last_prompt_tokens: 0,
             turns_since_memory: 0,
@@ -150,8 +103,9 @@ impl Agent {
             cancel_tx,
         };
         if agent.messages.len() == 1 {
-            let sys = agent.messages[0].clone();
-            agent.log.message(&sys);
+            let ev = Event::for_message(agent.messages[0].clone());
+            agent.journal.record(&ev);
+            agent.unsent.push(ev);
         }
         Ok(agent)
     }
@@ -199,10 +153,9 @@ impl Agent {
     async fn enable(&mut self, groups: impl IntoIterator<Item = Group>, tx: &Events) {
         for g in groups {
             if let Group::Mcp(name) = &g
-                && let Some(m) = &self.ctx.mcp
-                && let Err(e) = m.ensure(name).await
+                && let Err(e) = self.catalog.start_mcp(name).await
             {
-                let _ = tx.send(Event::Error { message: format!("MCP {name}: {e:#}") });
+                self.journal.emit(Event::Error { message: format!("MCP {name}: {e:#}") }, tx);
                 continue;
             }
             self.groups.insert(g);
@@ -235,19 +188,24 @@ impl Agent {
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
-        let _ = tx.send(Event::TurnStart);
+        for ev in std::mem::take(&mut self.unsent) {
+            let _ = tx.send(ev);
+        }
+        self.journal.emit(Event::TurnStart, tx);
         if self.user_turns == 0 {
-            let _ = tx.send(Event::Manifest(self.manifest.clone()));
+            self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         let route = self.route(text).await;
-        let _ = tx.send(Event::Route {
-            groups: route.groups.iter().map(Group::label).collect(),
-            skills: route.skills.iter().map(|(n, p)| format!("{n} {p:.2}")).collect(),
-            source: route.source.clone(),
-            ms: route.ms,
-            note: route.note.clone(),
-        });
-        self.log.event("route", json!({ "groups": route.groups.iter().map(Group::label).collect::<Vec<_>>(), "skills": route.skills, "source": route.source, "ms": route.ms, "note": route.note }));
+        self.journal.emit(
+            Event::Route {
+                groups: route.groups.iter().map(Group::label).collect(),
+                skills: route.skills.iter().map(|(n, p)| format!("{n} {p:.2}")).collect(),
+                source: route.source.clone(),
+                ms: route.ms,
+                note: route.note.clone(),
+            },
+            tx,
+        );
         self.enable(route.groups.clone(), tx).await;
 
         for (name, _) in &route.skills {
@@ -258,9 +216,7 @@ impl Agent {
             content.push_str("\n\n");
             content.push_str(&r);
         }
-        let user = Message::user(content);
-        self.log.message(&user);
-        self.messages.push(user);
+        self.push(Message::user(content), tx);
         self.user_turns += 1;
         self.turns_since_memory += 1;
 
@@ -273,7 +229,7 @@ impl Agent {
                 break;
             }
             if steps >= self.cfg.max_steps {
-                let _ = tx.send(Event::Error { message: format!("stopped after {steps} steps (max_steps)") });
+                self.journal.emit(Event::Error { message: format!("stopped after {steps} steps (max_steps)") }, tx);
                 break;
             }
             self.maybe_compact(tx).await;
@@ -286,38 +242,48 @@ impl Agent {
                     break;
                 }
                 Err(e) => {
-                    let _ = tx.send(Event::Error { message: format!("{e:#}") });
+                    self.journal.emit(Event::Error { message: format!("{e:#}") }, tx);
                     break;
                 }
             };
             turn_usage.add(&completion.usage);
             self.usage.add(&completion.usage);
             self.last_prompt_tokens = completion.usage.prompt_tokens;
-            self.log.usage(&completion.usage, &self.cfg.model);
-            let _ = tx.send(Event::Usage {
-                prompt: completion.usage.prompt_tokens,
-                completion: completion.usage.completion_tokens,
-                cached: completion.usage.cached_tokens,
-            });
-            let msg = completion.message;
-            self.log.message(&msg);
-            self.messages.push(msg.clone());
-            if msg.tool_calls.is_empty() {
+            self.journal.emit(
+                Event::Usage {
+                    prompt: completion.usage.prompt_tokens,
+                    completion: completion.usage.completion_tokens,
+                    cached: completion.usage.cached_tokens,
+                },
+                tx,
+            );
+            let calls = completion.message.tool_calls.clone();
+            self.push(completion.message, tx);
+            if calls.is_empty() {
                 if completion.finish_reason == "length" {
-                    let _ = tx.send(Event::Error { message: "the model hit its output limit mid-answer".into() });
+                    self.journal.emit(Event::Error { message: "the model hit its output limit mid-answer".into() }, tx);
                 }
                 break;
             }
-            self.run_tools(&msg.tool_calls, tx).await;
+            self.run_tools(&calls, tx).await;
         }
-        let _ = tx.send(Event::TurnEnd {
-            steps,
-            prompt: turn_usage.prompt_tokens,
-            completion: turn_usage.completion_tokens,
-            ms: started.elapsed().as_millis() as u64,
-            interrupted,
-        });
+        self.journal.emit(
+            Event::TurnEnd {
+                steps,
+                prompt: turn_usage.prompt_tokens,
+                completion: turn_usage.completion_tokens,
+                ms: started.elapsed().as_millis() as u64,
+                interrupted,
+            },
+            tx,
+        );
         Ok(())
+    }
+
+    /// Append a message to the conversation, journaled.
+    fn push(&mut self, m: Message, tx: &Events) {
+        self.journal.emit(Event::for_message(m.clone()), tx);
+        self.messages.push(m);
     }
 
     /// One model call. Returns None when interrupted.
@@ -330,7 +296,17 @@ impl Agent {
             max_tokens: self.cfg.max_tokens,
             temperature: self.cfg.temperature,
         };
-        let fut = self.client.stream(req, Some(&dtx));
+        let body = llm::body(&req);
+        self.journal.emit(
+            Event::Request {
+                model: self.cfg.model.clone(),
+                bytes: body.len() as u64,
+                n_tools: defs.len() as u64,
+                tools: defs.iter().filter_map(|d| d["function"]["name"].as_str().map(String::from)).collect(),
+            },
+            tx,
+        );
+        let fut = self.client.stream_body(body, Some(&dtx));
         tokio::pin!(fut);
         let mut cancel = self.ctx.cancel.clone();
         loop {
@@ -348,8 +324,8 @@ impl Agent {
 
     async fn run_tools(&mut self, calls: &[llm::ToolCall], tx: &Events) {
         // Model-facing switches first: they change state, not the world.
-        // (ok, text for the model, the structured record for the session log)
-        let mut results: Vec<Option<(bool, String, Option<Value>)>> = vec![None; calls.len()];
+        // Each slot is the text the model gets back.
+        let mut results: Vec<Option<String>> = vec![None; calls.len()];
         for (i, c) in calls.iter().enumerate() {
             if c.function.name == ENABLE_TOOLS {
                 let v: Value = serde_json::from_str(&c.function.arguments).unwrap_or_default();
@@ -360,22 +336,28 @@ impl Agent {
                 let labels: Vec<String> = want.iter().map(Group::label).collect();
                 self.enable(want, tx).await;
                 let out = format!("enabled: {}. The new tools are available from your next step.", labels.join(", "));
-                let _ = tx.send(Event::ToolStart {
-                    id: c.id.clone(),
-                    name: c.function.name.clone(),
-                    args: c.function.arguments.clone(),
-                });
-                let _ = tx.send(Event::ToolEnd {
-                    id: c.id.clone(),
-                    name: c.function.name.clone(),
-                    ok: true,
-                    output: out.clone(),
-                    ms: 0,
-                    kind: OutputKind::Plain,
-                    data: None,
-                    code: None,
-                });
-                results[i] = Some((true, out, None));
+                self.journal.emit(
+                    Event::ToolStart {
+                        id: c.id.clone(),
+                        name: c.function.name.clone(),
+                        args: c.function.arguments.clone(),
+                    },
+                    tx,
+                );
+                self.journal.emit(
+                    Event::ToolEnd {
+                        id: c.id.clone(),
+                        name: c.function.name.clone(),
+                        ok: true,
+                        output: out.clone(),
+                        ms: 0,
+                        kind: OutputKind::Plain,
+                        data: None,
+                        code: None,
+                    },
+                    tx,
+                );
+                results[i] = Some(out);
             } else if let Some(g) = self.catalog.group_of(&c.function.name) {
                 // The model called a tool it wasn't shown: honour it and keep the group on.
                 if !self.groups.contains(&g) {
@@ -386,38 +368,44 @@ impl Agent {
         let parallel = calls.iter().all(|c| self.catalog.readonly(&c.function.name) || c.function.name == ENABLE_TOOLS);
         let ctx = self.ctx.clone();
         let catalog = self.catalog.clone();
+        let journal = self.journal.clone();
         let run = |c: llm::ToolCall| {
             let ctx = ctx.clone();
             let catalog = catalog.clone();
+            let journal = journal.clone();
             let tx = tx.clone();
             async move {
-                let _ = tx.send(Event::ToolStart {
-                    id: c.id.clone(),
-                    name: c.function.name.clone(),
-                    args: c.function.arguments.clone(),
-                });
+                journal.emit(
+                    Event::ToolStart {
+                        id: c.id.clone(),
+                        name: c.function.name.clone(),
+                        args: c.function.arguments.clone(),
+                    },
+                    &tx,
+                );
                 let t = Instant::now();
                 let r = catalog.call(&ctx, &c.function.name, &c.function.arguments).await;
                 let ms = t.elapsed().as_millis() as u64;
                 let (ok, out, kind, data, code) = match r {
                     Ok(o) => (true, o.text, o.kind, o.data, None),
-                    Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code)),
+                    Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code.to_string())),
                 };
-                // What scorers read back from the session log: codes and data,
+                // What scorers read back from the journal: codes and data,
                 // never the prose.
-                let record =
-                    json!({ "id": c.id, "name": c.function.name, "ok": ok, "ms": ms, "code": code, "data": data });
-                let _ = tx.send(Event::ToolEnd {
-                    id: c.id.clone(),
-                    name: c.function.name.clone(),
-                    ok,
-                    output: out.clone(),
-                    ms,
-                    kind,
-                    data,
-                    code,
-                });
-                (ok, out, Some(record))
+                journal.emit(
+                    Event::ToolEnd {
+                        id: c.id.clone(),
+                        name: c.function.name.clone(),
+                        ok,
+                        output: out.clone(),
+                        ms,
+                        kind,
+                        data,
+                        code,
+                    },
+                    &tx,
+                );
+                out
             }
         };
         let pending: Vec<(usize, llm::ToolCall)> =
@@ -430,20 +418,15 @@ impl Agent {
         } else {
             for (i, c) in pending {
                 if self.cancelled() {
-                    results[i] = Some((false, "Error: interrupted by the user".into(), None));
+                    results[i] = Some("Error: interrupted by the user".into());
                     continue;
                 }
                 results[i] = Some(run(c).await);
             }
         }
         for (c, r) in calls.iter().zip(results) {
-            let (_, out, record) = r.unwrap_or((false, "Error: not run".into(), None));
-            if let Some(record) = record {
-                self.log.event("tool", record);
-            }
-            let m = Message::tool(&c.id, out);
-            self.log.message(&m);
-            self.messages.push(m);
+            let out = r.unwrap_or_else(|| "Error: not run".into());
+            self.push(Message::tool(&c.id, out), tx);
             self.tool_calls += 1;
             self.tool_calls_since_skill += 1;
         }
@@ -494,8 +477,7 @@ impl Agent {
         self.messages.push(Message::text("assistant", "Understood; continuing from that summary."));
         self.messages.extend(tail);
         self.last_prompt_tokens = 0;
-        self.log.event("compact", json!({ "before": before, "after": self.messages.len() }));
-        let _ = tx.send(Event::Compacted { before, after: self.messages.len() });
+        self.journal.emit(Event::Compacted { before, after: self.messages.len() }, tx);
     }
 
     fn cfg_context_window(&self) -> u64 {

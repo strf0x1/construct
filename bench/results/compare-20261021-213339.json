@@ -1,0 +1,4658 @@
+{
+ "a": "bench/results/task-20261021-211455.json",
+ "b": "bench/results/task-20261021-211455.json",
+ "comparisons": [
+  {
+   "a": "task-20261021-211455:hashline",
+   "b": "task-20261021-211455:hashline-count",
+   "rows": [
+    {
+     "metric": "all/agent_requests",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.admin_added",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.cache_enabled",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 1.0,
+     "delta": 0.19999999999999996,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.describe_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.docstring_first",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.exact",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": true,
+     "a": 0.875,
+     "b": 0.9,
+     "delta": 0.025000000000000022,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.final_return_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.fr_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.ja_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.no_wrong_line",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.old_name_gone",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.others_intact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.rate_set",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.still_works",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.teammate_change_kept",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.tests_pass",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.timeout_45",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/completion_tokens",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 527.5,
+     "b": 426.5,
+     "delta": -101.0,
+     "a_spread": [
+      261.0,
+      948.0
+     ],
+     "b_spread": [
+      262.0,
+      1077.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.applied",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.calls",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.completion_tokens_per_call",
+     "n_a": 37,
+     "n_b": 39,
+     "binary": false,
+     "a": 154.0,
+     "b": 154.5,
+     "delta": 0.5,
+     "a_spread": [
+      96.0,
+      293.0
+     ],
+     "b_spread": [
+      88.0,
+      275.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.echo_stripped",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.recoveries",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rejected",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rereads_after_rejection",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rewrites",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.025,
+      0.0
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "all/edit.unrecovered",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.bytes",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 6852.0,
+     "b": 6858.0,
+     "delta": 6.0,
+     "a_spread": [
+      6772.0,
+      7027.0
+     ],
+     "b_spread": [
+      6778.0,
+      7033.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.n_tools",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.prompt_tokens",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 2180.0,
+     "b": 2176.0,
+     "delta": -4.0,
+     "a_spread": [
+      2143.0,
+      2221.0
+     ],
+     "b_spread": [
+      2144.0,
+      2222.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.system_chars",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 760.5,
+     "b": 766.5,
+     "delta": 6.0,
+     "a_spread": [
+      755.0,
+      769.0
+     ],
+     "b_spread": [
+      761.0,
+      775.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.tools_chars",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/learn_wait_s",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.027085542678833008,
+     "b": 0.027003884315490723,
+     "delta": -8.165836334228516e-05,
+     "a_spread": [
+      0.026430606842041016,
+      0.027903079986572266
+     ],
+     "b_spread": [
+      0.02634263038635254,
+      0.02765035629272461
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/over_budget",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/peak_mb",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 10.3046875,
+     "b": 10.25,
+     "delta": -0.0546875,
+     "a_spread": [
+      9.359375,
+      29.015625
+     ],
+     "b_spread": [
+      9.34375,
+      29.15625
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/prompt_tokens",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 13158.5,
+     "b": 12945.0,
+     "delta": -213.5,
+     "a_spread": [
+      9930.0,
+      21799.0
+     ],
+     "b_spread": [
+      9930.0,
+      23241.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/reads",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      3.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/requests",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/side_requests_before_first_agent",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/success",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": true,
+     "a": 0.875,
+     "b": 0.9,
+     "delta": 0.025000000000000022,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/tool_calls",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      3.0,
+      9.0
+     ],
+     "b_spread": [
+      3.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/unintended_changes",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/wall_s",
+     "n_a": 40,
+     "n_b": 40,
+     "binary": false,
+     "a": 10.088298576010857,
+     "b": 11.136801389497123,
+     "delta": 1.048502813486266,
+     "a_spread": [
+      5.618866478995187,
+      24.350519158993848
+     ],
+     "b_spread": [
+      7.200634236010956,
+      20.953408863017103
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/checks.cache_enabled",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 1.0,
+     "delta": 0.19999999999999996,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "edit-duplicate-lines/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 1.0,
+     "delta": 0.19999999999999996,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "edit-duplicate-lines/checks.no_wrong_line",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 310.0,
+     "b": 310.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      386.0
+     ],
+     "b_spread": [
+      278.0,
+      453.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.completion_tokens_per_call",
+     "n_a": 4,
+     "n_b": 5,
+     "binary": false,
+     "a": 150.0,
+     "b": 177.0,
+     "delta": 27.0,
+     "a_spread": [
+      144.0,
+      193.0
+     ],
+     "b_spread": [
+      139.0,
+      275.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6824.0,
+     "b": 6830.0,
+     "delta": 6.0,
+     "a_spread": [
+      6824.0,
+      6824.0
+     ],
+     "b_spread": [
+      6830.0,
+      6830.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-duplicate-lines/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2180.0,
+     "b": 2181.0,
+     "delta": 1.0,
+     "a_spread": [
+      0.0,
+      2180.0
+     ],
+     "b_spread": [
+      2146.0,
+      2181.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 764.0,
+     "b": 770.0,
+     "delta": 6.0,
+     "a_spread": [
+      764.0,
+      764.0
+     ],
+     "b_spread": [
+      770.0,
+      770.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-duplicate-lines/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.027124404907226562,
+     "b": 0.02634263038635254,
+     "delta": -0.0007817745208740234,
+     "a_spread": [
+      0.02630758285522461,
+      0.028330326080322266
+     ],
+     "b_spread": [
+      0.025671005249023438,
+      0.027625083923339844
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.28125,
+     "b": 10.1875,
+     "delta": -0.09375,
+     "a_spread": [
+      8.90625,
+      17.25
+     ],
+     "b_spread": [
+      10.15625,
+      10.296875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 12598.0,
+     "b": 12111.0,
+     "delta": -487.0,
+     "a_spread": [
+      0.0,
+      15579.0
+     ],
+     "b_spread": [
+      9687.0,
+      12429.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 1.0,
+     "delta": 0.19999999999999996,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "edit-duplicate-lines/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 4.0,
+     "delta": -1.0,
+     "a_spread": [
+      0.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-lines/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6.356563924986403,
+     "b": 11.612984398001572,
+     "delta": 5.256420473015169,
+     "a_spread": [
+      0.6836151829920709,
+      7.116599350003526
+     ],
+     "b_spread": [
+      6.9899524320208,
+      15.39863430999685
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 4.0,
+     "delta": -1.0,
+     "a_spread": [
+      4.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/checks.admin_added",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/checks.final_return_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/checks.no_wrong_line",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 486.0,
+     "b": 260.0,
+     "delta": -226.0,
+     "a_spread": [
+      276.0,
+      572.0
+     ],
+     "b_spread": [
+      248.0,
+      400.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 134.0,
+     "b": 130.0,
+     "delta": -4.0,
+     "a_spread": [
+      123.0,
+      344.0
+     ],
+     "b_spread": [
+      123.0,
+      188.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7008.0,
+     "b": 7014.0,
+     "delta": 6.0,
+     "a_spread": [
+      7008.0,
+      7008.0
+     ],
+     "b_spread": [
+      7014.0,
+      7014.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-duplicate-relocation/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2190.0,
+     "b": 2226.0,
+     "delta": 36.0,
+     "a_spread": [
+      2190.0,
+      2225.0
+     ],
+     "b_spread": [
+      2191.0,
+      2226.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-duplicate-relocation/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 769.0,
+     "b": 775.0,
+     "delta": 6.0,
+     "a_spread": [
+      769.0,
+      769.0
+     ],
+     "b_spread": [
+      775.0,
+      775.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-duplicate-relocation/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.027241945266723633,
+     "b": 0.027231454849243164,
+     "delta": -1.049041748046875e-05,
+     "a_spread": [
+      0.026678800582885742,
+      0.02745795249938965
+     ],
+     "b_spread": [
+      0.026584863662719727,
+      0.028493881225585938
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.203125,
+     "b": 9.328125,
+     "delta": -0.875,
+     "a_spread": [
+      9.34375,
+      10.3125
+     ],
+     "b_spread": [
+      9.3125,
+      33.65625
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10305.0,
+     "b": 9930.0,
+     "delta": -375.0,
+     "a_spread": [
+      9908.0,
+      15032.0
+     ],
+     "b_spread": [
+      9930.0,
+      15095.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      2.0,
+      2.0
+     ],
+     "b_spread": [
+      2.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 4.0,
+     "delta": -1.0,
+     "a_spread": [
+      4.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 3.0,
+     "delta": -1.0,
+     "a_spread": [
+      3.0,
+      6.0
+     ],
+     "b_spread": [
+      3.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-duplicate-relocation/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 12.324766366014956,
+     "b": 7.417525813012617,
+     "delta": -4.907240553002339,
+     "a_spread": [
+      6.898221454001032,
+      17.105729697010247
+     ],
+     "b_spread": [
+      6.411207192984875,
+      9.604411891981727
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      5.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/checks.rate_set",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 274.0,
+     "b": 269.0,
+     "delta": -5.0,
+     "a_spread": [
+      255.0,
+      1453.0
+     ],
+     "b_spread": [
+      262.0,
+      472.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 88.0,
+     "b": 88.0,
+     "delta": 0.0,
+     "a_spread": [
+      88.0,
+      250.0
+     ],
+     "b_spread": [
+      88.0,
+      161.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6772.0,
+     "b": 6778.0,
+     "delta": 6.0,
+     "a_spread": [
+      6772.0,
+      6772.0
+     ],
+     "b_spread": [
+      6778.0,
+      6778.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-long-file/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2172.0,
+     "b": 2173.0,
+     "delta": 1.0,
+     "a_spread": [
+      2137.0,
+      2172.0
+     ],
+     "b_spread": [
+      2138.0,
+      2173.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 758.0,
+     "b": 764.0,
+     "delta": 6.0,
+     "a_spread": [
+      758.0,
+      758.0
+     ],
+     "b_spread": [
+      764.0,
+      764.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-long-file/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.027295589447021484,
+     "b": 0.027343273162841797,
+     "delta": 4.76837158203125e-05,
+     "a_spread": [
+      0.026835918426513672,
+      0.02754068374633789
+     ],
+     "b_spread": [
+      0.026973247528076172,
+      0.02765035629272461
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.46875,
+     "b": 10.46875,
+     "delta": 0.0,
+     "a_spread": [
+      10.453125,
+      26.421875
+     ],
+     "b_spread": [
+      10.40625,
+      24.84375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 13014.0,
+     "b": 12788.0,
+     "delta": -226.0,
+     "a_spread": [
+      12764.0,
+      57891.0
+     ],
+     "b_spread": [
+      10179.0,
+      16408.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      5.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      5.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 9.1493701650179,
+     "b": 7.464033614000073,
+     "delta": -1.6853365510178264,
+     "a_spread": [
+      5.360320684994804,
+      97.66750909300754
+     ],
+     "b_spread": [
+      5.286009778006701,
+      13.527021218003938
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6.0,
+     "b": 7.0,
+     "delta": 1.0,
+     "a_spread": [
+      5.0,
+      6.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/checks.old_name_gone",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/checks.tests_pass",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 776.0,
+     "b": 1004.0,
+     "delta": 228.0,
+     "a_spread": [
+      644.0,
+      1004.0
+     ],
+     "b_spread": [
+      848.0,
+      1198.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 3.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      3.0
+     ],
+     "b_spread": [
+      3.0,
+      4.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 3.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      3.0
+     ],
+     "b_spread": [
+      3.0,
+      4.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.completion_tokens_per_call",
+     "n_a": 4,
+     "n_b": 5,
+     "binary": false,
+     "a": 142.33333333333331,
+     "b": 132.66666666666666,
+     "delta": -9.666666666666657,
+     "a_spread": [
+      112.0,
+      163.66666666666666
+     ],
+     "b_spread": [
+      112.33333333333333,
+      168.66666666666666
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6815.0,
+     "b": 6821.0,
+     "delta": 6.0,
+     "a_spread": [
+      6815.0,
+      6815.0
+     ],
+     "b_spread": [
+      6821.0,
+      6821.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-rename/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2143.0,
+     "b": 2144.0,
+     "delta": 1.0,
+     "a_spread": [
+      2143.0,
+      2178.0
+     ],
+     "b_spread": [
+      2144.0,
+      2179.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 755.0,
+     "b": 761.0,
+     "delta": 6.0,
+     "a_spread": [
+      755.0,
+      755.0
+     ],
+     "b_spread": [
+      761.0,
+      761.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-rename/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.02651500701904297,
+     "b": 0.02680063247680664,
+     "delta": 0.0002856254577636719,
+     "a_spread": [
+      0.025956153869628906,
+      0.03043532371520996
+     ],
+     "b_spread": [
+      0.026189804077148438,
+      0.053977251052856445
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 31.875,
+     "b": 31.3125,
+     "delta": -0.5625,
+     "a_spread": [
+      29.015625,
+      35.828125
+     ],
+     "b_spread": [
+      20.734375,
+      36.578125
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 18928.0,
+     "b": 23241.0,
+     "delta": 4313.0,
+     "a_spread": [
+      15208.0,
+      19359.0
+     ],
+     "b_spread": [
+      22625.0,
+      23399.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-rename/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 3.0,
+     "delta": 0.0,
+     "a_spread": [
+      3.0,
+      3.0
+     ],
+     "b_spread": [
+      3.0,
+      4.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6.0,
+     "b": 7.0,
+     "delta": 1.0,
+     "a_spread": [
+      5.0,
+      6.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 11.0,
+     "b": 12.0,
+     "delta": 1.0,
+     "a_spread": [
+      9.0,
+      11.0
+     ],
+     "b_spread": [
+      11.0,
+      13.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-rename/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 24.350519158993848,
+     "b": 13.44287714199163,
+     "delta": -10.907642017002217,
+     "a_spread": [
+      10.001590502011823,
+      29.395062509021955
+     ],
+     "b_spread": [
+      12.130305949016474,
+      31.392777397995815
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/checks.describe_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/checks.docstring_first",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.4,
+     "b": 0.4,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 587.0,
+     "b": 387.0,
+     "delta": -200.0,
+     "a_spread": [
+      313.0,
+      700.0
+     ],
+     "b_spread": [
+      364.0,
+      470.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 166.0,
+     "b": 170.0,
+     "delta": 4.0,
+     "a_spread": [
+      143.0,
+      273.0
+     ],
+     "b_spread": [
+      143.0,
+      224.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7027.0,
+     "b": 7033.0,
+     "delta": 6.0,
+     "a_spread": [
+      7027.0,
+      7027.0
+     ],
+     "b_spread": [
+      7033.0,
+      7033.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-shifted-block/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2221.0,
+     "b": 2187.0,
+     "delta": -34.0,
+     "a_spread": [
+      2186.0,
+      2221.0
+     ],
+     "b_spread": [
+      2187.0,
+      2222.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 762.0,
+     "b": 768.0,
+     "delta": 6.0,
+     "a_spread": [
+      762.0,
+      762.0
+     ],
+     "b_spread": [
+      768.0,
+      768.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-shifted-block/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.027203083038330078,
+     "b": 0.026715755462646484,
+     "delta": -0.00048732757568359375,
+     "a_spread": [
+      0.026515483856201172,
+      0.027903079986572266
+     ],
+     "b_spread": [
+      0.021337270736694336,
+      0.027623414993286133
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.265625,
+     "b": 9.421875,
+     "delta": -0.84375,
+     "a_spread": [
+      9.3125,
+      25.59375
+     ],
+     "b_spread": [
+      9.34375,
+      25.3125
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 13162.0,
+     "b": 12925.0,
+     "delta": -237.0,
+     "a_spread": [
+      10092.0,
+      16193.0
+     ],
+     "b_spread": [
+      9968.0,
+      13149.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      2.0,
+      2.0
+     ],
+     "b_spread": [
+      2.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      6.0
+     ],
+     "b_spread": [
+      4.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.4,
+     "b": 0.4,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 4.0,
+     "delta": 0.0,
+     "a_spread": [
+      3.0,
+      6.0
+     ],
+     "b_spread": [
+      3.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-shifted-block/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 9.775729870016221,
+     "b": 10.185382868017768,
+     "delta": 0.40965299800154753,
+     "a_spread": [
+      4.1987714509887155,
+      11.916543689003447
+     ],
+     "b_spread": [
+      8.080375068006106,
+      11.845867042982718
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 8.0,
+     "b": 8.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      8.0
+     ],
+     "b_spread": [
+      6.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/checks.teammate_change_kept",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/checks.timeout_45",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 651.0,
+     "b": 633.0,
+     "delta": -18.0,
+     "a_spread": [
+      495.0,
+      933.0
+     ],
+     "b_spread": [
+      372.0,
+      2533.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 96.0,
+     "b": 112.5,
+     "delta": 16.5,
+     "a_spread": [
+      81.0,
+      219.5
+     ],
+     "b_spread": [
+      81.0,
+      388.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6776.0,
+     "b": 6782.0,
+     "delta": 6.0,
+     "a_spread": [
+      6776.0,
+      6776.0
+     ],
+     "b_spread": [
+      6782.0,
+      6782.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-stale-reference/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2164.0,
+     "b": 2165.0,
+     "delta": 1.0,
+     "a_spread": [
+      2129.0,
+      2164.0
+     ],
+     "b_spread": [
+      2130.0,
+      2165.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 764.0,
+     "b": 770.0,
+     "delta": 6.0,
+     "a_spread": [
+      764.0,
+      764.0
+     ],
+     "b_spread": [
+      770.0,
+      770.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-stale-reference/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.026965618133544922,
+     "b": 0.02696704864501953,
+     "delta": 1.430511474609375e-06,
+     "a_spread": [
+      0.026833295822143555,
+      0.029547691345214844
+     ],
+     "b_spread": [
+      0.026889562606811523,
+      0.027253389358520508
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.15625,
+     "b": 10.0625,
+     "delta": -0.09375,
+     "a_spread": [
+      10.0625,
+      17.40625
+     ],
+     "b_spread": [
+      9.40625,
+      21.875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 21155.0,
+     "b": 21161.0,
+     "delta": 6.0,
+     "a_spread": [
+      19030.0,
+      21995.0
+     ],
+     "b_spread": [
+      15407.0,
+      36948.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 3.0,
+     "delta": 0.0,
+     "a_spread": [
+      2.0,
+      4.0
+     ],
+     "b_spread": [
+      2.0,
+      3.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 8.0,
+     "b": 8.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      8.0
+     ],
+     "b_spread": [
+      6.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6.0,
+     "b": 6.0,
+     "delta": 0.0,
+     "a_spread": [
+      6.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-stale-reference/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 14.793094441003632,
+     "b": 20.953408863017103,
+     "delta": 6.160314422013471,
+     "a_spread": [
+      11.722175173985306,
+      22.74984508397756
+     ],
+     "b_spread": [
+      8.949037375015905,
+      29.732633162027923
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 5.0,
+     "delta": 1.0,
+     "a_spread": [
+      4.0,
+      7.0
+     ],
+     "b_spread": [
+      5.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/checks.fr_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/checks.ja_changed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/checks.others_intact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 375.0,
+     "b": 513.0,
+     "delta": 138.0,
+     "a_spread": [
+      261.0,
+      1006.0
+     ],
+     "b_spread": [
+      314.0,
+      1079.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 172.0,
+     "b": 210.0,
+     "delta": 38.0,
+     "a_spread": [
+      129.0,
+      200.0
+     ],
+     "b_spread": [
+      136.0,
+      247.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6880.0,
+     "b": 6886.0,
+     "delta": 6.0,
+     "a_spread": [
+      6880.0,
+      6880.0
+     ],
+     "b_spread": [
+      6886.0,
+      6886.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-unicode/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2188.0,
+     "b": 2154.0,
+     "delta": -34.0,
+     "a_spread": [
+      2188.0,
+      2188.0
+     ],
+     "b_spread": [
+      2154.0,
+      2189.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 756.0,
+     "b": 762.0,
+     "delta": 6.0,
+     "a_spread": [
+      756.0,
+      756.0
+     ],
+     "b_spread": [
+      762.0,
+      762.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-unicode/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.027150392532348633,
+     "b": 0.02736043930053711,
+     "delta": 0.00021004676818847656,
+     "a_spread": [
+      0.02649831771850586,
+      0.027692317962646484
+     ],
+     "b_spread": [
+      0.026727914810180664,
+      0.027985334396362305
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 9.46875,
+     "b": 10.234375,
+     "delta": 0.765625,
+     "a_spread": [
+      9.359375,
+      28.375
+     ],
+     "b_spread": [
+      9.40625,
+      29.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10103.0,
+     "b": 12948.0,
+     "delta": 2845.0,
+     "a_spread": [
+      10059.0,
+      22640.0
+     ],
+     "b_spread": [
+      12311.0,
+      22395.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 5.0,
+     "delta": 1.0,
+     "a_spread": [
+      4.0,
+      7.0
+     ],
+     "b_spread": [
+      5.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 5.0,
+     "delta": 2.0,
+     "a_spread": [
+      3.0,
+      7.0
+     ],
+     "b_spread": [
+      4.0,
+      8.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-unicode/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.672783087007701,
+     "b": 12.485990078974282,
+     "delta": 4.813206991966581,
+     "a_spread": [
+      5.618866478995187,
+      13.317417052021483
+     ],
+     "b_spread": [
+      10.98881848398014,
+      19.576169180014404
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 5.0,
+     "delta": 1.0,
+     "a_spread": [
+      3.0,
+      9.0
+     ],
+     "b_spread": [
+      3.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/checks.exact",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.8,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/checks.still_works",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 603.0,
+     "b": 693.0,
+     "delta": 90.0,
+     "a_spread": [
+      78.0,
+      1359.0
+     ],
+     "b_spread": [
+      130.0,
+      873.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.completion_tokens_per_call",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 357.0,
+     "b": 400.0,
+     "delta": 43.0,
+     "a_spread": [
+      247.0,
+      579.0
+     ],
+     "b_spread": [
+      249.0,
+      420.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.2,
+      0.0
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "edit-whitespace/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6890.0,
+     "b": 6896.0,
+     "delta": 6.0,
+     "a_spread": [
+      6890.0,
+      6890.0
+     ],
+     "b_spread": [
+      6896.0,
+      6896.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-whitespace/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2195.0,
+     "b": 2196.0,
+     "delta": 1.0,
+     "a_spread": [
+      2160.0,
+      2195.0
+     ],
+     "b_spread": [
+      2161.0,
+      2196.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 759.0,
+     "b": 765.0,
+     "delta": 6.0,
+     "a_spread": [
+      759.0,
+      759.0
+     ],
+     "b_spread": [
+      765.0,
+      765.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-whitespace/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5737.0,
+     "b": 5737.0,
+     "delta": 0.0,
+     "a_spread": [
+      5737.0,
+      5737.0
+     ],
+     "b_spread": [
+      5737.0,
+      5737.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.026499271392822266,
+     "b": 0.02691340446472168,
+     "delta": 0.00041413307189941406,
+     "a_spread": [
+      0.021589040756225586,
+      0.026953458786010742
+     ],
+     "b_spread": [
+      0.026576995849609375,
+      0.03471493721008301
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 9.421875,
+     "b": 9.4375,
+     "delta": 0.015625,
+     "a_spread": [
+      9.28125,
+      28.359375
+     ],
+     "b_spread": [
+      9.265625,
+      21.9375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10458.0,
+     "b": 12942.0,
+     "delta": 2484.0,
+     "a_spread": [
+      4516.0,
+      28873.0
+     ],
+     "b_spread": [
+      4518.0,
+      16522.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 4.0,
+     "b": 5.0,
+     "delta": 1.0,
+     "a_spread": [
+      3.0,
+      9.0
+     ],
+     "b_spread": [
+      3.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.8,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 4.0,
+     "delta": 1.0,
+     "a_spread": [
+      2.0,
+      8.0
+     ],
+     "b_spread": [
+      3.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-whitespace/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 10.230102875008015,
+     "b": 10.56904657499399,
+     "delta": 0.3389436999859754,
+     "a_spread": [
+      6.242702363000717,
+      26.441899700992508
+     ],
+     "b_spread": [
+      7.874197104014456,
+      42.92073205500492
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

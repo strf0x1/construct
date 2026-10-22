@@ -1,0 +1,59 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.1.0",
+    "git_sha": "0602f193fa7b6143545dd6ff674fcb41cf7846eb",
+    "git_dirty": false,
+    "binary_sha256": "ad05b5b44245e091d3ce282b64d1d4d8ac0f3066f2f1529c085437771c3701d1",
+    "config_sha256": "ae70e9753163b7e37b98302424924b0449fd202f24dd0c96bf8a4b5bca906662",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "mock-model",
+    "router_mode": "local"
+   }
+  },
+  "dev_git_sha": "0602f193fa7b6143545dd6ff674fcb41cf7846eb",
+  "dev_dirty": false,
+  "model": null,
+  "bench_py_sha256": "2453bdfee975b062a674bcefc8eb68d4e499f5ee6d1945a1c38003a0ffe11749",
+  "host": "omarchy-macbook",
+  "started": "2026-10-22T04:05:44Z"
+ },
+ "construct": {
+  "install": 16373696,
+  "parts": {
+   "binary": 16373696
+  },
+  "fresh_home_after_first_run": 37102,
+  "first_run_s": 0.008239498973125592,
+  "first_run_rc": 0
+ },
+ "hermes": {
+  "install": 557122238,
+  "parts": {
+   "venv": 278561119,
+   "python": 278561119
+  }
+ },
+ "opencode": {
+  "install": 129,
+  "parts": {
+   "binary": 129
+  }
+ }
+}

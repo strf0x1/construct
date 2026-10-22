@@ -1,0 +1,98 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.1.0",
+    "git_sha": "60f12bd524b521165b85e095d27bf1ef674df28e",
+    "git_dirty": false,
+    "binary_sha256": "43255bfc5e79cb7065bb0c2207af58707805c4c9e5b9c051dd688585e8556c0a",
+    "config_sha256": "433857a72a145607ec2458929f8f7c0f9aafe2792ba748793659fd8784cbf625",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "mock-model",
+    "router_mode": "local"
+   }
+  },
+  "dev_git_sha": "60f12bd524b521165b85e095d27bf1ef674df28e",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "2453bdfee975b062a674bcefc8eb68d4e499f5ee6d1945a1c38003a0ffe11749",
+  "host": "omarchy-macbook",
+  "started": "2026-10-22T04:03:39Z"
+ },
+ "rounds": 5,
+ "raw": {
+  "construct": [
+   {
+    "first_output_ms": 1.0412080000000001,
+    "first_frame_ms": 1.596625,
+    "ready_ms": 1.759625
+   },
+   {
+    "first_output_ms": 1.342459,
+    "first_frame_ms": 1.7425,
+    "ready_ms": 1.8724589999999999
+   },
+   {
+    "first_output_ms": 1.34625,
+    "first_frame_ms": 1.866,
+    "ready_ms": 2.0270829999999997
+   },
+   {
+    "first_output_ms": 2.5252909999999997,
+    "first_frame_ms": 3.172583,
+    "ready_ms": 3.3327080000000002
+   },
+   {
+    "first_output_ms": 1.149584,
+    "first_frame_ms": 1.675459,
+    "ready_ms": 1.835709
+   }
+  ]
+ },
+ "summary": {
+  "construct": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 1.342459,
+    "p10": 1.0412080000000001,
+    "p90": 2.5252909999999997,
+    "min": 1.0412080000000001,
+    "max": 2.5252909999999997,
+    "mean": 1.4809584
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 1.7425,
+    "p10": 1.596625,
+    "p90": 3.172583,
+    "min": 1.596625,
+    "max": 3.172583,
+    "mean": 2.0106334
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 1.8724589999999999,
+    "p10": 1.759625,
+    "p90": 3.3327080000000002,
+    "min": 1.759625,
+    "max": 3.3327080000000002,
+    "mean": 2.1655168
+   }
+  }
+ }
+}

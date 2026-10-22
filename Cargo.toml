@@ -15,6 +15,9 @@ publish = false
 anyhow = "1"
 clap = { version = "4.6", features = ["derive"] }
 futures = "0.3"
+# The journal (docs/adr/0008). bundled: no system libsqlite3, and FTS5 and
+# JSON functions are compiled in.
+rusqlite = { version = "0.40", features = ["bundled", "hooks"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
 serde = { version = "1", features = ["derive"] }
 # preserve_order everywhere: JSON keeps wire order, and snapshot key order

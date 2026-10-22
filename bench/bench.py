@@ -38,6 +38,7 @@ import time
 from pathlib import Path
 
 import compare as cmp
+import journal
 import process
 import tasklib
 
@@ -95,12 +96,12 @@ WORK = Path(os.environ.get("BENCH_WORK", tempfile.gettempdir())) / "construct-be
 
 
 # ---------------------------------------------------------------- sandbox
-# construct sandboxes itself (Landlock, crates/construct/src/sandbox.rs). The competitor
+# construct sandboxes itself (Landlock, crates/construct/src/sandbox/mod.rs). The competitor
 # harnesses don't, so the bench confines them with bwrap instead — and it does
 # so inside their adapters (see Sandboxed), not at the call site, so there is
 # no way to launch hermes or opencode unsandboxed by forgetting a wrapper.
 # An un-contained agent on a real model searches the disk: one read the bench
-# key files. The policy mirrors crates/construct/src/sandbox.rs: writable only inside WORK
+# key files. The policy mirrors crates/construct/src/sandbox/mod.rs: writable only inside WORK
 # (every bench home and work dir lives there), system paths and toolchains
 # read-only, a private /tmp and PID namespace, and no reach to the real $HOME,
 # the key files, the construct repo or other processes. Network stays shared so
@@ -619,7 +620,8 @@ def suite_size(args):
     if OPENCODE:
         out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
     # What a first run adds to a fresh home (bundled skills, npm packages...).
-    homes = fresh_homes(HARNESSES, "size")
+    # Only harnesses that were asked for and are installed (measured above).
+    homes = fresh_homes([n for n in (args.harness or HARNESSES) if n in out], "size")
     ep = Endpoint(WORK / "size" / "ep", script=[])
     work = WORK / "size" / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -799,14 +801,11 @@ def suite_memory(args):
 
 
 def session_facts(home: Path, since: float):
-    """Routes and tool calls from construct sessions written after `since`.
+    """Routes and tool calls from construct sessions active after `since`.
     (run() keeps only the tail of stdout, so don't parse events from it.)"""
     routes, calls = [], []
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
-        for line in f.read_text().splitlines():
-            d = json.loads(line)
+    for session in journal.sessions(home, since):
+        for d in session:
             if d.get("type") == "route":
                 routes.append(d["data"])
             for c in (d.get("message") or {}).get("tool_calls") or []:
@@ -1060,12 +1059,10 @@ def landmine_hits(home: Path, since: float):
     test_stats.py or tools/gen-fixtures shows the same strings as source."""
     failed = re.compile(r"FileNotFoundError.*golden\.json|golden\.json.*No such file|AssertionError: fixtures were generated with the wrong seed|^usage: gen-fixtures", re.M)
     hits = 0
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
+    for session in journal.sessions(home, since):
         shell_ids = set()
-        for line in f.read_text().splitlines():
-            m = json.loads(line).get("message") or {}
+        for d in session:
+            m = d.get("message") or {}
             for t in m.get("tool_calls") or []:
                 if t.get("function", {}).get("name") == "shell":
                     shell_ids.add(t.get("id"))
@@ -1217,7 +1214,7 @@ def cmd_note(argv):
         parts = []
         for n, h in m.get("harnesses", {}).items():
             if "git_sha" in h:
-                tools = f" editor={h.get('editor')}" + (f" anchor={h['hashline']['anchor']}" if h.get("hashline") else "")
+                tools = f" editor={h.get('editor')}" + (f" anchor={h['hashline']['anchor']} salt={h['hashline'].get('salt', 'rank')}" if h.get("hashline") else "")
                 parts.append(f"{n} {h['git_sha'][:7]}{' dirty' if h.get('git_dirty') else ''}{tools} router={h.get('router_mode')}")
             else:
                 parts.append(f"{n} {h.get('version', '?')}")

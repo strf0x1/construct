@@ -1,6 +1,8 @@
 # Proposal 5 — Verification an agent can run
 
-Status: plan. Written 2026-10-20 against `1e83f33`.
+Status: done. Step 1 landed in #18, step 2 in #20, steps 3–4 in #27, step 5
+in #23 (structured results) and #28 (process metrics), step 6 in #28.
+Written 2026-10-20 against `1e83f33`.
 
 Most of construct is written by agents, so the question "is this change good"
 has to be answerable by an agent, deterministically where possible, and

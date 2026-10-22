@@ -1,9 +1,10 @@
 //! Golden snapshots of what the model sees and what the user sees.
 //!
 //! One test per shape of first request (plain turn, routed skill, routed web,
-//! routed MCP, learning review) and two screens (first frame, finished turn).
-//! A refactor that changes none of these is behaviour-neutral as far as the
-//! model and the user can tell; a prompt or schema edit shows up as a diff.
+//! routed history, routed MCP, learning review) and two screens (first frame,
+//! finished turn). A refactor that changes none of these is behaviour-neutral
+//! as far as the model and the user can tell; a prompt or schema edit shows up
+//! as a diff.
 //!
 //! Never edit a `.snap` file by hand: run the tests, read the diff, and if the
 //! change is intended accept it with `cargo insta accept` (or
@@ -27,10 +28,8 @@ fn normalize(env: &Env, s: &str) -> String {
     s = s.replace(&env.home.display().to_string(), "[HOME]");
     s = s.replace(&env.dir.display().to_string(), "[DIR]");
     s = s.replace(&format!("127.0.0.1:{}", env.port), "127.0.0.1:[PORT]");
-    if env.home.join("sessions").exists() {
-        for (i, id) in env.sessions().iter().enumerate() {
-            s = s.replace(id, &format!("[SESSION{i}]"));
-        }
+    for (i, id) in env.sessions().iter().enumerate() {
+        s = s.replace(id, &format!("[SESSION{i}]"));
     }
     // `- date: YYYY-MM-DD`: keep the label, drop the ten date characters.
     let mut parts = s.split("- date: ");
@@ -96,6 +95,17 @@ fn routed_skill() {
 fn routed_web() {
     let (env, req) =
         first_request("snap-web", "[router]\nmode = \"local\"\n", "summarize https://example.com/changelog", |_| {});
+    insta::assert_json_snapshot!(shaped(&env, &req));
+}
+
+#[test]
+fn routed_history() {
+    let (env, req) = first_request(
+        "snap-history",
+        "[router]\nmode = \"local\"\n",
+        "what did we decide about the parser last time?",
+        |_| {},
+    );
     insta::assert_json_snapshot!(shaped(&env, &req));
 }
 

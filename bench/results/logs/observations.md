@@ -195,3 +195,37 @@ Losses / caveats:
 Editor paired run (proposal 04 step 6): replace 40/40, hashline 37/40, hashonly 39/40 on the 8-task edit corpus; hashline arms cost +750-800 first-request tokens and +39-50% prompt tokens per run. All 3 hashline failures and the 1 hashonly failure are edit-shifted-block: the model ended inserted text in a single \n, which hashline reads as the terminator, dropping the intended blank line. line+hash rejected 4 stale anchors on edit-stale-reference, all re-read and recovered; hash-only followed the moved line first time. Issue #26 relocation not exercised: the model batched both duplicate-relocation edits in one call in 9/10 runs. Decision in docs/adr/0002. Earlier attempt the same day void: bench crashed after 15 runs on a half-written endpoint log line read by the new budget watcher (fixed in e442b69).
 
 - `bench/results/task-20261021-121125.json`: model minimax/minimax-m3.1-flash:free; bench e442b69 dirty; replace 6ea1f93 dirty editor=replace router=local; hashline 6ea1f93 dirty editor=hashline anchor=line+hash router=local; hashonly 6ea1f93 dirty editor=hashline anchor=hash router=local
+
+## 2026-10-21 17:28 note
+
+Issue #26 paired run (stale anchors on duplicate lines): two-turn tasks edit-stale-duplicate (3-line block with a new copy added above between turns) and -gap (2-line block, as tall as the gap between copies). Runs with a silent wrong-line edit: replace 0/20, line+hash 0/10 + 6/10 (gap), hash-only 7/10 + 4/10; Fisher hashline vs hashonly on the issue's shape p=0.003, replace vs line+hash on gap p=0.011. Stale edits carry the final line's indent, so a wrong-line edit breaks the file; 4 hashline gap runs timed out investigating it. Replace never misplaced but investigated the unexplained change (median 138 s, 69k prompt tokens on gap). Pilot the same day (57/60, killed by a tool time limit, never saved) agreed in direction; it also exposed a no_wrong_line check that looked only at the branch indent (fixed in e34fbe1 before this run). compare's spread rule calls edit.rewrites 'same' at 0 vs 7/10: counts that are almost always 0/1 need a rate test. Proposal in docs/adr/0007.
+
+- `bench/results/task-20261021-172610.json`: model minimax/minimax-m3.1-flash:free; bench e34fbe1; replace 6ea1f93 dirty editor=replace router=local; hashline 6ea1f93 dirty editor=hashline anchor=line+hash router=local; hashonly 6ea1f93 dirty editor=hashline anchor=hash router=local
+
+## 2026-10-21 17:54 note
+
+issue #9: sandbox helper supervises shell calls (subreaper + sweep). tools before (main 0131fe5) vs after: read/shell/wall all 'same'; shell p50 2.32 -> 2.36 ms
+
+- `bench/results/tools-20261021-175219.json`: model None; bench 0131fe5; construct 0131fe5 editor=replace router=local
+- `bench/results/tools-20261021-175425.json`: model None; bench 0131fe5 dirty; construct 0131fe5 dirty editor=replace router=local
+
+## 2026-10-21 21:34 note
+
+Issue #39 / ADR 0008: count salt measured. Stale pair: wrong-line runs line+hash 6/20 -> count 0/20 (p=0.020), hash-only 10/20 -> count 3/20 (p=0.041); salted arms reject the stale anchor instead (ANCHOR_MISMATCH / ANCHOR_NOT_FOUND), requests/tokens/wall same. hashonly-count confirmation rerun: 0/20 wrong-line, 16/20 stale rejected, 1 timeout (model reset the file to HEAD investigating). Corpus: no added rejections in either mode; edit-rename hash-only arms sent the line-above anchor from a fresh read in 6/10 runs (line+hash 0/10), a wrong-anchor failure no salt reaches. Pair session logs were lost to fresh_homes when the corpus started.
+
+- `bench/results/task-20261021-201459.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a; hashline 4b6139a editor=hashline anchor=line+hash salt=rank router=local; hashline-count 4b6139a editor=hashline anchor=line+hash salt=count router=local; hashonly 4b6139a editor=hashline anchor=hash salt=rank router=local; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
+- `bench/results/task-20261021-211455.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a dirty; hashline 4b6139a editor=hashline anchor=line+hash salt=rank router=local; hashline-count 4b6139a editor=hashline anchor=line+hash salt=count router=local; hashonly 4b6139a editor=hashline anchor=hash salt=rank router=local; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
+- `bench/results/task-20261021-213233.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a dirty; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
+
+## 2026-10-21 22:14 note
+
+Proposal 04 step 5 (MCP tools as catalog entries), tier 1, construct only (opencode/hermes installs broken on this host). main 60f12bd vs branch 0602f19, compare: frame, tools, memory all 'same' on every metric; memory last_req_kb identical (1371 KB over 121 requests); size identical (binary 16373696 B, fresh home 37102 B). main's memory ran after the branch's (worktree lacked the gitignored research/src corpus until linked).
+
+- `bench/results/frame-20261021-220342-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/frame-20261021-220607.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+- `bench/results/memory-20261021-221122.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+- `bench/results/memory-20261021-221442-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/size-20261021-220339-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/size-20261021-220605.json`: model None; bench 0602f19; construct 0602f19 editor=replace router=local
+- `bench/results/tools-20261021-220544-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/tools-20261021-220809.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local

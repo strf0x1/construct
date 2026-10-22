@@ -1,13 +1,16 @@
-"""Process metrics from construct's session logs: how a run got where it did.
+"""Process metrics from construct's journal: how a run got where it did.
 
-Each tool call leaves a `tool` record in the session log (name, ok, code,
-data, ms), joined here to the call's arguments by id. Everything below is
+Each tool call leaves a `tool_end` event in the journal (name, ok, code,
+data, ms), read here as the old session log's `tool` record (journal.py) and
+joined to the call's arguments by id. Everything below is
 computed from those records and the usage entries, never from the prose the
 model read, so it is the same for every editor.
 """
 
 import json
 from pathlib import Path
+
+import journal
 
 
 def tool_events(home: Path, since: float) -> list:
@@ -16,12 +19,9 @@ def tool_events(home: Path, since: float) -> list:
     calls made together share one) and that response's completion tokens,
     split between the calls."""
     out, step = [], 0
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
+    for session in journal.sessions(home, since):
         calls, last_usage = {}, None
-        for line in f.read_text().splitlines():
-            d = json.loads(line)
+        for d in session:
             if d.get("type") == "usage":
                 last_usage = d.get("usage") or {}
             m = d.get("message") or {}
@@ -52,6 +52,11 @@ def metrics(events: list) -> dict:
                 applied edit of the same path.
     rereads:    a rejected edit followed by a read of the same path before the
                 next edit of it.
+    rewrites:   an applied edit that rewrites a line an earlier applied edit of
+                the same path wrote: the trace of a wrong-line edit that was
+                noticed and fixed (one never noticed fails the task's check).
+                Only editors that report line regions (hashline) can show one,
+                and positions are not shifted for edits in between.
     """
     edits = [i for i, e in enumerate(events) if e["name"] == "edit"]
     rejected = [i for i in edits if not events[i]["ok"]]
@@ -69,6 +74,16 @@ def metrics(events: list) -> dict:
                 break
             if e["name"] == "edit":
                 break
+    rewrites, written = 0, {}
+    for i in edits:
+        regions = (events[i].get("data") or {}).get("regions") or []
+        if not events[i]["ok"] or not regions:
+            continue
+        p = path_of(events[i])
+        before = written.get(p, [])
+        if any(r["old_start"] <= e and s <= r["old_end"] for r in regions for s, e in before):
+            rewrites += 1
+        written[p] = before + [(r["new_start"], r["new_end"]) for r in regions]
     codes = {}
     for i in rejected:
         codes[events[i].get("code") or "error"] = codes.get(events[i].get("code") or "error", 0) + 1
@@ -82,6 +97,7 @@ def metrics(events: list) -> dict:
             "rejected": len(rejected),
             "unrecovered": len(rejected) - recoveries,
             "recoveries": recoveries,
+            "rewrites": rewrites,
             "rereads_after_rejection": rereads,
             "echo_stripped": sum(len((events[i].get("data") or {}).get("echo_stripped") or []) for i in edits),
             "completion_tokens_per_call": edit_tokens / len(edits) if edits else None,

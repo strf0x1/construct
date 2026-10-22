@@ -159,25 +159,19 @@ impl Client {
     }
 
     pub async fn stream(&self, req: Request<'_>, tx: Option<&mpsc::UnboundedSender<Delta>>) -> Result<Completion> {
-        let mut body = json!({
-            "model": req.model,
-            "messages": req.messages.iter().map(Message::wire).collect::<Vec<_>>(),
-            "stream": true,
-            "stream_options": { "include_usage": true },
-        });
-        if !req.tools.is_empty() {
-            body["tools"] = json!(req.tools);
-        }
-        if let Some(m) = req.max_tokens {
-            body["max_tokens"] = json!(m);
-        }
-        if let Some(t) = req.temperature {
-            body["temperature"] = json!(t);
-        }
+        self.stream_body(body(&req), tx).await
+    }
 
+    /// Stream a request already serialized with [`body`], so the caller can
+    /// record its size without serializing it twice.
+    pub async fn stream_body(&self, body: Vec<u8>, tx: Option<&mpsc::UnboundedSender<Delta>>) -> Result<Completion> {
         let mut attempt = 0u32;
         let resp = loop {
-            let mut rb = self.http.post(format!("{}/chat/completions", self.base_url)).json(&body);
+            let mut rb = self
+                .http
+                .post(format!("{}/chat/completions", self.base_url))
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .body(body.clone());
             if let Some(k) = &self.api_key {
                 rb = rb.bearer_auth(k);
             }
@@ -249,6 +243,26 @@ impl Client {
     pub async fn complete(&self, req: Request<'_>) -> Result<Completion> {
         self.stream(req, None).await
     }
+}
+
+/// The request body exactly as it goes on the wire.
+pub fn body(req: &Request<'_>) -> Vec<u8> {
+    let mut body = json!({
+        "model": req.model,
+        "messages": req.messages.iter().map(Message::wire).collect::<Vec<_>>(),
+        "stream": true,
+        "stream_options": { "include_usage": true },
+    });
+    if !req.tools.is_empty() {
+        body["tools"] = json!(req.tools);
+    }
+    if let Some(m) = req.max_tokens {
+        body["max_tokens"] = json!(m);
+    }
+    if let Some(t) = req.temperature {
+        body["temperature"] = json!(t);
+    }
+    serde_json::to_vec(&body).unwrap_or_default()
 }
 
 #[derive(Default)]

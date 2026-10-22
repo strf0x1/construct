@@ -177,7 +177,14 @@ impl App {
     pub(super) fn on_event(&mut self, ev: Event) {
         self.last_activity = Instant::now();
         match ev {
-            Event::Manifest(_) => {}
+            // The record, not the screen: the UI already shows what these carry.
+            Event::Manifest(_)
+            | Event::Head { .. }
+            | Event::System { .. }
+            | Event::User { .. }
+            | Event::Assistant { .. }
+            | Event::ToolResult { .. }
+            | Event::Request { .. } => {}
             Event::TurnStart => {
                 self.busy = true;
                 self.phase = Phase::Routing;

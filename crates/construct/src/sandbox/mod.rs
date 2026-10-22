@@ -3,8 +3,9 @@
 //! Two layers, one policy:
 //! - shell commands run under Linux Landlock. construct re-executes itself as
 //!   `construct __sandbox <policy> -- <shell> -c <cmd>`; that small process is
-//!   single-threaded, restricts itself, then execs the shell, so everything
-//!   the command starts inherits the restriction. Landlock also blocks
+//!   single-threaded, restricts itself, then forks the shell and supervises it
+//!   (`supervise.rs`), so everything the command starts inherits the
+//!   restriction and nothing it starts outlives the call. Landlock also blocks
 //!   ptrace-style access to processes outside the sandbox, so
 //!   /proc/<construct>/environ is out of reach.
 //! - the in-process file tools (read, write, edit, grep, glob) check every
@@ -15,11 +16,15 @@
 //! Default ("workspace"): read and write the working directory, a private
 //! temp dir and construct's spill dir; read system paths and toolchains;
 //! nothing else under $HOME. "read-only" drops write access to the working
-//! directory; "off" removes the boundary.
+//! directory; "off" removes the boundary but keeps the helper, because
+//! process lifetime is hygiene, not part of the filesystem boundary.
 
-use crate::config::{Paths, SandboxConfig};
+use crate::config::{McpServer, Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+mod supervise;
+pub use supervise::SWEPT;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Policy {
@@ -30,6 +35,17 @@ pub struct Policy {
     /// error messages as places to work.
     pub system: Vec<PathBuf>,
     pub tmp: PathBuf,
+    /// construct's pid, so the helper can tell construct dying from the
+    /// spawning thread exiting.
+    #[serde(default)]
+    pub parent: u32,
+    /// Deny TCP connect and bind (Landlock ABI 4+; best effort below it).
+    #[serde(default)]
+    pub no_network: bool,
+    /// Leave the program's stderr where the helper's goes instead of merging
+    /// it into stdout: an MCP server's stdout is its protocol.
+    #[serde(default)]
+    pub own_stderr: bool,
 }
 
 /// Read-only, executable everywhere a shell needs to look.
@@ -93,7 +109,31 @@ impl Policy {
         }
         write.extend(sys_rw);
         let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
-        Self { off, read: canon(read), write: canon(write), system: canon(system), tmp }
+        Self {
+            off,
+            read: canon(read),
+            write: canon(write),
+            system: canon(system),
+            tmp,
+            parent: std::process::id(),
+            no_network: false,
+            own_stderr: false,
+        }
+    }
+
+    /// The policy an MCP server runs under: the workspace's, plus the paths
+    /// its entry adds, minus the network if it says so.
+    pub fn for_mcp(cfg: &SandboxConfig, server: &McpServer, cwd: &Path, paths: &Paths) -> Self {
+        let mut cfg = cfg.clone();
+        cfg.allow_read.extend(server.allow_read.iter().cloned());
+        cfg.allow_write.extend(server.allow_write.iter().cloned());
+        let mut p = Self { no_network: !server.network, own_stderr: true, ..Self::new(&cfg, cwd, paths) };
+        // The configured program itself may run, wherever it lives; its
+        // directory and anything else it needs come from allow_read.
+        if let Some(exe) = which(&server.command).and_then(|e| e.canonicalize().ok()) {
+            p.system.push(exe);
+        }
+        p
     }
 
     fn under(roots: &[PathBuf], p: &Path) -> bool {
@@ -150,19 +190,32 @@ impl Policy {
 
     /// Build the command that runs `shell -c script` inside the sandbox.
     pub fn command(&self, shell: &str, script: &str) -> tokio::process::Command {
-        let mut cmd = if self.off {
-            tokio::process::Command::new(shell)
-        } else {
-            let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("construct"));
-            let mut c = tokio::process::Command::new(exe);
-            c.arg("__sandbox").arg(serde_json::to_string(self).unwrap_or_default()).arg("--").arg(shell);
-            c
-        };
-        cmd.arg("-c").arg(script);
+        self.spawn(shell, ["-c", script])
+    }
+
+    /// Build the command that runs `prog args...` inside the sandbox, with a
+    /// credential-free environment and the private TMPDIR.
+    pub fn spawn<I, S>(&self, prog: &str, args: I) -> tokio::process::Command
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<std::ffi::OsStr>,
+    {
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("construct"));
+        let mut cmd = tokio::process::Command::new(exe);
+        cmd.arg("__sandbox").arg(serde_json::to_string(self).unwrap_or_default()).arg("--").arg(prog);
+        cmd.args(args);
         scrub_env(&mut cmd);
         cmd.env("TMPDIR", &self.tmp);
         cmd
     }
+}
+
+/// `prog` as the shell would find it: a path as given, a bare name on PATH.
+fn which(prog: &str) -> Option<PathBuf> {
+    if prog.contains('/') {
+        return Some(PathBuf::from(prog));
+    }
+    std::env::split_paths(&std::env::var_os("PATH")?).map(|d| d.join(prog)).find(|p| p.is_file())
 }
 
 /// Names that look like credentials. Tools never see these, whatever the mode.
@@ -189,13 +242,9 @@ pub fn scrub_env(cmd: &mut tokio::process::Command) {
 }
 
 /// `construct __sandbox <policy-json> -- <program> [args...]`: restrict this
-/// process with Landlock, then exec the program. Never returns on success.
+/// process with Landlock (unless the policy is off), then run the program
+/// under supervision and exit with its status.
 pub fn exec_child(args: &[String]) -> ! {
-    use landlock::{
-        ABI, Access, AccessFs, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, Scope,
-        path_beneath_rules,
-    };
-    use std::os::unix::process::CommandExt;
     let fail = |msg: String| -> ! {
         eprintln!("construct sandbox: {msg}");
         std::process::exit(126)
@@ -207,22 +256,35 @@ pub fn exec_child(args: &[String]) -> ! {
     if prog.is_empty() {
         fail("nothing to run".into());
     }
+    if !policy.off {
+        restrict(&policy).unwrap_or_else(|e| fail(e));
+    }
+    supervise::run(policy.parent, prog, !policy.own_stderr)
+}
+
+/// Apply the Landlock ruleset to this process and everything it will start.
+fn restrict(policy: &Policy) -> Result<(), String> {
+    use landlock::{
+        ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr,
+        RulesetStatus, Scope, path_beneath_rules,
+    };
     let abi = ABI::V6;
     let ro = AccessFs::from_read(abi);
     let rw = AccessFs::from_all(abi);
     let status = Ruleset::default()
         .set_compatibility(CompatLevel::BestEffort)
         .handle_access(rw)
+        // Handling TCP access with no rule allowing a port denies it all.
+        .and_then(|r| if policy.no_network { r.handle_access(AccessNet::from_all(abi)) } else { Ok(r) })
         .and_then(|r| r.scope(Scope::Signal))
         .and_then(|r| r.create())
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.system, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.read, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.write, rw)))
         .and_then(|r| r.restrict_self())
-        .unwrap_or_else(|e| fail(format!("landlock: {e}")));
+        .map_err(|e| format!("landlock: {e}"))?;
     if status.ruleset == RulesetStatus::NotEnforced {
-        fail("Landlock isn't available on this kernel, so commands can't be sandboxed. Set [sandbox] mode = \"off\" in config.toml to run without it.".into());
+        return Err("Landlock isn't available on this kernel, so commands can't be sandboxed. Set [sandbox] mode = \"off\" in config.toml to run without it.".into());
     }
-    let err = std::process::Command::new(&prog[0]).args(&prog[1..]).exec();
-    fail(format!("exec {}: {err}", prog[0]))
+    Ok(())
 }

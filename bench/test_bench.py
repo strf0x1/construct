@@ -7,12 +7,14 @@ import json
 import os
 import random
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 import compare as cmp
+import journal
 import process
 import tasklib
 
@@ -123,13 +125,33 @@ class Tasks(unittest.TestCase):
         self.assertFalse(all(tasklib.check(task, work).values()))
         self.assertIn('"jitter": True', (task.dir / "expected" / "config.py").read_text())
 
+    def test_stale_duplicate_hooks_add_a_copy_above_the_target(self):
+        for name in ("edit-stale-duplicate", "edit-stale-duplicate-gap"):
+            with self.subTest(name):
+                task, _, work = self.materialize(name)
+                p = work / "access.py"
+                self.assertEqual(p.read_text().count("return None"), 2)
+                tasklib.after_turn(task, 1, work)
+                hooked = p.read_text()
+                self.assertEqual(hooked.count("return None"), 3)
+                # The right edit on the hooked file is exactly the expected file.
+                right = hooked.replace("    audit(user)\n    return None", "    audit(user)\n    return user.id")
+                self.assertEqual(right, (task.dir / "expected" / "access.py").read_text())
+                # Where a stale rank-2 anchor lands: the banned branch's return,
+                # set to the text meant for the final line (its indent too).
+                for wrong in ("    return user.id", "        return user.id"):
+                    p.write_text(hooked.replace("    if user.banned:\n        return None", "    if user.banned:\n" + wrong))
+                    c = tasklib.check(task, work)
+                    self.assertFalse(c["no_wrong_line"], wrong)
+                    self.assertTrue(c["teammate_change_kept"])
+
     def test_wrong_line_edits_are_caught(self):
         task, _, work = self.materialize("edit-duplicate-relocation")
         # Silent relocation: the second edit lands on the banned branch's return.
         (work / "access.py").write_text(
             (task.dir / "expected" / "access.py").read_text()
             .replace("    audit(user)\n    return user.id", "    audit(user)\n    return None")
-            .replace("    if user.banned:\n        return None", "    if user.banned:\n        return user.id")
+            .replace("    if user.banned:\n        return None", "    if user.banned:\n    return user.id")
         )
         c = tasklib.check(task, work)
         self.assertFalse(c["exact"])
@@ -196,6 +218,67 @@ class Process(unittest.TestCase):
         self.assertEqual((e["recoveries"], e["unrecovered"], e["rereads_after_rejection"]), (1, 1, 1))
         self.assertEqual(e["echo_stripped"], 1)
         self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 60) / 3)
+        self.assertEqual(e["rewrites"], 0)
+
+    def test_edit_outcomes_from_the_journal_match_the_session_log(self):
+        # The same run as above, as construct now records it: one event per
+        # row in the project's journal (stream deltas and all the rest).
+        home = Path(tempfile.mkdtemp())
+        f = home / "projects" / "p-0000" / "journal.sqlite"
+        f.parent.mkdir(parents=True)
+        db = sqlite3.connect(f)
+        db.execute("CREATE TABLE events (seq INTEGER PRIMARY KEY, session_id TEXT, type TEXT, v INTEGER, at_ms INTEGER, payload TEXT)")
+
+        def call(id, name, args):
+            return {"id": id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}
+
+        def end(id, name, ok, code=None, data=None):
+            return {"event": "tool_end", "id": id, "name": name, "ok": ok, "output": "", "ms": 1, "kind": "plain", "code": code, "data": data}
+
+        def step(tokens, *calls):
+            return [{"event": "request", "model": "m", "bytes": 1, "n_tools": 1, "tools": []}, {"event": "usage", "prompt": 1, "completion": tokens, "cached": 0},
+                    {"event": "assistant", "message": {"role": "assistant", "tool_calls": list(calls)}}]
+
+        events = [{"event": "head", "id": "s", "harness": "construct", "version": "0", "cwd": "/w", "model": "m", "manifest": {}},
+                  {"event": "route", "groups": [], "skills": ["release 0.83"], "source": "local", "ms": 0, "note": ""}, {"event": "from_a_newer_build"}]
+        events += step(40, call("a", "read", {"path": "f.py"})) + [end("a", "read", True)]
+        events += step(100, call("b", "edit", {"path": "f.py"}), call("c", "edit", {"path": "g.py"}))
+        events += [end("b", "edit", False, "ANCHOR_MISMATCH", {"status": "rejected"}), end("c", "edit", False, "not_found")]
+        events += [{"event": "tool_result", "id": i, "message": {"role": "tool", "content": "x", "tool_call_id": i}} for i in "bc"]
+        events += step(30, call("d", "read", {"path": "f.py"})) + [end("d", "read", True)]
+        events += step(60, call("e", "edit", {"path": "f.py"}), call("z", "enable_tools", {"groups": ["web"]}))
+        events += [end("z", "enable_tools", True), end("e", "edit", True, None, {"status": "applied", "echo_stripped": [0]})]
+        for e in events:
+            db.execute("INSERT INTO events (session_id, type, v, at_ms, payload) VALUES ('s', ?, 1, 5000, ?)", (e["event"], json.dumps(e)))
+        db.commit()
+        db.close()
+        m = process.metrics(process.tool_events(home, 0))
+        self.assertEqual(m["tool_calls"], 5)
+        self.assertEqual(m["rejection_codes"], {"ANCHOR_MISMATCH": 1, "not_found": 1})
+        e = m["edit"]
+        self.assertEqual((e["calls"], e["applied"], e["rejected"]), (3, 1, 2))
+        self.assertEqual((e["recoveries"], e["unrecovered"], e["rereads_after_rejection"]), (1, 1, 1))
+        self.assertEqual(e["echo_stripped"], 1)
+        # enable_tools shares the last step but was never a tool record.
+        self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 30) / 3)
+        self.assertEqual(process.tool_events(home, 6), [], "nothing active after `since`")
+        session = journal.sessions(home)[0]
+        self.assertEqual(session[0]["type"], "session")
+        self.assertEqual(next(r for r in session if r["type"] == "route")["data"]["skills"], [["release", 0.83]])
+
+    def test_a_fixed_wrong_line_edit_is_a_rewrite(self):
+        # The hash-only shape from issue #26: a stale anchor sets line 6 (the
+        # wrong copy), the model notices, puts line 6 back and sets line 8.
+        def edit(id, *regions):
+            rs = [{"index": i, "kind": "set", "old_start": s, "old_end": e, "new_start": s, "new_end": e} for i, (s, e) in enumerate(regions)]
+            return {"id": id, "name": "edit", "ok": True, "args": {"path": "access.py"}, "step": 0, "completion_tokens": 0,
+                    "data": {"path": "access.py", "status": "applied", "regions": rs}}
+
+        self.assertEqual(process.metrics([edit("a", (6, 6)), edit("b", (6, 6), (8, 8))])["edit"]["rewrites"], 1)
+        self.assertEqual(process.metrics([edit("a", (6, 6)), edit("b", (8, 8))])["edit"]["rewrites"], 0)
+        # replace records no regions, so it never counts
+        plain = {**edit("a", (1, 1)), "data": None}
+        self.assertEqual(process.metrics([plain, plain])["edit"]["rewrites"], 0)
 
 
 class Arms(unittest.TestCase):
@@ -256,6 +339,21 @@ class Compare(unittest.TestCase):
         self.assertEqual(cmp.verdict("checks_passed", tight_a, tight_b)["verdict"], "better")
         # a count that happens to be 0 or 1 is a count, not a rate
         self.assertFalse(cmp.verdict("unintended_changes", [0, 1, 0], [1, 1, 1])["binary"])
+
+    def test_mostly_zero_counts_are_judged_as_a_rate(self):
+        # Issue #26's run: 0 vs 7 of 10 runs with a rewrite, medians inside a 0-1 spread.
+        a, b = [0] * 10, [1] * 6 + [2] + [0] * 3
+        row = cmp.verdict("edit.rewrites", a, b)
+        self.assertEqual((row["verdict"], row["nonzero"]), ("worse", (0.0, 0.7)))
+        self.assertLess(row["p"], 0.01)
+        self.assertEqual(cmp.verdict("edit.rewrites", b, a)["verdict"], "better")
+        self.assertEqual(cmp.verdict("edit.rewrites", [0] * 10, [1] * 2 + [0] * 8)["verdict"], "inconclusive")
+        self.assertEqual(cmp.verdict("edit.rewrites", [0, 1, 0, 1], [1, 0, 1, 0])["verdict"], "same")
+        self.assertEqual(cmp.verdict("edit.calls", [0, 1, 1, 1, 1, 1], [0] * 6)["verdict"], "lower")
+        self.assertEqual(cmp.verdict("wall_s", [0.0, 1.5, 0.5], [0.5, 1.0, 0.0])["verdict"], "same")
+        self.assertIn("runs >0: 0% vs 70%", cmp.table([row], "a", "b"))
+        # A token count with one empty run is a continuous metric, not a rate.
+        self.assertNotIn("nonzero", cmp.verdict("prompt_tokens", [0] + [13000] * 39, [13100] * 40))
 
     def test_rate_verdicts(self):
         self.assertEqual(cmp.verdict("success", [False] * 6, [True] * 6)["verdict"], "better")

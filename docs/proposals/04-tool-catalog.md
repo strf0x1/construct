@@ -1,8 +1,11 @@
 # Proposal 4 — Tools as a trait, config as the profile
 
-Status: design for issue #1. Written 2026-10-20 against `1e83f33`. Depends on
-proposal 03 phase 1 (a lib crate) only so the contract tests have something to
-link; the design itself is independent.
+Status: done, for issue #1. Steps 1–3 landed in #23, step 4 in #24 (and
+hash-only anchors in #25), step 5 with this status line, step 6 in #28 (ADR
+0002; the stale-duplicate follow-ups are ADRs 0007 and 0008). Written
+2026-10-20 against `1e83f33`. Depends on proposal 03 phase 1 (a lib crate)
+only so the contract tests have something to link; the design itself is
+independent.
 
 Issue #1 asks for interchangeable tools so an orchestrator can run paired
 evals, starting with search-and-replace edits versus hashline edits. Its
@@ -146,7 +149,9 @@ MCP: `Manager::ensure(server)` already discovers remote tools lazily. On
 discovery it returns `Vec<McpTool>` and the agent calls `catalog.extend(..)`;
 `Catalog` holds a `RwLock<Vec<..>>` for that one case. Do this second; the
 editor experiment does not need it, and the `mcp__` prefix branch in `call`
-can stay for one more PR.
+can stay for one more PR. (As built: `Catalog::start_mcp(server)` starts the
+server and adds a `tools::mcp::McpTool` per listed tool; a name the server
+did not list is an unknown tool.)
 
 ### `ToolsConfig` — the profile is the config
 

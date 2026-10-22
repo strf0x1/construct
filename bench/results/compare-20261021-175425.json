@@ -1,0 +1,66 @@
+{
+ "a": "/tmp/claude-1000/-home-brandon-git-construct--claude-worktrees-construct-issue-9-3b05bd/c34cf9e9-bafb-4b92-86dc-ef9f889aadf0/scratchpad/before.json",
+ "b": "bench/results/tools-20261021-175425.json",
+ "comparisons": [
+  {
+   "a": "before:construct",
+   "b": "tools-20261021-175425:construct",
+   "rows": [
+    {
+     "metric": "read",
+     "n_a": 75,
+     "n_b": 75,
+     "binary": false,
+     "a": 0.4571369999999888,
+     "b": 0.3998419999999925,
+     "delta": -0.05729499999999632,
+     "a_spread": [
+      0.3376439999999974,
+      0.6518540000000002
+     ],
+     "b_spread": [
+      0.3316839999999992,
+      0.48572200000000976
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "shell",
+     "n_a": 75,
+     "n_b": 75,
+     "binary": false,
+     "a": 2.318884999999998,
+     "b": 2.361042999999995,
+     "delta": 0.04215799999999703,
+     "a_spread": [
+      1.964495999999997,
+      2.684619000000005
+     ],
+     "b_spread": [
+      2.178376,
+      2.606086000000005
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "wall",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.07021883298875764,
+     "b": 0.06901365000521764,
+     "delta": -0.0012051829835399985,
+     "a_spread": [
+      0.06410842901095748,
+      0.08163120795506984
+     ],
+     "b_spread": [
+      0.06438971700845286,
+      0.07471562997670844
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

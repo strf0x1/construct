@@ -65,14 +65,46 @@ pub struct RouterConfig {
     pub threshold: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// An MCP server runs inside the sandbox like a shell command: the workspace
+/// policy plus what its entry adds, a credential-free environment plus the
+/// secrets it names.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct McpServer {
     pub command: String,
     pub args: Vec<String>,
+    /// Literal variables set for the server.
     pub env: BTreeMap<String, String>,
     /// One line on what the server is for; the router reads it.
     pub description: String,
+    /// Extra paths this server may read (`~/` expands), on top of [sandbox].
+    pub allow_read: Vec<String>,
+    /// Extra paths this server may read and write.
+    pub allow_write: Vec<String>,
+    /// TCP connect and bind. On by default: most servers are API clients.
+    pub network: bool,
+    /// Secret names resolved like construct's own (environment, then the
+    /// keyring) and passed to this server only. No other credential reaches it.
+    pub secrets: Vec<String>,
+    /// Seconds a tool call may go without a response or a progress
+    /// notification before it is cancelled.
+    pub timeout: u64,
+}
+
+impl Default for McpServer {
+    fn default() -> Self {
+        Self {
+            command: String::new(),
+            args: vec![],
+            env: BTreeMap::new(),
+            description: String::new(),
+            allow_read: vec![],
+            allow_write: vec![],
+            network: true,
+            secrets: vec![],
+            timeout: 300,
+        }
+    }
 }
 
 impl Default for Config {
@@ -170,6 +202,8 @@ pub struct HashlineConfig {
     pub strip_echoes: bool,
     /// What an anchor is: `LINE:HASH`, or the hash alone.
     pub anchor: AnchorMode,
+    /// How identical lines are told apart: their rank, or rank and count.
+    pub salt: Salt,
 }
 
 /// `"line+hash"` pins where and what, so moved content is a loud mismatch.
@@ -184,6 +218,19 @@ pub enum AnchorMode {
     Hash,
 }
 
+/// `"rank"` salts a duplicate with its order among identical lines, as the
+/// TypeScript reference does: a new copy above shifts which line a stale
+/// anchor names. `"count"` adds how many copies there are, so adding or
+/// removing any copy re-hashes them all and a stale anchor fails loudly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Salt {
+    #[default]
+    #[serde(rename = "rank")]
+    Rank,
+    #[serde(rename = "count")]
+    Count,
+}
+
 impl Default for HashlineConfig {
     fn default() -> Self {
         Self {
@@ -193,6 +240,7 @@ impl Default for HashlineConfig {
             max_ops: 256,
             strip_echoes: true,
             anchor: AnchorMode::LineHash,
+            salt: Salt::Rank,
         }
     }
 }
@@ -233,9 +281,6 @@ impl Paths {
     pub fn skills_dir(&self) -> PathBuf {
         self.home.join("skills")
     }
-    pub fn sessions_dir(&self) -> PathBuf {
-        self.home.join("sessions")
-    }
     pub fn state_file(&self) -> PathBuf {
         self.home.join("state.json")
     }
@@ -272,6 +317,9 @@ impl Config {
             cfg.tools.editor = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
+        for name in cfg.mcp.keys() {
+            crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+        }
         Ok(cfg)
     }
 
