@@ -529,8 +529,10 @@ fn tool_results(env: &Env) -> Vec<String> {
 }
 
 fn escape_steps() -> Value {
+    // setsid and nohup exec in place, so the first command waits until $! is
+    // `sleep` before ending: the sweep names whatever the process is by then.
     json!({ "steps": [
-        { "call": "shell", "args": { "command": "setsid nohup sleep 300 >/dev/null 2>&1 & echo $! > a.pid; sleep 0.2" } },
+        { "call": "shell", "args": { "command": "setsid nohup sleep 300 >/dev/null 2>&1 & echo $! > a.pid; for i in $(seq 100); do [ \"$(cat /proc/$!/comm)\" = sleep ] && break; sleep 0.05; done" } },
         { "call": "shell", "args": { "command": "sleep 300 & echo $! > b.pid" } },
         { "call": "shell", "args": { "command": "setsid sleep 300 & echo $! > c.pid; sleep 30", "timeout": 1 } },
         { "text": "done" }
