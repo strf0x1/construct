@@ -30,7 +30,7 @@ pub async fn ask(
     questions: Map<String, Value>,
     timeout: Duration,
 ) -> Result<Value, String> {
-    let now = crate::session::now_ms();
+    let now = crate::journal::now_ms();
     if now < OPEN_UNTIL.load(Ordering::Relaxed) {
         return Err("skipped: jev failed 3 times in a row".into());
     }

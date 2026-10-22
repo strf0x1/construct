@@ -249,9 +249,6 @@ impl Paths {
     pub fn skills_dir(&self) -> PathBuf {
         self.home.join("skills")
     }
-    pub fn sessions_dir(&self) -> PathBuf {
-        self.home.join("sessions")
-    }
     pub fn state_file(&self) -> PathBuf {
         self.home.join("state.json")
     }

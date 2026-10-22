@@ -27,10 +27,8 @@ fn normalize(env: &Env, s: &str) -> String {
     s = s.replace(&env.home.display().to_string(), "[HOME]");
     s = s.replace(&env.dir.display().to_string(), "[DIR]");
     s = s.replace(&format!("127.0.0.1:{}", env.port), "127.0.0.1:[PORT]");
-    if env.home.join("sessions").exists() {
-        for (i, id) in env.sessions().iter().enumerate() {
-            s = s.replace(id, &format!("[SESSION{i}]"));
-        }
+    for (i, id) in env.sessions().iter().enumerate() {
+        s = s.replace(id, &format!("[SESSION{i}]"));
     }
     // `- date: YYYY-MM-DD`: keep the label, drop the ten date characters.
     let mut parts = s.split("- date: ");

@@ -25,4 +25,7 @@ tokio = { workspace = true, features = ["full"] }
 vt100 = "0.18"
 
 [dev-dependencies]
+# The e2e tests read the journal back and parse its rows as `construct::agent::Event`.
+construct = { path = "../construct" }
+rusqlite.workspace = true
 insta = { version = "1.49.0", features = ["json"] }

@@ -1,4 +1,4 @@
-//! Bakes the git commit into the binary so every session log and
+//! Bakes the git commit into the binary so every journal head and
 //! `construct manifest` can say exactly what produced a result.
 
 use std::process::Command;

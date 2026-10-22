@@ -38,6 +38,7 @@ import time
 from pathlib import Path
 
 import compare as cmp
+import journal
 import process
 import tasklib
 
@@ -799,14 +800,11 @@ def suite_memory(args):
 
 
 def session_facts(home: Path, since: float):
-    """Routes and tool calls from construct sessions written after `since`.
+    """Routes and tool calls from construct sessions active after `since`.
     (run() keeps only the tail of stdout, so don't parse events from it.)"""
     routes, calls = [], []
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
-        for line in f.read_text().splitlines():
-            d = json.loads(line)
+    for session in journal.sessions(home, since):
+        for d in session:
             if d.get("type") == "route":
                 routes.append(d["data"])
             for c in (d.get("message") or {}).get("tool_calls") or []:
@@ -1060,12 +1058,10 @@ def landmine_hits(home: Path, since: float):
     test_stats.py or tools/gen-fixtures shows the same strings as source."""
     failed = re.compile(r"FileNotFoundError.*golden\.json|golden\.json.*No such file|AssertionError: fixtures were generated with the wrong seed|^usage: gen-fixtures", re.M)
     hits = 0
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
+    for session in journal.sessions(home, since):
         shell_ids = set()
-        for line in f.read_text().splitlines():
-            m = json.loads(line).get("message") or {}
+        for d in session:
+            m = d.get("message") or {}
             for t in m.get("tool_calls") or []:
                 if t.get("function", {}).get("name") == "shell":
                     shell_ids.add(t.get("id"))

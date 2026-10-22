@@ -11,7 +11,9 @@ and observe it end to end without a model or a terminal.
 | Path | What |
 |---|---|
 | `crates/construct/src/cli.rs` | Clap types and subcommand bodies; `main.rs` is only the sandbox-helper exit and `cli::run()`. Logic lives in the lib. |
-| `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`. |
+| `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`, journaled as it is emitted. |
+| `crates/construct/src/event.rs` | The one `Event` type: what the agent emits, what `--json` prints, what a journal row holds. Additive-only. |
+| `crates/construct/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape. See ADR 0008. |
 | `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
 | `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
@@ -22,9 +24,9 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/tui/` | ratatui app, markdown renderer, theme. |
 | `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
-| `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. |
+| `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
-| `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. |
+| `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. `journal.py` reads construct's journals (stdlib `sqlite3`) as the old session rows. |
 | `bench/tasks/` | Real-model tasks as directories: `task.toml`, `fixture/`, `check.sh` (see `bench/tasklib.py`). |
 
 ## Run it without a model
@@ -36,6 +38,7 @@ echo '{"steps":[{"call":"read","args":{"path":"Cargo.toml"}},{"text":"done"}]}' 
 port=$(scripts/mock.sh /tmp/mock /tmp/s.json)        # requests logged to /tmp/mock/log.jsonl
 CONSTRUCT_HOME=/tmp/ch CONSTRUCT_BASE_URL=http://127.0.0.1:$port/v1 OPENAI_API_KEY=x \
   target/debug/construct run --json "read it"         # one JSON event per line
+sqlite3 /tmp/ch/projects/*/journal.sqlite 'select seq, type from events'   # the same events, minus stream deltas
 ```
 
 ## Drive the TUI and look at it
@@ -140,6 +143,10 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 - Keep the first request small: no skill index in the system prompt, core tools
   only; everything else is routed per turn and stays on once enabled.
 - Learning must earn its tokens: the gate runs before any LLM review.
+- The journal is the record of a run, and `Event` is its only vocabulary.
+  Something a scorer, learner or resume needs becomes an `Event` (variant or
+  defaulted field, never a rename), not a second log. The journal is not a
+  compaction strategy: compaction must be correct with nobody reading it.
 - Router/gate changes: score them with `python3 bench/jev/eval.py` (and
   `--set holdout`) before and after. Phrase nouls strictly ("explicitly
   require ...; answer no if ..."); in a choice put the conservative answer
@@ -163,8 +170,9 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   --tasks edit-…` writes each arm's `[tools]` overlay into its own home,
   interleaves the arms, records each arm's manifest, and `bench.py compare
   result.json --a replace --b hashline` judges them. Edit outcomes (rejections
-  by code, recoveries, re-reads) come from the `tool` records in the session
-  log, never from prose.
+  by code, recoveries, re-reads) come from the `tool_end` events in the
+  project journal (read by `bench/journal.py` as the old `tool` records),
+  never from prose.
 
 ## Benchmarking against Hermes and opencode
 

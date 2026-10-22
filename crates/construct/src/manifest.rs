@@ -1,28 +1,28 @@
 //! What produced a result: the build, the effective config and the tools.
-//! Written at the top of every session log, sent as the first event of a
-//! session, and printed by `construct manifest` for the bench to record.
+//! Carried by every session's head event in the journal, sent as the first
+//! event of a turn, and printed by `construct manifest` for the bench to record.
 
 use crate::config::{Config, HashlineConfig};
 use crate::tools::Catalog;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
-    pub version: &'static str,
-    pub git_sha: &'static str,
+    pub version: String,
+    pub git_sha: String,
     pub git_dirty: bool,
     /// Only from `construct manifest`: hashing a debug binary takes too long
     /// to do on every session start, and the git sha already names the build.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary_sha256: Option<String>,
     /// Hash of the effective config (file plus environment overrides).
     pub config_sha256: String,
-    pub tools: Vec<&'static str>,
+    pub tools: Vec<String>,
     pub editor: String,
     /// The editor's knobs, when it has any, so bench arms that differ only
     /// in them (`anchor`, `window_radius`) are told apart.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hashline: Option<HashlineConfig>,
     pub model: String,
     pub router_mode: String,
@@ -31,12 +31,12 @@ pub struct Manifest {
 impl Manifest {
     pub fn new(cfg: &Config, catalog: &Catalog) -> Self {
         Self {
-            version: env!("CARGO_PKG_VERSION"),
-            git_sha: env!("CONSTRUCT_GIT_SHA"),
+            version: env!("CARGO_PKG_VERSION").into(),
+            git_sha: env!("CONSTRUCT_GIT_SHA").into(),
             git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
             binary_sha256: None,
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
-            tools: catalog.names(),
+            tools: catalog.names().into_iter().map(String::from).collect(),
             editor: cfg.tools.editor.clone(),
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             model: cfg.model.clone(),
