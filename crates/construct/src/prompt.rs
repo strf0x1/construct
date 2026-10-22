@@ -45,7 +45,7 @@ pub fn build(cwd: &Path, memory: &memory::Store) -> String {
 }
 
 fn today() -> String {
-    let secs = (crate::session::now_ms() / 1000) as i64;
+    let secs = (crate::journal::now_ms() / 1000) as i64;
     let days = secs.div_euclid(86_400);
     let z = days + 719_468;
     let era = z.div_euclid(146_097);

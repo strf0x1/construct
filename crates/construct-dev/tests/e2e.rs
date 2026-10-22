@@ -37,12 +37,10 @@ fn headless_turn_reads_edits_and_runs_tools_in_parallel() {
     assert_eq!(tools.len(), 4);
     assert!(tools[2]["content"].as_str().unwrap().contains("blue"));
     assert!(tools[3]["content"].as_str().unwrap().contains("notes.txt:2"));
-    // The session log is complete JSONL.
-    let sessions: Vec<_> = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().collect();
-    assert_eq!(sessions.len(), 1);
-    let log = std::fs::read_to_string(sessions[0].path()).unwrap();
-    assert!(log.lines().all(|l| serde_json::from_str::<Value>(l).is_ok()));
-    assert!(log.contains("\"harness\":\"construct\""));
+    // One session in the journal, opened by its head.
+    let rows = env.journal();
+    assert_eq!(env.sessions().len(), 1);
+    assert_eq!((rows[0].ty.as_str(), rows[0].payload["harness"].clone()), ("head", json!("construct")));
 }
 
 #[test]
@@ -144,15 +142,14 @@ fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert_eq!(manifest["editor"], "hashline");
     assert_eq!(manifest["hashline"]["anchor"], "line+hash");
-    // The session log keeps the same record for the bench, joined to the call by id.
-    let log = std::fs::read_to_string(env.home.join("sessions").join(format!("{}.jsonl", env.sessions()[0]))).unwrap();
-    let logged: Vec<Value> = log
-        .lines()
-        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .filter(|v| v["type"] == "tool" && v["data"]["name"] == "edit")
-        .map(|v| v["data"].clone())
+    // The journal keeps the same record for the bench, joined to the call by id.
+    let logged: Vec<Value> = env
+        .journal()
+        .into_iter()
+        .filter(|r| r.ty == "tool_end" && r.payload["name"] == "edit")
+        .map(|r| r.payload)
         .collect();
-    assert_eq!(logged.len(), 2, "{log}");
+    assert_eq!(logged.len(), 2, "{logged:#?}");
     assert_eq!((logged[0]["ok"].clone(), logged[0]["code"].clone()), (json!(false), json!("ANCHOR_MISMATCH")));
     assert_eq!((logged[1]["ok"].clone(), logged[1]["data"]["status"].clone()), (json!(true), json!("applied")));
     assert_eq!(logged[0]["id"], edits[0]["id"]);
@@ -265,7 +262,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     assert!(!tool_names(&reqs[2]).contains(&"memory".to_string()), "calling it didn't switch its group on");
     assert!(!env.work.join("x.txt").exists());
     assert!(!env.home.join("memory/USER.md").exists());
-    // Events and the session log carry the code and the manifest.
+    // Events and the journal carry the code and the manifest.
     let events: Vec<Value> =
         String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "write").expect("tool_end");
@@ -275,9 +272,8 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert!(!manifest["tools"].to_string().contains("\"write\""), "{manifest}");
     assert_eq!(manifest["editor"], "replace");
-    let log = std::fs::read_to_string(env.home.join("sessions").join(format!("{}.jsonl", env.sessions()[0]))).unwrap();
-    let header: Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
-    assert_eq!(header["manifest"]["tools"], manifest["tools"]);
+    let head = env.journal().into_iter().next().unwrap();
+    assert_eq!(head.payload["manifest"]["tools"], manifest["tools"]);
     // The learning pass builds its tools from the same config.
     let out = env.run(&["learn", "--session", &env.sessions()[0]]);
     assert!(out.status.success(), "{}", text(&out));
@@ -319,21 +315,7 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
         ], "side": [obs("release dir was missing"), obs("release dir missing again")] }),
     );
     env.config("[memory]\nuser_chars = 1000\n");
-    let session = |n: usize| {
-        // Ids have one-second resolution; order by when the session file appeared.
-        let mut ids: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(env.home.join("sessions"))
-            .unwrap()
-            .flatten()
-            .map(|e| {
-                (
-                    e.metadata().unwrap().created().or_else(|_| e.metadata().unwrap().modified()).unwrap(),
-                    e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string(),
-                )
-            })
-            .collect();
-        ids.sort();
-        ids[n].1.clone()
-    };
+    let session = |n: usize| env.sessions()[n].clone();
 
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
@@ -470,8 +452,7 @@ fn a_session_with_nothing_to_learn_costs_no_review() {
     std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
     let out = env.run(&["run", "--no-learn", "what does a.txt say?"]);
     assert!(out.status.success(), "{}", text(&out));
-    let id = std::fs::read_dir(env.home.join("sessions")).unwrap().flatten().next().unwrap().file_name();
-    let id = id.to_string_lossy().trim_end_matches(".jsonl").to_string();
+    let id = env.sessions()[0].clone();
     let out = env.run(&["learn", "--session", &id]);
     assert!(out.status.success(), "{}", text(&out));
     assert_eq!(env.requests().len(), 2, "the gate skipped the LLM review");
@@ -724,4 +705,256 @@ fn project_kit_follows_the_repo_not_the_session() {
     let out = in_dir(&env.work, &["run", "--no-learn", "note this"]);
     assert!(out.status.success(), "{}", text(&out));
     assert!(last_tool_result(env.requests().last().unwrap()).contains("not in a git repo"));
+}
+
+// ------------------------------------------------------------------ journal
+
+/// A row's payload as the one `Event` type, back to JSON: equal values mean
+/// equal events, and a payload that isn't an `Event` fails here.
+fn as_event(v: &Value) -> Value {
+    let ev: construct::event::Event = serde_json::from_value(v.clone()).unwrap_or_else(|e| panic!("{e}: {v}"));
+    serde_json::to_value(ev).unwrap()
+}
+
+fn json_events(out: &std::process::Output) -> Vec<Value> {
+    String::from_utf8_lossy(&out.stdout).lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+}
+
+#[test]
+fn journal_holds_a_turn_as_the_same_events_json_prints() {
+    let env = Env::new(
+        "journal",
+        json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." } ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--json", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let rows = env.journal();
+    let id = env.sessions().pop().expect("a session");
+    assert!(rows.iter().all(|r| r.session == id && r.v == 1 && r.at_ms > 0));
+    assert!(rows.windows(2).all(|w| w[0].seq < w[1].seq));
+    let types: Vec<&str> = rows.iter().map(|r| r.ty.as_str()).collect();
+    assert_eq!(types[..2], ["head", "system"], "{types:?}");
+    assert_eq!(rows[0].payload["cwd"], env.work.display().to_string());
+    // The request rows carry what the snapshots pin, for the bodies actually sent.
+    let reqs = env.requests();
+    let sent: Vec<&Row> = rows.iter().filter(|r| r.ty == "request").collect();
+    assert_eq!(sent.len(), reqs.len());
+    for (row, req) in sent.iter().zip(&reqs) {
+        assert_eq!(row.payload["bytes"].as_u64().unwrap() as usize, serde_json::to_vec(req).unwrap().len());
+        assert_eq!(row.payload["n_tools"].as_u64().unwrap() as usize, tool_names(req).len());
+        assert_eq!(row.payload["tools"], json!(tool_names(req)));
+    }
+    // The message rows are what the model saw, verbatim.
+    let messages: Vec<Value> =
+        rows.iter().filter(|r| r.payload.get("message").is_some()).map(|r| r.payload["message"].clone()).collect();
+    let roles: Vec<&str> = messages.iter().map(|m| m["role"].as_str().unwrap()).collect();
+    assert_eq!(roles, ["system", "user", "assistant", "tool", "assistant"]);
+    let seen = reqs[1]["messages"].as_array().unwrap();
+    assert_eq!(seen.len(), 4);
+    for (m, s) in messages.iter().zip(seen).skip(1) {
+        assert_eq!(
+            (&m["role"], &m["tool_calls"], &m["tool_call_id"]),
+            (&s["role"], &s["tool_calls"], &s["tool_call_id"])
+        );
+        // The wire sends an empty assistant content as null; the row omits it.
+        assert_eq!(m.get("content").unwrap_or(&Value::Null), &s["content"]);
+    }
+    // The tool result is one indexed lookup by call id.
+    let call_id = messages[2]["tool_calls"][0]["id"].as_str().unwrap().to_string();
+    let db = rusqlite::Connection::open(env.journal_path(&env.work)).unwrap();
+    let by_id: Vec<String> = db
+        .prepare("SELECT type FROM events WHERE json_extract(payload, '$.id') = ?1 ORDER BY seq")
+        .unwrap()
+        .query_map([&call_id], |r| r.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(by_id, ["tool_start", "tool_end", "tool_result"]);
+    let plan: String = db
+        .query_row("EXPLAIN QUERY PLAN SELECT seq FROM events WHERE json_extract(payload, '$.id') = 'x'", [], |r| {
+            r.get(3)
+        })
+        .unwrap();
+    assert!(plan.contains("events_id"), "{plan}");
+    // --json printed the same events, plus the stream deltas the journal skips.
+    let printed: Vec<Value> = json_events(&out)
+        .iter()
+        .filter(|e| !["opened", "text", "reasoning", "tool_pending"].contains(&e["event"].as_str().unwrap()))
+        .map(as_event)
+        .collect();
+    let stored: Vec<Value> = rows.iter().map(|r| as_event(&r.payload)).collect();
+    assert_eq!(printed, stored);
+}
+
+#[test]
+fn continue_resumes_from_the_journal() {
+    let env = Env::new(
+        "journal-continue",
+        json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." }, { "text": "Elsewhere." }, { "text": "Still hello." } ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    // A session elsewhere is not "the latest session in this directory".
+    let other = env.dir.join("other");
+    std::fs::create_dir_all(&other).unwrap();
+    let out = env.run_in(&other, &[], &["run", "--no-learn", "unrelated"]);
+    assert!(out.status.success(), "{}", text(&out));
+    // What a resume from the old JSONL would have loaded: every logged
+    // message. The export is that log.
+    let exported = env.run(&["sessions", "export", &env.sessions()[0]]);
+    assert!(exported.status.success(), "{}", text(&exported));
+    let logged: Vec<Value> = String::from_utf8_lossy(&exported.stdout)
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|v| v["type"] == "message")
+        .map(|v| v["message"].clone())
+        .collect();
+    let out = env.run(&["run", "--no-learn", "-c", "and now?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("Still hello."));
+    assert_eq!(env.sessions().len(), 1, "continued, not a new session");
+    let reqs = env.requests();
+    let sent = reqs.last().unwrap()["messages"].as_array().unwrap();
+    let shape =
+        |m: &Value| (m["role"].clone(), m["content"].clone(), m["tool_calls"].clone(), m["tool_call_id"].clone());
+    // The system prompt is rebuilt on resume; the rest is replayed exactly,
+    // then the new turn.
+    assert_eq!(sent.len(), logged.len() + 1);
+    assert_eq!(
+        sent[1..logged.len()].iter().map(shape).collect::<Vec<_>>(),
+        logged[1..].iter().map(shape).collect::<Vec<_>>()
+    );
+    assert_eq!(sent.last().unwrap()["content"], "and now?");
+    assert_eq!(sent[4]["content"], "It says hello.");
+}
+
+#[test]
+fn concurrent_sessions_share_a_project_journal_and_another_project_has_its_own() {
+    let mut steps = vec![];
+    for _ in 0..4 {
+        steps.push(json!({ "call": "read", "args": { "path": "a.txt" } }));
+    }
+    let env = Env::new("journal-concurrent", json!({ "steps": steps }));
+    env.config("[router]\nmode = \"local\"\n");
+    // Two clones of one repo (same remote) and an unrelated repo.
+    let repo = |name: &str, remote: &str| {
+        let d = env.dir.join(name);
+        std::fs::create_dir_all(d.join(".git")).unwrap();
+        std::fs::write(d.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        std::fs::write(d.join(".git/config"), format!("[remote \"origin\"]\n\turl = {remote}\n")).unwrap();
+        std::fs::write(d.join("a.txt"), "hello\n").unwrap();
+        d
+    };
+    let a = repo("clone-a", "git@github.com:me/proj.git");
+    let b = repo("clone-b", "https://github.com/me/proj");
+    let other = repo("other", "git@github.com:me/other.git");
+    assert_eq!(env.journal_path(&a), env.journal_path(&b), "clones share one journal");
+    assert_ne!(env.journal_path(&a), env.journal_path(&other));
+    let spawn = |dir: &PathBuf| {
+        let mut c = Command::new(construct());
+        c.args(["run", "--no-learn", "read a.txt"]).current_dir(dir);
+        for (k, v) in env.env() {
+            if v.is_empty() {
+                c.env_remove(k);
+            } else {
+                c.env(k, v);
+            }
+        }
+        c.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).spawn().unwrap()
+    };
+    let children: Vec<_> = [&a, &b, &a, &b].into_iter().map(spawn).collect();
+    for c in children {
+        let out = c.wait_with_output().unwrap();
+        assert!(out.status.success(), "{}", text(&out));
+    }
+    let out = env.run_in(&other, &[], &["run", "--no-learn", "read a.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let shared = env.journal_in(&a);
+    let heads: Vec<&Row> = shared.iter().filter(|r| r.ty == "head").collect();
+    assert_eq!(heads.len(), 4);
+    // Every session is whole: a head, then its turn through to the end.
+    for h in &heads {
+        let mine: Vec<&str> = shared.iter().filter(|r| r.session == h.session).map(|r| r.ty.as_str()).collect();
+        assert_eq!((mine[0], *mine.last().unwrap()), ("head", "turn_end"), "{mine:?}");
+        assert!(mine.contains(&"assistant"));
+    }
+    let own = env.journal_in(&other);
+    assert_eq!(own.iter().filter(|r| r.ty == "head").count(), 1);
+    assert!(own.iter().all(|r| heads.iter().all(|h| h.session != r.session)));
+}
+
+#[test]
+fn sessions_export_writes_the_old_jsonl_shape() {
+    let env = Env::new(
+        "journal-export",
+        json!({ "steps": [
+            { "call": "edit", "args": { "path": "a.txt", "old_string": "nope", "new_string": "x" } },
+            { "text": "Could not edit." }
+        ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "edit it"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let id = env.sessions()[0].clone();
+    let out = env.run(&["sessions", "export", &id]);
+    assert!(out.status.success(), "{}", text(&out));
+    let lines: Vec<Value> = json_events(&out);
+    let types: Vec<&str> = lines.iter().map(|l| l["type"].as_str().unwrap()).collect();
+    assert_eq!(
+        types,
+        ["session", "message", "route", "message", "usage", "message", "tool", "message", "usage", "message"]
+    );
+    let head = &lines[0];
+    assert_eq!((head["id"].as_str(), head["harness"].as_str()), (Some(id.as_str()), Some("construct")));
+    assert_eq!(head["cwd"], env.work.display().to_string());
+    assert!(head["manifest"]["tools"].is_array() && head["at"].is_u64());
+    // Messages round-trip verbatim; the tool record is the bench's.
+    let rows = env.journal();
+    let stored: Vec<&Value> = rows.iter().filter_map(|r| r.payload.get("message")).collect();
+    let exported: Vec<&Value> = lines.iter().filter(|l| l["type"] == "message").map(|l| &l["message"]).collect();
+    assert_eq!(stored, exported);
+    let tool = &lines[6]["data"];
+    assert_eq!((tool["name"].as_str(), tool["ok"].as_bool()), (Some("edit"), Some(false)));
+    assert_eq!(tool["id"], lines[5]["message"]["tool_calls"][0]["id"]);
+    assert!(tool["code"].is_string() && tool.get("ms").is_some() && tool.get("data").is_some(), "{tool}");
+    assert!(lines[4]["usage"]["prompt_tokens"].is_u64() && lines[4]["model"].is_string());
+    assert!(lines[2]["data"]["groups"].is_array());
+    let missing = env.run(&["sessions", "export", "no-such-session"]);
+    assert!(!missing.status.success());
+}
+
+#[test]
+fn sandbox_keeps_the_journal_out_of_reach() {
+    let name = "journal-sandbox";
+    let dir = Env::dir_for(name);
+    let journal = construct::journal::path(&construct::config::Paths { home: dir.join("home") }, &dir.join("work"));
+    let j = journal.display().to_string();
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": format!("head -c 16 '{j}' && echo JOURNAL-READ; ls '{}' && echo DIR-LISTED", journal.parent().unwrap().display()) } },
+            { "call": "shell", "args": { "command": format!("sqlite3 '{j}' 'select count(*) from events' && echo SQL-READ") } },
+            { "call": "read", "args": { "path": j } },
+            { "call": "grep", "args": { "pattern": "event", "path": journal.parent().unwrap().display().to_string() } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "look at the history"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(journal.exists(), "the session was journaled");
+    let r = tool_results(&env);
+    assert_eq!(r.len(), 4, "{r:#?}");
+    assert!(
+        !r[0].contains("SQLite format") && !r[0].contains("JOURNAL-READ") && !r[0].contains("DIR-LISTED"),
+        "{}",
+        r[0]
+    );
+    assert!(!r[1].contains("SQL-READ"), "{}", r[1]);
+    assert!(r[2].contains("blocked by the sandbox"), "{}", r[2]);
+    assert!(r[3].contains("blocked by the sandbox"), "{}", r[3]);
 }

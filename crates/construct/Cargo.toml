@@ -27,6 +27,7 @@ ignore = "0.4"
 libc = "0.2"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 reqwest = { workspace = true, features = ["gzip", "query", "form"] }
+rusqlite.workspace = true
 secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
 serde.workspace = true
 serde_json.workspace = true

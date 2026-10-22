@@ -7,12 +7,14 @@ import json
 import os
 import random
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 import compare as cmp
+import journal
 import process
 import tasklib
 
@@ -217,6 +219,52 @@ class Process(unittest.TestCase):
         self.assertEqual(e["echo_stripped"], 1)
         self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 60) / 3)
         self.assertEqual(e["rewrites"], 0)
+
+    def test_edit_outcomes_from_the_journal_match_the_session_log(self):
+        # The same run as above, as construct now records it: one event per
+        # row in the project's journal (stream deltas and all the rest).
+        home = Path(tempfile.mkdtemp())
+        f = home / "projects" / "p-0000" / "journal.sqlite"
+        f.parent.mkdir(parents=True)
+        db = sqlite3.connect(f)
+        db.execute("CREATE TABLE events (seq INTEGER PRIMARY KEY, session_id TEXT, type TEXT, v INTEGER, at_ms INTEGER, payload TEXT)")
+
+        def call(id, name, args):
+            return {"id": id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}
+
+        def end(id, name, ok, code=None, data=None):
+            return {"event": "tool_end", "id": id, "name": name, "ok": ok, "output": "", "ms": 1, "kind": "plain", "code": code, "data": data}
+
+        def step(tokens, *calls):
+            return [{"event": "request", "model": "m", "bytes": 1, "n_tools": 1, "tools": []}, {"event": "usage", "prompt": 1, "completion": tokens, "cached": 0},
+                    {"event": "assistant", "message": {"role": "assistant", "tool_calls": list(calls)}}]
+
+        events = [{"event": "head", "id": "s", "harness": "construct", "version": "0", "cwd": "/w", "model": "m", "manifest": {}},
+                  {"event": "route", "groups": [], "skills": ["release 0.83"], "source": "local", "ms": 0, "note": ""}, {"event": "from_a_newer_build"}]
+        events += step(40, call("a", "read", {"path": "f.py"})) + [end("a", "read", True)]
+        events += step(100, call("b", "edit", {"path": "f.py"}), call("c", "edit", {"path": "g.py"}))
+        events += [end("b", "edit", False, "ANCHOR_MISMATCH", {"status": "rejected"}), end("c", "edit", False, "not_found")]
+        events += [{"event": "tool_result", "id": i, "message": {"role": "tool", "content": "x", "tool_call_id": i}} for i in "bc"]
+        events += step(30, call("d", "read", {"path": "f.py"})) + [end("d", "read", True)]
+        events += step(60, call("e", "edit", {"path": "f.py"}), call("z", "enable_tools", {"groups": ["web"]}))
+        events += [end("z", "enable_tools", True), end("e", "edit", True, None, {"status": "applied", "echo_stripped": [0]})]
+        for e in events:
+            db.execute("INSERT INTO events (session_id, type, v, at_ms, payload) VALUES ('s', ?, 1, 5000, ?)", (e["event"], json.dumps(e)))
+        db.commit()
+        db.close()
+        m = process.metrics(process.tool_events(home, 0))
+        self.assertEqual(m["tool_calls"], 5)
+        self.assertEqual(m["rejection_codes"], {"ANCHOR_MISMATCH": 1, "not_found": 1})
+        e = m["edit"]
+        self.assertEqual((e["calls"], e["applied"], e["rejected"]), (3, 1, 2))
+        self.assertEqual((e["recoveries"], e["unrecovered"], e["rereads_after_rejection"]), (1, 1, 1))
+        self.assertEqual(e["echo_stripped"], 1)
+        # enable_tools shares the last step but was never a tool record.
+        self.assertEqual(e["completion_tokens_per_call"], (50 + 50 + 30) / 3)
+        self.assertEqual(process.tool_events(home, 6), [], "nothing active after `since`")
+        session = journal.sessions(home)[0]
+        self.assertEqual(session[0]["type"], "session")
+        self.assertEqual(next(r for r in session if r["type"] == "route")["data"]["skills"], [["release", 0.83]])
 
     def test_a_fixed_wrong_line_edit_is_a_rewrite(self):
         # The hash-only shape from issue #26: a stale anchor sets line 6 (the

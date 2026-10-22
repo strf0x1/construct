@@ -42,9 +42,25 @@ pub struct Env {
     _rt: tokio::runtime::Runtime,
 }
 
+/// One journal row as stored, payload parsed.
+#[derive(Debug, Clone)]
+pub struct Row {
+    pub seq: i64,
+    pub session: String,
+    pub ty: String,
+    pub v: i64,
+    pub at_ms: i64,
+    pub payload: Value,
+}
+
 impl Env {
+    /// Where `Env::new(name, ..)` puts its files, for paths a script needs up front.
+    pub fn dir_for(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("construct-e2e-{name}-{}", std::process::id()))
+    }
+
     pub fn new(name: &str, steps: Value) -> Self {
-        let dir = std::env::temp_dir().join(format!("construct-e2e-{name}-{}", std::process::id()));
+        let dir = Self::dir_for(name);
         let _ = std::fs::remove_dir_all(&dir);
         let home = dir.join("home");
         let work = dir.join("work");
@@ -116,21 +132,41 @@ impl Env {
         files.iter().map(|p| serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap()).collect()
     }
 
-    /// Session ids in the order the sessions started.
-    pub fn sessions(&self) -> Vec<String> {
-        // Ids have one-second resolution; order by when the session file appeared.
-        let mut ids: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(self.home.join("sessions"))
-            .unwrap()
-            .flatten()
-            .map(|e| {
-                (
-                    e.metadata().unwrap().created().or_else(|_| e.metadata().unwrap().modified()).unwrap(),
-                    e.file_name().to_string_lossy().trim_end_matches(".jsonl").to_string(),
-                )
+    /// The journal file for sessions run in `dir`.
+    pub fn journal_path(&self, dir: &Path) -> PathBuf {
+        construct::journal::path(&construct::config::Paths { home: self.home.clone() }, dir)
+    }
+
+    /// Every row of the work dir's journal, in seq order, read with plain SQL.
+    pub fn journal(&self) -> Vec<Row> {
+        self.journal_in(&self.work)
+    }
+
+    pub fn journal_in(&self, dir: &Path) -> Vec<Row> {
+        let path = self.journal_path(dir);
+        if !path.exists() {
+            return vec![];
+        }
+        let db = rusqlite::Connection::open(path).unwrap();
+        let mut st = db.prepare("SELECT seq, session_id, type, v, at_ms, payload FROM events ORDER BY seq").unwrap();
+        st.query_map([], |r| {
+            Ok(Row {
+                seq: r.get(0)?,
+                session: r.get(1)?,
+                ty: r.get(2)?,
+                v: r.get(3)?,
+                at_ms: r.get(4)?,
+                payload: serde_json::from_str(&r.get::<_, String>(5)?).unwrap(),
             })
-            .collect();
-        ids.sort();
-        ids.into_iter().map(|(_, id)| id).collect()
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+    }
+
+    /// Session ids in the work dir's journal, in the order they started.
+    pub fn sessions(&self) -> Vec<String> {
+        self.journal().into_iter().filter(|r| r.ty == "head").map(|r| r.session).collect()
     }
 }
 

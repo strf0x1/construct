@@ -3,7 +3,7 @@
 
 use crate::agent::{Agent, Event};
 use crate::config::{Config, Paths};
-use crate::{learn, llm, memory, router, secrets, session, skills, tools, tui};
+use crate::{journal, learn, llm, memory, router, secrets, skills, tools, tui};
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
 use std::io::{IsTerminal, Read, Write};
@@ -55,6 +55,11 @@ enum Cmd {
         action: String,
         name: Option<String>,
     },
+    /// Read this project's journal.
+    Sessions {
+        #[command(subcommand)]
+        cmd: SessionsCmd,
+    },
     /// Show memory.
     Memory,
     /// Show the config path and current settings.
@@ -70,6 +75,13 @@ enum Cmd {
     /// ({"users","errors","loaded"}). For gate evals.
     #[command(hide = true)]
     Gate,
+}
+
+#[derive(Subcommand)]
+enum SessionsCmd {
+    /// Print a session as JSONL in the old `sessions/<id>.jsonl` shape
+    /// (session, message, usage, route, tool, compact rows).
+    Export { id: String },
 }
 
 #[derive(Subcommand)]
@@ -154,6 +166,18 @@ pub fn run() -> Result<()> {
             }
             Ok(())
         }
+        Some(Cmd::Sessions { cmd: SessionsCmd::Export { id } }) => {
+            let db = journal::Journal::open(&journal::path(&paths, &std::env::current_dir()?))?;
+            let entries = db.since(&id, 0)?;
+            if entries.is_empty() {
+                bail!("no session {id} in this project's journal");
+            }
+            let mut out = std::io::stdout().lock();
+            for line in journal::export(&entries) {
+                writeln!(out, "{line}")?;
+            }
+            Ok(())
+        }
         Some(Cmd::Memory) => {
             let store = memory::Store::new(&paths, &cfg.memory).with_project(&paths, &std::env::current_dir()?);
             let block = store.prompt_block();
@@ -222,8 +246,9 @@ fn resolve_resume(resume: &Option<String>, cont: bool, paths: &Paths) -> Result<
         return Ok(Some(id.clone()));
     }
     if cont {
-        let cwd = std::env::current_dir()?.display().to_string();
-        return Ok(session::Log::latest(paths, &cwd));
+        let cwd = std::env::current_dir()?;
+        let db = journal::Journal::open(&journal::path(paths, &cwd))?;
+        return db.latest(&cwd.display().to_string());
     }
     Ok(None)
 }
@@ -288,7 +313,7 @@ async fn headless(
     drop(tx);
     let failed = printer.await.unwrap_or(true);
     if learn && learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
-        learn::spawn_detached(&agent.log.id);
+        learn::spawn_detached(&agent.journal.session);
     }
     if failed {
         std::process::exit(1);
@@ -299,32 +324,37 @@ async fn headless(
 async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: bool) -> Result<()> {
     if let Some(id) = session {
         // Debounce: a session continued with `-c` spawns a learner per turn.
-        // Wait until the session has gone quiet so only the last learner
-        // reviews, and it never competes with a running turn for the model.
-        let file = paths.sessions_dir().join(format!("{id}.jsonl"));
+        // Wait until the session has gone quiet (its last seq unchanged) so
+        // only the last learner reviews, and it never competes with a running
+        // turn for the model.
+        let db = journal::Journal::open(&journal::path(&paths, &std::env::current_dir()?))?;
         let quiet = std::env::var("CONSTRUCT_LEARN_DEBOUNCE_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(20_000u64);
         if quiet > 0 {
-            let size = |f: &std::path::Path| std::fs::metadata(f).map(|m| m.len()).unwrap_or(0);
-            let before = size(&file);
+            let before = db.last_seq(&id)?;
             tokio::time::sleep(std::time::Duration::from_millis(quiet)).await;
-            if size(&file) != before {
+            if db.last_seq(&id)? != before {
                 learn::log_line(&paths, &format!("session {id}: still active; leaving it to the next learner"));
                 return Ok(());
             }
         }
-        let (_, msgs) = session::Log::open(&paths, &id)?;
+        let all = db.since(&id, 0)?;
+        if all.is_empty() {
+            bail!("no session {id} in this project's journal");
+        }
+        let msgs = journal::project(all.iter().map(|e| &e.event));
+        let last = all.last().map(|e| e.seq).unwrap_or(0);
         let user_turns = msgs.iter().filter(|m| m.role == "user").count() as u32;
         let tool_calls = msgs.iter().map(|m| m.tool_calls.len() as u32).sum();
         let mut st = learn::state(&paths);
-        // A session may already have been reviewed in-process up to some point.
-        let reviewed = st["reviewed"][&id].as_u64().unwrap_or(0) as usize;
-        let fresh = if reviewed > 0 && reviewed < msgs.len() { &msgs[reviewed..] } else { &msgs[..] };
-        if reviewed < msgs.len() && learn::kind_for(user_turns, tool_calls).is_some() {
+        // A session may already have been reviewed in-process up to some seq.
+        let reviewed = st["reviewed_seq"][&id].as_i64().unwrap_or(0);
+        let fresh = journal::project(db.since(&id, reviewed)?.iter().map(|e| &e.event));
+        if reviewed < last && !fresh.is_empty() && learn::kind_for(user_turns, tool_calls).is_some() {
             // A cheap check first: most sessions hold nothing worth a review.
-            let gate = learn::gate(&cfg, fresh).await;
+            let gate = learn::gate(&cfg, &fresh).await;
             learn::log_line(&paths, &format!("session {id}: gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
             if let Some(kind) = gate.kind {
-                match learn::review(&cfg, &paths, &id, fresh, kind).await {
+                match learn::review(&cfg, &paths, &id, &fresh, kind).await {
                     Ok(o) => {
                         learn::log_line(&paths, &format!("session {id}: {} | {}", o.summary, o.actions.join("; ")));
                         println!("{}", o.summary);
@@ -335,7 +365,7 @@ async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: b
                     Err(e) => learn::log_line(&paths, &format!("session {id}: review failed: {e:#}")),
                 }
             }
-            st["reviewed"][&id] = serde_json::json!(msgs.len());
+            st["reviewed_seq"][&id] = serde_json::json!(last);
             learn::save_state(&paths, &st);
         }
     }

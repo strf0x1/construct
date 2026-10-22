@@ -1,7 +1,8 @@
 //! Project kits: what construct learns about one repo, kept in
 //! `$CONSTRUCT_HOME/projects/<id>/` (never in the repo itself):
 //! - NOTES.md: capped `§` notes on how this repo works (memory target "project");
-//! - skills/: procedures that only make sense here (skill_manage scope "project").
+//! - skills/: procedures that only make sense here (skill_manage scope "project");
+//! - journal.sqlite: every session run here (see `journal`).
 //!
 //! In that repo the notes and a one-line index of its skills are always in the
 //! system prompt; nowhere else. Project knowledge is triggered by where you
@@ -32,6 +33,16 @@ pub fn detect(paths: &Paths, cwd: &Path) -> Option<Project> {
     let identity = remote.unwrap_or_else(|| root.display().to_string());
     let id = format!("{}-{:08x}", slug(&name), fnv(&identity) as u32);
     Some(Project { name, root, dir: paths.home.join("projects").join(id) })
+}
+
+/// The kit directory for `cwd`: its repo's, or one keyed by the directory
+/// itself outside a repo, so every session has a journal to write.
+pub fn dir_for(paths: &Paths, cwd: &Path) -> PathBuf {
+    if let Some(p) = detect(paths, cwd) {
+        return p.dir;
+    }
+    let name = cwd.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    paths.home.join("projects").join(format!("{}-{:08x}", slug(&name), fnv(&cwd.display().to_string()) as u32))
 }
 
 impl Project {

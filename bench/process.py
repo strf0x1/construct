@@ -1,13 +1,16 @@
-"""Process metrics from construct's session logs: how a run got where it did.
+"""Process metrics from construct's journal: how a run got where it did.
 
-Each tool call leaves a `tool` record in the session log (name, ok, code,
-data, ms), joined here to the call's arguments by id. Everything below is
+Each tool call leaves a `tool_end` event in the journal (name, ok, code,
+data, ms), read here as the old session log's `tool` record (journal.py) and
+joined to the call's arguments by id. Everything below is
 computed from those records and the usage entries, never from the prose the
 model read, so it is the same for every editor.
 """
 
 import json
 from pathlib import Path
+
+import journal
 
 
 def tool_events(home: Path, since: float) -> list:
@@ -16,12 +19,9 @@ def tool_events(home: Path, since: float) -> list:
     calls made together share one) and that response's completion tokens,
     split between the calls."""
     out, step = [], 0
-    for f in sorted((home / "sessions").glob("*.jsonl")):
-        if f.stat().st_mtime < since:
-            continue
+    for session in journal.sessions(home, since):
         calls, last_usage = {}, None
-        for line in f.read_text().splitlines():
-            d = json.loads(line)
+        for d in session:
             if d.get("type") == "usage":
                 last_usage = d.get("usage") or {}
             m = d.get("message") or {}

@@ -6,7 +6,9 @@
 pub mod agent;
 pub mod cli;
 pub mod config;
+pub mod event;
 pub mod jev;
+pub mod journal;
 pub mod learn;
 pub mod llm;
 pub mod manifest;
@@ -17,7 +19,6 @@ pub mod prompt;
 pub mod router;
 pub mod sandbox;
 pub mod secrets;
-pub mod session;
 pub mod skills;
 pub mod tools;
 pub mod tui;

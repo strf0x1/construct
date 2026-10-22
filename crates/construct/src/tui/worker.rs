@@ -34,8 +34,10 @@ pub(super) async fn agent_task(
     trace("agent ready");
     agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
-    let _ = ready.send((agent.log.id.clone(), agent.canceller(), vec![], history, agent.catalog.clone()));
-    let mut reviewed = agent.messages.len();
+    let _ = ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone()));
+    // How far learning has seen: an index into the live conversation, and
+    // the journal seq the detached learner resumes from.
+    let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
     while let Some(c) = cmds.recv().await {
         match c {
             Cmd::Prompt(text) => {
@@ -51,9 +53,9 @@ pub(super) async fn agent_task(
                 match build(None, c) {
                     Ok(a) => {
                         agent = a;
-                        reviewed = agent.messages.len();
+                        reviewed = (agent.messages.len(), agent.journal.last_seq());
                         let _ = ready.send((
-                            agent.log.id.clone(),
+                            agent.journal.session.clone(),
                             agent.canceller(),
                             vec![],
                             vec![],
@@ -71,7 +73,7 @@ pub(super) async fn agent_task(
 }
 
 /// Hand any unreviewed tail of the session to a detached learning process.
-fn finish(agent: &Agent, reviewed: usize) {
+fn finish(agent: &Agent, (reviewed, seq): (usize, i64)) {
     if !agent.cfg.learn.enabled || reviewed >= agent.messages.len() {
         return;
     }
@@ -80,13 +82,13 @@ fn finish(agent: &Agent, reviewed: usize) {
     let calls = tail.iter().map(|m| m.tool_calls.len() as u32).sum();
     if learn::kind_for(users, calls).is_some() {
         let mut st = learn::state(&agent.paths);
-        st["reviewed"][&agent.log.id] = serde_json::json!(reviewed);
+        st["reviewed_seq"][&agent.journal.session] = serde_json::json!(seq);
         learn::save_state(&agent.paths, &st);
-        learn::spawn_detached(&agent.log.id);
+        learn::spawn_detached(&agent.journal.session);
     }
 }
 
-fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &mut usize, force: bool) {
+fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &mut (usize, i64), force: bool) {
     if !agent.cfg.learn.enabled && !force {
         return;
     }
@@ -98,15 +100,15 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
         (false, true) => learn::Kind::Skills,
         _ => return,
     };
-    if *reviewed >= agent.messages.len() {
+    if reviewed.0 >= agent.messages.len() {
         return;
     }
     agent.turns_since_memory = 0;
     agent.tool_calls_since_skill = 0;
-    let slice = agent.messages[*reviewed..].to_vec();
-    *reviewed = agent.messages.len();
+    let slice = agent.messages[reviewed.0..].to_vec();
+    *reviewed = (agent.messages.len(), agent.journal.last_seq());
     let (cfg, paths, tx, id, upto) =
-        (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.log.id.clone(), *reviewed);
+        (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
     tokio::spawn(async move {
         let _ = tx.send(Event::Learn { status: "learning from this session".into() });
         let gate = learn::gate(&cfg, &slice).await;
@@ -117,7 +119,7 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
             (None, true) => kind,
             (None, false) => {
                 let mut st = learn::state(&paths);
-                st["reviewed"][&id] = serde_json::json!(upto);
+                st["reviewed_seq"][&id] = serde_json::json!(upto);
                 learn::save_state(&paths, &st);
                 let _ = tx.send(Event::Learn { status: "nothing new to learn".into() });
                 return;
@@ -138,7 +140,7 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
             Err(e) => format!("learning failed: {e}"),
         };
         let mut st = learn::state(&paths);
-        st["reviewed"][&id] = serde_json::json!(upto);
+        st["reviewed_seq"][&id] = serde_json::json!(upto);
         learn::save_state(&paths, &st);
         let _ = tx.send(Event::Learn { status });
     });

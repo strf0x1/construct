@@ -152,7 +152,7 @@ pub fn save_state(paths: &Paths, v: &Value) {
 pub fn log_line(paths: &Paths, line: &str) {
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(paths.learn_log()) {
-        let _ = writeln!(f, "{} {line}", crate::session::now_ms());
+        let _ = writeln!(f, "{} {line}", crate::journal::now_ms());
     }
 }
 

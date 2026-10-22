@@ -25,7 +25,7 @@ use crate::config::{Paths, ToolsConfig};
 use crate::mcp;
 use crate::skills::Library;
 use anyhow::{Result, bail};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
@@ -111,7 +111,7 @@ impl Default for Display {
 }
 
 /// How the UI renders a result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputKind {
     #[default]
