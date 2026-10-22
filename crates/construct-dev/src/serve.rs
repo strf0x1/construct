@@ -150,6 +150,17 @@ fn auth(s: &Shared, headers: &HeaderMap) -> Option<String> {
     })
 }
 
+/// What a request's `Authorization` header says, safe to log: the scheme and
+/// the first four characters of the token, or null when none was sent. Enough
+/// to tell which key arrived without writing it down.
+fn auth_hint(headers: &HeaderMap) -> Value {
+    let Some(v) = headers.get("authorization").and_then(|v| v.to_str().ok()) else { return Value::Null };
+    match v.split_once(' ') {
+        Some((scheme, token)) => json!(format!("{scheme} {}…", token.chars().take(4).collect::<String>())),
+        None => json!("…"),
+    }
+}
+
 fn ms(s: &Shared) -> f64 {
     s.start.elapsed().as_secs_f64() * 1000.0
 }
@@ -202,6 +213,7 @@ async fn chat(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http:
     rec["t_arrive"] = json!(t_arrive);
     rec["req_bytes"] = json!(body.len());
     rec["path"] = json!(uri.path());
+    rec["auth"] = auth_hint(&headers);
     if let Some(up) = s.cfg.upstream.clone() {
         return forward(s, up, headers, uri, &mut req, rec).await;
     }

@@ -55,6 +55,13 @@ pub fn api_key(secret_name: &str) -> Option<String> {
     get(secret_name).or_else(|| get("OPENROUTER_API_KEY"))
 }
 
+/// A key from the environment alone: no keyring, no OpenRouter fallback. A
+/// delegated child uses this, since the parent hands it exactly the secrets
+/// its definition names, and anything else it could find is not its to use.
+pub fn env_key(secret_name: &str) -> Option<String> {
+    std::env::var(secret_name).ok().filter(|v| !v.is_empty())
+}
+
 pub fn set(name: &str, value: &str) -> Result<()> {
     let mut secrets = spec(Some(name))?;
     secrets.set_provider("keyring");
@@ -67,4 +74,16 @@ pub fn set(name: &str, value: &str) -> Result<()> {
 
 pub fn status() -> Vec<(String, bool)> {
     KNOWN.iter().map(|(n, _)| (n.to_string(), get(n).is_some())).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_key_reads_only_the_environment() {
+        // A name nothing sets: no keyring lookup, no OpenRouter fallback.
+        assert_eq!(env_key("CONSTRUCT_TEST_UNSET_KEY"), None);
+        assert_eq!(env_key(""), None);
+    }
 }

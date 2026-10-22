@@ -67,7 +67,10 @@ impl Agent {
         resume: Option<String>,
         origin: Option<Origin>,
     ) -> Result<Self> {
-        let key = crate::secrets::api_key(&cfg.api_key_secret);
+        let key = match origin {
+            Some(_) => crate::secrets::env_key(&cfg.api_key_secret),
+            None => crate::secrets::api_key(&cfg.api_key_secret),
+        };
         let client = llm::Client::new(&cfg, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
