@@ -1214,7 +1214,7 @@ def cmd_note(argv):
         parts = []
         for n, h in m.get("harnesses", {}).items():
             if "git_sha" in h:
-                tools = f" editor={h.get('editor')}" + (f" anchor={h['hashline']['anchor']}" if h.get("hashline") else "")
+                tools = f" editor={h.get('editor')}" + (f" anchor={h['hashline']['anchor']} salt={h['hashline'].get('salt', 'rank')}" if h.get("hashline") else "")
                 parts.append(f"{n} {h['git_sha'][:7]}{' dirty' if h.get('git_dirty') else ''}{tools} router={h.get('router_mode')}")
             else:
                 parts.append(f"{n} {h.get('version', '?')}")

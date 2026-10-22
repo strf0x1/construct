@@ -9,10 +9,11 @@ Verdicts:
               spread, else `better`/`worse`; `inconclusive` under 3 runs a side.
   rates       Fisher's exact test: `better`/`worse` at p < 0.05, `same` when
               the rates are equal, else `inconclusive`.
-  counts      (non-negative integers, a zero on either side) judged `same` by
-              the spread rule are also judged as the rate of runs with a
-              count > 0: 0 vs 7 of 10 `edit.rewrites` is a difference even
-              though the medians sit inside a 0-1 spread.
+  counts      (non-negative integers, mostly zero on at least one side: a
+              median of 0) judged `same` by the spread rule are also judged
+              as the rate of runs with a count > 0: 0 vs 7 of 10
+              `edit.rewrites` is a difference even though the medians sit
+              inside a 0-1 spread. A token count with one empty run is not.
 Lower is better unless the metric's name says otherwise (HIGHER); counts with
 no better direction (NEUTRAL) get `higher`/`lower`, never `worse`.
 """
@@ -128,13 +129,13 @@ def verdict(metric, a, b):
             row["verdict"] = "higher" if mb > ma else "lower"
         else:
             row["verdict"] = "better" if (mb > ma) == up else "worse"
-        if row["verdict"] == "same" and is_count(a + b):
+        if row["verdict"] == "same" and is_count(a + b) and 0 in (ma, mb):
             nonzero(row, metric, a, b, up)
     return row
 
 
 def is_count(xs):
-    return all(x >= 0 and x == int(x) for x in xs) and 0 in xs
+    return all(x >= 0 and x == int(x) for x in xs)
 
 
 def nonzero(row, metric, a, b, up):

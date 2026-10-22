@@ -352,6 +352,8 @@ class Compare(unittest.TestCase):
         self.assertEqual(cmp.verdict("edit.calls", [0, 1, 1, 1, 1, 1], [0] * 6)["verdict"], "lower")
         self.assertEqual(cmp.verdict("wall_s", [0.0, 1.5, 0.5], [0.5, 1.0, 0.0])["verdict"], "same")
         self.assertIn("runs >0: 0% vs 70%", cmp.table([row], "a", "b"))
+        # A token count with one empty run is a continuous metric, not a rate.
+        self.assertNotIn("nonzero", cmp.verdict("prompt_tokens", [0] + [13000] * 39, [13100] * 40))
 
     def test_rate_verdicts(self):
         self.assertEqual(cmp.verdict("success", [False] * 6, [True] * 6)["verdict"], "better")

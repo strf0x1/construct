@@ -1,7 +1,9 @@
 # 0007 — Stale anchors on duplicate lines: hash-only needs the count salt, line+hash has a hole too
 
-Status: proposed, 2026-10-21. Supersedes the count-salt and "never wrong"
-parts of 0002; 0002's decision (the default editor stays `replace`) stands.
+Status: accepted, 2026-10-21; measured in 0008 (the salt closes line+hash's
+hole; hash-only still makes wrong-line edits). Supersedes the count-salt and
+"never wrong" parts of 0002; 0002's decision (the default editor stays
+`replace`) stands.
 
 ## Context
 
