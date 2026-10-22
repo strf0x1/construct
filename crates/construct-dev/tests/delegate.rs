@@ -287,3 +287,27 @@ wait "interrupted" {short}
     assert!(rows.iter().any(|r| r.session == child && r.ty == "turn_end" && r.payload["interrupted"] == true));
     d.send(b"/quit\r").unwrap();
 }
+
+/// What each request's `Authorization` header looked like, in arrival order:
+/// null, or the scheme and the token's first four characters.
+fn auth_seen(env: &Env) -> Vec<Value> {
+    let log = std::fs::read_to_string(env.dir.join("log.jsonl")).unwrap();
+    log.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()["auth"].clone()).collect()
+}
+
+#[test]
+fn a_child_on_its_own_endpoint_gets_its_own_key_or_none() {
+    for (name, extra, child_auth) in [
+        ("delegate-key-none", "", Value::Null),
+        ("delegate-key-named", "api_key_secret = \"CHILD_KEY\"\n", json!("Bearer chil…")),
+    ] {
+        let env = Env::new(name, json!({ "steps": [delegate("hi"), { "text": "hello" }, { "text": "done" }] }));
+        let base = format!("base_url = \"http://127.0.0.1:{}/v1\"\n{extra}", env.port);
+        env.config(&agent_config(&env, &base));
+        let out = env
+            .run_with(&[("OPENAI_API_KEY", "parent-AAAA"), ("CHILD_KEY", "child-BBBB")], &["run", "--no-learn", "go"]);
+        assert!(out.status.success(), "{}", text(&out));
+        // Parent, child, parent: the parent's key never reaches the child.
+        assert_eq!(auth_seen(&env), vec![json!("Bearer pare…"), child_auth, json!("Bearer pare…")], "{name}");
+    }
+}
