@@ -124,6 +124,7 @@ h1.glitch{animation:glitch .38s steps(2) 1}
         <button data-p="lavender" style="--c:#b9aff5" aria-label="Lavender / silver"></button>
         <button data-p="ocean" style="--c:#8cc8ff" aria-label="Ocean / ice"></button>
         <button data-p="jade" style="--c:#7fe0bd" aria-label="Jade / mint"></button>
+        <button data-p="ruby" style="--c:#ff8585" aria-label="Ruby / red"></button>
       </span>
     </nav>
   </header>
@@ -167,6 +168,7 @@ const PALETTES={
   lavender:{shadow:'#1a1650',mid:'#6f66d6',high:'#ece8ff',accent:'#b9aff5',bg:'#07060f'},
   ocean:   {shadow:'#0a1c40',mid:'#3a7cc8',high:'#e2f3ff',accent:'#8cc8ff',bg:'#04080f'},
   jade:    {shadow:'#062a20',mid:'#2b9b77',high:'#ddfff1',accent:'#7fe0bd',bg:'#040c0a'},
+  ruby:    {shadow:'#400b15',mid:'#c83a4a',high:'#ffe5e5',accent:'#ff8585',bg:'#100507'},
 };
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 let pal, palName;
