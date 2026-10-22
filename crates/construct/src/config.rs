@@ -65,14 +65,42 @@ pub struct RouterConfig {
     pub threshold: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// An MCP server runs inside the sandbox like a shell command: the workspace
+/// policy plus what its entry adds, a credential-free environment plus the
+/// secrets it names.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct McpServer {
     pub command: String,
     pub args: Vec<String>,
+    /// Literal variables set for the server.
     pub env: BTreeMap<String, String>,
     /// One line on what the server is for; the router reads it.
     pub description: String,
+    /// Extra paths this server may read (`~/` expands), on top of [sandbox].
+    pub allow_read: Vec<String>,
+    /// Extra paths this server may read and write.
+    pub allow_write: Vec<String>,
+    /// TCP connect and bind. On by default: most servers are API clients.
+    pub network: bool,
+    /// Secret names resolved like construct's own (environment, then the
+    /// keyring) and passed to this server only. No other credential reaches it.
+    pub secrets: Vec<String>,
+}
+
+impl Default for McpServer {
+    fn default() -> Self {
+        Self {
+            command: String::new(),
+            args: vec![],
+            env: BTreeMap::new(),
+            description: String::new(),
+            allow_read: vec![],
+            allow_write: vec![],
+            network: true,
+            secrets: vec![],
+        }
+    }
 }
 
 impl Default for Config {

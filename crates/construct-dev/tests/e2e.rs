@@ -1084,3 +1084,100 @@ fn a_history_turn_works_without_chatstrata_on_path() {
     assert!(r[0].starts_with("type\nuser"), "{}", r[0]);
     assert!(!tool_names(&env.requests()[0]).iter().any(|n| n.contains("session_search")));
 }
+
+// ------------------------------------------------------------- mcp sandbox
+
+fn fake_server(name: &str, extra: &str) -> String {
+    format!(
+        "[mcp.{name}]\ncommand = \"{}\"\nargs = [\"mcp-fake\"]\ndescription = \"probe\"\n{extra}",
+        dev_bin().display()
+    )
+}
+
+#[test]
+fn mcp_servers_run_inside_the_sandbox_with_only_their_named_secrets() {
+    let name = "mcp-sandbox";
+    let dir = Env::dir_for(name);
+    let outside = dir.join("outside");
+    let allowed = dir.join("allowed");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap().to_string();
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            { "call": "mcp__boxed__probe_read", "args": { "path": outside.join("x.txt") } },
+            { "call": "mcp__boxed__probe_read", "args": { "path": "in-work.txt" } },
+            { "call": "mcp__boxed__probe_env", "args": {} },
+            { "call": "mcp__boxed__probe_connect", "args": { "addr": addr } },
+            { "call": "mcp__opened__probe_read", "args": { "path": allowed.join("x.txt") } },
+            { "call": "mcp__opened__probe_connect", "args": { "addr": addr } },
+            { "text": "done" }
+        ] }),
+    );
+    for d in [&outside, &allowed] {
+        std::fs::create_dir_all(d).unwrap();
+        std::fs::write(d.join("x.txt"), "outside the workspace").unwrap();
+    }
+    std::fs::write(env.work.join("in-work.txt"), "inside").unwrap();
+    env.config(&format!(
+        "[router]\nmode = \"local\"\n{}{}",
+        fake_server("boxed", "network = false\nsecrets = [\"FAKE_SERVICE_TOKEN\", \"UNSET_SERVICE_TOKEN\"]\n"),
+        fake_server("opened", &format!("allow_read = [\"{}\"]\n", allowed.display())),
+    ));
+    let out = env.run_with(
+        &[("FAKE_SERVICE_TOKEN", "named-secret"), ("OTHER_SERVICE_TOKEN", "unnamed-secret")],
+        &["run", "--no-learn", "probe boxed and opened"],
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(r.len(), 6, "{r:#?}");
+    assert!(r[0].starts_with("DENIED"), "outside the workspace: {}", r[0]);
+    assert_eq!(r[1], "READ inside");
+    assert!(r[2].lines().any(|l| l == "FAKE_SERVICE_TOKEN=named-secret"), "{}", r[2]);
+    for leaked in ["OTHER_SERVICE_TOKEN", "OPENAI_API_KEY", "UNSET_SERVICE_TOKEN"] {
+        assert!(!r[2].contains(leaked), "{leaked} reached the server");
+    }
+    assert!(r[3].starts_with("DENIED"), "network = false: {}", r[3]);
+    assert_eq!(r[4], "READ outside the workspace", "allow_read");
+    assert_eq!(r[5], "CONNECTED", "network on by default");
+}
+
+#[test]
+fn nothing_an_mcp_server_starts_outlives_construct() {
+    let env = Env::new(
+        "mcp-lifetime",
+        json!({ "steps": [ { "call": "mcp__boxed__probe_spawn", "args": {} }, { "text": "done" } ] }),
+    );
+    env.config(&format!("[router]\nmode = \"local\"\n{}", fake_server("boxed", "")));
+    let out = env.run(&["run", "--no-learn", "probe boxed"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let pid = tool_results(&env)[0].clone();
+    assert!(pid.parse::<u32>().is_ok(), "{pid}");
+    let alive = || std::fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|c| c == b"sleep\x00300\x00");
+    let t = std::time::Instant::now();
+    while alive() && t.elapsed() < Duration::from_millis(budget(3000)) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(!alive(), "setsid sleep started by the server is still running");
+}
+
+/// A real server over the network: Context7's docs MCP through npx. Needs
+/// node and the internet, so it runs only with `--ignored`.
+#[test]
+#[ignore]
+fn context7_answers_from_inside_the_sandbox() {
+    let env = Env::new(
+        "mcp-context7",
+        json!({ "steps": [
+            { "call": "mcp__context7__resolve-library-id", "args": { "libraryName": "rusqlite", "query": "interrupt a long query" } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config(
+        "[router]\nmode = \"local\"\n[mcp.context7]\ncommand = \"npx\"\nargs = [\"-y\", \"@upstash/context7-mcp\"]\ndescription = \"library documentation\"\nsecrets = [\"CONTEXT7_API_KEY\"]\n",
+    );
+    let out = env.run(&["run", "--no-learn", "use context7 for the rusqlite docs"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert!(r[0].contains("/rusqlite/rusqlite"), "{}", r[0]);
+}

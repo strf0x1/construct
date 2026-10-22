@@ -155,6 +155,10 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   private TMPDIR, system paths and toolchains. If a real tool breaks inside
   it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct/src/sandbox/mod.rs and a
   step to the sandbox e2e test, rather than turning the sandbox off.
+- MCP servers run under the same helper and policy as shell commands (ADR
+  0010). A server that needs more declares it in its `[mcp.<name>]` entry
+  (`allow_read`, `allow_write`, `network = false`, `secrets = [...]`); never
+  spawn one outside `Policy::spawn`.
 - Never point a harness at a real model without the sandbox: an agent with
   nothing to go on searches the disk, and once read the bench key files.
 - Benchmarks: `python3 bench/bench.py {size,frame,tools,memory,task}`, then
