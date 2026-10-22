@@ -1,8 +1,12 @@
 //! Run shell commands. bash without -l (no profile scripts on the hot path),
-//! stderr folded into stdout so ordering is kept, its own process group so a
-//! timeout or an interrupt kills the whole tree.
+//! stderr folded into stdout so ordering is kept. Every call runs under the
+//! sandbox helper, which kills whatever the command left running when it
+//! ends; a timeout or an interrupt asks the helper to stop (SIGTERM) so it can
+//! sweep, and only then kills the process group. The helper's stderr is its
+//! report of what it stopped.
 
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, def, obj};
+use crate::sandbox::SWEPT;
 use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -62,16 +66,17 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     cmd.current_dir(&cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .env("CONSTRUCT", "1")
         .env("GIT_PAGER", "cat")
         .env("PAGER", "cat")
-        .kill_on_drop(true)
         .process_group(0);
     let started = Instant::now();
     let mut child = cmd.spawn().map_err(|e| format!("spawn failed: {e}"))?;
-    let pid = child.id();
-    let mut stdout = child.stdout.take().unwrap();
+    let mut guard = StopOnDrop(child.id());
+    let (Some(mut stdout), Some(mut stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err("spawn failed: no pipes".into());
+    };
     let mut cancel = ctx.cancel.clone();
 
     let mut buf = Vec::new();
@@ -98,18 +103,36 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
             _ = cancel.changed() => { if *cancel.borrow() { stopped = Some("interrupted"); break; } }
         }
     }
-    if stopped.is_some()
-        && let Some(pid) = pid
-    {
-        // SAFETY: plain syscall on a process group we created.
-        unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+    if stopped.is_some() {
+        guard.stop();
     }
-    let status = child.wait().await.ok();
+    let status = match tokio::time::timeout(GRACE, child.wait()).await {
+        Ok(s) => s.ok(),
+        Err(_) => {
+            guard.kill_group();
+            child.wait().await.ok()
+        }
+    };
+    guard.0 = None;
     let elapsed = started.elapsed();
+    let mut report = Vec::new();
+    let _ = tokio::time::timeout(GRACE, stderr.read_to_end(&mut report)).await;
+    let (swept, helper) = parse_report(&String::from_utf8_lossy(&report));
     let text = String::from_utf8_lossy(&buf).to_string();
     let mut out = super::cap_output(ctx, "shell", &text);
+    out.push_str(&helper);
     if out.is_empty() {
         out.push_str("(no output)");
+    }
+    if !swept.is_empty() {
+        let n = swept.len();
+        let mut names = swept;
+        names.dedup();
+        let s = if n == 1 { "" } else { "es" };
+        if !out.ends_with('\n') {
+            out.push('\n');
+        }
+        out.push_str(&format!("[stopped {n} background process{s}: {}]", names.join(", ")));
     }
     let code = status.and_then(|s| s.code());
     match (stopped, code) {
@@ -129,5 +152,66 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),
+    }
+}
+
+/// How long the helper gets to sweep after SIGTERM (its own cap is 2s) before
+/// the whole group is killed.
+const GRACE: Duration = Duration::from_secs(3);
+
+/// Asks the helper to stop and sweep if the call is abandoned (the turn's
+/// future dropped) before the helper was reaped. SIGKILL would kill the helper
+/// before it could sweep, and orphans would escape to init.
+struct StopOnDrop(Option<u32>);
+
+impl StopOnDrop {
+    fn stop(&self) {
+        if let Some(pid) = self.0 {
+            // SAFETY: plain syscall on our unreaped child.
+            unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+        }
+    }
+    fn kill_group(&self) {
+        if let Some(pid) = self.0 {
+            // SAFETY: plain syscall on a process group we created.
+            unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+        }
+    }
+}
+
+impl Drop for StopOnDrop {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+/// Split the helper's stderr into the names it swept, sorted, and anything
+/// else it said (a sandbox failure).
+fn parse_report(report: &str) -> (Vec<String>, String) {
+    let mut swept = Vec::new();
+    let mut other = String::new();
+    for line in report.lines() {
+        match line.strip_prefix(SWEPT).and_then(|r| r.trim_start().split_once(' ')) {
+            Some((_pid, comm)) => swept.push(comm.to_string()),
+            None => {
+                other.push('\n');
+                other.push_str(line);
+            }
+        }
+    }
+    swept.sort();
+    (swept, other)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn report_separates_swept_names_from_helper_messages() {
+        let r = format!("{SWEPT} 12 sleep\n{SWEPT} 9 bf\nconstruct sandbox: landlock: nope\n");
+        let (swept, other) = parse_report(&r);
+        assert_eq!(swept, ["bf", "sleep"]);
+        assert_eq!(other, "\nconstruct sandbox: landlock: nope");
     }
 }

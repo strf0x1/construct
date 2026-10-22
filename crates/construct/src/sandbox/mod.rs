@@ -3,8 +3,9 @@
 //! Two layers, one policy:
 //! - shell commands run under Linux Landlock. construct re-executes itself as
 //!   `construct __sandbox <policy> -- <shell> -c <cmd>`; that small process is
-//!   single-threaded, restricts itself, then execs the shell, so everything
-//!   the command starts inherits the restriction. Landlock also blocks
+//!   single-threaded, restricts itself, then forks the shell and supervises it
+//!   (`supervise.rs`), so everything the command starts inherits the
+//!   restriction and nothing it starts outlives the call. Landlock also blocks
 //!   ptrace-style access to processes outside the sandbox, so
 //!   /proc/<construct>/environ is out of reach.
 //! - the in-process file tools (read, write, edit, grep, glob) check every
@@ -15,11 +16,15 @@
 //! Default ("workspace"): read and write the working directory, a private
 //! temp dir and construct's spill dir; read system paths and toolchains;
 //! nothing else under $HOME. "read-only" drops write access to the working
-//! directory; "off" removes the boundary.
+//! directory; "off" removes the boundary but keeps the helper, because
+//! process lifetime is hygiene, not part of the filesystem boundary.
 
 use crate::config::{Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+mod supervise;
+pub use supervise::SWEPT;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Policy {
@@ -30,6 +35,10 @@ pub struct Policy {
     /// error messages as places to work.
     pub system: Vec<PathBuf>,
     pub tmp: PathBuf,
+    /// construct's pid, so the helper can tell construct dying from the
+    /// spawning thread exiting.
+    #[serde(default)]
+    pub parent: u32,
 }
 
 /// Read-only, executable everywhere a shell needs to look.
@@ -93,7 +102,7 @@ impl Policy {
         }
         write.extend(sys_rw);
         let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
-        Self { off, read: canon(read), write: canon(write), system: canon(system), tmp }
+        Self { off, read: canon(read), write: canon(write), system: canon(system), tmp, parent: std::process::id() }
     }
 
     fn under(roots: &[PathBuf], p: &Path) -> bool {
@@ -150,14 +159,9 @@ impl Policy {
 
     /// Build the command that runs `shell -c script` inside the sandbox.
     pub fn command(&self, shell: &str, script: &str) -> tokio::process::Command {
-        let mut cmd = if self.off {
-            tokio::process::Command::new(shell)
-        } else {
-            let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("construct"));
-            let mut c = tokio::process::Command::new(exe);
-            c.arg("__sandbox").arg(serde_json::to_string(self).unwrap_or_default()).arg("--").arg(shell);
-            c
-        };
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("construct"));
+        let mut cmd = tokio::process::Command::new(exe);
+        cmd.arg("__sandbox").arg(serde_json::to_string(self).unwrap_or_default()).arg("--").arg(shell);
         cmd.arg("-c").arg(script);
         scrub_env(&mut cmd);
         cmd.env("TMPDIR", &self.tmp);
@@ -189,13 +193,9 @@ pub fn scrub_env(cmd: &mut tokio::process::Command) {
 }
 
 /// `construct __sandbox <policy-json> -- <program> [args...]`: restrict this
-/// process with Landlock, then exec the program. Never returns on success.
+/// process with Landlock (unless the policy is off), then run the program
+/// under supervision and exit with its status.
 pub fn exec_child(args: &[String]) -> ! {
-    use landlock::{
-        ABI, Access, AccessFs, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, Scope,
-        path_beneath_rules,
-    };
-    use std::os::unix::process::CommandExt;
     let fail = |msg: String| -> ! {
         eprintln!("construct sandbox: {msg}");
         std::process::exit(126)
@@ -207,6 +207,18 @@ pub fn exec_child(args: &[String]) -> ! {
     if prog.is_empty() {
         fail("nothing to run".into());
     }
+    if !policy.off {
+        restrict(&policy).unwrap_or_else(|e| fail(e));
+    }
+    supervise::run(policy.parent, prog)
+}
+
+/// Apply the Landlock ruleset to this process and everything it will start.
+fn restrict(policy: &Policy) -> Result<(), String> {
+    use landlock::{
+        ABI, Access, AccessFs, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, Scope,
+        path_beneath_rules,
+    };
     let abi = ABI::V6;
     let ro = AccessFs::from_read(abi);
     let rw = AccessFs::from_all(abi);
@@ -219,10 +231,9 @@ pub fn exec_child(args: &[String]) -> ! {
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.read, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.write, rw)))
         .and_then(|r| r.restrict_self())
-        .unwrap_or_else(|e| fail(format!("landlock: {e}")));
+        .map_err(|e| format!("landlock: {e}"))?;
     if status.ruleset == RulesetStatus::NotEnforced {
-        fail("Landlock isn't available on this kernel, so commands can't be sandboxed. Set [sandbox] mode = \"off\" in config.toml to run without it.".into());
+        return Err("Landlock isn't available on this kernel, so commands can't be sandboxed. Set [sandbox] mode = \"off\" in config.toml to run without it.".into());
     }
-    let err = std::process::Command::new(&prog[0]).args(&prog[1..]).exec();
-    fail(format!("exec {}: {err}", prog[0]))
+    Ok(())
 }

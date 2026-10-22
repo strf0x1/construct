@@ -1,6 +1,6 @@
 # 0004 — Shell commands run under Landlock via a re-exec of `construct`
 
-Status: accepted, 2026-10-20 (backfilled 2026-10-21).
+Status: accepted, 2026-10-20 (backfilled 2026-10-21). Partly superseded by 0006: the helper supervises the shell instead of exec'ing it.
 
 ## Context
 

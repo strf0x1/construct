@@ -195,3 +195,10 @@ Losses / caveats:
 Editor paired run (proposal 04 step 6): replace 40/40, hashline 37/40, hashonly 39/40 on the 8-task edit corpus; hashline arms cost +750-800 first-request tokens and +39-50% prompt tokens per run. All 3 hashline failures and the 1 hashonly failure are edit-shifted-block: the model ended inserted text in a single \n, which hashline reads as the terminator, dropping the intended blank line. line+hash rejected 4 stale anchors on edit-stale-reference, all re-read and recovered; hash-only followed the moved line first time. Issue #26 relocation not exercised: the model batched both duplicate-relocation edits in one call in 9/10 runs. Decision in docs/adr/0002. Earlier attempt the same day void: bench crashed after 15 runs on a half-written endpoint log line read by the new budget watcher (fixed in e442b69).
 
 - `bench/results/task-20261021-121125.json`: model minimax/minimax-m3.1-flash:free; bench e442b69 dirty; replace 6ea1f93 dirty editor=replace router=local; hashline 6ea1f93 dirty editor=hashline anchor=line+hash router=local; hashonly 6ea1f93 dirty editor=hashline anchor=hash router=local
+
+## 2026-10-21 17:54 note
+
+issue #9: sandbox helper supervises shell calls (subreaper + sweep). tools before (main 0131fe5) vs after: read/shell/wall all 'same'; shell p50 2.32 -> 2.36 ms
+
+- `bench/results/tools-20261021-175219.json`: model None; bench 0131fe5; construct 0131fe5 editor=replace router=local
+- `bench/results/tools-20261021-175425.json`: model None; bench 0131fe5 dirty; construct 0131fe5 dirty editor=replace router=local

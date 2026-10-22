@@ -95,12 +95,12 @@ WORK = Path(os.environ.get("BENCH_WORK", tempfile.gettempdir())) / "construct-be
 
 
 # ---------------------------------------------------------------- sandbox
-# construct sandboxes itself (Landlock, crates/construct/src/sandbox.rs). The competitor
+# construct sandboxes itself (Landlock, crates/construct/src/sandbox/mod.rs). The competitor
 # harnesses don't, so the bench confines them with bwrap instead — and it does
 # so inside their adapters (see Sandboxed), not at the call site, so there is
 # no way to launch hermes or opencode unsandboxed by forgetting a wrapper.
 # An un-contained agent on a real model searches the disk: one read the bench
-# key files. The policy mirrors crates/construct/src/sandbox.rs: writable only inside WORK
+# key files. The policy mirrors crates/construct/src/sandbox/mod.rs: writable only inside WORK
 # (every bench home and work dir lives there), system paths and toolchains
 # read-only, a private /tmp and PID namespace, and no reach to the real $HOME,
 # the key files, the construct repo or other processes. Network stays shared so

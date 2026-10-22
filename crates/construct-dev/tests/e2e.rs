@@ -465,7 +465,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
             { "call": "shell", "args": { "command": "cat \"$HOME/.config/fake.key\"" } },
             { "call": "shell", "args": { "command": "cat ../outside/secret.txt" } },
             { "call": "shell", "args": { "command": "env" } },
-            { "call": "shell", "args": { "command": "tr '\\0' '\\n' < /proc/$PPID/environ" } },
+            { "call": "shell", "args": { "command": "tr '\\0' '\\n' < /proc/$(cut -d' ' -f4 /proc/$PPID/stat)/environ" } },
             { "call": "read", "args": { "path": "../outside/secret.txt" } },
             { "call": "read", "args": { "path": "link.txt" } },
             { "call": "write", "args": { "path": "../outside/new.txt", "content": "x" } },
@@ -509,6 +509,98 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     assert_eq!(results[7].trim(), "ok", "{}", results[7]);
     assert_eq!(std::fs::read_to_string(env.work.join("made.txt")).unwrap(), "ok\n");
     assert!(!results[8].contains("SHM-WRITABLE") && results[8].contains("devnull-ok"), "{}", results[8]);
+}
+
+/// Whether a `sleep 300` started by a test command is still running.
+fn sleep_alive(work: &std::path::Path, pidfile: &str) -> bool {
+    let pid = std::fs::read_to_string(work.join(pidfile)).unwrap_or_else(|_| panic!("{pidfile} not written"));
+    std::fs::read(format!("/proc/{}/cmdline", pid.trim())).is_ok_and(|c| c == b"sleep\x00300\x00")
+}
+
+fn tool_results(env: &Env) -> Vec<String> {
+    let last = env.requests().pop().unwrap();
+    last["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "tool")
+        .map(|m| m["content"].as_str().unwrap_or("").to_string())
+        .collect()
+}
+
+fn escape_steps() -> Value {
+    // setsid and nohup exec in place, so the first command waits until $! is
+    // `sleep` before ending: the sweep names whatever the process is by then.
+    json!({ "steps": [
+        { "call": "shell", "args": { "command": "setsid nohup sleep 300 >/dev/null 2>&1 & echo $! > a.pid; for i in $(seq 100); do [ \"$(cat /proc/$!/comm)\" = sleep ] && break; sleep 0.05; done" } },
+        { "call": "shell", "args": { "command": "sleep 300 & echo $! > b.pid" } },
+        { "call": "shell", "args": { "command": "setsid sleep 300 & echo $! > c.pid; sleep 30", "timeout": 1 } },
+        { "text": "done" }
+    ] })
+}
+
+fn assert_nothing_escaped(env: &Env, mode: &[(&str, &str)]) {
+    let t = std::time::Instant::now();
+    let out = env.run_with(mode, &["run", "--no-learn", "start things"]);
+    assert!(out.status.success(), "{}", text(&out));
+    // A background job holding stdout no longer holds the call open, and the
+    // timed-out call ends at its timeout, not at the sleeps'.
+    assert!(t.elapsed() < Duration::from_millis(budget(8000)), "took {:?}", t.elapsed());
+    let r = tool_results(env);
+    assert_eq!(r.len(), 3, "{r:#?}");
+    assert!(r[0].contains("[stopped 1 background process: sleep]"), "{}", r[0]);
+    assert!(r[1].contains("[stopped 1 background process"), "{}", r[1]);
+    assert!(r[2].contains("timed out") && r[2].contains("background process"), "{}", r[2]);
+    for f in ["a.pid", "b.pid", "c.pid"] {
+        assert!(!sleep_alive(&env.work, f), "{f} outlived its call");
+    }
+}
+
+#[test]
+fn shell_calls_leave_nothing_running() {
+    let env = Env::new("escape", escape_steps());
+    assert_nothing_escaped(&env, &[]);
+}
+
+#[test]
+fn shell_calls_leave_nothing_running_with_the_sandbox_off() {
+    let env = Env::new("escape-off", escape_steps());
+    assert_nothing_escaped(&env, &[("CONSTRUCT_SANDBOX", "off")]);
+}
+
+#[test]
+fn killing_construct_mid_call_stops_the_command_tree() {
+    let env = Env::new(
+        "escape-kill",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "setsid sleep 300 & echo $! > a.pid; sleep 30" } },
+            { "text": "done" }
+        ] }),
+    );
+    let mut c = Command::new(construct());
+    c.args(["run", "--no-learn", "start things"]).current_dir(&env.work);
+    for (k, v) in env.env() {
+        if v.is_empty() {
+            c.env_remove(k);
+        } else {
+            c.env(k, v);
+        }
+    }
+    let mut child = c.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let pidfile = env.work.join("a.pid");
+    let t = std::time::Instant::now();
+    while !pidfile.exists() && t.elapsed() < Duration::from_millis(budget(5000)) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(sleep_alive(&env.work, "a.pid"), "the command didn't start");
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let t = std::time::Instant::now();
+    while sleep_alive(&env.work, "a.pid") && t.elapsed() < Duration::from_millis(budget(3000)) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!sleep_alive(&env.work, "a.pid"), "the escaped sleep outlived construct");
 }
 
 #[test]
