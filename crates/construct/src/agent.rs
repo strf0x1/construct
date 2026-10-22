@@ -4,13 +4,14 @@
 //! runner and the tests all observe the same thing, and every durable event
 //! is journaled on the way out (`journal::Writer::emit`).
 
+use crate::child::Origin;
 use crate::compact::{self, Reason};
 use crate::config::{Config, Paths};
 use crate::journal;
 use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
-use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
+use crate::tools::{Call, Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
 use anyhow::Result;
 use futures::future::join_all;
 use serde_json::{Value, json};
@@ -50,6 +51,22 @@ pub struct Agent {
 
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
+        Self::build(cfg, paths, cwd, resume, None)
+    }
+
+    /// The session of a delegated child: its own prompt, and a head row that
+    /// names who delegated.
+    pub fn child(cfg: Config, paths: Paths, cwd: std::path::PathBuf, origin: Origin) -> Result<Self> {
+        Self::build(cfg, paths, cwd, None, Some(origin))
+    }
+
+    fn build(
+        cfg: Config,
+        paths: Paths,
+        cwd: std::path::PathBuf,
+        resume: Option<String>,
+        origin: Option<Origin>,
+    ) -> Result<Self> {
         let key = crate::secrets::api_key(&cfg.api_key_secret);
         let client = llm::Client::new(&cfg, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
@@ -60,6 +77,9 @@ impl Agent {
             Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
         };
         let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
+        if !cfg.agents.is_empty() {
+            catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
+        }
         let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();
         let file = journal::path(&paths, &cwd);
@@ -74,19 +94,23 @@ impl Agent {
                     cwd: cwd_s.clone(),
                     model: cfg.model.clone(),
                     manifest: manifest.clone(),
-                    parent_session: None,
-                    parent_call_id: None,
+                    parent_session: origin.as_ref().map(|o| o.parent_session.clone()),
+                    parent_call_id: origin.as_ref().map(|o| o.parent_call_id.clone()),
                 })?;
                 unsent.push(head);
                 (w, vec![])
             }
         };
-        let system = crate::prompt::build(&cwd, &memory);
+        let (system, sandbox) = match origin {
+            // The child's boundary was decided by its parent; `parent` is the
+            // pid the helper watches, and that is this process now.
+            Some(o) => (o.system, crate::sandbox::Policy { parent: std::process::id(), ..o.policy }),
+            None => (crate::prompt::build(&cwd, &memory), crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths)),
+        };
         match messages.first() {
             Some(m) if m.role == "system" => messages[0] = Message::system(system),
             _ => messages.insert(0, Message::system(system)),
         }
-        let sandbox = crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths);
         let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox));
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
@@ -433,7 +457,8 @@ impl Agent {
                     &tx,
                 );
                 let t = Instant::now();
-                let r = catalog.call(&ctx, &c.function.name, &c.function.arguments).await;
+                let call = Call::new(&c.id, journal.clone(), tx.clone());
+                let r = catalog.call_with(&ctx, &call, &c.function.name, &c.function.arguments).await;
                 let ms = t.elapsed().as_millis() as u64;
                 let (ok, out, kind, data, code) = match r {
                     Ok(o) => (true, o.text, o.kind, o.data, None),

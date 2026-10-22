@@ -9,6 +9,8 @@
 //! huge list. Once on, a group stays on for the session: the tool list then
 //! only ever grows, which keeps provider prefix caches warm.
 
+pub mod call;
+pub mod delegate;
 pub mod edit;
 pub mod fs;
 pub mod glob;
@@ -25,6 +27,7 @@ pub mod write;
 use crate::config::{Paths, ToolsConfig};
 use crate::skills::Library;
 use anyhow::{Result, bail};
+pub use call::Call;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
@@ -93,6 +96,11 @@ pub trait Tool: Send + Sync {
         Display::default()
     }
     async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError>;
+    /// `call`, for a tool that runs work of its own and streams that work's
+    /// events up through `call`. Most tools ignore it.
+    async fn call_with(&self, ctx: &Ctx, _call: &Call, args: Value) -> Result<Output, ToolError> {
+        self.call(ctx, args).await
+    }
 }
 
 /// Presentation hints, so the UI never matches on tool names.
@@ -307,6 +315,16 @@ impl Catalog {
         self.tools.read().unwrap() // a poisoned lock is a panic elsewhere
     }
 
+    /// Each tool and its group: what a delegation definition is checked against.
+    pub fn table(&self) -> Vec<(String, Group)> {
+        self.tools().iter().map(|t| (t.name().to_string(), t.group())).collect()
+    }
+
+    /// Add a tool built after the catalog (one that needs to know the rest).
+    pub fn add(&self, tool: Arc<dyn Tool>) {
+        self.tools.write().unwrap().push(tool); // a poisoned lock is a panic elsewhere
+    }
+
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
         self.tools().iter().find(|t| t.name() == name).cloned()
     }
@@ -385,6 +403,12 @@ impl Catalog {
 
     /// Run a call by name. Unknown and disabled tools are both "unknown tool".
     pub async fn call(&self, ctx: &Ctx, name: &str, args: &str) -> Result<Output, ToolError> {
+        self.call_with(ctx, &Call::detached(""), name, args).await
+    }
+
+    /// `call` for a call the agent is running: `call` carries its id and the
+    /// session's event stream.
+    pub async fn call_with(&self, ctx: &Ctx, call: &Call, name: &str, args: &str) -> Result<Output, ToolError> {
         let a: Value = if args.trim().is_empty() {
             json!({})
         } else {
@@ -393,7 +417,7 @@ impl Catalog {
             })?
         };
         if let Some(t) = self.get(name) {
-            return t.call(ctx, a).await;
+            return t.call_with(ctx, call, a).await;
         }
         Err(ToolError::new("unknown_tool", format!("unknown tool {name}")))
     }

@@ -75,6 +75,10 @@ enum Cmd {
     /// ({"users","errors","loaded"}). For gate evals.
     #[command(hide = true)]
     Gate,
+    /// A delegated child: reads its setup and prompts as JSON lines on stdin
+    /// and writes events as JSON lines on stdout. Started by the delegate tool.
+    #[command(name = "__child", hide = true)]
+    Child,
 }
 
 #[derive(Subcommand)]
@@ -118,6 +122,7 @@ pub fn run() -> Result<()> {
             }
             rt.block_on(headless(cfg, paths, resume, text, json, !no_learn))
         }
+        Some(Cmd::Child) => rt.block_on(crate::child::serve::run()),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learn_cmd(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {

@@ -1,0 +1,215 @@
+//! The parent's side of a delegation: start the child under its sandbox, hand
+//! it the task, pass its events up, and stop it on timeout or cancel. A child
+//! always ends: it finishes its turn, or is cancelled and given a moment to
+//! wrap up, or is stopped the way the sandbox helper expects (SIGTERM, then
+//! the group). Its scratch directory is removed when it is gone.
+
+use super::wire::{Origin, ToChild, parse_event};
+use crate::agents::AgentDef;
+use crate::config::Config;
+use crate::event::Event;
+use crate::sandbox::{GRACE, Policy, StopOnDrop};
+use crate::tools::Call;
+use std::path::Path;
+use std::process::Stdio;
+use std::time::Duration;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::watch;
+
+/// How much of the child's stderr to keep for an explanation.
+const STDERR_TAIL: usize = 2048;
+
+pub struct Spec<'a> {
+    pub name: &'a str,
+    pub def: &'a AgentDef,
+    pub config: Config,
+    pub system: String,
+    /// What the child's process is allowed, from `Policy::for_agent`.
+    pub policy: Policy,
+    pub cwd: &'a Path,
+    /// The parent's own endpoint config, to resolve the secrets it names.
+    pub parent: &'a Config,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stop {
+    Timeout,
+    Interrupted,
+}
+
+#[derive(Debug, Default)]
+pub struct Outcome {
+    /// The child's last answer.
+    pub summary: String,
+    /// The child's session id, once its head arrived.
+    pub session: Option<String>,
+    pub steps: u32,
+    pub prompt: u64,
+    pub completion: u64,
+    pub stopped: Option<Stop>,
+    /// Why it failed, when it did without being stopped.
+    pub error: Option<String>,
+}
+
+pub async fn run(
+    spec: Spec<'_>,
+    task: &str,
+    call: &Call,
+    mut cancel: watch::Receiver<bool>,
+) -> Result<Outcome, String> {
+    let tmp = spec.policy.tmp.clone();
+    let out = drive(spec, task, call, &mut cancel).await;
+    let _ = std::fs::remove_dir_all(&tmp);
+    out
+}
+
+async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Receiver<bool>) -> Result<Outcome, String> {
+    let exe = std::env::current_exe().map_err(|e| format!("can't find construct's own binary: {e}"))?;
+    let mut cmd = spec.policy.spawn(&exe.display().to_string(), ["__child"]);
+    cmd.current_dir(spec.cwd)
+        .env("CONSTRUCT_HOME", spec.policy.tmp.join("home"))
+        .env(super::DEPTH_ENV, (super::depth() + 1).to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .process_group(0);
+    // Only the secrets the definition names. A name that isn't set is left out.
+    for name in spec.def.secret_names(spec.parent) {
+        if let Some(v) = crate::secrets::get(&name) {
+            cmd.env(name, v);
+        }
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("starting the child failed: {e}"))?;
+    let mut guard = StopOnDrop(child.id());
+    let (Some(mut stdin), Some(stdout), Some(mut stderr)) =
+        (child.stdin.take(), child.stdout.take(), child.stderr.take())
+    else {
+        return Err("starting the child failed: no pipes".into());
+    };
+    let origin = Origin {
+        policy: spec.policy.clone(),
+        system: spec.system.clone(),
+        parent_session: call.session().unwrap_or_default().to_string(),
+        parent_call_id: call.id.clone(),
+    };
+    let start =
+        ToChild::Start { config: Box::new(spec.config.clone()), cwd: spec.cwd.to_path_buf(), origin: Box::new(origin) };
+    let said = async {
+        stdin.write_all(start.line().as_bytes()).await?;
+        stdin.write_all(ToChild::Prompt { text: task.to_string() }.line().as_bytes()).await?;
+        stdin.flush().await
+    };
+    said.await.map_err(|e| format!("the child closed its input: {e}"))?;
+    let mut stdin = Some(stdin);
+
+    // Kept while the child runs, or a chatty child would block on a full pipe.
+    let tail = tokio::spawn(async move {
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 1024];
+        while let Ok(n) = stderr.read(&mut chunk).await
+            && n > 0
+        {
+            buf.extend_from_slice(&chunk[..n]);
+            let over = buf.len().saturating_sub(STDERR_TAIL);
+            buf.drain(..over);
+        }
+        String::from_utf8_lossy(&buf).trim().to_string()
+    });
+
+    let mut out = Outcome::default();
+    let mut finished = false;
+    let mut lines = BufReader::new(stdout).lines();
+    let deadline = tokio::time::sleep(Duration::from_secs(spec.def.timeout));
+    tokio::pin!(deadline);
+    let never = Duration::from_secs(60 * 60 * 24 * 365);
+    let hard = tokio::time::sleep(never);
+    tokio::pin!(hard);
+    loop {
+        tokio::select! {
+            line = lines.next_line() => match line {
+                Ok(Some(l)) => {
+                    let Some(ev) = parse_event(&l) else { continue };
+                    note(&mut out, &ev, &mut finished);
+                    call.forward(ev);
+                    if finished {
+                        // Done with the child: closing its input ends it.
+                        stdin = None;
+                    }
+                }
+                Ok(None) | Err(_) => break,
+            },
+            _ = &mut deadline, if out.stopped.is_none() => {
+                out.stopped = Some(Stop::Timeout);
+                cancel_child(&mut stdin).await;
+                hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
+            }
+            r = cancel.changed(), if out.stopped.is_none() => {
+                if r.is_ok() && *cancel.borrow() {
+                    out.stopped = Some(Stop::Interrupted);
+                    cancel_child(&mut stdin).await;
+                    hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
+                }
+            }
+            _ = &mut hard, if out.stopped.is_some() => {
+                // It didn't wrap up: stop it the way the helper expects.
+                guard.stop();
+                break;
+            }
+        }
+    }
+    drop(stdin);
+    let status = match tokio::time::timeout(GRACE, child.wait()).await {
+        Ok(s) => s.ok(),
+        Err(_) => {
+            guard.stop();
+            match tokio::time::timeout(GRACE, child.wait()).await {
+                Ok(s) => s.ok(),
+                Err(_) => {
+                    guard.kill_group();
+                    child.wait().await.ok()
+                }
+            }
+        }
+    };
+    guard.0 = None;
+    let diagnostics = tokio::time::timeout(GRACE, tail).await.ok().and_then(Result::ok).unwrap_or_default();
+    if !finished && out.stopped.is_none() && out.error.is_none() {
+        let how = match status.and_then(|s| s.code()) {
+            Some(c) => format!("exit {c}"),
+            None => "killed by a signal".into(),
+        };
+        out.error = Some(if diagnostics.is_empty() {
+            format!("the child ended without finishing ({how})")
+        } else {
+            format!("the child ended without finishing ({how}): {diagnostics}")
+        });
+    }
+    Ok(out)
+}
+
+async fn cancel_child(stdin: &mut Option<tokio::process::ChildStdin>) {
+    if let Some(w) = stdin {
+        let _ = w.write_all(ToChild::Cancel.line().as_bytes()).await;
+        let _ = w.flush().await;
+    }
+}
+
+/// What the parent keeps of the child's stream, apart from passing it up.
+fn note(out: &mut Outcome, ev: &Event, finished: &mut bool) {
+    match ev {
+        Event::Head { id, .. } => out.session = Some(id.clone()),
+        Event::Assistant { message } if message.tool_calls.is_empty() => {
+            if let Some(text) = &message.content {
+                out.summary = text.clone();
+            }
+        }
+        Event::Error { message } => out.error = Some(message.clone()),
+        Event::TurnEnd { steps, prompt, completion, .. } => {
+            out.steps = *steps;
+            out.prompt = *prompt;
+            out.completion = *completion;
+            *finished = true;
+        }
+        _ => {}
+    }
+}

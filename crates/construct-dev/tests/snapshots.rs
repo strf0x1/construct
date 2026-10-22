@@ -1,7 +1,7 @@
 //! Golden snapshots of what the model sees and what the user sees.
 //!
 //! One test per shape of first request (plain turn, routed skill, routed web,
-//! routed history, routed MCP, learning review) and two screens (first frame,
+//! routed history, routed MCP, a delegated child, learning review) and two screens (first frame,
 //! finished turn). A refactor that changes none of these is behaviour-neutral
 //! as far as the model and the user can tell; a prompt or schema edit shows up
 //! as a diff.
@@ -70,6 +70,26 @@ fn plain_turn() {
     let bytes = snap["bytes"].as_u64().unwrap() as usize;
     assert!(bytes < PLAIN_LIMIT, "plain first request is {bytes} bytes (limit {PLAIN_LIMIT})");
     insta::assert_json_snapshot!(snap);
+}
+
+/// A delegated child's first request: its own prompt and only its allowlisted
+/// tools.
+#[test]
+fn delegated_child() {
+    let env = Env::new(
+        "snap-child",
+        json!({ "steps": [
+            { "call": "delegate", "args": { "agent": "scout", "task": "find the entry point" } },
+            { "text": "main.rs" },
+            { "text": "ok" }
+        ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n\n[agents.scout]\ndescription = \"reads code\"\nprompt = \"You are a scout.\"\ntools = [\"read\", \"grep\"]\n");
+    let out = env.run(&["run", "--no-learn", "ask the scout"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let req = env.requests().into_iter().nth(1).expect("the child's request");
+    assert_eq!(tool_names(&req), vec!["read", "grep"]);
+    insta::assert_json_snapshot!(shaped(&env, &req));
 }
 
 #[test]

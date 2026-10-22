@@ -19,11 +19,14 @@
 //! directory; "off" removes the boundary but keeps the helper, because
 //! process lifetime is hygiene, not part of the filesystem boundary.
 
+use crate::agents::AgentDef;
 use crate::config::{McpServer, Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+mod stop;
 mod supervise;
+pub use stop::{GRACE, StopOnDrop};
 pub use supervise::SWEPT;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -42,6 +45,9 @@ pub struct Policy {
     /// Deny TCP connect and bind (Landlock ABI 4+; best effort below it).
     #[serde(default)]
     pub no_network: bool,
+    /// TCP ports still reachable when `no_network` (a child's model endpoint).
+    #[serde(default)]
+    pub connect_ports: Vec<u16>,
     /// Leave the program's stderr where the helper's goes instead of merging
     /// it into stdout: an MCP server's stdout is its protocol.
     #[serde(default)]
@@ -86,10 +92,7 @@ impl Policy {
     pub fn new(cfg: &SandboxConfig, cwd: &Path, paths: &Paths) -> Self {
         let off = cfg.mode == "off";
         let home = std::env::var_os("HOME").map(PathBuf::from);
-        let expand = |p: &str| match (p.strip_prefix("~/"), &home) {
-            (Some(rest), Some(h)) => h.join(rest),
-            _ => PathBuf::from(p),
-        };
+        let expand = expand_home;
         let tmp = paths.home.join("tmp").join(std::process::id().to_string());
         let _ = std::fs::create_dir_all(&tmp);
         let mut write = vec![tmp.clone(), paths.spill_dir()];
@@ -117,6 +120,7 @@ impl Policy {
             tmp,
             parent: std::process::id(),
             no_network: false,
+            connect_ports: vec![],
             own_stderr: false,
         }
     }
@@ -134,6 +138,42 @@ impl Policy {
             p.system.push(exe);
         }
         p
+    }
+
+    /// The policy a delegated child runs under: only what its definition
+    /// lists, each path inside what `self` (the parent's) allows, plus a
+    /// private temp dir that holds the child's whole home. The parent's
+    /// working directory is not implied: a child with nothing listed cannot
+    /// read it. The child may run the construct binary and nothing more of
+    /// the parent's tree.
+    pub fn for_agent(&self, def: &AgentDef, paths: &Paths, tag: &str, endpoint_port: u16) -> Result<Self, String> {
+        let (read, write) = (AgentDef::expanded(&def.allow_read), AgentDef::expanded(&def.allow_write));
+        for p in &read {
+            self.check_read(p)?;
+        }
+        for p in &write {
+            self.check_write(p)?;
+        }
+        let tmp = paths.home.join("tmp").join(format!("{}-{tag}", std::process::id()));
+        std::fs::create_dir_all(&tmp).map_err(|e| format!("creating {}: {e}", tmp.display()))?;
+        let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
+        let mut system = self.system.clone();
+        system.extend(std::env::current_exe().and_then(|e| e.canonicalize()));
+        let mut write = canon(write);
+        write.extend(tmp.canonicalize());
+        // Devices a program can't start without, as for any tool.
+        write.extend(self.write.iter().filter(|p| p.starts_with("/dev")).cloned());
+        Ok(Self {
+            off: self.off,
+            read: canon(read),
+            write,
+            system,
+            tmp,
+            parent: std::process::id(),
+            no_network: !def.network,
+            connect_ports: vec![endpoint_port],
+            own_stderr: true,
+        })
     }
 
     fn under(roots: &[PathBuf], p: &Path) -> bool {
@@ -210,6 +250,14 @@ impl Policy {
     }
 }
 
+/// `p` with a leading `~/` replaced by $HOME.
+pub fn expand_home(p: &str) -> PathBuf {
+    match (p.strip_prefix("~/"), std::env::var_os("HOME")) {
+        (Some(rest), Some(h)) => PathBuf::from(h).join(rest),
+        _ => PathBuf::from(p),
+    }
+}
+
 /// `prog` as the shell would find it: a path as given, a bare name on PATH.
 fn which(prog: &str) -> Option<PathBuf> {
     if prog.contains('/') {
@@ -265,7 +313,7 @@ pub fn exec_child(args: &[String]) -> ! {
 /// Apply the Landlock ruleset to this process and everything it will start.
 fn restrict(policy: &Policy) -> Result<(), String> {
     use landlock::{
-        ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, Ruleset, RulesetAttr, RulesetCreatedAttr,
+        ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, NetPort, Ruleset, RulesetAttr, RulesetCreatedAttr,
         RulesetStatus, Scope, path_beneath_rules,
     };
     let abi = ABI::V6;
@@ -278,6 +326,7 @@ fn restrict(policy: &Policy) -> Result<(), String> {
         .and_then(|r| if policy.no_network { r.handle_access(AccessNet::from_all(abi)) } else { Ok(r) })
         .and_then(|r| r.scope(Scope::Signal))
         .and_then(|r| r.create())
+        .and_then(|r| r.add_rules(policy.connect_ports.iter().map(|p| Ok(NetPort::new(*p, AccessNet::ConnectTcp)))))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.system, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.read, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.write, rw)))

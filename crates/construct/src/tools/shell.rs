@@ -6,7 +6,7 @@
 //! report of what it stopped.
 
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, def, obj};
-use crate::sandbox::SWEPT;
+use crate::sandbox::{GRACE, SWEPT, StopOnDrop};
 use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -152,36 +152,6 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),
-    }
-}
-
-/// How long the helper gets to sweep after SIGTERM (its own cap is 2s) before
-/// the whole group is killed.
-const GRACE: Duration = Duration::from_secs(3);
-
-/// Asks the helper to stop and sweep if the call is abandoned (the turn's
-/// future dropped) before the helper was reaped. SIGKILL would kill the helper
-/// before it could sweep, and orphans would escape to init.
-struct StopOnDrop(Option<u32>);
-
-impl StopOnDrop {
-    fn stop(&self) {
-        if let Some(pid) = self.0 {
-            // SAFETY: plain syscall on our unreaped child.
-            unsafe { libc::kill(pid as i32, libc::SIGTERM) };
-        }
-    }
-    fn kill_group(&self) {
-        if let Some(pid) = self.0 {
-            // SAFETY: plain syscall on a process group we created.
-            unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
-        }
-    }
-}
-
-impl Drop for StopOnDrop {
-    fn drop(&mut self) {
-        self.stop();
     }
 }
 
