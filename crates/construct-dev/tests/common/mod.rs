@@ -75,6 +75,7 @@ impl Env {
             log: Some(dir.join("log.jsonl")),
             dump_dir: Some(dir.join("dump")),
             chunk_ms: 1,
+            cache: true,
         };
         let (port, _) = rt.block_on(serve::serve(cfg, 0)).unwrap();
         Self { dir, home, work, port, _rt: rt }

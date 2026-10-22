@@ -94,7 +94,8 @@ pub(super) struct App {
     pub(super) last_activity: Instant,
     pub(super) started: Instant,
     pub(super) expand: bool,
-    pub(super) tokens: u64,
+    /// The session's accounting, for the status line.
+    pub(super) usage: crate::llm::Usage,
     pub(super) context_pct: u64,
     pub(super) groups: Vec<String>,
     pub(super) learning: Option<(String, Instant)>,
@@ -138,7 +139,7 @@ impl App {
             last_activity: Instant::now(),
             started: Instant::now(),
             expand: false,
-            tokens: 0,
+            usage: Default::default(),
             context_pct: 0,
             groups: vec![],
             learning: None,
@@ -270,8 +271,14 @@ impl App {
                     self.phase = Phase::Waiting;
                 }
             }
-            Event::Usage { prompt, completion, .. } => {
-                self.tokens += prompt + completion;
+            Event::Usage { prompt, completion, cached, cache_write, cost } => {
+                self.usage.add(&crate::llm::Usage {
+                    prompt_tokens: prompt,
+                    completion_tokens: completion,
+                    cached_tokens: cached,
+                    cache_write_tokens: cache_write,
+                    cost,
+                });
                 self.context_pct = prompt * 100 / (self.cfg.context_window.max(1) as u64);
             }
             Event::Compacted { before, after } => {

@@ -311,7 +311,14 @@ impl App {
         if !self.groups.is_empty() {
             right.push(Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
         }
-        right.push(Span::styled(format!("{} tok", human(self.tokens)), theme::faint()));
+        let u = &self.usage;
+        right.push(Span::styled(format!("{} tok", human(u.prompt_tokens + u.completion_tokens)), theme::faint()));
+        if u.cached_tokens > 0 {
+            right.push(Span::styled(format!(" · cache {:.0}%", u.hit_rate() * 100.0), theme::faint()));
+        }
+        if let Some(c) = u.cost {
+            right.push(Span::styled(format!(" · ${c:.3}"), theme::faint()));
+        }
         if self.context_pct > 0 {
             right.push(Span::styled(
                 format!(" · ctx {}%", self.context_pct),

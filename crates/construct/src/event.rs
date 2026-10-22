@@ -103,10 +103,17 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         code: Option<String>,
     },
+    /// One model call's accounting. `cached` of `prompt` came from the
+    /// provider's cache; `cache_write` were written to it; `cost` only when
+    /// the provider reports one.
     Usage {
         prompt: u64,
         completion: u64,
         cached: u64,
+        #[serde(default)]
+        cache_write: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cost: Option<f64>,
     },
     Compacted {
         before: usize,
@@ -118,6 +125,10 @@ pub enum Event {
         completion: u64,
         ms: u64,
         interrupted: bool,
+        #[serde(default)]
+        cached: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cost: Option<f64>,
     },
     Error {
         message: String,

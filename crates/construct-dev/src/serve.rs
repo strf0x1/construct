@@ -8,6 +8,12 @@
 //! Upstream mode forwards to a real endpoint, injects the key (so harness
 //! configs never hold it) and asks for usage on every stream.
 //!
+//! With `cache`, script mode also acts as a provider with an automatic prefix
+//! cache (tools, then each message, the order providers cache in), so cache
+//! hit rates and a prefix that breaks between requests show up without a real
+//! model. It is off by default: re-serializing each request is time the bench
+//! would bill to the harness.
+//!
 //! Both modes log every request with timestamps to JSONL, which is what the
 //! bench reads: tool-call latency is the gap between a response that ended in
 //! tool calls and the harness's next request.
@@ -22,6 +28,8 @@ use axum::routing::{get, post};
 use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashSet;
+use std::hash::{DefaultHasher, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -60,6 +68,8 @@ pub struct Config {
     pub log: Option<PathBuf>,
     pub dump_dir: Option<PathBuf>,
     pub chunk_ms: u64,
+    /// Report simulated prefix-cache hits and writes in usage.
+    pub cache: bool,
 }
 
 struct Shared {
@@ -71,6 +81,8 @@ struct Shared {
     log: Mutex<Option<std::fs::File>>,
     count: Mutex<usize>,
     http: reqwest::Client,
+    /// Hashes of every request prefix seen, for the simulated cache.
+    prefixes: Mutex<HashSet<u64>>,
 }
 
 pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHandle<()>)> {
@@ -86,6 +98,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         start: Instant::now(),
         log: Mutex::new(log),
         count: Mutex::new(0),
+        prefixes: Mutex::new(HashSet::new()),
         http: reqwest::Client::builder().pool_idle_timeout(Duration::from_secs(120)).build()?,
     });
     let app = Router::new().route("/{*path}", post(chat)).route("/{*path}", get(models)).with_state(shared);
@@ -353,6 +366,26 @@ fn adapt(req: &Value, call: &str, args: &Value) -> (String, Value) {
     (name, Value::Object(out))
 }
 
+/// Bytes of the longest prefix of `req` (tools, then messages) that an
+/// earlier request already sent; every prefix of this one is cached after.
+fn cached_bytes(s: &Shared, req: &Value) -> u64 {
+    let mut blocks = vec![req["tools"].to_string()];
+    blocks.extend(req["messages"].as_array().into_iter().flatten().map(Value::to_string));
+    let mut seen = s.prefixes.lock().unwrap();
+    let (mut h, mut len, mut hit, mut missed) = (DefaultHasher::new(), 0u64, 0u64, false);
+    for b in &blocks {
+        h.write(b.as_bytes());
+        len += b.len() as u64;
+        if !missed && seen.contains(&h.finish()) {
+            hit = len;
+        } else {
+            missed = true;
+            seen.insert(h.finish());
+        }
+    }
+    hit
+}
+
 fn sse(v: Value) -> Bytes {
     Bytes::from(format!("data: {v}\n\n"))
 }
@@ -390,7 +423,14 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let stream = req["stream"].as_bool().unwrap_or(false);
     let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
     let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
-    let usage = json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
+    let mut usage =
+        json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
+    if s.cfg.cache {
+        let cached = (cached_bytes(&s, req) / 4).min(prompt_tokens);
+        // Only providers that cache on request report writes.
+        let written = if req.to_string().contains("\"cache_control\"") { prompt_tokens - cached } else { 0 };
+        usage["prompt_tokens_details"] = json!({ "cached_tokens": cached, "cache_write_tokens": written });
+    }
     let mut chunks: Vec<(u64, Bytes)> = vec![];
     let mut message = json!({ "role": "assistant", "content": Value::Null });
     let mut n_calls = 0;

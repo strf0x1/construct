@@ -229,3 +229,25 @@ Proposal 04 step 5 (MCP tools as catalog entries), tier 1, construct only (openc
 - `bench/results/size-20261021-220605.json`: model None; bench 0602f19; construct 0602f19 editor=replace router=local
 - `bench/results/tools-20261021-220544-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
 - `bench/results/tools-20261021-220809.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+
+## 2026-10-21 23:38 note
+
+Issue #51 (ADR 0012), tier 1, construct only (no memory corpus on host). main 3b16106 vs branch: size, frame same. tools: wall worse 73->111 ms with the mock's prefix-cache simulation on (233251); same with main's mock (233516) and with the simulation made opt-in (233750: read/shell/wall same). The cost was the debug mock re-serializing requests, not construct.
+
+- `bench/results/size-20261021-232821-main.json`: model None; bench 3b16106; construct 3b16106 editor=replace router=local
+- `bench/results/size-20261021-232841.json`: model None; bench d93039c; construct d93039c editor=replace router=local
+- `bench/results/frame-20261021-232843-main.json`: model None; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/frame-20261021-232846.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233048-main.json`: model None; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/tools-20261021-233251.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233516.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233750.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+
+## 2026-10-22 00:08 note
+
+Issue #51 tier 2 (ADR 0012 accepted). Haiku 5.5: hit rate 0 -> 68% median, cost/run better on every task (stats-median -49%, release-signing -24%, edit-long-file -37%), success/requests/tokens same. DeepSeek V4.1 Flash control: all same (auto-caching, 71% -> 77%). Main's cache/cost backfilled from proxy records. Tool list grew in 2/24 runs (DeepSeek release-signing, mid-run).
+
+- `bench/results/task-20261021-235623-main.json`: model anthropic/claude-haiku-5.5; bench 3b16106; construct 3b16106 editor=replace router=local
+- `bench/results/task-20261021-235859.json`: model anthropic/claude-haiku-5.5; bench 8d0014d; construct 8d0014d editor=replace router=local
+- `bench/results/task-20261022-000230-main.json`: model deepseek/deepseek-v4.1-flash; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/task-20261022-000644.json`: model deepseek/deepseek-v4.1-flash; bench 8d0014d dirty; construct 8d0014d editor=replace router=local
