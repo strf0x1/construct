@@ -172,6 +172,15 @@ impl Writer {
         let _ = tx.send(ev);
     }
 
+    /// Journal a child session's event under the child's own session id, then
+    /// send it wrapped as `Event::Child` so the UI and `--json` see the tree.
+    /// The parent is the only writer: the child never holds this file.
+    pub fn relay(&self, call_id: &str, child_session: &str, ev: Event, tx: &Events) {
+        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = db.append(child_session, &ev);
+        let _ = tx.send(Event::Child { id: call_id.to_string(), inner: Box::new(ev) });
+    }
+
     /// Journal without sending: events from before there was a UI to send to.
     pub fn record(&self, ev: &Event) {
         let db = self.db.lock().unwrap_or_else(|e| e.into_inner());

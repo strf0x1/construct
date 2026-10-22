@@ -28,6 +28,8 @@ pub struct Config {
     pub sandbox: SandboxConfig,
     pub tools: ToolsConfig,
     pub mcp: BTreeMap<String, McpServer>,
+    /// Agents the model can delegate to, each run as a sandboxed child.
+    pub agents: BTreeMap<String, crate::agents::AgentDef>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
     pub provider: ProviderConfig,
@@ -187,6 +189,7 @@ impl Default for Config {
             sandbox: SandboxConfig::default(),
             tools: ToolsConfig::default(),
             mcp: BTreeMap::new(),
+            agents: BTreeMap::new(),
             headers: BTreeMap::new(),
             provider: ProviderConfig::default(),
         }
@@ -384,6 +387,9 @@ impl Config {
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         for name in cfg.mcp.keys() {
             crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+        }
+        for name in cfg.agents.keys() {
+            crate::agents::check_name(name).with_context(|| format!("in {}", path.display()))?;
         }
         Ok(cfg)
     }

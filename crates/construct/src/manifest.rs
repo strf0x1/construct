@@ -26,6 +26,9 @@ pub struct Manifest {
     pub hashline: Option<HashlineConfig>,
     pub model: String,
     pub router_mode: String,
+    /// Configured agent definitions a model can delegate to (`[agents.*]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<String>,
     /// The window compaction plans against, and its policy, so compaction
     /// arms are told apart. Absent in manifests from before the planner.
     #[serde(default)]
@@ -53,6 +56,7 @@ impl Manifest {
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),
+            agents: cfg.agents.keys().cloned().collect(),
             context_window: cfg.context_window,
             compaction: cfg.compaction.clone(),
             dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),

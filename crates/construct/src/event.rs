@@ -168,6 +168,15 @@ pub enum Event {
     Learn {
         status: String,
     },
+    /// An event from a child session a tool is running, as the parent sees
+    /// it. `id` is the delegating call's id, so a UI nests it under that call.
+    /// Wire only: the parent journals the inner event under the child's own
+    /// session id (`journal::Writer::relay`), never this wrapper.
+    Child {
+        id: String,
+        /// Not `event`: that is the tag's name.
+        inner: Box<Event>,
+    },
 }
 
 impl Event {
@@ -182,6 +191,7 @@ impl Event {
                 | Event::Reasoning { .. }
                 | Event::ToolPending { .. }
                 | Event::Learn { .. }
+                | Event::Child { .. }
         )
     }
 

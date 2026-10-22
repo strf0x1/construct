@@ -4,6 +4,8 @@
 //! TUI. The binary is a thin `main.rs` over this library; see [`cli::run`].
 
 pub mod agent;
+pub mod agents;
+pub mod child;
 pub mod cli;
 pub mod compact;
 pub mod config;

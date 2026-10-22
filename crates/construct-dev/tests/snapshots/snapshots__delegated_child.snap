@@ -1,0 +1,81 @@
+---
+source: crates/construct-dev/tests/snapshots.rs
+expression: "shaped(&env, &req)"
+---
+{
+  "bytes": 997,
+  "n_tools": 2,
+  "request": {
+    "model": "openrouter/free",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a scout."
+      },
+      {
+        "role": "user",
+        "content": "find the entry point"
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "read",
+          "description": "Read a text file with line numbers (or list a directory). Reads up to 2000 lines; use offset/limit for more.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "1-based first line"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "grep",
+          "description": "Search file contents with a regex (ripgrep engine, respects .gitignore). Returns path:line: text.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string",
+                "description": "File or directory; defaults to the session's"
+              },
+              "include": {
+                "type": "string",
+                "description": "Glob filter, e.g. *.rs"
+              },
+              "ignore_case": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pattern"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -181,6 +181,8 @@ impl App {
             // The record, not the screen: the UI already shows what these carry.
             Event::Manifest(_)
             | Event::Head { .. }
+            // The nested view of a child's work is not drawn yet.
+            | Event::Child { .. }
             | Event::System { .. }
             | Event::User { .. }
             | Event::Assistant { .. }
