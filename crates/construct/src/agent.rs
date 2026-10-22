@@ -47,7 +47,11 @@ impl Agent {
         let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
-        let mcp = if cfg.mcp.is_empty() { None } else { Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone()))) };
+        let mcp = if cfg.mcp.is_empty() {
+            None
+        } else {
+            Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
+        };
         let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
         let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();

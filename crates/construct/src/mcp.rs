@@ -1,11 +1,18 @@
 //! A minimal MCP client over stdio: initialize, tools/list, tools/call, with
 //! newline-delimited JSON-RPC. Servers start lazily the first time the router
 //! switches their group on, so an unused server costs nothing at startup.
+//!
+//! The design choice a reader must know: a server is a model-chosen action
+//! like a shell command, so it runs the same way, under `construct __sandbox`
+//! with the workspace policy plus what its entry adds, a scrubbed environment
+//! plus the secrets it names, and the helper sweeping whatever it started.
 
-use crate::config::McpServer;
+use crate::config::{McpServer, Paths, SandboxConfig};
+use crate::sandbox::Policy;
 use anyhow::{Context, Result, anyhow};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -21,19 +28,32 @@ struct Conn {
     pending: Pending,
     next: AtomicU64,
     tools: Vec<Value>,
-    _child: Child,
+    child: Child,
+}
+
+impl Drop for Conn {
+    /// SIGTERM, not SIGKILL: the sandbox helper sweeps the server's whole
+    /// tree (npx, node, …) on SIGTERM, and could not if it were killed.
+    fn drop(&mut self) {
+        if let Some(pid) = self.child.id() {
+            // SAFETY: a plain kill(2) on our own unreaped child.
+            unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+        }
+    }
 }
 
 pub struct Manager {
     servers: BTreeMap<String, McpServer>,
+    policies: BTreeMap<String, Policy>,
     conns: Mutex<HashMap<String, Arc<Conn>>>,
     /// Tool definitions per started server, readable without awaiting.
     defs: std::sync::Mutex<HashMap<String, Vec<Value>>>,
 }
 
 impl Manager {
-    pub fn new(servers: BTreeMap<String, McpServer>) -> Self {
-        Self { servers, conns: Mutex::new(HashMap::new()), defs: std::sync::Mutex::new(HashMap::new()) }
+    pub fn new(servers: BTreeMap<String, McpServer>, sandbox: &SandboxConfig, cwd: &Path, paths: &Paths) -> Self {
+        let policies = servers.iter().map(|(n, s)| (n.clone(), Policy::for_mcp(sandbox, s, cwd, paths))).collect();
+        Self { servers, policies, conns: Mutex::new(HashMap::new()), defs: std::sync::Mutex::new(HashMap::new()) }
     }
 
     pub fn servers(&self) -> &BTreeMap<String, McpServer> {
@@ -47,7 +67,8 @@ impl Manager {
             return Ok(());
         }
         let cfg = self.servers.get(name).ok_or_else(|| anyhow!("no MCP server {name}"))?;
-        let conn = Arc::new(start(cfg).await.with_context(|| format!("starting MCP server {name}"))?);
+        let policy = &self.policies[name];
+        let conn = Arc::new(start(cfg, policy).await.with_context(|| format!("starting MCP server {name}"))?);
         let defs = conn
             .tools
             .iter()
@@ -96,14 +117,16 @@ impl Manager {
     }
 }
 
-async fn start(cfg: &McpServer) -> Result<Conn> {
-    let mut cmd = tokio::process::Command::new(&cfg.command);
-    cmd.args(&cfg.args)
-        .envs(&cfg.env)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
+async fn start(cfg: &McpServer, policy: &Policy) -> Result<Conn> {
+    let mut cmd = policy.spawn(&cfg.command, &cfg.args);
+    cmd.envs(&cfg.env).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+    // A named secret that isn't set is left out: many keys are optional
+    // (Context7 works without one, with lower rate limits).
+    for name in &cfg.secrets {
+        if let Some(v) = crate::secrets::get(name) {
+            cmd.env(name, v);
+        }
+    }
     let mut child = cmd.spawn()?;
     let stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();
@@ -121,7 +144,7 @@ async fn start(cfg: &McpServer) -> Result<Conn> {
             }
         }
     });
-    let mut conn = Conn { stdin: Mutex::new(stdin), pending, next: AtomicU64::new(1), tools: vec![], _child: child };
+    let mut conn = Conn { stdin: Mutex::new(stdin), pending, next: AtomicU64::new(1), tools: vec![], child };
     request(
         &conn,
         "initialize",

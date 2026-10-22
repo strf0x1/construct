@@ -144,6 +144,8 @@ fn mcp_fake() -> Result<()> {
     use std::io::{BufRead, Write};
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
+    // Real servers log to stderr; it must never reach the protocol stream.
+    eprintln!("fake MCP server running on stdio");
     for line in stdin.lock().lines() {
         let line = line?;
         let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
@@ -161,6 +163,22 @@ fn mcp_fake() -> Result<()> {
                 let text = match v["params"]["name"].as_str() {
                     Some("add") => (a["a"].as_i64().unwrap_or(0) + a["b"].as_i64().unwrap_or(0)).to_string(),
                     Some("echo") => a["text"].as_str().unwrap_or("").to_string(),
+                    // Unlisted probes, so the sandbox e2e can ask what the
+                    // server may do without changing the routed MCP snapshot.
+                    Some("probe_read") => match std::fs::read_to_string(a["path"].as_str().unwrap_or("")) {
+                        Ok(t) => format!("READ {t}"),
+                        Err(e) => format!("DENIED {e}"),
+                    },
+                    Some("probe_env") => std::env::vars().map(|(k, v)| format!("{k}={v}\n")).collect(),
+                    Some("probe_connect") => match std::net::TcpStream::connect(a["addr"].as_str().unwrap_or("")) {
+                        Ok(_) => "CONNECTED".into(),
+                        Err(e) => format!("DENIED {e}"),
+                    },
+                    Some("probe_spawn") => std::process::Command::new("sh")
+                        .args(["-c", "setsid sleep 300 >/dev/null 2>&1 & echo $!"])
+                        .output()
+                        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                        .unwrap_or_else(|e| format!("DENIED {e}")),
                     _ => "unknown tool".into(),
                 };
                 json!({ "content": [{ "type": "text", "text": text }] })

@@ -28,8 +28,9 @@ const SWEEP_CAP: Duration = Duration::from_secs(2);
 const PDEATH: i32 = libc::SIGUSR1;
 
 /// Run `prog` as a supervised child and exit with its status. `parent` is
-/// construct's pid (0 to skip the check).
-pub fn run(parent: u32, prog: &[String]) -> ! {
+/// construct's pid (0 to skip the check). `merge_stderr` sends the program's
+/// stderr to stdout (shell calls); otherwise it keeps the helper's.
+pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
     let watched = sigset(&[libc::SIGCHLD, libc::SIGTERM, libc::SIGINT, libc::SIGHUP, PDEATH]);
     // SAFETY: plain syscalls; this process is single-threaded (see main.rs).
     unsafe {
@@ -47,7 +48,9 @@ pub fn run(parent: u32, prog: &[String]) -> ! {
     let stderr = std::io::stdout().as_fd().try_clone_to_owned();
     let mut cmd = std::process::Command::new(&prog[0]);
     cmd.args(&prog[1..]);
-    if let Ok(fd) = stderr {
+    if let Ok(fd) = stderr
+        && merge_stderr
+    {
         cmd.stderr(fd);
     }
     let shell = match cmd.spawn() {
