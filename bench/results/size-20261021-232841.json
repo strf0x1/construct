@@ -1,0 +1,54 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.1.0",
+    "git_sha": "d93039c3ed95b3d713b08aea85d91ed2561443ff",
+    "git_dirty": false,
+    "binary_sha256": "53ae93e409418ba09e438e6a137894fbbdcce55280f5a5a5b092904c9fc7349a",
+    "config_sha256": "475ecef0c9ca1a6651e2a471ce7ca3aabfdc671d599522c4987b199e54bf4a4a",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "mock-model",
+    "router_mode": "local",
+    "dialect": "openai",
+    "cache": "auto"
+   }
+  },
+  "dev_git_sha": "d93039c3ed95b3d713b08aea85d91ed2561443ff",
+  "dev_dirty": false,
+  "model": null,
+  "bench_py_sha256": "8b367f93b30e9bf24f41588078ea24f1eb45575f7e197d262b6b368d49c86808",
+  "host": "echo",
+  "started": "2026-10-22T05:28:21Z"
+ },
+ "construct": {
+  "install": 19731912,
+  "parts": {
+   "binary": 19731912
+  },
+  "fresh_home_after_first_run": 37102,
+  "first_run_s": 0.0065779680153355,
+  "first_run_rc": 0
+ },
+ "opencode": {
+  "install": 200529376,
+  "parts": {
+   "binary": 200529376
+  }
+ }
+}

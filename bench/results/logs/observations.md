@@ -229,3 +229,16 @@ Proposal 04 step 5 (MCP tools as catalog entries), tier 1, construct only (openc
 - `bench/results/size-20261021-220605.json`: model None; bench 0602f19; construct 0602f19 editor=replace router=local
 - `bench/results/tools-20261021-220544-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
 - `bench/results/tools-20261021-220809.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+
+## 2026-10-21 23:38 note
+
+Issue #51 (ADR 0012), tier 1, construct only (no memory corpus on host). main 3b16106 vs branch: size, frame same. tools: wall worse 73->111 ms with the mock's prefix-cache simulation on (233251); same with main's mock (233516) and with the simulation made opt-in (233750: read/shell/wall same). The cost was the debug mock re-serializing requests, not construct.
+
+- `bench/results/size-20261021-232821-main.json`: model None; bench 3b16106; construct 3b16106 editor=replace router=local
+- `bench/results/size-20261021-232841.json`: model None; bench d93039c; construct d93039c editor=replace router=local
+- `bench/results/frame-20261021-232843-main.json`: model None; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/frame-20261021-232846.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233048-main.json`: model None; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/tools-20261021-233251.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233516.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+- `bench/results/tools-20261021-233750.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local

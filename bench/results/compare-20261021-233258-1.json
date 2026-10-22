@@ -1,0 +1,66 @@
+{
+ "a": "bench/results/frame-20261021-232843-main.json",
+ "b": "bench/results/frame-20261021-232846.json",
+ "comparisons": [
+  {
+   "a": "frame-20261021-232843-main:construct",
+   "b": "frame-20261021-232846:construct",
+   "rows": [
+    {
+     "metric": "first_frame_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.296566,
+     "b": 2.336021,
+     "delta": 0.03945500000000024,
+     "a_spread": [
+      2.133922,
+      2.56845
+     ],
+     "b_spread": [
+      1.568095,
+      2.506345
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "first_output_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.749244,
+     "b": 1.866587,
+     "delta": 0.11734299999999998,
+     "a_spread": [
+      1.668969,
+      1.91802
+     ],
+     "b_spread": [
+      1.192678,
+      2.045073
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "ready_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.410406,
+     "b": 2.417577,
+     "delta": 0.0071710000000000385,
+     "a_spread": [
+      2.252441,
+      2.678276
+     ],
+     "b_spread": [
+      1.646091,
+      2.6126449999999997
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

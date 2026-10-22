@@ -8,9 +8,11 @@
 //! Upstream mode forwards to a real endpoint, injects the key (so harness
 //! configs never hold it) and asks for usage on every stream.
 //!
-//! Script mode also acts as a provider with an automatic prefix cache (tools,
-//! then each message, the order providers cache in), so cache hit rates and
-//! a prefix that breaks between requests show up without a real model.
+//! With `cache`, script mode also acts as a provider with an automatic prefix
+//! cache (tools, then each message, the order providers cache in), so cache
+//! hit rates and a prefix that breaks between requests show up without a real
+//! model. It is off by default: re-serializing each request is time the bench
+//! would bill to the harness.
 //!
 //! Both modes log every request with timestamps to JSONL, which is what the
 //! bench reads: tool-call latency is the gap between a response that ended in
@@ -66,6 +68,8 @@ pub struct Config {
     pub log: Option<PathBuf>,
     pub dump_dir: Option<PathBuf>,
     pub chunk_ms: u64,
+    /// Report simulated prefix-cache hits and writes in usage.
+    pub cache: bool,
 }
 
 struct Shared {
@@ -419,13 +423,14 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let stream = req["stream"].as_bool().unwrap_or(false);
     let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
     let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
-    let cached = (cached_bytes(&s, req) / 4).min(prompt_tokens);
-    // Only providers that cache on request report writes.
-    let written = if req.to_string().contains("\"cache_control\"") { prompt_tokens - cached } else { 0 };
-    let usage = json!({
-        "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10,
-        "prompt_tokens_details": { "cached_tokens": cached, "cache_write_tokens": written },
-    });
+    let mut usage =
+        json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
+    if s.cfg.cache {
+        let cached = (cached_bytes(&s, req) / 4).min(prompt_tokens);
+        // Only providers that cache on request report writes.
+        let written = if req.to_string().contains("\"cache_control\"") { prompt_tokens - cached } else { 0 };
+        usage["prompt_tokens_details"] = json!({ "cached_tokens": cached, "cache_write_tokens": written });
+    }
     let mut chunks: Vec<(u64, Bytes)> = vec![];
     let mut message = json!({ "role": "assistant", "content": Value::Null });
     let mut n_calls = 0;

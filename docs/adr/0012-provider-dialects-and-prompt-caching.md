@@ -66,10 +66,12 @@ Depend on openrouter-rs, which only speaks OpenRouter. Or scatter
   request. Groups that only grow (ADR 0005) still matter: a list that
   changed on every turn would miss on every turn. Compaction misses once in
   the same way.
-- The scripted mock now acts as an automatic prefix cache (tools, then each
-  message). The e2e tests and the tier 1 bench therefore see hit rates and
-  prefix breaks without a model. The finished-turn screen snapshot now shows
-  `cache 47%`.
+- With `--cache` (always on in the e2e `Env`), the scripted mock acts as an
+  automatic prefix cache (tools, then each message), so hit rates and prefix
+  breaks show without a model (`scripts/mock.sh dir s.json --cache`). It is
+  off for the bench. With it on, tier 1 `tools` wall went 73 → 111 ms,
+  because the debug mock re-serializes each request and that time is billed
+  to the harness. The finished-turn screen snapshot now shows `cache 47%`.
 - Revisit if openai-dialect servers turn out to want breakpoints (for
   example a LiteLLM proxy in front of Anthropic). That would mean a new
   dialect, not a knob on `openai`. Also revisit if OpenRouter documents
