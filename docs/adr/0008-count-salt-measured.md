@@ -1,8 +1,9 @@
 # 0008 — The count salt closes stale duplicates under line+hash; hash-only stays unsafe
 
-Status: proposed, 2026-10-21. Accepts 0007's proposal (build the salt as a
-knob, rerun); proposes `salt = "count"` as the `[tools.hashline]` default.
-0002's decision (the default editor stays `replace`) stands.
+Status: accepted, 2026-10-21. Accepts 0007's proposal (build the salt as a
+knob, rerun). The salt stays in the codebase as an opt-in knob, and no
+default changes. 0002's decision (the default editor stays `replace`)
+stands.
 
 ## Context
 
@@ -20,32 +21,33 @@ corpus, with four arms on one binary.
 
 ## Decision
 
-Proposed:
-
-1. **`salt = "count"` should become the `[tools.hashline]` default**, under
-   line+hash. It made 0 wrong-line edits in 20 stale runs, against 6/20
-   unsalted. It showed no cost on the corpus. The change gives up
-   byte-parity with the TypeScript reference whenever a file has duplicate
-   lines, so `matches_the_reference_implementation` stays pinned to `"rank"`.
-   Making it the default is a one-line change to `HashlineConfig::default`,
-   in its own PR.
-2. **`anchor = "hash"` stays a measurement arm, not a recommendation, salt or
+1. **`editor = "replace"` stays the default**, unchanged (0002).
+2. **`[tools.hashline] salt` stays in the codebase, defaulting to
+   `"rank"`.** `"count"` is the setting to use with `editor = "hashline"`.
+   Under line+hash it made 0 wrong-line edits in 20 stale runs, against
+   6/20 unsalted, and showed no cost on the corpus. The default stays
+   `"rank"` so that hashline, which is an arm and not the default editor,
+   keeps byte-parity with the TypeScript reference.
+   `matches_the_reference_implementation` stays pinned to `"rank"`.
+3. **`anchor = "hash"` stays a measurement arm, not a recommendation, salt or
    not.** The salt cut stale wrong-line runs from 10/20 to 3/20, then 0/20 in
    a confirmation run. Hash-only has a second failure that no salt can
    reach. In 6 of 10 hash-only `edit-rename` runs, the model paired a line's
    new text with the anchor of the line above, taken from a fresh read. With
    no line number to check, the edit landed. Line+hash: 0 of 10.
-3. `editor = "replace"` stays the default (0002).
 
 ## Consequences
 
+- A hashline run that cares about duplicates must set `salt = "count"`
+  explicitly. If hashline is ever proposed as the default editor, the salt
+  default should be revisited with it.
 - With the salt on, line+hash has no known stale-anchor hole on this corpus.
   One case remains open and is pinned in
   `count_salt_still_relocates_when_the_count_is_unchanged`: one copy
   removed and another added between a read and an edit.
-- A salted line+hash anchor on a duplicate line no longer matches the
-  reference implementation's. Anyone porting anchors across the two must use
-  `salt = "rank"`.
+- A salted line+hash anchor on a duplicate line does not match the
+  reference implementation's. Anyone comparing anchors with the reference
+  uses the default, `"rank"`.
 - The salt turns a silent wrong-line edit into a loud rejection, and the
   model must re-read and retry. On the stale pair this was free: requests,
   tokens and wall time were all `same`. That holds only for this model.
