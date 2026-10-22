@@ -13,7 +13,11 @@ use crate::config::Config;
 use crate::tools::Group;
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+/// Variables construct sets for a child; a definition's `env` may not.
+const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", crate::child::DEPTH_ENV, "TMPDIR"];
 
 /// Groups a child never has, whatever its allowlist says: memory and skill
 /// writes change what future sessions are told, and history is the parent's
@@ -58,6 +62,10 @@ pub struct AgentDef {
     pub network: bool,
     /// Secret names resolved like construct's own and passed to this child only.
     pub secrets: Vec<String>,
+    /// Plain environment variables for the child (`CODEX_HOME`, a model
+    /// choice). Values are literals, so a credential belongs in `secrets`;
+    /// the names construct sets itself are refused.
+    pub env: BTreeMap<String, String>,
     /// Tokens the model can take; 0 is the parent's. A different model
     /// usually has a different window, and compaction plans against it.
     pub context_window: u32,
@@ -84,6 +92,7 @@ impl Default for AgentDef {
             allow_write: vec![],
             network: false,
             secrets: vec![],
+            env: BTreeMap::new(),
             context_window: 0,
             max_turns: 30,
             timeout: 600,
@@ -169,6 +178,12 @@ impl AgentDef {
     /// under `parent`'s tools (`Catalog::table`).
     pub fn child_config(&self, name: &str, parent: &Config, table: &[(String, Group)]) -> Result<Config> {
         self.protocol(name)?;
+        for key in self.env.keys() {
+            ensure!(
+                !key.is_empty() && !key.contains('=') && !RESERVED_ENV.contains(&key.as_str()),
+                "[agents.{name}.env] {key:?} is not a variable a definition may set"
+            );
+        }
         let group_of = |t: &str| table.iter().find(|(n, _)| n == t).map(|(_, g)| g);
         let mut names = vec![];
         for t in &self.tools {
@@ -302,6 +317,19 @@ mod tests {
         assert!(acp(&|d| d.protocol = "jsonl".into()).contains("protocol"));
         assert!(acp(&|d| d.on_permission = "ask".into()).contains("on_permission"));
         assert!(AgentDef { protocol: "grpc".into(), ..Default::default() }.protocol("x").is_err());
+    }
+
+    #[test]
+    fn env_is_plain_variables_and_not_the_ones_construct_sets() {
+        let (cfg, table) = parent();
+        let mut def = AgentDef::default();
+        def.env.insert("CODEX_HOME".into(), "/x".into());
+        assert!(def.child_config("a", &cfg, &table).is_ok());
+        for bad in ["CONSTRUCT_HOME", "CONSTRUCT_DEPTH", "TMPDIR", "A=B", ""] {
+            let mut def = AgentDef::default();
+            def.env.insert(bad.into(), "v".into());
+            assert!(def.child_config("a", &cfg, &table).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

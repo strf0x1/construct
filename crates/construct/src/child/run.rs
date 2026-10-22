@@ -139,6 +139,7 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0);
+    cmd.envs(&spec.def.env);
     // Only the secrets the definition names. A name that isn't set is left out.
     for name in spec.def.secret_names(spec.parent) {
         if let Some(v) = crate::secrets::get(&name) {

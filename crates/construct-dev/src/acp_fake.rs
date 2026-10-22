@@ -22,6 +22,9 @@ pub struct Opts {
     /// Offer only these option kinds (comma-separated) instead of all four.
     #[arg(long)]
     kinds: Option<String>,
+    /// Report this environment variable's value in the closing message.
+    #[arg(long)]
+    report_env: Option<String>,
     /// Keep running after the turn ends, ignoring stdin closing, as some real
     /// adapters (codex-acp) do.
     #[arg(long)]
@@ -122,7 +125,8 @@ pub fn run(o: Opts) -> Result<()> {
                     }
                     continue;
                 }
-                text(&sid, &format!("done: {answer}"));
+                let env = o.report_env.as_ref().map(|n| format!(" {n}={}", std::env::var(n).unwrap_or_default()));
+                text(&sid, &format!("done: {answer}{}", env.unwrap_or_default()));
                 send(json!({ "jsonrpc": "2.0", "id": id, "result": { "stopReason": "end_turn",
                     "usage": { "inputTokens": 11, "outputTokens": 7, "cachedReadTokens": 5 } } }));
                 if o.linger {

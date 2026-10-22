@@ -46,6 +46,10 @@ said ACP would replace the wire and keep the rest.
 - `session/update` tool calls carry ACP's fixed `kind` (`read`, `edit`,
   `search`, `execute`, `fetch`, `other`), declared once per tool as
   `Tool::kind`; the name stays in `title`.
+- `[agents.x] env = { NAME = "value" }` sets plain variables for the child
+  (`CODEX_HOME`, a model choice); credentials stay in `secrets`, and the
+  names construct sets itself (`CONSTRUCT_HOME`, `CONSTRUCT_DEPTH`, `TMPDIR`)
+  are refused.
 - A `command` agent runs its own tools, prompt and model, so `tools`,
   `prompt`, `model` and `base_url` are refused with it, and it gets no
   implicit endpoint key. It needs `allow_read` for its install path and
@@ -60,7 +64,9 @@ asks a human yet: a TUI prompt for `request_permission` is a follow-up, as is
 
 ## Evidence
 
-#33. Run for real against opencode 1.18 (`opencode acp`, a free model) as a
+#33. A live parent (z-ai/glm-5.3-flash on OpenRouter) chose to delegate to a
+construct scout over `jsonl` and over `acp`: same answer, same journal rows
+per session. Run for real against opencode 1.18 (`opencode acp`, a free model) as a
 sandboxed child: handshake, a prompt, `bash` tool calls, journaled under its
 ACP session id. That run found that `network = true` children never started
 (a port rule for TCP the ruleset didn't handle); fixed in `sandbox/mod.rs` with

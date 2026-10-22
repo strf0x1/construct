@@ -481,3 +481,15 @@ fn an_agent_that_ignores_stdin_closing_is_stopped_once_its_turn_is_done() {
     assert_eq!(end.payload["ok"], true, "{}", end.payload);
     assert!(started.elapsed().as_secs() < budget(30), "waited for the lingering agent");
 }
+
+#[test]
+fn an_agents_env_reaches_the_child_and_construct_owned_names_are_refused() {
+    let (env, out) = ext_run("acp-ext-env", "env = { GREETING = \"hello there\" }", &["--report-env", "GREETING"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.contains("GREETING=hello there"), "{back}");
+
+    let (_, out) = ext_run("acp-ext-env-bad", "env = { CONSTRUCT_HOME = \"/elsewhere\" }", &[]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("is not a variable a definition may set"), "{}", text(&out));
+}
