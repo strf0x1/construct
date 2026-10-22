@@ -14,7 +14,7 @@ pub mod ops;
 
 use super::super::fs::{encoding_error, resolve};
 use super::super::read::{LINE_MAX, READ_LINES, list_dir};
-use super::super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
+use super::super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
 use crate::config::{AnchorMode, HashlineConfig, Salt};
 use fsio::ReadError;
 use serde_json::{Value, json};
@@ -92,6 +92,9 @@ impl HashlineRead {
 impl Tool for HashlineRead {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Read
     }
     fn group(&self) -> Group {
         Group::Core
@@ -217,6 +220,9 @@ impl HashlineEdit {
 impl Tool for HashlineEdit {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Edit
     }
     fn group(&self) -> Group {
         Group::Core

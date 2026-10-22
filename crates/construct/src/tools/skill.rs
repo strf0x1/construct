@@ -1,7 +1,7 @@
 //! skill (load a procedure) and skill_manage (write the library). Both work
 //! on the global library and, inside a repo, its project kit.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
 use serde_json::{Value, json};
 
 pub struct SkillView;
@@ -14,6 +14,9 @@ impl SkillView {
 impl Tool for SkillView {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Read
     }
     fn group(&self) -> Group {
         Group::Skills
@@ -51,6 +54,9 @@ impl SkillManage {
 impl Tool for SkillManage {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Edit
     }
     fn group(&self) -> Group {
         Group::SkillWrite

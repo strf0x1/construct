@@ -5,7 +5,7 @@
 //! sweep, and only then kills the process group. The helper's stderr is its
 //! report of what it stopped.
 
-use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, def, obj};
+use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
 use crate::sandbox::{GRACE, SWEPT, StopOnDrop};
 use serde_json::{Value, json};
 use std::process::Stdio;
@@ -25,6 +25,9 @@ impl Shell {
 impl Tool for Shell {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Execute
     }
     fn group(&self) -> Group {
         Group::Core

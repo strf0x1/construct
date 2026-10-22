@@ -7,7 +7,7 @@
 //! the only way in, and every limit on the SQL one (docs/adr/0009) is
 //! enforced by SQLite itself, not by parsing the query.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
@@ -34,6 +34,9 @@ impl RecallResult {
 impl Tool for RecallResult {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Read
     }
     fn group(&self) -> Group {
         Group::History
@@ -87,6 +90,9 @@ impl JournalQuery {
 impl Tool for JournalQuery {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Search
     }
     fn group(&self) -> Group {
         Group::History

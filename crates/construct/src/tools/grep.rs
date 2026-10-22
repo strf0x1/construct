@@ -2,7 +2,7 @@
 //! and needs nothing installed.
 
 use super::fs::{display, resolve, walker};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, obj};
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{BinaryDetection, SearcherBuilder, sinks::UTF8};
 use serde_json::{Value, json};
@@ -20,6 +20,9 @@ impl Grep {
 impl Tool for Grep {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Search
     }
     fn group(&self) -> Group {
         Group::Core
