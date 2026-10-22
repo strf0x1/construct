@@ -25,7 +25,10 @@ def legacy(rows):
         elif ty == "request":
             model = p.get("model", model)
         elif ty == "usage":
-            usage = {"prompt_tokens": p.get("prompt", 0), "completion_tokens": p.get("completion", 0), "cached_tokens": p.get("cached", 0)}
+            usage = {
+                "prompt_tokens": p.get("prompt", 0), "completion_tokens": p.get("completion", 0), "cached_tokens": p.get("cached", 0),
+                "cache_write_tokens": p.get("cache_write", 0), "cost": p.get("cost"),
+            }
             out.append({"type": "usage", "at": at, "model": model, "usage": usage})
         elif ty == "route":
             skills = []

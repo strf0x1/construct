@@ -28,7 +28,7 @@ SKIP = {"rejection_codes", "unintended", "turns", "records", "series", "rss", "s
 # Higher is better for these; everything else (time, tokens, requests, errors,
 # rejections, sizes) is lower-better. Boolean checks are higher-better unless
 # their name is in LOWER_BOOL.
-HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries)($|[._])|^checks\.")
+HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens)($|[._])|^checks\.")
 # No better direction: a different editor may rightly take more or fewer calls.
 # These get `higher`/`lower` instead of `better`/`worse`.
 NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|n_tools)$")

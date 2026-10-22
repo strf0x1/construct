@@ -2,7 +2,7 @@
 //! Carried by every session's head event in the journal, sent as the first
 //! event of a turn, and printed by `construct manifest` for the bench to record.
 
-use crate::config::{Config, HashlineConfig};
+use crate::config::{CacheMode, Config, HashlineConfig};
 use crate::tools::Catalog;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -26,6 +26,12 @@ pub struct Manifest {
     pub hashline: Option<HashlineConfig>,
     pub model: String,
     pub router_mode: String,
+    /// The resolved request dialect (`llm::dialect`), and whether it may
+    /// mark cache breakpoints.
+    #[serde(default)]
+    pub dialect: String,
+    #[serde(default)]
+    pub cache: CacheMode,
 }
 
 impl Manifest {
@@ -41,6 +47,8 @@ impl Manifest {
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),
+            dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),
+            cache: cfg.provider.cache,
         }
     }
 

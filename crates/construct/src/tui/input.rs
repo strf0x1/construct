@@ -162,7 +162,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "new" | "clear" => {
             app.blocks.clear();
             app.cache.clear();
-            app.tokens = 0;
+            app.usage = Default::default();
             app.context_pct = 0;
             app.groups.clear();
             let _ = cmd.send(Cmd::New);

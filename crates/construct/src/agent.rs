@@ -44,7 +44,7 @@ pub struct Agent {
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
         let key = crate::secrets::api_key(&cfg.api_key_secret);
-        let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
+        let client = llm::Client::new(&cfg, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -254,6 +254,8 @@ impl Agent {
                     prompt: completion.usage.prompt_tokens,
                     completion: completion.usage.completion_tokens,
                     cached: completion.usage.cached_tokens,
+                    cache_write: completion.usage.cache_write_tokens,
+                    cost: completion.usage.cost,
                 },
                 tx,
             );
@@ -274,6 +276,8 @@ impl Agent {
                 completion: turn_usage.completion_tokens,
                 ms: started.elapsed().as_millis() as u64,
                 interrupted,
+                cached: turn_usage.cached_tokens,
+                cost: turn_usage.cost,
             },
             tx,
         );
@@ -296,7 +300,7 @@ impl Agent {
             max_tokens: self.cfg.max_tokens,
             temperature: self.cfg.temperature,
         };
-        let body = llm::body(&req);
+        let body = self.client.body(&req);
         self.journal.emit(
             Event::Request {
                 model: self.cfg.model.clone(),

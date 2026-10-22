@@ -220,7 +220,7 @@ class Harness:
     def env(self):
         return {}
 
-    def configure(self, url, model):
+    def configure(self, url, model, upstream=None):
         raise NotImplementedError
 
     def headless(self, prompt, cont=False, cwd=None):
@@ -264,13 +264,17 @@ class Construct(Harness):
             e["CONSTRUCT_ROUTER"] = "local"
         return e
 
-    def configure(self, url, model):
+    def configure(self, url, model, upstream=None):
         self.home.mkdir(parents=True, exist_ok=True)
         cfg = f'base_url = "{url}"\nmodel = "{model}"\n'
         if self.tools:
             cfg += f"tools = {{ {self.tools} }}\n"
         if not self.learn:
             cfg += "\n[learn]\nenabled = false\n"
+        if upstream and "openrouter.ai" in upstream:
+            # The proxy hides the host, so name the dialect: it decides the
+            # cache breakpoints and asks for cost in usage.
+            cfg += '\n[provider]\ndialect = "openrouter"\n'
         (self.home / "config.toml").write_text(cfg)
         skills = self.home / "skills"
         if self.seed_skills and not skills.exists():
@@ -303,7 +307,7 @@ class Hermes(Sandboxed, Harness):
     def env(self):
         return {"HERMES_HOME": str(self.home)}
 
-    def configure(self, url, model):
+    def configure(self, url, model, upstream=None):
         self.home.mkdir(parents=True, exist_ok=True)
         (self.home / "config.yaml").write_text(
             f"model:\n  provider: custom\n  default: {model}\n  base_url: {url}\n  api_key: via-proxy\n"
@@ -332,7 +336,7 @@ class Opencode(Sandboxed, Harness):
             "XDG_STATE_HOME": str(h / "state"),
         }
 
-    def configure(self, url, model):
+    def configure(self, url, model, upstream=None):
         d = self.home / "config" / "opencode"
         d.mkdir(parents=True, exist_ok=True)
         cfg = {
@@ -833,6 +837,32 @@ def usage_of(x, k):
     return (x.get("usage") or {}).get(k) or 0
 
 
+def cache_metrics(recs):
+    """Cache reads, writes, hit rate and $ over a run's records, from the
+    usage each provider reported (DeepSeek names hits differently). Cost is
+    None unless the provider reported one."""
+    prompt = cached = written = 0
+    costs = []
+    for x in recs:
+        u = x.get("usage") or {}
+        d = u.get("prompt_tokens_details") or {}
+        prompt += u.get("prompt_tokens") or 0
+        cached += d.get("cached_tokens") or u.get("prompt_cache_hit_tokens") or 0
+        written += d.get("cache_write_tokens") or 0
+        if isinstance(u.get("cost"), (int, float)):
+            costs.append(u["cost"])
+    return {
+        "cached_tokens": cached,
+        "cache_write_tokens": written,
+        "cache_hit_rate": cached / prompt if prompt else None,
+        "cost_usd": sum(costs) if costs else None,
+    }
+
+
+def cache_stats(v):
+    return {k: stats([x.get(k) for x in v]) for k in ("cached_tokens", "cache_write_tokens", "cache_hit_rate", "cost_usd")}
+
+
 def suite_task(args):
     names = args.harness
     tasks = [tasklib.load(t) for t in args.tasks]
@@ -845,7 +875,7 @@ def suite_task(args):
         vars = tasklib.make_vars(task)
         tasklib.materialize(task, work, vars)
         ep = Endpoint(base / "ep", upstream=args.upstream)
-        h.configure(ep.url, args.model)
+        h.configure(ep.url, args.model, upstream=args.upstream)
         tasklib.seed_home(task, h.home, vars)
         budget = tasklib.Budget(task, ep)
         turns, stopped = [], None
@@ -910,6 +940,7 @@ def suite_task(args):
             "side_requests_before_first_agent": sum(1 for x in recs[: recs.index(first)] if first) if first else None,
             "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
             "completion_tokens": sum(usage_of(x, "completion_tokens") for x in recs),
+            **cache_metrics(recs),
             "tool_gaps_ms": tool_gaps(recs),
             "peak_mb": max((t["peak_mb"] or 0) for t in turns),
             "learn_wait_s": learn_s,
@@ -920,6 +951,8 @@ def suite_task(args):
         print(
             f"{prefix} {n:10} {m['task']:16} success={m['success']} {m['checks']} requests={m['requests']} tokens={m['prompt_tokens']}+{m['completion_tokens']} "
             f"first={m['first_request']['prompt_tokens']} wall {m['wall_s']:.0f}s peak {m['peak_mb']:.0f}MB"
+            + (f" cache={m['cache_hit_rate']:.0%}" if m["cache_hit_rate"] is not None else "")
+            + (f" ${m['cost_usd']:.3f}" if m["cost_usd"] is not None else "")
             + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
             + (" OVER BUDGET" if m["over_budget"] else "")
@@ -948,6 +981,7 @@ def suite_task(args):
             "prompt_tokens": stats([x["prompt_tokens"] for x in v]),
             "completion_tokens": stats([x["completion_tokens"] for x in v]),
             "first_request_tokens": stats([x["first_request"]["prompt_tokens"] for x in v]),
+            **cache_stats(v),
             "tool_gap_ms": stats([g for x in v for g in x["tool_gaps_ms"]]),
             "peak_mb": stats([x["peak_mb"] for x in v]),
             "edit_calls": stats([x["edit"]["calls"] for x in v if "edit" in x]),
@@ -989,7 +1023,7 @@ def suite_routing(args):
             (skills / sname / "SKILL.md").write_text(f"---\nname: {sname}\ndescription: {desc}\n---\n\n# {sname}\n\n1. Follow the team runbook for this.\n")
         tasklib.seed_home(task, h.home, vars)
         ep = Endpoint(base / "ep", upstream=args.upstream)
-        h.configure(ep.url, args.model)
+        h.configure(ep.url, args.model, upstream=args.upstream)
         cmd = [str(CONSTRUCT), "run", "--json", "--no-learn", task.turns[0]]
         t0 = time.time()
         res = run(cmd, h.full_env(), work, timeout=args.timeout or task.timeout_s, stop_when=tasklib.Budget(task, ep))
@@ -1013,6 +1047,7 @@ def suite_routing(args):
             "requests": len(recs),
             "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
             "completion_tokens": sum(usage_of(x, "completion_tokens") for x in recs),
+            **cache_metrics(recs),
             "wall_s": res["wall_s"],
         }
 
@@ -1037,6 +1072,7 @@ def suite_routing(args):
             "ran_make_release": sum(x["ran_make_release"] for x in v),
             "requests": stats([x["requests"] for x in v]),
             "prompt_tokens": stats([x["prompt_tokens"] for x in v]),
+            **cache_stats(v),
             "wall_s": stats([x["wall_s"] for x in v]),
         }
         for n, v in results.items()
@@ -1099,6 +1135,7 @@ def suite_loop(args):
             "requests": sum(1 for x in recs if x.get("n_tools")),
             "learn_requests": sum(1 for x in recs if not x.get("n_tools")),
             "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in recs),
+            **cache_metrics(recs),
             "suggested": [s[0] for s in route.get("skills", [])],
             "skill_loaded": any(c.get("name") == "skill" for c in calls),
             "outside_workdir": sum(1 for c in calls if "~" in c["args"] or "/home/" in c["args"]),
@@ -1112,7 +1149,7 @@ def suite_loop(args):
             h = make_harness(n, base / "home")
             SEEN[n] = h
             ep = Endpoint(base / "ep", upstream=args.upstream)
-            h.configure(ep.url, args.model)
+            h.configure(ep.url, args.model, upstream=args.upstream)
             vars = tasklib.make_vars(task)
             s = [session(h, ep, base, 0, True, vars), session(h, ep, base, 1, True, vars), session(h, ep, base, 2, False, vars)]
             ledger = (h.home / "learn" / "ledger.jsonl")
@@ -1134,7 +1171,7 @@ def suite_loop(args):
         h = Construct(base / "home")
         SEEN["control"] = h
         ep = Endpoint(base / "ep", upstream=args.upstream)
-        h.configure(ep.url, args.model)
+        h.configure(ep.url, args.model, upstream=args.upstream)
         c = session(h, ep, base, 2, False, tasklib.make_vars(task))
         ep.close()
         results["control"].append({"sessions": [c]})

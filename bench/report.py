@@ -83,6 +83,9 @@ def main():
         out.append(row("first request prompt tokens", [med(s[n], "first_request_tokens") for n in NAMES]))
         out.append(row("total prompt tokens, 3 turns", [med(s[n], "prompt_tokens") for n in NAMES]))
         out.append(row("total completion tokens", [med(s[n], "completion_tokens") for n in NAMES]))
+        pct = lambda v, k=100: None if v is None else v * k
+        out.append(row("prompt cache hit rate (%)", [pct(med(s[n], "cache_hit_rate")) for n in NAMES], lower_better=False))
+        out.append(row("cost per run (¢)", [pct(med(s[n], "cost_usd")) for n in NAMES]))
         out.append(row("model requests, 3 turns", [med(s[n], "requests") for n in NAMES]))
         out.append(row("wall time, 3 turns (s)", [med(s[n], "wall_s") for n in NAMES]))
         out.append(row("tool gap on real calls, p50 (ms)", [med(s[n], "tool_gap_ms") for n in NAMES]))

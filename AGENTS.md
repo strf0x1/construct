@@ -14,7 +14,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`, journaled as it is emitted. |
 | `crates/construct/src/event.rs` | The one `Event` type: what the agent emits, what `--json` prints, what a journal row holds. Additive-only. |
 | `crates/construct/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape. See ADR 0008. |
-| `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
+| `crates/construct/src/llm/` | Streaming `/chat/completions` client (hand-rolled SSE). Provider quirks live only in `dialect.rs` (it edits the standard body); `usage.rs` reads every provider's token, cache and cost fields. |
 | `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history, mcp); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
@@ -137,6 +137,10 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   read/edit family (`"replace"`, or `"hashline"` with knobs under
   `[tools.hashline]`; `CONSTRUCT_TOOLS_EDITOR` for one run). `construct
   manifest` prints what a build and config run.
+- A provider quirk (cache breakpoints, renamed parameters, extra fields) is a
+  field on `llm::dialect::Provider` and a few lines in `shape`, never a branch
+  in the client or the agent. The `openai` dialect sends only standard fields
+  (ADR 0012).
 - First frame must not wait on anything: no terminal queries before drawing,
   no secret or network work on the UI path. `CONSTRUCT_TRACE=1` writes startup
   milestones to `$CONSTRUCT_HOME/trace.log`.
