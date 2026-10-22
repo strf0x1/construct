@@ -1,0 +1,14 @@
+description = "Issue #26, worst geometry: the block a teammate adds between turns is exactly as tall as the gap between copies, so a stale anchor names the wrong copy in both hashline modes (see anchors.rs, line_hash_accepts_a_stale_duplicate_when_the_insert_matches_the_gap)."
+turns = [
+  "Read access.py and tell me what check() returns for a banned user. Don't change anything yet.",
+  "Change the final `return None` of check() (the one after `audit(user)`) to `return user.id`. Don't change anything else.",
+]
+timeout_s = 300
+changes = ["access.py"]
+
+[budget]
+# Tight: a model that sees the unexplained change can spend the whole
+# timeout investigating it. The edit is settled within a few requests of turn
+# 2, and a stopped run still records exact and no_wrong_line.
+max_requests = 25
+max_prompt_tokens = 600000
