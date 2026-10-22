@@ -16,6 +16,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape. See ADR 0008. |
 | `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
 | `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history, mcp); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
+| `crates/construct/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
 | `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
@@ -157,7 +158,7 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   step to the sandbox e2e test, rather than turning the sandbox off.
 - MCP servers run under the same helper and policy as shell commands (ADR
   0010). A server that needs more declares it in its `[mcp.<name>]` entry
-  (`allow_read`, `allow_write`, `network = false`, `secrets = [...]`); never
+  (`allow_read`, `allow_write`, `network = false`, `secrets = [...]`, `timeout`); never
   spawn one outside `Policy::spawn`.
 - Never point a harness at a real model without the sandbox: an agent with
   nothing to go on searches the disk, and once read the bench key files.
