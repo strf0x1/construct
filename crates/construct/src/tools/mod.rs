@@ -275,7 +275,8 @@ impl Catalog {
         tools.push(Arc::new(memory::Memory));
         tools.push(Arc::new(skill::SkillView));
         tools.push(Arc::new(skill::SkillManage));
-        tools.push(Arc::new(history::SessionSearch));
+        tools.push(Arc::new(history::RecallResult));
+        tools.push(Arc::new(history::JournalQuery));
         for d in &cfg.disabled {
             if !d.starts_with("mcp__") && !tools.iter().any(|t| t.name() == d) {
                 bail!("tools.disabled: unknown tool {d:?}");
