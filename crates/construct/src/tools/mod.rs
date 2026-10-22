@@ -14,6 +14,7 @@ pub mod fs;
 pub mod glob;
 pub mod grep;
 pub mod history;
+pub mod mcp;
 pub mod memory;
 pub mod read;
 pub mod shell;
@@ -22,14 +23,13 @@ pub mod web;
 pub mod write;
 
 use crate::config::{Paths, ToolsConfig};
-use crate::mcp;
 use crate::skills::Library;
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::watch;
 
 pub const OUTPUT_MAX: usize = 30_000;
@@ -80,7 +80,7 @@ impl Group {
 #[async_trait::async_trait]
 pub trait Tool: Send + Sync {
     /// Wire name the model calls.
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
     fn group(&self) -> Group;
     /// The OpenAI function definition.
     fn definition(&self) -> Value;
@@ -199,7 +199,7 @@ pub struct Ctx {
     pub skills: Library,
     /// The current repo's kit skills, when construct runs inside a repo.
     pub project_skills: Option<Library>,
-    pub mcp: Option<Arc<mcp::Manager>>,
+    pub mcp: Option<Arc<crate::mcp::Manager>>,
     pub sandbox: crate::sandbox::Policy,
     read_files: Mutex<HashSet<PathBuf>>,
 }
@@ -210,7 +210,7 @@ impl Ctx {
         paths: Paths,
         memory: crate::memory::Store,
         cancel: watch::Receiver<bool>,
-        mcp: Option<Arc<mcp::Manager>>,
+        mcp: Option<Arc<crate::mcp::Manager>>,
         sandbox: crate::sandbox::Policy,
     ) -> Self {
         let http = reqwest::Client::builder()
@@ -242,10 +242,12 @@ impl Ctx {
 }
 
 /// The tools this session has. Definition order in requests is the order
-/// tools are pushed in `build`, grouped by `Group`'s order.
+/// tools are pushed in `build` (then MCP tools in discovery order), grouped
+/// by `Group`'s order.
 pub struct Catalog {
-    tools: Vec<Arc<dyn Tool>>,
-    mcp: Option<Arc<mcp::Manager>>,
+    /// Grows only when an MCP server starts (`start_mcp`).
+    tools: RwLock<Vec<Arc<dyn Tool>>>,
+    mcp: Option<Arc<crate::mcp::Manager>>,
     /// Names removed by `[tools] disabled`, kept to filter MCP tools, which
     /// are only known once their server starts.
     disabled: Vec<String>,
@@ -253,7 +255,7 @@ pub struct Catalog {
 
 impl Catalog {
     /// The one place implementations are chosen.
-    pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<mcp::Manager>>) -> Result<Catalog> {
+    pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell)];
         match cfg.editor.as_str() {
             "replace" => {
@@ -278,37 +280,48 @@ impl Catalog {
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
         for d in &cfg.disabled {
-            if !d.starts_with("mcp__") && !tools.iter().any(|t| t.name() == d) {
+            if crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
                 bail!("tools.disabled: unknown tool {d:?}");
             }
         }
         tools.retain(|t| !cfg.disabled.iter().any(|d| d == t.name()));
-        Ok(Catalog { tools, mcp, disabled: cfg.disabled.clone() })
+        Ok(Catalog { tools: RwLock::new(tools), mcp, disabled: cfg.disabled.clone() })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Arc<dyn Tool>> {
-        self.tools.iter().find(|t| t.name() == name)
+    /// Start an MCP server if needed and add the tools it lists, minus
+    /// `[tools] disabled`. Calling it again for a started server adds nothing.
+    pub async fn start_mcp(&self, server: &str) -> Result<()> {
+        let Some(m) = &self.mcp else { bail!("no MCP server {server}") };
+        let listed = m.ensure(server).await?;
+        let mut tools = self.tools.write().unwrap(); // a poisoned lock is a panic elsewhere
+        for t in listed {
+            let t = mcp::McpTool::new(m, server, t);
+            if !self.disabled.iter().any(|d| d == t.name()) && !tools.iter().any(|x| x.name() == t.name()) {
+                tools.push(Arc::new(t));
+            }
+        }
+        Ok(())
     }
 
-    pub fn names(&self) -> Vec<&'static str> {
-        self.tools.iter().map(|t| t.name()).collect()
+    fn tools(&self) -> std::sync::RwLockReadGuard<'_, Vec<Arc<dyn Tool>>> {
+        self.tools.read().unwrap() // a poisoned lock is a panic elsewhere
+    }
+
+    pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
+        self.tools().iter().find(|t| t.name() == name).cloned()
+    }
+
+    pub fn names(&self) -> Vec<String> {
+        self.tools().iter().map(|t| t.name().to_string()).collect()
     }
 
     /// Tool definitions for the enabled groups, in a stable order.
     pub fn definitions<'a>(&self, enabled: impl IntoIterator<Item = &'a Group>) -> Vec<Value> {
         let enabled: BTreeSet<&Group> = enabled.into_iter().collect();
+        let tools = self.tools();
         let mut out = Vec::new();
         for g in enabled {
-            if let Group::Mcp(server) = g {
-                if let Some(m) = &self.mcp {
-                    out.extend(m.definitions(server).into_iter().filter(|d| {
-                        let name = d.pointer("/function/name").and_then(Value::as_str).unwrap_or("");
-                        !self.disabled.iter().any(|x| x == name)
-                    }));
-                }
-                continue;
-            }
-            out.extend(self.tools.iter().filter(|t| t.group() == *g).map(|t| t.definition()));
+            out.extend(tools.iter().filter(|t| t.group() == *g).map(|t| t.definition()));
         }
         out
     }
@@ -322,8 +335,9 @@ impl Catalog {
         if self.disabled.iter().any(|d| d == name) {
             return None;
         }
-        let server = name.strip_prefix("mcp__")?.split("__").next()?;
-        Some(Group::Mcp(server.to_string()))
+        // A server's tools join the catalog when it starts; naming one of
+        // them is how the model asks for that.
+        Some(Group::Mcp(crate::mcp::server_of(name)?.to_string()))
     }
 
     pub fn readonly(&self, name: &str) -> bool {
@@ -349,7 +363,8 @@ impl Catalog {
             (Group::SkillWrite, "write the skill library"),
         ];
         for (g, d) in base {
-            let names: Vec<&str> = self.tools.iter().filter(|t| t.group() == g).map(|t| t.name()).collect();
+            let names: Vec<String> =
+                self.tools().iter().filter(|t| t.group() == g).map(|t| t.name().to_string()).collect();
             if names.is_empty() || enabled.contains(&g) {
                 continue;
             }
@@ -379,12 +394,6 @@ impl Catalog {
         };
         if let Some(t) = self.get(name) {
             return t.call(ctx, a).await;
-        }
-        if name.starts_with("mcp__")
-            && !self.disabled.iter().any(|d| d == name)
-            && let Some(m) = &self.mcp
-        {
-            return m.call(name, a).await.map(Output::plain).map_err(ToolError::from);
         }
         Err(ToolError::new("unknown_tool", format!("unknown tool {name}")))
     }

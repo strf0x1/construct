@@ -42,61 +42,68 @@ impl Drop for Conn {
     }
 }
 
+/// The wire name of a server's tool: `mcp__<server>__<tool>`. Declared here
+/// and nowhere else; `server_of` is its inverse.
+pub fn wire_name(server: &str, tool: &str) -> String {
+    format!("mcp__{server}__{tool}")
+}
+
+/// The server a wire name belongs to, if it is an MCP tool's.
+pub fn server_of(name: &str) -> Option<&str> {
+    name.strip_prefix("mcp__")?.split_once("__").map(|(s, _)| s)
+}
+
+/// One tool a server listed, as `tools/list` described it.
+pub struct RemoteTool {
+    pub name: String,
+    pub description: String,
+    pub schema: Value,
+}
+
 pub struct Manager {
     servers: BTreeMap<String, McpServer>,
     policies: BTreeMap<String, Policy>,
     conns: Mutex<HashMap<String, Arc<Conn>>>,
-    /// Tool definitions per started server, readable without awaiting.
-    defs: std::sync::Mutex<HashMap<String, Vec<Value>>>,
 }
 
 impl Manager {
     pub fn new(servers: BTreeMap<String, McpServer>, sandbox: &SandboxConfig, cwd: &Path, paths: &Paths) -> Self {
         let policies = servers.iter().map(|(n, s)| (n.clone(), Policy::for_mcp(sandbox, s, cwd, paths))).collect();
-        Self { servers, policies, conns: Mutex::new(HashMap::new()), defs: std::sync::Mutex::new(HashMap::new()) }
+        Self { servers, policies, conns: Mutex::new(HashMap::new()) }
     }
 
     pub fn servers(&self) -> &BTreeMap<String, McpServer> {
         &self.servers
     }
 
-    /// Start a server if needed and cache its tool definitions.
-    pub async fn ensure(&self, name: &str) -> Result<()> {
+    /// Start a server if needed; the tools it listed.
+    pub async fn ensure(&self, name: &str) -> Result<Vec<RemoteTool>> {
+        let conn = self.conn(name).await?;
+        Ok(conn
+            .tools
+            .iter()
+            .map(|t| RemoteTool {
+                name: t["name"].as_str().unwrap_or("").to_string(),
+                description: t["description"].as_str().unwrap_or("").to_string(),
+                schema: t.get("inputSchema").cloned().unwrap_or(json!({"type":"object"})),
+            })
+            .collect())
+    }
+
+    async fn conn(&self, name: &str) -> Result<Arc<Conn>> {
         let mut conns = self.conns.lock().await;
-        if conns.contains_key(name) {
-            return Ok(());
+        if let Some(c) = conns.get(name) {
+            return Ok(c.clone());
         }
         let cfg = self.servers.get(name).ok_or_else(|| anyhow!("no MCP server {name}"))?;
         let policy = &self.policies[name];
         let conn = Arc::new(start(cfg, policy).await.with_context(|| format!("starting MCP server {name}"))?);
-        let defs = conn
-            .tools
-            .iter()
-            .map(|t| {
-                json!({
-                    "type": "function",
-                    "function": {
-                        "name": format!("mcp__{name}__{}", t["name"].as_str().unwrap_or("")),
-                        "description": crate::llm::truncate(t["description"].as_str().unwrap_or(""), 1024),
-                        "parameters": t.get("inputSchema").cloned().unwrap_or(json!({"type":"object"})),
-                    }
-                })
-            })
-            .collect();
-        self.defs.lock().unwrap().insert(name.to_string(), defs);
-        conns.insert(name.to_string(), conn);
-        Ok(())
+        conns.insert(name.to_string(), conn.clone());
+        Ok(conn)
     }
 
-    pub fn definitions(&self, server: &str) -> Vec<Value> {
-        self.defs.lock().unwrap().get(server).cloned().unwrap_or_default()
-    }
-
-    pub async fn call(&self, full: &str, args: Value) -> Result<String, String> {
-        let rest = full.strip_prefix("mcp__").ok_or("not an MCP tool")?;
-        let (server, tool) = rest.split_once("__").ok_or("malformed MCP tool name")?;
-        self.ensure(server).await.map_err(|e| e.to_string())?;
-        let conn = self.conns.lock().await.get(server).cloned().ok_or("server not running")?;
+    pub async fn call(&self, server: &str, tool: &str, args: Value) -> Result<String, String> {
+        let conn = self.conn(server).await.map_err(|e| e.to_string())?;
         let res = request(&conn, "tools/call", json!({ "name": tool, "arguments": args }), 300)
             .await
             .map_err(|e| e.to_string())?;

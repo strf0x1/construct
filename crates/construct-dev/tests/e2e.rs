@@ -385,6 +385,35 @@ fn mcp_server_starts_lazily_when_routed() {
 }
 
 #[test]
+fn mcp_tools_join_the_catalog_when_called_and_obey_disabled() {
+    // Nothing routes to calc, so the model's call is what starts it. The
+    // server's listed tools then exist like any other, minus the disabled one;
+    // a name it never listed does not exist at all.
+    let env = Env::new(
+        "mcp-catalog",
+        json!({ "steps": [
+            { "call": "mcp__calc__add", "args": { "a": 2, "b": 3 } },
+            { "call": "mcp__calc__echo", "args": { "text": "hi" } },
+            { "call": "mcp__calc__probe_env", "args": {} },
+            { "text": "done" }
+        ] }),
+    );
+    env.config(&format!(
+        "[router]\nmode = \"local\"\n[tools]\ndisabled = [\"mcp__calc__echo\"]\n[mcp.calc]\ncommand = \"{}\"\nargs = [\"mcp-fake\"]\ndescription = \"calculator\"\n",
+        dev_bin().display()
+    ));
+    let out = env.run(&["run", "--no-learn", "say hello"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert!(!tool_names(&reqs[0]).iter().any(|n| n.starts_with("mcp__")), "nothing routed");
+    assert_eq!(tool_names(&reqs[1]).iter().filter(|n| n.starts_with("mcp__")).collect::<Vec<_>>(), ["mcp__calc__add"]);
+    assert_eq!(
+        tool_results(&env),
+        ["5", "Error: unknown tool mcp__calc__echo", "Error: unknown tool mcp__calc__probe_env"]
+    );
+}
+
+#[test]
 fn tui_streams_a_turn_and_esc_interrupts_a_slow_one() {
     let env = Env::new(
         "tui",
@@ -1089,7 +1118,7 @@ fn a_history_turn_works_without_chatstrata_on_path() {
 
 fn fake_server(name: &str, extra: &str) -> String {
     format!(
-        "[mcp.{name}]\ncommand = \"{}\"\nargs = [\"mcp-fake\"]\ndescription = \"probe\"\n{extra}",
+        "[mcp.{name}]\ncommand = \"{}\"\nargs = [\"mcp-fake\", \"--probes\"]\ndescription = \"probe\"\n{extra}",
         dev_bin().display()
     )
 }

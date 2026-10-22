@@ -43,7 +43,12 @@ enum Cmd {
         port_file: Option<PathBuf>,
     },
     /// A tiny stdio MCP server (tools: add, echo) for tests.
-    McpFake,
+    McpFake {
+        /// Also list the sandbox probes (probe_read, probe_env, probe_connect,
+        /// probe_spawn). Off by default so the routed MCP snapshot stays put.
+        #[arg(long)]
+        probes: bool,
+    },
     /// Run a program in a pty and execute a drive script against it.
     Drive {
         /// Script file, or - for stdin.
@@ -101,7 +106,7 @@ fn main() -> Result<()> {
                 Ok(())
             })
         }
-        Cmd::McpFake => mcp_fake(),
+        Cmd::McpFake { probes } => mcp_fake(probes),
         Cmd::Check => exit_with(xtask::check()?),
         Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Snapshots => exit_with(xtask::snapshots()?),
@@ -139,7 +144,7 @@ fn exit_with(ok: bool) -> Result<()> {
     std::process::exit(if ok { 0 } else { 1 })
 }
 
-fn mcp_fake() -> Result<()> {
+fn mcp_fake(probes: bool) -> Result<()> {
     use serde_json::{Value, json};
     use std::io::{BufRead, Write};
     let stdin = std::io::stdin();
@@ -154,17 +159,27 @@ fn mcp_fake() -> Result<()> {
             "initialize" => {
                 json!({ "protocolVersion": "2025-06-18", "capabilities": { "tools": {} }, "serverInfo": { "name": "fake", "version": "1" } })
             }
-            "tools/list" => json!({ "tools": [
-                { "name": "add", "description": "Add two integers", "inputSchema": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a", "b"] } },
-                { "name": "echo", "description": "Echo text back", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } }, "required": ["text"] } }
-            ] }),
+            "tools/list" => {
+                let mut tools = vec![
+                    json!({ "name": "add", "description": "Add two integers", "inputSchema": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a", "b"] } }),
+                    json!({ "name": "echo", "description": "Echo text back", "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } }, "required": ["text"] } }),
+                ];
+                if probes {
+                    for p in ["probe_read", "probe_env", "probe_connect", "probe_spawn"] {
+                        tools.push(
+                            json!({ "name": p, "description": "sandbox probe", "inputSchema": { "type": "object" } }),
+                        );
+                    }
+                }
+                json!({ "tools": tools })
+            }
             "tools/call" => {
                 let a = &v["params"]["arguments"];
                 let text = match v["params"]["name"].as_str() {
                     Some("add") => (a["a"].as_i64().unwrap_or(0) + a["b"].as_i64().unwrap_or(0)).to_string(),
                     Some("echo") => a["text"].as_str().unwrap_or("").to_string(),
-                    // Unlisted probes, so the sandbox e2e can ask what the
-                    // server may do without changing the routed MCP snapshot.
+                    // Listed only with --probes: what the sandbox e2e asks
+                    // the server to try.
                     Some("probe_read") => match std::fs::read_to_string(a["path"].as_str().unwrap_or("")) {
                         Ok(t) => format!("READ {t}"),
                         Err(e) => format!("DENIED {e}"),
