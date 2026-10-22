@@ -153,8 +153,7 @@ impl Agent {
     async fn enable(&mut self, groups: impl IntoIterator<Item = Group>, tx: &Events) {
         for g in groups {
             if let Group::Mcp(name) = &g
-                && let Some(m) = &self.ctx.mcp
-                && let Err(e) = m.ensure(name).await
+                && let Err(e) = self.catalog.start_mcp(name).await
             {
                 self.journal.emit(Event::Error { message: format!("MCP {name}: {e:#}") }, tx);
                 continue;

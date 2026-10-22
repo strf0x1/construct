@@ -216,3 +216,16 @@ Issue #39 / ADR 0008: count salt measured. Stale pair: wrong-line runs line+hash
 - `bench/results/task-20261021-201459.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a; hashline 4b6139a editor=hashline anchor=line+hash salt=rank router=local; hashline-count 4b6139a editor=hashline anchor=line+hash salt=count router=local; hashonly 4b6139a editor=hashline anchor=hash salt=rank router=local; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
 - `bench/results/task-20261021-211455.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a dirty; hashline 4b6139a editor=hashline anchor=line+hash salt=rank router=local; hashline-count 4b6139a editor=hashline anchor=line+hash salt=count router=local; hashonly 4b6139a editor=hashline anchor=hash salt=rank router=local; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
 - `bench/results/task-20261021-213233.json`: model minimax/minimax-m3.1-flash:free; bench 4b6139a dirty; hashonly-count 4b6139a editor=hashline anchor=hash salt=count router=local
+
+## 2026-10-21 22:14 note
+
+Proposal 04 step 5 (MCP tools as catalog entries), tier 1, construct only (opencode/hermes installs broken on this host). main 60f12bd vs branch 0602f19, compare: frame, tools, memory all 'same' on every metric; memory last_req_kb identical (1371 KB over 121 requests); size identical (binary 16373696 B, fresh home 37102 B). main's memory ran after the branch's (worktree lacked the gitignored research/src corpus until linked).
+
+- `bench/results/frame-20261021-220342-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/frame-20261021-220607.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+- `bench/results/memory-20261021-221122.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+- `bench/results/memory-20261021-221442-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/size-20261021-220339-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/size-20261021-220605.json`: model None; bench 0602f19; construct 0602f19 editor=replace router=local
+- `bench/results/tools-20261021-220544-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
+- `bench/results/tools-20261021-220809.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local

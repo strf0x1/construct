@@ -1,6 +1,7 @@
 # Proposal 3 — A model Rust layout for construct
 
-Status: plan, not started. Written 2026-10-20 against `1e83f33`.
+Status: done. Phase 0 landed in #18, phases 1–2 in #21, phase 3 in #22,
+phase 4 in #35. Written 2026-10-20 against `1e83f33`.
 
 The code is in good shape for a six-hour build: every module has a `//!` header
 that says what it is for, the e2e suite runs the real binary against a scripted

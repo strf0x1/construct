@@ -36,7 +36,7 @@ impl Manifest {
             git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
             binary_sha256: None,
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
-            tools: catalog.names().into_iter().map(String::from).collect(),
+            tools: catalog.names(),
             editor: cfg.tools.editor.clone(),
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             model: cfg.model.clone(),
