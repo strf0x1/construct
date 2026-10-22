@@ -30,6 +30,40 @@ pub struct Config {
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
+    pub provider: ProviderConfig,
+}
+
+/// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProviderConfig {
+    pub dialect: Dialect,
+    pub cache: CacheMode,
+}
+
+/// `"auto"` picks by `base_url`: openrouter.ai is `"openrouter"`, anything
+/// else `"openai"`, the plain dialect every compatible server speaks (local
+/// servers, vLLM, DeepSeek, OpenAI). Name one when a proxy hides the host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Dialect {
+    #[default]
+    Auto,
+    #[serde(rename = "openai")]
+    OpenAi,
+    #[serde(rename = "openrouter")]
+    OpenRouter,
+}
+
+/// `"auto"` marks prompt-cache breakpoints for models whose provider only
+/// caches when asked (Anthropic and Gemini behind OpenRouter); `"off"` never
+/// marks any. Providers that cache on their own are unaffected either way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CacheMode {
+    #[default]
+    Auto,
+    Off,
 }
 
 /// When and how history is cut to fit the context window (see `compact`).
@@ -154,6 +188,7 @@ impl Default for Config {
             tools: ToolsConfig::default(),
             mcp: BTreeMap::new(),
             headers: BTreeMap::new(),
+            provider: ProviderConfig::default(),
         }
     }
 }

@@ -395,6 +395,31 @@ class Arms(unittest.TestCase):
         finally:
             bench.ARMS.pop(name, None)
 
+    def test_an_openrouter_upstream_names_the_dialect_and_a_mock_does_not(self):
+        import bench
+        import tomllib
+
+        h = bench.Construct(Path(tempfile.mkdtemp()) / "home")
+        h.configure("http://127.0.0.1:9/v1", "anthropic/claude-haiku-5.5", upstream="https://openrouter.ai/api/v1")
+        self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["provider"], {"dialect": "openrouter"})
+        h.configure("http://127.0.0.1:9/v1", "mock-model")
+        self.assertNotIn("provider", tomllib.loads((h.home / "config.toml").read_text()))
+
+    def test_cache_metrics_read_every_providers_usage(self):
+        import bench
+
+        recs = [
+            {"usage": {"prompt_tokens": 1000, "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 900}, "cost": 0.004}},
+            {"usage": {"prompt_tokens": 1000, "prompt_tokens_details": {"cached_tokens": 900}, "cost": 0.001}},
+            {"usage": {"prompt_tokens": 2000, "prompt_cache_hit_tokens": 1500}},
+            {"error": "no usage"},
+        ]
+        m = bench.cache_metrics(recs)
+        self.assertEqual((m["cached_tokens"], m["cache_write_tokens"]), (2400, 900))
+        self.assertAlmostEqual(m["cache_hit_rate"], 0.6)
+        self.assertAlmostEqual(m["cost_usd"], 0.005)
+        self.assertEqual(bench.cache_metrics([{"usage": {"prompt_tokens": 0}}])["cost_usd"], None)
+
     def test_bad_arms_are_refused(self):
         import bench
 

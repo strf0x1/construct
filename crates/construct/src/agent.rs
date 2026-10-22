@@ -51,7 +51,7 @@ pub struct Agent {
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
         let key = crate::secrets::api_key(&cfg.api_key_secret);
-        let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
+        let client = llm::Client::new(&cfg, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -288,6 +288,8 @@ impl Agent {
                     prompt: completion.usage.prompt_tokens,
                     completion: completion.usage.completion_tokens,
                     cached: completion.usage.cached_tokens,
+                    cache_write: completion.usage.cache_write_tokens,
+                    cost: completion.usage.cost,
                 },
                 tx,
             );
@@ -308,6 +310,8 @@ impl Agent {
                 completion: turn_usage.completion_tokens,
                 ms: started.elapsed().as_millis() as u64,
                 interrupted,
+                cached: turn_usage.cached_tokens,
+                cost: turn_usage.cost,
             },
             tx,
         );
@@ -322,7 +326,7 @@ impl Agent {
 
     /// The request body for `messages` with these tools, as sent.
     fn body(&self, messages: &[Message], defs: &[Value]) -> Vec<u8> {
-        llm::body(&llm::Request {
+        self.client.body(&llm::Request {
             model: &self.cfg.model,
             messages,
             tools: defs,
@@ -483,10 +487,11 @@ impl Agent {
         let started = Instant::now();
         let budget = compact::budget(self.cfg_context_window(), self.cfg.max_tokens);
         let ratio = self.bytes_per_token;
-        let (model, max_tokens, temperature) = (self.cfg.model.clone(), self.cfg.max_tokens, self.cfg.temperature);
+        let (client, model, max_tokens, temperature) =
+            (self.client.clone(), self.cfg.model.clone(), self.cfg.max_tokens, self.cfg.temperature);
         let size = move |messages: &[Message]| {
             let req = llm::Request { model: &model, messages, tools: defs, max_tokens, temperature };
-            (llm::body(&req).len() as f64 / ratio) as u64
+            (client.body(&req).len() as f64 / ratio) as u64
         };
         let Some(plan) = compact::plan(&self.messages, &size, budget, &self.cfg.compaction, reason) else {
             if reason == Reason::Overflow {

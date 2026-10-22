@@ -22,9 +22,12 @@ pub fn export(entries: &[Entry]) -> Vec<Value> {
                 model = m.clone();
                 continue;
             }
-            Event::Usage { prompt, completion, cached } => json!({
+            Event::Usage { prompt, completion, cached, cache_write, cost } => json!({
                 "type": "usage", "at": at, "model": model,
-                "usage": { "prompt_tokens": prompt, "completion_tokens": completion, "cached_tokens": cached },
+                "usage": {
+                    "prompt_tokens": prompt, "completion_tokens": completion, "cached_tokens": cached,
+                    "cache_write_tokens": cache_write, "cost": cost,
+                },
             }),
             Event::Route { groups, skills, source, ms, note } => {
                 // The old rows held skills as [name, score] pairs.

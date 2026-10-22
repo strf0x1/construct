@@ -1,4 +1,4 @@
-# 0012 — Compaction cuts rounds: stub old results first, summarize second
+# 0013 — Compaction cuts rounds: stub old results first, summarize second
 
 Status: accepted, 2026-10-22. Implements proposal 01 steps 1–2. Builds on
 0008 (durable journal) and #29 decision 7 (the journal is not a compaction

@@ -2,7 +2,7 @@
 //! Carried by every session's head event in the journal, sent as the first
 //! event of a turn, and printed by `construct manifest` for the bench to record.
 
-use crate::config::{CompactionConfig, Config, HashlineConfig};
+use crate::config::{CacheMode, CompactionConfig, Config, HashlineConfig};
 use crate::tools::Catalog;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -32,6 +32,12 @@ pub struct Manifest {
     pub context_window: u32,
     #[serde(default)]
     pub compaction: CompactionConfig,
+    /// The resolved request dialect (`llm::dialect`), and whether it may
+    /// mark cache breakpoints.
+    #[serde(default)]
+    pub dialect: String,
+    #[serde(default)]
+    pub cache: CacheMode,
 }
 
 impl Manifest {
@@ -49,6 +55,8 @@ impl Manifest {
             router_mode: cfg.router.mode.clone(),
             context_window: cfg.context_window,
             compaction: cfg.compaction.clone(),
+            dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),
+            cache: cfg.provider.cache,
         }
     }
 

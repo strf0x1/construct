@@ -817,6 +817,68 @@ fn journal_holds_a_turn_as_the_same_events_json_prints() {
     assert_eq!(printed, stored);
 }
 
+fn usage_events(out: &std::process::Output) -> Vec<Value> {
+    json_events(out).into_iter().filter(|e| e["event"] == "usage").collect()
+}
+
+fn read_then_answer() -> Value {
+    json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "text": "It says hello." } ] })
+}
+
+#[test]
+fn plain_endpoints_get_no_breakpoints_and_cache_hits_are_journaled() {
+    let env = Env::new("cache-plain", read_then_answer());
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--json", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    for req in env.requests() {
+        assert!(req.get("cache_control").is_none() && req.get("usage").is_none(), "{req}");
+        assert!(req["messages"].as_array().unwrap().iter().all(|m| m["content"].is_string() || m["content"].is_null()));
+    }
+    // The mock caches prefixes on its own: the second call reuses the first.
+    let usage = usage_events(&out);
+    assert_eq!(usage.len(), 2);
+    assert_eq!(usage[0]["cached"], 0);
+    let (cached, prompt) = (usage[1]["cached"].as_u64().unwrap(), usage[1]["prompt"].as_u64().unwrap());
+    assert!(cached > 0 && cached < prompt, "{usage:?}");
+    assert_eq!(usage[1]["cache_write"], 0);
+    assert!(usage[1].get("cost").is_none());
+    let end = json_events(&out).into_iter().find(|e| e["event"] == "turn_end").unwrap();
+    assert_eq!(end["cached"], cached);
+    let stored: Vec<Value> = env.journal().into_iter().filter(|r| r.ty == "usage").map(|r| r.payload).collect();
+    assert_eq!(stored, usage);
+}
+
+#[test]
+fn openrouter_anthropic_requests_carry_a_breakpoint_unless_cache_is_off() {
+    let env = Env::new("cache-openrouter", read_then_answer());
+    let cfg =
+        "model = \"anthropic/claude-haiku-5.5\"\n[router]\nmode = \"local\"\n[provider]\ndialect = \"openrouter\"\n";
+    env.config(cfg);
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--json", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 2);
+    for req in &reqs {
+        assert_eq!(req["cache_control"], json!({ "type": "ephemeral" }));
+        assert!(req.get("usage").is_none(), "OpenRouter reports cost unasked: {req}");
+    }
+    let usage = usage_events(&out);
+    assert!(usage.iter().all(|u| u["cache_write"].as_u64().unwrap() > 0), "{usage:?}");
+    assert!(usage[1]["cached"].as_u64().unwrap() > 0, "{usage:?}");
+    let head = json_events(&out).into_iter().find(|e| e["event"] == "head").unwrap();
+    assert_eq!((&head["manifest"]["dialect"], &head["manifest"]["cache"]), (&json!("openrouter"), &json!("auto")));
+
+    env.config(&format!("{cfg}cache = \"off\"\n"));
+    let out = env.run(&["run", "--json", "--no-learn", "and now?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert!(reqs.len() > 2);
+    assert!(reqs[2..].iter().all(|r| r.get("cache_control").is_none()));
+}
+
 #[test]
 fn continue_resumes_from_the_journal() {
     let env = Env::new(

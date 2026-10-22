@@ -1,7 +1,7 @@
 # Proposal 1 — Context window management
 
 Status: steps 1–2 built and step 3's baseline run on `claude/compaction`
-(ADR 0012); the policy sweep is next. Written 2026-10-21 against `3b16106`.
+(ADR 0013); the policy sweep is next. Written 2026-10-21 against `3b16106`.
 
 ## Where it stood
 
@@ -148,7 +148,7 @@ runs:
 ## Baseline: main against the planner
 
 `bench/results/task-20261022-053503.json`, 3 rounds × 3 tasks, numbers in
-ADR 0012. `main` passed 6/9 (0/3 on compact-recall, every run ending in
+ADR 0013. `main` passed 6/9 (0/3 on compact-recall, every run ending in
 fatal overflows); the planner passed 9/9 with no overflow and a 0.60 peak
 fill. The price: where `main` squeezed through at 0.97 of the window it used
 about half the tokens, and the planner's stubs get re-run (median 3 per run).
@@ -160,7 +160,7 @@ requests and wall time, not significant at n=9.
 1. Planner, overflow recovery, journaled cuts, e2e. **Built.**
 2. The suite, the window-enforcing proxy, `cfg:` and `@BIN` arms, the
    scorecard. **Built.**
-3. Baseline `main` against the planner on the suite. **Done** (ADR 0012).
+3. Baseline `main` against the planner on the suite. **Done** (ADR 0013).
    Next: a sweep of `keep_results = 4` against a later cut (`threshold =
    0.85, target = 0.6`) and both, at 5 rounds, to settle the defaults.
 4. After #51: warm summarizer and aging as cache-aware arms.

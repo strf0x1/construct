@@ -9,7 +9,7 @@ use std::fmt::Write as _;
 
 pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     let key = crate::secrets::api_key(&cfg.api_key_secret);
-    let client = llm::Client::new(&cfg.base_url, key, cfg.headers.clone())?;
+    let client = llm::Client::new(cfg, key)?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
     let (ctx, catalog) = learner(cfg, paths, memory, rx)?;

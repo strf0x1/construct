@@ -81,6 +81,7 @@ impl Env {
             dump_dir: Some(dir.join("dump")),
             chunk_ms: 1,
             window,
+            cache: true,
         };
         let (port, _) = rt.block_on(serve::serve(cfg, 0)).unwrap();
         Self { dir, home, work, port, _rt: rt }

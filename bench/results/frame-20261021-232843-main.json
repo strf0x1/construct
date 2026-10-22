@@ -1,0 +1,98 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.1.0",
+    "git_sha": "3b1610624a7f657114555f89692e00a1cef6a4f2",
+    "git_dirty": false,
+    "binary_sha256": "948a31e9946699a9cdb7b6ca4e9065dd2577deff7917ea2c13c976128f7ccc23",
+    "config_sha256": "c26e730a06d736fc20cd8dd99aa6b387c381889050de830e44e6528d29165d38",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "mock-model",
+    "router_mode": "local"
+   }
+  },
+  "dev_git_sha": "3b1610624a7f657114555f89692e00a1cef6a4f2",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "2453bdfee975b062a674bcefc8eb68d4e499f5ee6d1945a1c38003a0ffe11749",
+  "host": "echo",
+  "started": "2026-10-22T05:28:41Z"
+ },
+ "rounds": 5,
+ "raw": {
+  "construct": [
+   {
+    "first_output_ms": 1.91802,
+    "first_frame_ms": 2.56845,
+    "ready_ms": 2.678276
+   },
+   {
+    "first_output_ms": 1.749244,
+    "first_frame_ms": 2.296566,
+    "ready_ms": 2.410406
+   },
+   {
+    "first_output_ms": 1.822043,
+    "first_frame_ms": 2.3930219999999998,
+    "ready_ms": 2.505288
+   },
+   {
+    "first_output_ms": 1.684075,
+    "first_frame_ms": 2.17531,
+    "ready_ms": 2.252441
+   },
+   {
+    "first_output_ms": 1.668969,
+    "first_frame_ms": 2.133922,
+    "ready_ms": 2.254013
+   }
+  ]
+ },
+ "summary": {
+  "construct": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 1.749244,
+    "p10": 1.668969,
+    "p90": 1.91802,
+    "min": 1.668969,
+    "max": 1.91802,
+    "mean": 1.7684702
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 2.296566,
+    "p10": 2.133922,
+    "p90": 2.56845,
+    "min": 2.133922,
+    "max": 2.56845,
+    "mean": 2.313454
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 2.410406,
+    "p10": 2.252441,
+    "p90": 2.678276,
+    "min": 2.252441,
+    "max": 2.678276,
+    "mean": 2.4200848
+   }
+  }
+ }
+}
