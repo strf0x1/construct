@@ -3,7 +3,7 @@
 //! shown are anchors accepted, any stale anchor rejects the whole batch with
 //! fresh ones, nothing is relocated, and the file round-trips byte for byte.
 
-use construct::config::{AnchorMode, MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct::config::{AnchorMode, MemoryConfig, Paths, Salt, SandboxConfig, ToolsConfig};
 use construct::memory::Store;
 use construct::sandbox::Policy;
 use construct::tools::edit::hashline::anchors;
@@ -51,7 +51,7 @@ impl Fixture {
     /// Anchors for the file as it is now, the way read would show them.
     fn anchors(&self, name: &str) -> anchors::AnchorMap {
         let text = self.content(name);
-        anchors::build(construct::tools::edit::hashline::fsio::split(&text).0, 2, self.mode)
+        anchors::build(construct::tools::edit::hashline::fsio::split(&text).0, 2, self.mode, Salt::Rank)
     }
 
     async fn edit(&self, path: &str, edits: Value) -> Result<(String, Value), ToolError> {

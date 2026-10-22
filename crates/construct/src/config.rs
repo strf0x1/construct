@@ -170,6 +170,8 @@ pub struct HashlineConfig {
     pub strip_echoes: bool,
     /// What an anchor is: `LINE:HASH`, or the hash alone.
     pub anchor: AnchorMode,
+    /// How identical lines are told apart: their rank, or rank and count.
+    pub salt: Salt,
 }
 
 /// `"line+hash"` pins where and what, so moved content is a loud mismatch.
@@ -184,6 +186,19 @@ pub enum AnchorMode {
     Hash,
 }
 
+/// `"rank"` salts a duplicate with its order among identical lines, as the
+/// TypeScript reference does: a new copy above shifts which line a stale
+/// anchor names. `"count"` adds how many copies there are, so adding or
+/// removing any copy re-hashes them all and a stale anchor fails loudly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Salt {
+    #[default]
+    #[serde(rename = "rank")]
+    Rank,
+    #[serde(rename = "count")]
+    Count,
+}
+
 impl Default for HashlineConfig {
     fn default() -> Self {
         Self {
@@ -193,6 +208,7 @@ impl Default for HashlineConfig {
             max_ops: 256,
             strip_echoes: true,
             anchor: AnchorMode::LineHash,
+            salt: Salt::Rank,
         }
     }
 }

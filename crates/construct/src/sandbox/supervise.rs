@@ -182,7 +182,8 @@ mod tests {
         let me = std::process::id() as i32;
         let (comm, state) = stat(me).unwrap();
         assert!(!comm.is_empty());
-        assert!(matches!(state, 'R' | 'S'));
+        // 'D' too: a test process paging under swap is in disk sleep, and alive.
+        assert!(matches!(state, 'R' | 'S' | 'D'), "{state}");
         assert_eq!(ppid(me), Some(unsafe { libc::getppid() }));
     }
 }
