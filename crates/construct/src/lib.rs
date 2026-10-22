@@ -3,6 +3,7 @@
 //! skills, a background learning pass, a Jev/local router, and a full-screen
 //! TUI. The binary is a thin `main.rs` over this library; see [`cli::run`].
 
+pub mod acp;
 pub mod agent;
 pub mod agents;
 pub mod child;

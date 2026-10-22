@@ -44,6 +44,28 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    /// The manifest of a session construct didn't run (an ACP agent from
+    /// another vendor): only what the parent knows of it.
+    pub fn foreign(cfg: &Config) -> Self {
+        Self {
+            version: env!("CARGO_PKG_VERSION").into(),
+            git_sha: env!("CONSTRUCT_GIT_SHA").into(),
+            git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
+            binary_sha256: None,
+            config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
+            tools: vec![],
+            editor: String::new(),
+            hashline: None,
+            model: String::new(),
+            router_mode: String::new(),
+            agents: vec![],
+            context_window: 0,
+            compaction: Default::default(),
+            dialect: String::new(),
+            cache: Default::default(),
+        }
+    }
+
     pub fn new(cfg: &Config, catalog: &Catalog) -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").into(),

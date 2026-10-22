@@ -25,6 +25,19 @@ const DENIED: &[Group] = &[Group::Memory, Group::SkillWrite, Group::History];
 pub struct AgentDef {
     /// One line on what this agent is for; the model reads it to choose.
     pub description: String,
+    /// How the parent talks to the child: `"jsonl"` (construct's own event
+    /// lines, the default) or `"acp"` (the Agent Client Protocol).
+    pub protocol: String,
+    /// Run this program instead of construct (`protocol = "acp"` only): a
+    /// codex, claude, gemini or opencode ACP adapter. Its tools, prompt and
+    /// model are its own, so `tools`, `prompt`, `model` and `base_url` are
+    /// refused; what the parent decides is the sandbox, the environment, the
+    /// timeout and `on_permission`.
+    pub command: Vec<String>,
+    /// What to answer the child's `session/request_permission`: `"reject"`
+    /// (the default) or `"allow"`. Either way the request and the answer are
+    /// journaled (`Event::Permission`).
+    pub on_permission: String,
     /// The child's system prompt. `prompt_file` is read when it is empty.
     pub prompt: String,
     pub prompt_file: String,
@@ -58,6 +71,9 @@ impl Default for AgentDef {
     fn default() -> Self {
         Self {
             description: String::new(),
+            protocol: String::new(),
+            command: vec![],
+            on_permission: String::new(),
             prompt: String::new(),
             prompt_file: String::new(),
             model: String::new(),
@@ -83,7 +99,45 @@ pub fn check_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Which wire a definition's child speaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Protocol {
+    Jsonl,
+    Acp,
+}
+
 impl AgentDef {
+    /// The wire, or why the definition names an impossible one.
+    pub fn protocol(&self, name: &str) -> Result<Protocol> {
+        let p = match self.protocol.as_str() {
+            "" | "jsonl" => Protocol::Jsonl,
+            "acp" => Protocol::Acp,
+            other => bail!("[agents.{name}] protocol: {other:?} is not \"jsonl\" or \"acp\""),
+        };
+        if !self.command.is_empty() {
+            ensure!(p == Protocol::Acp, "[agents.{name}] command needs protocol = \"acp\"");
+            for (field, set) in [
+                ("tools", !self.tools.is_empty()),
+                ("prompt", !self.prompt.is_empty() || !self.prompt_file.is_empty()),
+                ("model", !self.model.is_empty()),
+                ("base_url", !self.base_url.is_empty()),
+            ] {
+                ensure!(!set, "[agents.{name}] {field} configures a construct child; a command runs its own");
+            }
+        }
+        ensure!(
+            matches!(self.on_permission.as_str(), "" | "reject" | "allow"),
+            "[agents.{name}] on_permission: {:?} is not \"reject\" or \"allow\"",
+            self.on_permission
+        );
+        Ok(p)
+    }
+
+    /// Whether to answer a permission request with an allow.
+    pub fn allows_permissions(&self) -> bool {
+        self.on_permission == "allow"
+    }
+
     /// The system prompt: inline, else the file (`~/` expands, relative to `cwd`).
     pub fn prompt_text(&self, cwd: &Path) -> Result<String> {
         if !self.prompt.is_empty() || self.prompt_file.is_empty() {
@@ -105,7 +159,7 @@ impl AgentDef {
     }
 
     fn key_secret(&self, parent: &Config) -> String {
-        match (self.api_key_secret.as_str(), self.base_url.is_empty()) {
+        match (self.api_key_secret.as_str(), self.base_url.is_empty() && self.command.is_empty()) {
             ("", true) => parent.api_key_secret.clone(),
             (s, _) => s.to_string(),
         }
@@ -114,6 +168,7 @@ impl AgentDef {
     /// The `Config` the child runs with, or why this definition can't run
     /// under `parent`'s tools (`Catalog::table`).
     pub fn child_config(&self, name: &str, parent: &Config, table: &[(String, Group)]) -> Result<Config> {
+        self.protocol(name)?;
         let group_of = |t: &str| table.iter().find(|(n, _)| n == t).map(|(_, g)| g);
         let mut names = vec![];
         for t in &self.tools {
@@ -229,6 +284,24 @@ mod tests {
         fn into_policy(self, parent: &crate::sandbox::Policy, paths: &crate::config::Paths) -> crate::sandbox::Policy {
             parent.for_agent(&self, paths, "t", 443).unwrap()
         }
+    }
+
+    #[test]
+    fn a_command_runs_its_own_agent_and_gets_no_implicit_key() {
+        let acp = |f: &dyn Fn(&mut AgentDef)| {
+            let mut d = AgentDef { protocol: "acp".into(), command: vec!["codex-acp".into()], ..Default::default() };
+            f(&mut d);
+            d.protocol("x").map(|_| ()).unwrap_err().to_string()
+        };
+        let (cfg, table) = parent();
+        let ok = AgentDef { protocol: "acp".into(), command: vec!["codex-acp".into()], ..Default::default() };
+        assert!(ok.child_config("x", &cfg, &table).is_ok());
+        assert!(ok.secret_names(&cfg).is_empty(), "the parent's model key is not for another vendor's agent");
+        assert!(acp(&|d| d.tools = vec!["read".into()]).contains("tools"));
+        assert!(acp(&|d| d.model = "m".into()).contains("model"));
+        assert!(acp(&|d| d.protocol = "jsonl".into()).contains("protocol"));
+        assert!(acp(&|d| d.on_permission = "ask".into()).contains("on_permission"));
+        assert!(AgentDef { protocol: "grpc".into(), ..Default::default() }.protocol("x").is_err());
     }
 
     #[test]

@@ -130,8 +130,11 @@ impl Tool for Delegate {
             "ms": started.elapsed().as_millis() as u64,
             "truncated": truncated,
         });
-        let pointer =
+        let mut pointer =
             out.session.as_deref().map(|s| format!("\n[full transcript: journal session {s}]")).unwrap_or_default();
+        if out.stopped.is_some() && !out.diagnostics.is_empty() {
+            pointer.push_str(&format!("\n[its stderr ended: {}]", crate::llm::truncate(&out.diagnostics, 600)));
+        }
         match (out.stopped, out.error) {
             (Some(Stop::Timeout), _) => Err(ToolError::new(
                 "timeout",
