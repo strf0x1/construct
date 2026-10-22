@@ -271,7 +271,6 @@ fn local(cfg: &RouterConfig, input: &Input<'_>) -> Route {
             "last week",
             "before, we",
             "remember when",
-            "chatstrata",
             "other session",
             "you said",
         ],

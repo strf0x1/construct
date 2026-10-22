@@ -15,7 +15,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/event.rs` | The one `Event` type: what the agent emits, what `--json` prints, what a journal row holds. Additive-only. |
 | `crates/construct/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape. See ADR 0008. |
 | `crates/construct/src/llm.rs` | Streaming `/chat/completions` client (hand-rolled SSE). |
-| `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
+| `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
 | `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |

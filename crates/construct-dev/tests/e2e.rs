@@ -958,3 +958,129 @@ fn sandbox_keeps_the_journal_out_of_reach() {
     assert!(r[2].contains("blocked by the sandbox"), "{}", r[2]);
     assert!(r[3].contains("blocked by the sandbox"), "{}", r[3]);
 }
+
+// ------------------------------------------------------------------ history
+
+/// One `journal_query` per SQL, then "done"; returns each call's result.
+fn journal_queries(name: &str, sqls: &[&str]) -> (Env, Vec<String>) {
+    let mut steps: Vec<Value> = sqls.iter().map(|s| json!({ "call": "journal_query", "args": { "sql": s } })).collect();
+    steps.push(json!({ "text": "done" }));
+    let env = Env::new(name, json!({ "steps": steps }));
+    env.config("[router]\nmode = \"local\"\n");
+    let out = env.run(&["run", "--no-learn", "what did we do in the last session?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(r.len(), sqls.len(), "{r:#?}");
+    (env, r)
+}
+
+#[test]
+fn recall_result_returns_an_earlier_turns_tool_output() {
+    let env = Env::new(
+        "history-recall",
+        json!({ "steps": [
+            { "call": "read", "args": { "path": "a.txt" } },
+            { "text": "It says hello." },
+            { "call": "recall_result", "args": { "id": "call_1" } },
+            { "text": "Recalled." }
+        ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    std::fs::write(env.work.join("a.txt"), "hello from the first turn\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let first = env.requests()[1].clone();
+    assert_eq!(first["messages"].as_array().unwrap().last().unwrap()["tool_call_id"], "call_1");
+    let original = last_tool_result(&first);
+    assert!(original.contains("hello from the first turn"), "{original}");
+    // The file changes; the recall must come from the journal, in a new session.
+    std::fs::write(env.work.join("a.txt"), "changed\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "show me what you read last time"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert!(tool_names(&reqs[2]).contains(&"recall_result".to_string()), "history routed");
+    assert_eq!(last_tool_result(&reqs[3]), original);
+    assert_eq!(env.sessions().len(), 2);
+}
+
+#[test]
+fn journal_query_returns_rows() {
+    let (_, r) = journal_queries("history-query", &["SELECT type, count(*) FROM events GROUP BY type ORDER BY type"]);
+    assert!(r[0].starts_with("type | count(*)"), "{}", r[0]);
+    for row in ["head | 1", "user | 1", "tool_start | 1"] {
+        assert!(r[0].lines().any(|l| l == row), "{row} in {}", r[0]);
+    }
+}
+
+#[test]
+fn journal_query_refuses_anything_but_one_select() {
+    let (env, r) = journal_queries(
+        "history-refuse",
+        &[
+            "DELETE FROM events",
+            "PRAGMA journal_mode=DELETE",
+            "ATTACH DATABASE 'other.sqlite' AS other",
+            "WITH x AS (SELECT 1) DELETE FROM events",
+            "SELECT 1; DELETE FROM events",
+            "SELECT * FROM pragma_journal_mode",
+        ],
+    );
+    for (i, out) in r.iter().enumerate() {
+        assert!(out.contains("journal_query runs one read-only SELECT"), "query {i}: {out}");
+    }
+    assert!(!env.work.join("other.sqlite").exists());
+    let db = rusqlite::Connection::open(env.journal_path(&env.work)).unwrap();
+    let mode: String = db.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
+    assert_eq!(mode, "wal");
+    let n: i64 = db.query_row("SELECT count(*) FROM events WHERE type = 'head'", [], |r| r.get(0)).unwrap();
+    assert_eq!(n, 1, "nothing deleted");
+}
+
+#[test]
+fn journal_query_stops_a_slow_query() {
+    let t = std::time::Instant::now();
+    let (_, r) = journal_queries(
+        "history-timeout",
+        &["WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) SELECT count(*) FROM c"],
+    );
+    assert!(r[0].contains("query stopped after 5 s"), "{}", r[0]);
+    assert!(t.elapsed() < Duration::from_millis(budget(15_000)), "{:?}", t.elapsed());
+}
+
+#[test]
+fn journal_query_cuts_an_oversized_result_with_a_note() {
+    let (_, r) = journal_queries(
+        "history-cap",
+        &[
+            "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT 100) SELECT x, replace(hex(zeroblob(500)), '0', 'a') FROM c",
+            "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT 1000) SELECT x FROM c",
+        ],
+    );
+    assert!(r[0].contains("[result cut at 16 KB"), "{}", &r[0][r[0].len().saturating_sub(300)..]);
+    assert!(r[0].len() < 17 * 1024, "{}", r[0].len());
+    assert!(r[1].contains("[result cut at 200 rows"), "{}", r[1]);
+    assert!(r[1].lines().any(|l| l == "200") && !r[1].lines().any(|l| l == "201"), "{}", r[1]);
+}
+
+#[test]
+fn a_history_turn_works_without_chatstrata_on_path() {
+    let env = Env::new(
+        "history-no-chatstrata",
+        json!({ "steps": [
+            { "call": "journal_query", "args": { "sql": "SELECT e.type FROM events_fts JOIN events e ON e.seq = events_fts.rowid WHERE events_fts MATCH 'parser'" } },
+            { "text": "We talked about the parser." }
+        ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    let empty = env.dir.join("empty-path");
+    std::fs::create_dir_all(&empty).unwrap();
+    let out = env.run_with(
+        &[("PATH", empty.to_str().unwrap())],
+        &["run", "--no-learn", "what did we decide about the parser last time?"],
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("We talked about the parser."));
+    let r = tool_results(&env);
+    assert!(r[0].starts_with("type\nuser"), "{}", r[0]);
+    assert!(!tool_names(&env.requests()[0]).iter().any(|n| n.contains("session_search")));
+}

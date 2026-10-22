@@ -1,9 +1,10 @@
 //! Golden snapshots of what the model sees and what the user sees.
 //!
 //! One test per shape of first request (plain turn, routed skill, routed web,
-//! routed MCP, learning review) and two screens (first frame, finished turn).
-//! A refactor that changes none of these is behaviour-neutral as far as the
-//! model and the user can tell; a prompt or schema edit shows up as a diff.
+//! routed history, routed MCP, learning review) and two screens (first frame,
+//! finished turn). A refactor that changes none of these is behaviour-neutral
+//! as far as the model and the user can tell; a prompt or schema edit shows up
+//! as a diff.
 //!
 //! Never edit a `.snap` file by hand: run the tests, read the diff, and if the
 //! change is intended accept it with `cargo insta accept` (or
@@ -94,6 +95,17 @@ fn routed_skill() {
 fn routed_web() {
     let (env, req) =
         first_request("snap-web", "[router]\nmode = \"local\"\n", "summarize https://example.com/changelog", |_| {});
+    insta::assert_json_snapshot!(shaped(&env, &req));
+}
+
+#[test]
+fn routed_history() {
+    let (env, req) = first_request(
+        "snap-history",
+        "[router]\nmode = \"local\"\n",
+        "what did we decide about the parser last time?",
+        |_| {},
+    );
     insta::assert_json_snapshot!(shaped(&env, &req));
 }
 
