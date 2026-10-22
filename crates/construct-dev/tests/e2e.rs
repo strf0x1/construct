@@ -863,7 +863,7 @@ fn openrouter_anthropic_requests_carry_a_breakpoint_unless_cache_is_off() {
     assert_eq!(reqs.len(), 2);
     for req in &reqs {
         assert_eq!(req["cache_control"], json!({ "type": "ephemeral" }));
-        assert_eq!(req["usage"], json!({ "include": true }));
+        assert!(req.get("usage").is_none(), "OpenRouter reports cost unasked: {req}");
     }
     let usage = usage_events(&out);
     assert!(usage.iter().all(|u| u["cache_write"].as_u64().unwrap() > 0), "{usage:?}");
@@ -876,7 +876,7 @@ fn openrouter_anthropic_requests_carry_a_breakpoint_unless_cache_is_off() {
     assert!(out.status.success(), "{}", text(&out));
     let reqs = env.requests();
     assert!(reqs.len() > 2);
-    assert!(reqs[2..].iter().all(|r| r.get("cache_control").is_none() && r["usage"]["include"] == true));
+    assert!(reqs[2..].iter().all(|r| r.get("cache_control").is_none()));
 }
 
 #[test]

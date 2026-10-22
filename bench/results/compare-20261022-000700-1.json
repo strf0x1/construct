@@ -1,0 +1,2372 @@
+{
+ "a": "bench/results/task-20261022-000230-main.json",
+ "b": "bench/results/task-20261022-000644.json",
+ "comparisons": [
+  {
+   "a": "task-20261022-000230-main:construct",
+   "b": "task-20261022-000644:construct",
+   "rows": [
+    {
+     "metric": "all/agent_requests",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 10.0,
+     "b": 11.0,
+     "delta": 1.0,
+     "a_spread": [
+      5.0,
+      15.0
+     ],
+     "b_spread": [
+      5.0,
+      19.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cache_hit_rate",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.7057735953960608,
+     "b": 0.7648455510898304,
+     "delta": 0.05907195569376966,
+     "a_spread": [
+      0.4638327526132404,
+      0.8990770738613161
+     ],
+     "b_spread": [
+      0.5759162303664922,
+      0.9253601047577477
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cache_write_tokens",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cached_tokens",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 22836.0,
+     "b": 20864.0,
+     "delta": -1972.0,
+     "a_spread": [
+      3328.0,
+      39296.0
+     ],
+     "b_spread": [
+      4736.0,
+      153600.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.behaviour",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.exact",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.history_kept",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.median_tested",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.rate_set",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.readme_api",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.tests_pass",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.tests_untouched_for_mean",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.verify_pass",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.version_1_4_0",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/completion_tokens",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 1443.0,
+     "b": 1397.5,
+     "delta": -45.5,
+     "a_spread": [
+      347.0,
+      3340.0
+     ],
+     "b_spread": [
+      308.0,
+      12976.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cost_usd",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0028156758,
+     "b": 0.00282153,
+     "delta": 5.854200000000084e-06,
+     "a_spread": [
+      0.000809256,
+      0.00975747
+     ],
+     "b_spread": [
+      0.0005152728,
+      0.018284850000000002
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.applied",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      5.0
+     ],
+     "b_spread": [
+      0.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.calls",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      5.0
+     ],
+     "b_spread": [
+      0.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.completion_tokens_per_call",
+     "n_a": 10,
+     "n_b": 8,
+     "binary": false,
+     "a": 160.1,
+     "b": 159.8,
+     "delta": -0.29999999999998295,
+     "a_spread": [
+      111.0,
+      210.0
+     ],
+     "b_spread": [
+      101.0,
+      163.2
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.echo_stripped",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.recoveries",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rejected",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rereads_after_rejection",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rewrites",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.unrecovered",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.bytes",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 3820.0,
+     "b": 3845.0,
+     "delta": 25.0,
+     "a_spread": [
+      3772.0,
+      3885.0
+     ],
+     "b_spread": [
+      3797.0,
+      3910.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.n_tools",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.prompt_tokens",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 1187.0,
+     "b": 1187.0,
+     "delta": 0.0,
+     "a_spread": [
+      1175.0,
+      1201.0
+     ],
+     "b_spread": [
+      1175.0,
+      1201.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.system_chars",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 758.0,
+     "b": 758.0,
+     "delta": 0.0,
+     "a_spread": [
+      756.0,
+      759.0
+     ],
+     "b_spread": [
+      756.0,
+      759.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.tools_chars",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/learn_wait_s",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.03239083290100098,
+     "b": 0.03095245361328125,
+     "delta": -0.0014383792877197266,
+     "a_spread": [
+      0.030359506607055664,
+      0.03396153450012207
+     ],
+     "b_spread": [
+      0.03031468391418457,
+      0.03526139259338379
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/over_budget",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/peak_mb",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 18.357421875,
+     "b": 22.400390625,
+     "delta": 4.04296875,
+     "a_spread": [
+      14.44140625,
+      43.40625
+     ],
+     "b_spread": [
+      14.65625,
+      40.8359375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/prompt_tokens",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 28930.0,
+     "b": 32300.5,
+     "delta": 3370.5,
+     "a_spread": [
+      7175.0,
+      61039.0
+     ],
+     "b_spread": [
+      7199.0,
+      178070.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/reads",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      4.0
+     ],
+     "b_spread": [
+      1.0,
+      4.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/requests",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 10.0,
+     "b": 11.0,
+     "delta": 1.0,
+     "a_spread": [
+      5.0,
+      15.0
+     ],
+     "b_spread": [
+      5.0,
+      19.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/side_requests_before_first_agent",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/success",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/tool_calls",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 12.5,
+     "b": 11.5,
+     "delta": -1.0,
+     "a_spread": [
+      4.0,
+      17.0
+     ],
+     "b_spread": [
+      4.0,
+      30.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/unintended_changes",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/wall_s",
+     "n_a": 12,
+     "n_b": 12,
+     "binary": false,
+     "a": 10.957692446012516,
+     "b": 10.784686842001975,
+     "delta": -0.173005604010541,
+     "a_spread": [
+      2.949612205964513,
+      29.06624313001521
+     ],
+     "b_spread": [
+      2.9748786680283956,
+      58.500196626002435
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/agent_requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      5.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/cache_hit_rate",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.5071214236252322,
+     "b": 0.6915520543368756,
+     "delta": 0.18443063071164345,
+     "a_spread": [
+      0.35288220551378446,
+      0.6761384335154828
+     ],
+     "b_spread": [
+      0.6578691484928463,
+      0.8071611253196931
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/cache_write_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/cached_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 3520.0,
+     "b": 5440.0,
+     "delta": 1920.0,
+     "a_spread": [
+      2816.0,
+      4362.0
+     ],
+     "b_spread": [
+      4734.0,
+      20608.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/checks.exact",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/checks.rate_set",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/completion_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 353.5,
+     "b": 346.5,
+     "delta": -7.0,
+     "a_spread": [
+      257.0,
+      458.0
+     ],
+     "b_spread": [
+      307.0,
+      392.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/cost_usd",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.000836664,
+     "b": 0.0005471974000000001,
+     "delta": -0.00028946659999999993,
+     "a_spread": [
+      0.000564008,
+      0.0010646604
+     ],
+     "b_spread": [
+      0.000466142,
+      0.002959848
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.applied",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.completion_tokens_per_call",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 118.5,
+     "b": 109.5,
+     "delta": -9.0,
+     "a_spread": [
+      101.0,
+      210.0
+     ],
+     "b_spread": [
+      101.0,
+      160.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.echo_stripped",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.recoveries",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rejected",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rereads_after_rejection",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.rewrites",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/edit.unrecovered",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.bytes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 3820.0,
+     "b": 3845.0,
+     "delta": 25.0,
+     "a_spread": [
+      3820.0,
+      3820.0
+     ],
+     "b_spread": [
+      3845.0,
+      3845.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "edit-long-file/first_request.n_tools",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1187.0,
+     "b": 1187.0,
+     "delta": 0.0,
+     "a_spread": [
+      1187.0,
+      1187.0
+     ],
+     "b_spread": [
+      1187.0,
+      1187.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.system_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 758.0,
+     "b": 758.0,
+     "delta": 0.0,
+     "a_spread": [
+      758.0,
+      758.0
+     ],
+     "b_spread": [
+      758.0,
+      758.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/first_request.tools_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/learn_wait_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.03165459632873535,
+     "b": 0.033679962158203125,
+     "delta": 0.0020253658294677734,
+     "a_spread": [
+      0.030199289321899414,
+      0.03396153450012207
+     ],
+     "b_spread": [
+      0.030187606811523438,
+      0.03526139259338379
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/over_budget",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/peak_mb",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 14.525390625,
+     "b": 14.693359375,
+     "delta": 0.16796875,
+     "a_spread": [
+      13.36328125,
+      14.61328125
+     ],
+     "b_spread": [
+      14.65625,
+      14.7109375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 7550.0,
+     "b": 8250.0,
+     "delta": 700.0,
+     "a_spread": [
+      5490.0,
+      7980.0
+     ],
+     "b_spread": [
+      5865.0,
+      28522.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/reads",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      5.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/side_requests_before_first_agent",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/success",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/tool_calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 4.5,
+     "b": 4.0,
+     "delta": -0.5,
+     "a_spread": [
+      3.0,
+      5.0
+     ],
+     "b_spread": [
+      3.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/unintended_changes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "edit-long-file/wall_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 3.6413534414896276,
+     "b": 3.258406618027948,
+     "delta": -0.38294682346167974,
+     "a_spread": [
+      2.4478260139585473,
+      5.123178119014483
+     ],
+     "b_spread": [
+      2.9245779379853047,
+      4.636611997033469
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/agent_requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 10.0,
+     "b": 14.0,
+     "delta": 4.0,
+     "a_spread": [
+      6.0,
+      14.0
+     ],
+     "b_spread": [
+      8.0,
+      21.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/cache_hit_rate",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.66319072593764,
+     "b": 0.7578655248252926,
+     "delta": 0.09467479888765262,
+     "a_spread": [
+      0.47602352594243025,
+      0.865127313856934
+     ],
+     "b_spread": [
+      0.45746962115796996,
+      0.8662696862098843
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/cache_write_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/cached_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 22836.0,
+     "b": 84096.0,
+     "delta": 61260.0,
+     "a_spread": [
+      7936.0,
+      62720.0
+     ],
+     "b_spread": [
+      10240.0,
+      203958.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/checks.history_kept",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/checks.verify_pass",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/checks.version_1_4_0",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/completion_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 2872.0,
+     "b": 7596.5,
+     "delta": 4724.5,
+     "a_spread": [
+      2066.0,
+      7979.0
+     ],
+     "b_spread": [
+      2129.0,
+      13175.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/cost_usd",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0063971736,
+     "b": 0.011514037000000001,
+     "delta": 0.005116863400000001,
+     "a_spread": [
+      0.002675106,
+      0.011179765999999999
+     ],
+     "b_spread": [
+      0.003000912,
+      0.0183685236
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.applied",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.5,
+     "b": 0.0,
+     "delta": -0.5,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.5,
+      0.0
+     ],
+     "p": 0.42857142857142855
+    },
+    {
+     "metric": "release-signing/edit.calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.5,
+     "b": 0.0,
+     "delta": -0.5,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.5,
+      0.0
+     ],
+     "p": 0.42857142857142855
+    },
+    {
+     "metric": "release-signing/edit.echo_stripped",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.recoveries",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.rejected",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.rereads_after_rejection",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.rewrites",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/edit.unrecovered",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/first_request.bytes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 3772.0,
+     "b": 3797.0,
+     "delta": 25.0,
+     "a_spread": [
+      3772.0,
+      3772.0
+     ],
+     "b_spread": [
+      3797.0,
+      3797.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "release-signing/first_request.n_tools",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/first_request.prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1175.0,
+     "b": 1175.0,
+     "delta": 0.0,
+     "a_spread": [
+      1174.0,
+      1210.0
+     ],
+     "b_spread": [
+      1174.0,
+      1210.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/first_request.system_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 759.0,
+     "b": 759.0,
+     "delta": 0.0,
+     "a_spread": [
+      759.0,
+      759.0
+     ],
+     "b_spread": [
+      759.0,
+      759.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/first_request.tools_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/learn_wait_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.03241324424743652,
+     "b": 0.030564308166503906,
+     "delta": -0.0018489360809326172,
+     "a_spread": [
+      0.03172421455383301,
+      0.03333902359008789
+     ],
+     "b_spread": [
+      0.03031468391418457,
+      0.03125619888305664
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "release-signing/over_budget",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/peak_mb",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 18.357421875,
+     "b": 22.400390625,
+     "delta": 4.04296875,
+     "a_spread": [
+      14.44140625,
+      24.765625
+     ],
+     "b_spread": [
+      13.21875,
+      28.36328125
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 41084.0,
+     "b": 100227.0,
+     "delta": 59143.0,
+     "a_spread": [
+      14697.0,
+      72498.0
+     ],
+     "b_spread": [
+      22341.0,
+      235444.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/reads",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.5,
+     "b": 1.0,
+     "delta": 0.5,
+     "a_spread": [
+      0.0,
+      8.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 10.0,
+     "b": 14.0,
+     "delta": 4.0,
+     "a_spread": [
+      6.0,
+      14.0
+     ],
+     "b_spread": [
+      8.0,
+      21.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/side_requests_before_first_agent",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/success",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/tool_calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 16.5,
+     "b": 20.5,
+     "delta": 4.0,
+     "a_spread": [
+      7.0,
+      20.0
+     ],
+     "b_spread": [
+      9.0,
+      31.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/unintended_changes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "release-signing/wall_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 21.424126561993035,
+     "b": 46.963939808512805,
+     "delta": 25.53981324651977,
+     "a_spread": [
+      12.715723956993315,
+      61.34999675001018
+     ],
+     "b_spread": [
+      11.77365996100707,
+      59.180454155022744
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/agent_requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 14.5,
+     "b": 14.0,
+     "delta": -0.5,
+     "a_spread": [
+      14.0,
+      15.0
+     ],
+     "b_spread": [
+      13.0,
+      14.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/cache_hit_rate",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.8445095856117646,
+     "b": 0.8702578677285232,
+     "delta": 0.025748282116758614,
+     "a_spread": [
+      0.7354087572766388,
+      0.9026508016722562
+     ],
+     "b_spread": [
+      0.5759162303664922,
+      0.9281683613663004
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/cache_write_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/cached_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 31246.0,
+     "b": 31665.0,
+     "delta": 419.0,
+     "a_spread": [
+      29056.0,
+      39296.0
+     ],
+     "b_spread": [
+      21120.0,
+      34048.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/checks.behaviour",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/checks.median_tested",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/checks.readme_api",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/checks.tests_pass",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/checks.tests_untouched_for_mean",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/completion_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1443.0,
+     "b": 1397.5,
+     "delta": -45.5,
+     "a_spread": [
+      1413.0,
+      1568.0
+     ],
+     "b_spread": [
+      1342.0,
+      1554.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/cost_usd",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0031725108,
+     "b": 0.002658966,
+     "delta": -0.0005135448000000002,
+     "a_spread": [
+      0.001662028,
+      0.0046006148
+     ],
+     "b_spread": [
+      0.001555514,
+      0.005984196
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.applied",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      5.0
+     ],
+     "b_spread": [
+      5.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 5.0,
+     "b": 5.0,
+     "delta": 0.0,
+     "a_spread": [
+      4.0,
+      5.0
+     ],
+     "b_spread": [
+      5.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.completion_tokens_per_call",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 160.1,
+     "b": 162.89999999999998,
+     "delta": 2.799999999999983,
+     "a_spread": [
+      148.25,
+      167.2
+     ],
+     "b_spread": [
+      159.6,
+      173.4
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.echo_stripped",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.recoveries",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.rejected",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.rereads_after_rejection",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.rewrites",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/edit.unrecovered",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/first_request.bytes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 3885.0,
+     "b": 3910.0,
+     "delta": 25.0,
+     "a_spread": [
+      3885.0,
+      3885.0
+     ],
+     "b_spread": [
+      3910.0,
+      3910.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "stats-median/first_request.n_tools",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/first_request.prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 1201.0,
+     "b": 1201.0,
+     "delta": 0.0,
+     "a_spread": [
+      1200.0,
+      1201.0
+     ],
+     "b_spread": [
+      1200.0,
+      1201.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/first_request.system_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 756.0,
+     "b": 756.0,
+     "delta": 0.0,
+     "a_spread": [
+      756.0,
+      756.0
+     ],
+     "b_spread": [
+      756.0,
+      756.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/first_request.tools_chars",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/learn_wait_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.03227031230926514,
+     "b": 0.031822919845581055,
+     "delta": -0.00044739246368408203,
+     "a_spread": [
+      0.030599117279052734,
+      0.037383079528808594
+     ],
+     "b_spread": [
+      0.03061509132385254,
+      0.035303592681884766
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/over_budget",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/peak_mb",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 43.109375,
+     "b": 38.044921875,
+     "delta": -5.064453125,
+     "a_spread": [
+      38.62890625,
+      44.3125
+     ],
+     "b_spread": [
+      34.25,
+      43.68359375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/prompt_tokens",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 38407.0,
+     "b": 36664.0,
+     "delta": -1743.0,
+     "a_spread": [
+      36731.0,
+      43534.0
+     ],
+     "b_spread": [
+      36079.0,
+      36683.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/reads",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 4.0,
+     "b": 4.0,
+     "delta": 0.0,
+     "a_spread": [
+      3.0,
+      4.0
+     ],
+     "b_spread": [
+      3.0,
+      4.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/requests",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 14.5,
+     "b": 14.0,
+     "delta": -0.5,
+     "a_spread": [
+      14.0,
+      15.0
+     ],
+     "b_spread": [
+      13.0,
+      14.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/side_requests_before_first_agent",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/success",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/tool_calls",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 13.0,
+     "b": 12.0,
+     "delta": -1.0,
+     "a_spread": [
+      12.0,
+      15.0
+     ],
+     "b_spread": [
+      12.0,
+      13.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/unintended_changes",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "stats-median/wall_s",
+     "n_a": 4,
+     "n_b": 4,
+     "binary": false,
+     "a": 10.957692446012516,
+     "b": 10.784686842001975,
+     "delta": -0.173005604010541,
+     "a_spread": [
+      6.958940732991323,
+      12.699979237979278
+     ],
+     "b_spread": [
+      6.968854049919173,
+      10.923012015002314
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

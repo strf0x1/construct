@@ -66,10 +66,6 @@ impl Provider {
 
     /// Adjust a standard body for this provider.
     pub fn shape(&self, model: &str, body: &mut Value) {
-        if self.dialect == Dialect::OpenRouter {
-            // Cost and cache counts in the final usage chunk.
-            body["usage"] = json!({ "include": true });
-        }
         match self.breakpoint(model) {
             Breakpoint::None => {}
             Breakpoint::Request => body["cache_control"] = ephemeral(),
@@ -143,7 +139,6 @@ mod tests {
         let mut b = body();
         or.shape("anthropic/claude-haiku-5.5", &mut b);
         assert_eq!(b["cache_control"], ephemeral());
-        assert_eq!(b["usage"]["include"], true);
         assert_eq!(b["messages"], body()["messages"]);
 
         let mut b = body();

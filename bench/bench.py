@@ -273,7 +273,7 @@ class Construct(Harness):
             cfg += "\n[learn]\nenabled = false\n"
         if upstream and "openrouter.ai" in upstream:
             # The proxy hides the host, so name the dialect: it decides the
-            # cache breakpoints and asks for cost in usage.
+            # cache breakpoints.
             cfg += '\n[provider]\ndialect = "openrouter"\n'
         (self.home / "config.toml").write_text(cfg)
         skills = self.home / "skills"

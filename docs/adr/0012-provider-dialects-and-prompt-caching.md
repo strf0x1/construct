@@ -1,6 +1,6 @@
 # 0012 — Provider dialects shape the body; cache breakpoints only where asked for
 
-Status: proposed, 2026-10-21. Accept after the tier 2 run under Evidence.
+Status: accepted, 2026-10-22 (tier 2 under Evidence).
 
 ## Context
 
@@ -43,14 +43,16 @@ Depend on openrouter-rs, which only speaks OpenRouter. Or scatter
   - `google/*` gets one breakpoint on the newest system or user content
     part. OpenRouter uses only the last breakpoint for Gemini.
   - Every other model gets none. `cache = "off"` turns breakpoints off.
-  - The OpenRouter dialect also sends `usage: {include: true}`, so cost
-    arrives in the stream.
+  - No `usage: {include: true}`: OpenRouter reported `cost` and cache counts
+    on main's requests without it.
 - `Event::Usage` gains `cache_write` and `cost`, and `Event::TurnEnd` gains
   `cached` and `cost`. All are additive and defaulted (ADR 0008, durable
   journal). The TUI status line shows the session hit rate and $ when the
   provider reports them. The bench records `cached_tokens`,
-  `cache_write_tokens`, `cache_hit_rate` and `cost_usd` per run, and
-  `compare.py` treats a higher hit rate as better.
+  `cache_write_tokens`, `cache_hit_rate` and `cost_usd` per run.
+  `compare.py` treats a higher hit rate as better, and treats cache writes as
+  neutral because they are the price of caching and `cost_usd` already judges
+  them.
 - The bench reaches OpenRouter through `construct-dev serve`, which hides the
   host, so `bench.py` writes `[provider] dialect = "openrouter"` when
   `--upstream` is OpenRouter.
@@ -89,8 +91,24 @@ Depend on openrouter-rs, which only speaks OpenRouter. Or scatter
 - Shapes are from openrouter-rs (MIT, realmorrisliu/openrouter-rs:
   `CacheControl`, `PromptTokensDetails`) and OpenRouter's prompt-caching
   docs.
-- Pending (tier 2): `bench.py task` on `anthropic/claude-haiku-5.5` (needs
-  breakpoints) and `deepseek/deepseek-v4.1-flash` (caches on its own), main
-  against this branch, comparing `cache_hit_rate` and `cost_usd` with
-  `bench.py compare`. The issue estimates ~$0.50 per run uncached and ~$0.28
-  cached for Haiku.
+- Tier 2, `bench.py task --no-learn --rounds 4`, tasks stats-median,
+  release-signing and edit-long-file. Main 3b16106 against this branch.
+  Main's `cache_*` and `cost_usd` were filled in afterwards from its proxy
+  records with the same `cache_metrics`.
+  - `anthropic/claude-haiku-5.5` (`task-20261021-235623-main.json` against
+    `task-20261021-235859.json`). Hit rate went from 0 to 68% median.
+    stats-median 82%, release-signing 68%, edit-long-file 63%: all `better`.
+    Cost per run fell on every task. stats-median $0.00454 → $0.00232 (−49%),
+    release-signing $0.00206 → $0.00156 (−24%), edit-long-file
+    $0.00068 → $0.00042 (−37%): all `better`. Pooled across tasks, cost is
+    `same`, because the tasks' spread swamps the delta. Success (83% both),
+    requests and prompt tokens are `same`.
+  - `deepseek/deepseek-v4.1-flash` (`task-20261022-000230-main.json` against
+    `task-20261022-000644.json`) is the control: no breakpoints are sent, and
+    every metric is `same`. Hit rate is 71% on main and 77% on the branch,
+    from the provider caching on its own. Success is 100% on both.
+    release-signing was noisy on the branch: 2 of 4 runs took 19 and 21
+    requests after the model enabled more tools.
+  - The issue's ~$0.50 per run uncached was for a different, larger bench.
+    Haiku 5.5 here costs $0.10/M input, $0.01/M on a cache read and
+    $0.125/M on a cache write.

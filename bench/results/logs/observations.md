@@ -242,3 +242,12 @@ Issue #51 (ADR 0012), tier 1, construct only (no memory corpus on host). main 3b
 - `bench/results/tools-20261021-233251.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
 - `bench/results/tools-20261021-233516.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
 - `bench/results/tools-20261021-233750.json`: model None; bench d93039c dirty; construct d93039c editor=replace router=local
+
+## 2026-10-22 00:08 note
+
+Issue #51 tier 2 (ADR 0012 accepted). Haiku 5.5: hit rate 0 -> 68% median, cost/run better on every task (stats-median -49%, release-signing -24%, edit-long-file -37%), success/requests/tokens same. DeepSeek V4.1 Flash control: all same (auto-caching, 71% -> 77%). Main's cache/cost backfilled from proxy records. Tool list grew in 2/24 runs (DeepSeek release-signing, mid-run).
+
+- `bench/results/task-20261021-235623-main.json`: model anthropic/claude-haiku-5.5; bench 3b16106; construct 3b16106 editor=replace router=local
+- `bench/results/task-20261021-235859.json`: model anthropic/claude-haiku-5.5; bench 8d0014d; construct 8d0014d editor=replace router=local
+- `bench/results/task-20261022-000230-main.json`: model deepseek/deepseek-v4.1-flash; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
+- `bench/results/task-20261022-000644.json`: model deepseek/deepseek-v4.1-flash; bench 8d0014d dirty; construct 8d0014d editor=replace router=local
