@@ -1,0 +1,51 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.1.0",
+    "git_sha": "4b6139a6f19fd97bfc3270de4d5991376e46af93",
+    "git_dirty": false,
+    "binary_sha256": "866bd105c0374850a148e63ef1fbc97fea50a6874607dca33fca245f6f2c2248",
+    "config_sha256": "79fd16b76a03d6b1856b6f6ecf80eb934f6ce8283b0348232a0be72fe6ecc71c",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "session_search"
+    ],
+    "editor": "replace",
+    "model": "mock-model",
+    "router_mode": "local"
+   }
+  },
+  "dev_git_sha": "4b6139a6f19fd97bfc3270de4d5991376e46af93",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "5954dac613f9a9a4fb11585fe6d4ed2a09fa1533fcef5eca2a0af0bc7e838a7e",
+  "host": "echo",
+  "started": "2026-10-22T01:19:46Z"
+ },
+ "construct": {
+  "install": 17245968,
+  "parts": {
+   "binary": 17245968
+  },
+  "fresh_home_after_first_run": 1980,
+  "first_run_s": 0.00746415596222505,
+  "first_run_rc": 0
+ },
+ "opencode": {
+  "install": 200529376,
+  "parts": {
+   "binary": 200529376
+  }
+ }
+}

@@ -63,7 +63,8 @@ landed and what it cost.
   (now `tool_end` events) and homes from before the journal still read.
 - **Dependency**: `rusqlite` 0.40 with `bundled` (SQLite compiled in, FTS5 and
   JSON functions included), pinned in `[workspace.dependencies]`. No system
-  libsqlite3, one C compile. DuckDB stays outside the binary.
+  libsqlite3, one C compile, +2.33 MB of release binary (Evidence). DuckDB
+  stays outside the binary.
 - **Sandbox**: the journal sits under `$CONSTRUCT_HOME/projects/`, outside
   every root a tool gets (the working directory, the private `tmp/<pid>`, the
   spill dir, system paths and toolchains), so neither a shell command nor a
@@ -96,5 +97,12 @@ landed and what it cost.
   export round-trip, and the sandbox denying `journal.sqlite` to shell, read
   and grep.
 - Golden request snapshots unchanged: what the model sees did not move.
-- Tier 1 (`bench.py size tools`, main vs this branch, judged with
-  `bench.py compare`): see the PR description for the table and result files.
+- Tier 1, main `4b6139a` vs `e19c29d`, release builds in separate checkouts:
+  - `tools` (`bench/results/tools-20261021-191705-main.json` vs
+    `tools-20261021-191928.json`, `compare-20261021-192033-1.json`): read p50
+    0.413 → 0.477 ms, shell p50 2.35 → 2.46 ms, wall 72.1 → 75.6 ms; every
+    verdict `same`. A journal row per event does not show at this resolution.
+  - `size` (`size-20261021-192006-main.json` vs `size-20261021-192027.json`;
+    one sample each, so `compare` has nothing to judge): binary 17.25 MB →
+    19.58 MB (+2.33 MB, +13.5%), more than the issue's "roughly a megabyte";
+    a fresh home after one run 2 KB → 37 KB (the journal and its WAL).

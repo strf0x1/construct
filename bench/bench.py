@@ -620,7 +620,8 @@ def suite_size(args):
     if OPENCODE:
         out["opencode"] = {"install": du(OPENCODE), "parts": {"binary": du(OPENCODE)}}
     # What a first run adds to a fresh home (bundled skills, npm packages...).
-    homes = fresh_homes(HARNESSES, "size")
+    # Only harnesses that were asked for and are installed (measured above).
+    homes = fresh_homes([n for n in (args.harness or HARNESSES) if n in out], "size")
     ep = Endpoint(WORK / "size" / "ep", script=[])
     work = WORK / "size" / "work"
     work.mkdir(parents=True, exist_ok=True)
