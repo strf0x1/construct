@@ -16,6 +16,7 @@ pub struct McpTool {
     server: String,
     remote: String,
     definition: Value,
+    readonly: bool,
     manager: Arc<Manager>,
 }
 
@@ -30,7 +31,14 @@ impl McpTool {
                 "parameters": t.schema,
             }
         });
-        Self { name, server: server.to_string(), remote: t.name, definition, manager: manager.clone() }
+        Self {
+            name,
+            server: server.to_string(),
+            remote: t.name,
+            definition,
+            readonly: t.readonly,
+            manager: manager.clone(),
+        }
     }
 }
 
@@ -44,6 +52,9 @@ impl Tool for McpTool {
     }
     fn definition(&self) -> Value {
         self.definition.clone()
+    }
+    fn readonly(&self) -> bool {
+        self.readonly
     }
     async fn call(&self, _ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
         self.manager.call(&self.server, &self.remote, args).await.map(Output::plain).map_err(ToolError::from)

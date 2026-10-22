@@ -1210,3 +1210,132 @@ fn context7_answers_from_inside_the_sandbox() {
     let r = tool_results(&env);
     assert!(r[0].contains("/rusqlite/rusqlite"), "{}", r[0]);
 }
+
+// ---------------------------------------------------------------- mcp spec
+
+fn spec_server(name: &str, flags: &str, extra: &str) -> String {
+    format!(
+        "[mcp.{name}]\ncommand = \"{}\"\nargs = [\"mcp-fake\"{flags}]\ndescription = \"spec cases\"\n{extra}",
+        dev_bin().display()
+    )
+}
+
+#[test]
+fn mcp_client_answers_server_requests_skips_bad_lines_and_keeps_rich_content() {
+    use construct::mcp::wire_name;
+    let env = Env::new(
+        "mcp-spec",
+        json!({ "steps": [
+            { "call": "mcp__spec__ping_first", "args": {} },
+            { "call": "mcp__spec__ask_sampling", "args": {} },
+            { "call": "mcp__spec__garbage", "args": {} },
+            { "call": "mcp__spec__echo", "args": { "text": "after garbage" } },
+            { "call": "mcp__spec__rich", "args": {} },
+            { "call": "mcp__spec__structured", "args": {} },
+            { "call": wire_name("spec", "dotted.tool"), "args": {} },
+            { "call": wire_name("spec", construct_dev::mcp_fake::LONG_NAME), "args": {} },
+            { "text": "done" }
+        ] }),
+    );
+    env.config(&format!("[router]\nmode = \"local\"\n{}", spec_server("spec", ", \"--spec\"", "")));
+    let out = env.run(&["run", "--no-learn", "try the spec server"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(
+        r,
+        [
+            "pong ok",
+            "refused ok",
+            "survived",
+            "after garbage",
+            "intro\nembedded notes\n[link parser.rs file:///src/parser.rs]",
+            r#"{"answer":42}"#,
+            "dotted ok",
+            "long ok"
+        ]
+    );
+    let first = &env.requests()[0];
+    for name in tool_names(first) {
+        assert!(
+            name.len() <= 64 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'),
+            "{name} is not a valid function name"
+        );
+    }
+    assert!(!first["tools"].to_string().contains("$schema"), "dialect key forwarded");
+}
+
+#[test]
+fn a_crashed_mcp_server_fails_the_call_at_once_and_restarts_on_the_next() {
+    let env = Env::new(
+        "mcp-crash",
+        json!({ "steps": [
+            { "call": "mcp__spec__crash", "args": {} },
+            { "call": "mcp__spec__echo", "args": { "text": "back" } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config(&format!("[router]\nmode = \"local\"\n{}", spec_server("spec", ", \"--spec\"", "")));
+    let t = std::time::Instant::now();
+    let out = env.run(&["run", "--no-learn", "try the spec server"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(t.elapsed() < Duration::from_millis(budget(10_000)), "waited on a dead server: {:?}", t.elapsed());
+    let r = tool_results(&env);
+    assert!(r[0].contains("MCP server closed"), "{}", r[0]);
+    assert_eq!(r[1], "back");
+}
+
+#[test]
+fn mcp_progress_keeps_a_call_alive_and_silence_cancels_it() {
+    let env = Env::new(
+        "mcp-progress",
+        json!({ "steps": [
+            { "call": "mcp__spec__slow", "args": { "ms": 2500 } },
+            { "call": "mcp__spec__hang", "args": {} },
+            { "text": "done" }
+        ] }),
+    );
+    env.config(&format!("[router]\nmode = \"local\"\n{}", spec_server("spec", ", \"--spec\"", "timeout = 1\n")));
+    let out = env.run(&["run", "--no-learn", "try the spec server"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(r[0], "slow done", "progress every 200ms outlasts a 1s timeout");
+    assert!(r[1].contains("timed out after 1s"), "{}", r[1]);
+    let log = std::fs::read_to_string(env.work.join("mcp-fake.log")).unwrap_or_default();
+    assert!(log.lines().any(|l| l.starts_with("cancelled ")), "no notifications/cancelled: {log:?}");
+}
+
+#[test]
+fn mcp_startup_problems_are_reported_with_the_reason() {
+    let env = Env::new("mcp-startup", json!({ "steps": [ { "text": "done" } ] }));
+    env.config(&format!(
+        "[router]\nmode = \"local\"\n{}{}{}",
+        spec_server("broken", ", \"--fail-start\"", ""),
+        spec_server("future", ", \"--version\", \"2999-01-01\"", ""),
+        spec_server("bare", ", \"--no-tools\"", ""),
+    ));
+    // The turn runs; the failed starts are error events (and a failing exit).
+    let out = env.run(&["run", "--no-learn", "--json", "use broken, future and bare"]);
+    let errors: Vec<String> = json_events(&out)
+        .iter()
+        .filter(|e| e["event"] == "error")
+        .map(|e| e["message"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert_eq!(errors.len(), 2, "{errors:#?}");
+    assert!(errors.iter().any(|e| e.contains("MCP broken") && e.contains("cannot open config")), "{errors:#?}");
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.contains("MCP future") && e.contains("unsupported MCP protocol version \"2999-01-01\"")),
+        "{errors:#?}"
+    );
+    assert!(!tool_names(&env.requests()[0]).iter().any(|n| n.starts_with("mcp__")), "no tools from any of them");
+}
+
+#[test]
+fn an_mcp_server_name_that_cannot_round_trip_is_refused() {
+    let env = Env::new("mcp-name", json!({ "steps": [ { "text": "done" } ] }));
+    env.config(&spec_server("my__server", "", ""));
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("[mcp.my__server]"), "{}", text(&out));
+}

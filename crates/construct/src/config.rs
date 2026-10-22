@@ -86,6 +86,9 @@ pub struct McpServer {
     /// Secret names resolved like construct's own (environment, then the
     /// keyring) and passed to this server only. No other credential reaches it.
     pub secrets: Vec<String>,
+    /// Seconds a tool call may go without a response or a progress
+    /// notification before it is cancelled.
+    pub timeout: u64,
 }
 
 impl Default for McpServer {
@@ -99,6 +102,7 @@ impl Default for McpServer {
             allow_write: vec![],
             network: true,
             secrets: vec![],
+            timeout: 300,
         }
     }
 }
@@ -313,6 +317,9 @@ impl Config {
             cfg.tools.editor = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
+        for name in cfg.mcp.keys() {
+            crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+        }
         Ok(cfg)
     }
 
