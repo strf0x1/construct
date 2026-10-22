@@ -4,6 +4,7 @@
 //! runner and the tests all observe the same thing, and every durable event
 //! is journaled on the way out (`journal::Writer::emit`).
 
+use crate::compact::{self, Reason};
 use crate::config::{Config, Paths};
 use crate::journal;
 use crate::llm::{self, Delta, Message, Usage};
@@ -34,6 +35,12 @@ pub struct Agent {
     unsent: Vec<Event>,
     pub usage: Usage,
     pub last_prompt_tokens: u64,
+    /// The window a provider stated when it rejected a prompt, if smaller
+    /// than the configured one: planning uses it from then on.
+    window_seen: Option<u64>,
+    /// Request bytes per prompt token, measured on the last request big
+    /// enough to say; what the compaction planner sizes candidates with.
+    bytes_per_token: f64,
     pub turns_since_memory: u32,
     pub tool_calls_since_skill: u32,
     pub user_turns: u32,
@@ -96,6 +103,8 @@ impl Agent {
             unsent,
             usage: Usage::default(),
             last_prompt_tokens: 0,
+            window_seen: None,
+            bytes_per_token: 4.0,
             turns_since_memory: 0,
             tool_calls_since_skill: 0,
             user_turns: 0,
@@ -223,6 +232,9 @@ impl Agent {
         let mut steps = 0u32;
         let mut turn_usage = Usage::default();
         let mut interrupted = false;
+        // One forced cut and resend per step when the provider says the
+        // prompt is too long; a second rejection ends the turn.
+        let mut overflowed = false;
         loop {
             if self.cancelled() {
                 interrupted = true;
@@ -232,23 +244,45 @@ impl Agent {
                 self.journal.emit(Event::Error { message: format!("stopped after {steps} steps (max_steps)") }, tx);
                 break;
             }
-            self.maybe_compact(tx).await;
-            steps += 1;
             let defs = self.tool_defs();
-            let completion = match self.step(&defs, tx).await {
+            if !overflowed {
+                self.compact(&defs, Reason::Threshold, tx).await;
+            }
+            steps += 1;
+            let body = self.body(&self.messages, &defs);
+            let bytes = body.len() as u64;
+            let completion = match self.step(body, &defs, tx).await {
                 Ok(Some(c)) => c,
                 Ok(None) => {
                     interrupted = true;
                     break;
+                }
+                Err(e) if !overflowed && compact::is_overflow(&format!("{e:#}")) => {
+                    // Recovered, not an error: the `compacted` event records it.
+                    let e = format!("{e:#}");
+                    if let Some(t) = compact::overflow_tokens(&e) {
+                        self.measure(bytes, t);
+                    }
+                    if let Some(w) = compact::overflow_limit(&e).filter(|&w| w < self.cfg_context_window()) {
+                        self.window_seen = Some(w);
+                    }
+                    overflowed = true;
+                    steps -= 1;
+                    if !self.compact(&defs, Reason::Overflow, tx).await {
+                        break;
+                    }
+                    continue;
                 }
                 Err(e) => {
                     self.journal.emit(Event::Error { message: format!("{e:#}") }, tx);
                     break;
                 }
             };
+            overflowed = false;
             turn_usage.add(&completion.usage);
             self.usage.add(&completion.usage);
             self.last_prompt_tokens = completion.usage.prompt_tokens;
+            self.measure(bytes, completion.usage.prompt_tokens);
             self.journal.emit(
                 Event::Usage {
                     prompt: completion.usage.prompt_tokens,
@@ -286,17 +320,28 @@ impl Agent {
         self.messages.push(m);
     }
 
-    /// One model call. Returns None when interrupted.
-    async fn step(&self, defs: &[Value], tx: &Events) -> Result<Option<llm::Completion>> {
-        let (dtx, mut drx) = mpsc::unbounded_channel::<Delta>();
-        let req = llm::Request {
+    /// The request body for `messages` with these tools, as sent.
+    fn body(&self, messages: &[Message], defs: &[Value]) -> Vec<u8> {
+        llm::body(&llm::Request {
             model: &self.cfg.model,
-            messages: &self.messages,
+            messages,
             tools: defs,
             max_tokens: self.cfg.max_tokens,
             temperature: self.cfg.temperature,
-        };
-        let body = llm::body(&req);
+        })
+    }
+
+    /// Learn bytes per token from a request the provider counted. Small
+    /// requests are skipped: fixed overheads would skew the ratio.
+    fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
+        if prompt_tokens >= 1024 {
+            self.bytes_per_token = (bytes as f64 / prompt_tokens as f64).clamp(1.0, 8.0);
+        }
+    }
+
+    /// One model call. Returns None when interrupted.
+    async fn step(&self, body: Vec<u8>, defs: &[Value], tx: &Events) -> Result<Option<llm::Completion>> {
+        let (dtx, mut drx) = mpsc::unbounded_channel::<Delta>();
         self.journal.emit(
             Event::Request {
                 model: self.cfg.model.clone(),
@@ -432,56 +477,110 @@ impl Agent {
         }
     }
 
-    /// Summarize older turns once the prompt nears the context window.
-    async fn maybe_compact(&mut self, tx: &Events) {
-        let window = self.cfg_context_window();
-        if self.last_prompt_tokens < window * 3 / 4 {
-            return;
+    /// Cut history if the planner says so (see `compact`). Returns whether
+    /// anything was cut.
+    async fn compact(&mut self, defs: &[Value], reason: Reason, tx: &Events) -> bool {
+        let started = Instant::now();
+        let budget = compact::budget(self.cfg_context_window(), self.cfg.max_tokens);
+        let ratio = self.bytes_per_token;
+        let (model, max_tokens, temperature) = (self.cfg.model.clone(), self.cfg.max_tokens, self.cfg.temperature);
+        let size = move |messages: &[Message]| {
+            let req = llm::Request { model: &model, messages, tools: defs, max_tokens, temperature };
+            (llm::body(&req).len() as f64 / ratio) as u64
+        };
+        let Some(plan) = compact::plan(&self.messages, &size, budget, &self.cfg.compaction, reason) else {
+            if reason == Reason::Overflow {
+                self.journal
+                    .emit(Event::Error { message: "the prompt is too long and nothing is left to cut".into() }, tx);
+            }
+            return false;
+        };
+        let (mut summary, mut fallback, mut usage) = (None, None, Usage::default());
+        if let Some(upto) = plan.upto {
+            let (r, u) = self.summarize(upto, budget).await;
+            usage = u;
+            match r {
+                Ok(text) => summary = Some(text),
+                Err(e) => fallback = Some(e),
+            }
         }
-        // Keep the system prompt and the last few user turns verbatim; cut
-        // only at a user message so tool calls stay paired with results.
-        let user_idx: Vec<usize> =
-            self.messages.iter().enumerate().filter(|(_, m)| m.role == "user").map(|(i, _)| i).collect();
-        let Some(&cut) = user_idx.iter().rev().nth(1).or(user_idx.last()) else { return };
-        if cut <= 1 {
-            return;
-        }
-        let transcript = crate::learn::digest(&self.messages[1..cut], 120_000);
-        let req = vec![
-            Message::system(
-                "You compress agent transcripts. Write a dense summary another agent can continue from: the user's goals and constraints, decisions made, files touched and their current state, commands that worked, open problems, and next steps. No preamble.",
-            ),
-            Message::user(transcript),
-        ];
-        let r = self
-            .client
-            .complete(llm::Request {
-                model: &self.cfg.model,
-                messages: &req,
-                tools: &[],
-                max_tokens: Some(4000),
-                temperature: None,
-            })
-            .await;
-        let Ok(c) = r else { return };
-        let summary = c.message.content.unwrap_or_default();
-        if summary.trim().is_empty() {
-            return;
+        let cut = plan.cut(summary);
+        if cut.summary.is_none() && cut.elide.is_empty() {
+            self.journal
+                .emit(Event::Error { message: format!("compaction failed: {}", fallback.unwrap_or_default()) }, tx);
+            return false;
         }
         let before = self.messages.len();
-        let tail = self.messages.split_off(cut);
-        self.messages.truncate(1);
-        self.messages.push(Message::user(format!(
-            "<system-reminder>\nEarlier conversation, summarized:\n{summary}\n</system-reminder>"
-        )));
-        self.messages.push(Message::text("assistant", "Understood; continuing from that summary."));
-        self.messages.extend(tail);
+        self.messages = compact::apply(std::mem::take(&mut self.messages), &cut);
+        let tokens_after = size(&self.messages);
         self.last_prompt_tokens = 0;
-        self.journal.emit(Event::Compacted { before, after: self.messages.len() }, tx);
+        self.journal.emit(
+            Event::Compacted {
+                before,
+                after: self.messages.len(),
+                mode: if cut.summary.is_some() { "summarize" } else { "elide" }.into(),
+                reason: plan.reason.label().into(),
+                tokens_before: plan.tokens_before,
+                tokens_after,
+                budget,
+                reached: tokens_after <= (self.cfg.compaction.target as f64 * budget as f64) as u64,
+                ms: started.elapsed().as_millis() as u64,
+                summary_prompt: usage.prompt_tokens,
+                summary_completion: usage.completion_tokens,
+                fallback,
+                cut: Some(cut),
+            },
+            tx,
+        );
+        true
+    }
+
+    /// Summarize messages `1..upto` (past any earlier summary) with the
+    /// summarizer model. Its input is capped to fit the same budget; its
+    /// output limit leaves room for reasoning, and a summary cut off by that
+    /// limit is refused rather than kept half-written.
+    /// The usage is returned either way: a refused summary was still paid for.
+    async fn summarize(&self, upto: usize, budget: u64) -> (Result<String, String>, Usage) {
+        let max_chars = (budget as f64 * 0.6 * self.bytes_per_token) as usize;
+        let words = compact::summary_allowance(budget) * 3 / 4;
+        let req = vec![
+            Message::system(format!("{}\nKeep it under {words} words.", compact::SUMMARY_SYSTEM)),
+            Message::user(compact::summary_request(&self.messages[1..upto], max_chars)),
+        ];
+        let model = if self.cfg.compaction.model.is_empty() { &self.cfg.model } else { &self.cfg.compaction.model };
+        let mut usage = Usage::default();
+        // An empty answer is the model's flake (reasoning, then no text): one
+        // more try is cheaper than losing the summary to a coarser cut.
+        for _ in 0..2 {
+            let r = self
+                .client
+                .complete(llm::Request {
+                    model,
+                    messages: &req,
+                    tools: &[],
+                    max_tokens: Some(compact::summary_allowance(budget) as u32 + compact::REASONING_HEADROOM),
+                    temperature: None,
+                })
+                .await;
+            let c = match r {
+                Ok(c) => c,
+                Err(e) => return (Err(format!("{e:#}")), usage),
+            };
+            usage.add(&c.usage);
+            let text = c.message.content.unwrap_or_default();
+            if c.finish_reason == "length" {
+                return (Err(format!("the summary hit the output limit after {} chars", text.len())), usage);
+            }
+            if !text.trim().is_empty() {
+                return (Ok(text), usage);
+            }
+        }
+        (Err("the summarizer returned nothing, twice".into()), usage)
     }
 
     fn cfg_context_window(&self) -> u64 {
-        self.cfg.context_window.max(8192) as u64
+        let w = self.cfg.context_window.max(8192) as u64;
+        self.window_seen.map_or(w, |s| s.min(w))
     }
 }
 

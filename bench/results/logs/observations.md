@@ -229,3 +229,9 @@ Proposal 04 step 5 (MCP tools as catalog entries), tier 1, construct only (openc
 - `bench/results/size-20261021-220605.json`: model None; bench 0602f19; construct 0602f19 editor=replace router=local
 - `bench/results/tools-20261021-220544-main.json`: model None; bench 60f12bd dirty; construct 60f12bd editor=replace router=local
 - `bench/results/tools-20261021-220809.json`: model None; bench 0602f19 dirty; construct 0602f19 editor=replace router=local
+
+## 2026-10-22 05:37 note
+
+Compaction baseline (proposal 01, ADR 0012): main 6/9 vs planner 9/9 at a 32k window, main's 3 compact-recall runs all died on fatal overflows; planner costs more tokens where main squeezed through at 0.97 fill, stubs re-run median 3/run; keep_results=4 same verdicts as 2 with lower medians. Earlier A/B attempt stopped: OpenRouter free provider returned 'Provider returned an empty response' in-stream (200), construct doesn't retry it (llm.rs, #47); bench now re-runs runs with provider failures (--invalid-retries).
+
+- `bench/results/task-20261022-053503.json`: model minimax/minimax-m3.1-flash:free; bench 3b16106 dirty; main 3b16106 editor=replace router=local; new 3b16106 dirty editor=replace router=local; k4 3b16106 dirty editor=replace router=local

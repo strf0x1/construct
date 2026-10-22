@@ -1,0 +1,17 @@
+description = "A fact found in turn 1 (the peak sensor reading) is needed in turn 4, after its source is deleted and two turns of unrelated work. Run at a 32k window: only what compaction kept can answer."
+turns = [
+  "The files in telemetry/ are sensor dumps (timestamp, sensor id, reading in °C). Find the single highest reading across all of them and tell me the sensor id, the reading and the file it is in. Don't change any files.",
+  "telemetry/ has now been archived and removed from the repo; that is expected, leave it. Next: the test suite fails (`python3 -m unittest`). Fix every bug in the `shop` package so the whole suite passes, without changing the tests.",
+  "Write docs/API.md: one line per public function in shop/money.py, shop/pricing.py and shop/tax.py, saying what it does. Then add a test to tests/test_money.py that splits 1.00 into 7 parts and checks the shares, and run the suite.",
+  "Create ANSWER.txt with exactly one line, `<sensor id>,<reading>,<file name>`, for the peak reading you found in the first turn (e.g. `S-0a1b2c,12.34,dump-00.log`).",
+]
+timeout_s = 900
+window = 32000
+changes = ["telemetry/*", "shop/*.py", "docs/API.md", "tests/test_money.py", "ANSWER.txt"]
+
+[vars]
+sensor = "{hex6}"
+
+[budget]
+max_requests = 160
+max_prompt_tokens = 3000000

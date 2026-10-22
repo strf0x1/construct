@@ -1,0 +1,11 @@
+description = "Six independent bugs across a ~1.8k-line package, one prompt. Run at a 32k window: the long single turn must compact several times and still finish."
+turns = [
+  "The test suite of this repo fails (`python3 -m unittest`). Find and fix every bug in the `shop` package so the whole suite passes. Don't change the tests. When it passes, list each bug you fixed in one line.",
+]
+timeout_s = 900
+window = 32000
+changes = ["shop/*.py"]
+
+[budget]
+max_requests = 120
+max_prompt_tokens = 2500000

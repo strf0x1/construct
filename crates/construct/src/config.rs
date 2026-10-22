@@ -18,8 +18,10 @@ pub struct Config {
     pub temperature: Option<f32>,
     /// Tool-call rounds per user turn before the agent must stop.
     pub max_steps: u32,
-    /// Tokens the model can take; history is compacted at 75% of this.
+    /// Tokens the model can take. Compaction plans against this less the
+    /// output reserve (`max_tokens`, or an eighth of it up to 8192).
     pub context_window: u32,
+    pub compaction: CompactionConfig,
     pub memory: MemoryConfig,
     pub learn: LearnConfig,
     pub router: RouterConfig,
@@ -28,6 +30,33 @@ pub struct Config {
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
+}
+
+/// When and how history is cut to fit the context window (see `compact`).
+/// Fractions are of the budget: the window less the output reserve.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct CompactionConfig {
+    /// Estimated prompt size, as a fraction of the budget, that triggers a cut.
+    pub threshold: f32,
+    /// What a cut must bring the estimate under.
+    pub target: f32,
+    /// Most recent rounds (an assistant message and its tool results) whose
+    /// results are never elided.
+    pub keep_results: usize,
+    /// Most recent rounds kept verbatim when older history is summarized.
+    pub keep_rounds: usize,
+    /// Elide a result once it is this many rounds old, whatever the size.
+    /// 0 turns it off: every age cut changes the cached prefix.
+    pub age_rounds: usize,
+    /// Model that writes summaries; empty means the run's model.
+    pub model: String,
+}
+
+impl Default for CompactionConfig {
+    fn default() -> Self {
+        Self { threshold: 0.7, target: 0.5, keep_results: 2, keep_rounds: 4, age_rounds: 0, model: String::new() }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,6 +146,7 @@ impl Default for Config {
             temperature: None,
             max_steps: 200,
             context_window: 131_072,
+            compaction: CompactionConfig::default(),
             memory: MemoryConfig::default(),
             learn: LearnConfig::default(),
             router: RouterConfig::default(),

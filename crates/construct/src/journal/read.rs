@@ -62,8 +62,15 @@ impl Journal {
     }
 }
 
-/// The conversation as the model saw it, from the message-bearing events.
-/// Nothing else is consulted: what was decided is in the messages.
+/// The conversation as the model saw it last: the message-bearing events,
+/// with each journaled compaction cut replayed where it happened.
 pub fn project<'a>(events: impl IntoIterator<Item = &'a Event>) -> Vec<Message> {
-    events.into_iter().filter_map(Event::message).cloned().collect()
+    let mut out = vec![];
+    for e in events {
+        match e {
+            Event::Compacted { cut: Some(cut), .. } => out = crate::compact::apply(out, cut),
+            e => out.extend(e.message().cloned()),
+        }
+    }
+    out
 }
