@@ -28,12 +28,13 @@ SKIP = {"rejection_codes", "unintended", "turns", "records", "series", "rss", "s
 # Higher is better for these; everything else (time, tokens, requests, errors,
 # rejections, sizes) is lower-better. Boolean checks are higher-better unless
 # their name is in LOWER_BOOL.
-HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens)($|[._])|^checks\.")
+HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens|cache_hit|cache_hit_after_cut)($|[._])|^checks\.")
 # No better direction: a different editor may rightly take more or fewer calls,
-# and cache writes are what turning caching on costs (cost_usd judges them).
+# a compaction policy may rightly cut more or less often, and cache writes are
+# what turning caching on costs (cost_usd judges them).
 # These get `higher`/`lower` instead of `better`/`worse`.
-NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|n_tools|cache_write_tokens)$")
-LOWER_BOOL = re.compile(r"(^|[._/])(ran_make_release|over_budget|timed_out|stopped|wrong_line)($|[._])")
+NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|n_tools|cache_write_tokens|cuts|cuts_elide|cuts_summarize|cuts_legacy)$")
+LOWER_BOOL = re.compile(r"(^|[._/])(ran_make_release|over_budget|timed_out|stopped|wrong_line|invalid)($|[._])")
 
 
 def flatten(run, prefix=""):

@@ -44,6 +44,9 @@ enum Cmd {
         /// Write the bound port to this file once listening.
         #[arg(long)]
         port_file: Option<PathBuf>,
+        /// Reject prompts over this many tokens, as a model with this context window would.
+        #[arg(long)]
+        window: Option<u64>,
     },
     /// A tiny stdio MCP server (tools: add, echo) for tests.
     McpFake(mcp_fake::Opts),
@@ -77,7 +80,7 @@ enum Cmd {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Serve { port, script, repeat, upstream, key_env, log, dump, chunk_ms, cache, port_file } => {
+        Cmd::Serve { port, script, repeat, upstream, key_env, log, dump, chunk_ms, cache, port_file, window } => {
             let (steps, side) = match script {
                 Some(p) => {
                     let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p)?)?;
@@ -103,6 +106,7 @@ fn main() -> Result<()> {
                     dump_dir: dump,
                     chunk_ms,
                     cache,
+                    window,
                 };
                 let (port, h) = serve::serve(cfg, port).await?;
                 if let Some(f) = port_file {

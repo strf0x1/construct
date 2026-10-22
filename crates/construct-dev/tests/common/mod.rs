@@ -60,6 +60,11 @@ impl Env {
     }
 
     pub fn new(name: &str, steps: Value) -> Self {
+        Self::with_window(name, steps, None)
+    }
+
+    /// An `Env` whose model has a `window`-token context (see `serve::Config::window`).
+    pub fn with_window(name: &str, steps: Value, window: Option<u64>) -> Self {
         let dir = Self::dir_for(name);
         let _ = std::fs::remove_dir_all(&dir);
         let home = dir.join("home");
@@ -75,6 +80,7 @@ impl Env {
             log: Some(dir.join("log.jsonl")),
             dump_dir: Some(dir.join("dump")),
             chunk_ms: 1,
+            window,
             cache: true,
         };
         let (port, _) = rt.block_on(serve::serve(cfg, 0)).unwrap();

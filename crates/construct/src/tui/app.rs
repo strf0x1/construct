@@ -281,8 +281,13 @@ impl App {
                 });
                 self.context_pct = prompt * 100 / (self.cfg.context_window.max(1) as u64);
             }
-            Event::Compacted { before, after } => {
-                self.notice(theme::ACCENT2, format!("◇ compacted history: {before} → {after} messages"));
+            Event::Compacted { before, after, mode, tokens_before, tokens_after, .. } => {
+                let what = if tokens_before > 0 {
+                    format!("{mode}, ~{}k → ~{}k tokens", tokens_before / 1000, tokens_after / 1000)
+                } else {
+                    format!("{before} → {after} messages")
+                };
+                self.notice(theme::ACCENT2, format!("◇ compacted history ({what})"));
             }
             Event::TurnEnd { steps, ms, interrupted, .. } => {
                 self.close_reasoning();

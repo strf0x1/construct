@@ -45,7 +45,7 @@ def legacy(rows):
             out.append({"type": "tool", "at": at, "data": data})
         elif ty == "compacted":
             out.append({"type": "compact", "at": at, "data": {"before": p.get("before"), "after": p.get("after")}})
-        elif "message" in p:
+        elif isinstance(p.get("message"), dict):  # an `error` event's message is a string
             out.append({"type": "message", "at": at, "message": p["message"]})
     return out
 

@@ -251,3 +251,9 @@ Issue #51 tier 2 (ADR 0012 accepted). Haiku 5.5: hit rate 0 -> 68% median, cost/
 - `bench/results/task-20261021-235859.json`: model anthropic/claude-haiku-5.5; bench 8d0014d; construct 8d0014d editor=replace router=local
 - `bench/results/task-20261022-000230-main.json`: model deepseek/deepseek-v4.1-flash; bench 3b16106 dirty; construct 3b16106 editor=replace router=local
 - `bench/results/task-20261022-000644.json`: model deepseek/deepseek-v4.1-flash; bench 8d0014d dirty; construct 8d0014d editor=replace router=local
+
+## 2026-10-22 05:37 note
+
+Compaction baseline (proposal 01, ADR 0013): main 6/9 vs planner 9/9 at a 32k window, main's 3 compact-recall runs all died on fatal overflows; planner costs more tokens where main squeezed through at 0.97 fill, stubs re-run median 3/run; keep_results=4 same verdicts as 2 with lower medians. Earlier A/B attempt stopped: OpenRouter free provider returned 'Provider returned an empty response' in-stream (200), construct doesn't retry it (llm.rs, #47); bench now re-runs runs with provider failures (--invalid-retries).
+
+- `bench/results/task-20261022-053503.json`: model minimax/minimax-m3.1-flash:free; bench 3b16106 dirty; main 3b16106 editor=replace router=local; new 3b16106 dirty editor=replace router=local; k4 3b16106 dirty editor=replace router=local

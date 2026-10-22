@@ -37,6 +37,7 @@ import threading
 import time
 from pathlib import Path
 
+import compaction
 import compare as cmp
 import journal
 import process
@@ -151,7 +152,7 @@ class Sandboxed:
 class Endpoint:
     """A construct-dev serve process: scripted or forwarding upstream."""
 
-    def __init__(self, dir: Path, script=None, upstream=None, chunk_ms=2):
+    def __init__(self, dir: Path, script=None, upstream=None, chunk_ms=2, window=None):
         self.dir = dir
         dir.mkdir(parents=True, exist_ok=True)
         self.log = dir / "log.jsonl"
@@ -167,6 +168,8 @@ class Endpoint:
             args += ["--script", str(sp)]
         if upstream:
             args += ["--upstream", upstream]
+        if window:
+            args += ["--window", str(window)]
         env = dict(os.environ)
         if upstream:
             key = read_key(KEY_FILE) if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
@@ -255,6 +258,12 @@ class Construct(Harness):
     learn = True
     # An arm's [tools] overlay, as the body of an inline table (see --arm).
     tools = ""
+    # An arm's top-level config overlay (`cfg:` arms), TOML.
+    overlay = ""
+    # The binary under test; an arm may name another (NAME@BIN), e.g. main's build.
+    bin = CONSTRUCT
+    # Per task: the model's context window (task.toml `window`), or None.
+    window = None
 
     def env(self):
         e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy"}
@@ -267,6 +276,10 @@ class Construct(Harness):
     def configure(self, url, model, upstream=None):
         self.home.mkdir(parents=True, exist_ok=True)
         cfg = f'base_url = "{url}"\nmodel = "{model}"\n'
+        if self.window:
+            cfg += f"context_window = {self.window}\n"
+        if self.overlay:
+            cfg += self.overlay + "\n"
         if self.tools:
             cfg += f"tools = {{ {self.tools} }}\n"
         if not self.learn:
@@ -287,10 +300,10 @@ class Construct(Harness):
                 (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\n1. Follow the team runbook for this.\n")
 
     def headless(self, prompt, cont=False, cwd=None):
-        return [str(CONSTRUCT), "run"] + (["-c"] if cont else []) + [prompt]
+        return [str(self.bin), "run"] + (["-c"] if cont else []) + [prompt]
 
     def tui(self, cwd=None):
-        return [str(CONSTRUCT)]
+        return [str(self.bin)]
 
 
 class ConstructJev(Construct):
@@ -366,32 +379,43 @@ class Opencode(Sandboxed, Harness):
 HARNESSES = {"construct": Construct, "hermes": Hermes, "opencode": Opencode}
 # Variants, only run when named with --harness.
 VARIANTS = {"construct-jev": ConstructJev}
-# Arms from --arm: construct with a [tools] overlay, by arm name.
+# Arms from --arm: construct with a config overlay (and maybe another binary), by arm name.
 ARMS = {}
 
 
 def parse_arm(spec: str):
-    """`name:key=value, ...` -> (name, overlay). The overlay is the body of the
-    [tools] table as an inline table, e.g.
-    hashonly:'editor="hashline", hashline={anchor="hash"}'."""
-    name, sep, body = spec.partition(":")
+    """`NAME[@BIN]:OVERLAY` -> (name, {"tools", "cfg", "bin"}). OVERLAY is
+    the body of the [tools] table as an inline table, e.g.
+    hashonly:'editor="hashline", hashline={anchor="hash"}', or with a `cfg:`
+    prefix top-level TOML, e.g. aging:'cfg:compaction = { age_rounds = 16 }'.
+    BIN runs another construct build, e.g. main@/var/tmp/main/construct: ."""
+    import tomllib
+
+    head, sep, body = spec.partition(":")
+    name, _, bin = head.partition("@")
     if not sep or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
-        sys.exit(f"--arm {spec!r}: expected NAME:TOOLS, e.g. hashline:'editor=\"hashline\"'")
+        sys.exit(f"--arm {spec!r}: expected NAME[@BIN]:TOOLS, e.g. hashline:'editor=\"hashline\"'")
     if name in HARNESSES or name in VARIANTS:
         sys.exit(f"--arm {name}: that name is a harness")
+    if bin and not Path(bin).is_file():
+        sys.exit(f"--arm {name}: no binary at {bin}")
+    arm = {"tools": "", "cfg": "", "bin": bin}
+    key, toml = ("cfg", body[4:]) if body.startswith("cfg:") else ("tools", body)
     try:
-        import tomllib
-
-        tomllib.loads(f"tools = {{ {body} }}")
+        tomllib.loads(toml if key == "cfg" else f"tools = {{ {toml} }}")
     except Exception as e:
-        sys.exit(f"--arm {name}: {body!r} is not a TOML inline-table body: {e}")
-    return name, body
+        sys.exit(f"--arm {name}: {toml!r} is not valid TOML here: {e}")
+    arm[key] = toml
+    return name, arm
 
 
 def make_harness(name: str, home: Path):
     if name in ARMS:
         h = Construct(home)
-        h.name, h.tools = name, ARMS[name]
+        arm = ARMS[name]
+        h.name, h.tools, h.overlay = name, arm["tools"], arm["cfg"]
+        if arm["bin"]:
+            h.bin = Path(arm["bin"])
         return h
     return {**HARNESSES, **VARIANTS}[name](home)
 
@@ -538,8 +562,8 @@ def harness_manifest(h):
     config); a competitor gives its version."""
     try:
         if isinstance(h, Construct):
-            r = subprocess.run([str(CONSTRUCT), "manifest"], env=h.full_env(), capture_output=True, text=True, timeout=60)
-            return json.loads(r.stdout)
+            r = subprocess.run([str(h.bin), "manifest"], env=h.full_env(), capture_output=True, text=True, timeout=60)
+            return {**json.loads(r.stdout), "bin": str(h.bin)}
         exe = {"hermes": HERMES, "opencode": OPENCODE}.get(h.name)
         r = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
         return {"version": (r.stdout or r.stderr).strip()[:200], "path": str(exe)}
@@ -586,6 +610,23 @@ def order(names, r):
 
 
 STALLS = {}
+# Runs re-run because the provider failed under them, by harness.
+INVALID = {}
+
+
+def provider_failures(recs) -> int:
+    """Upstream answers that were the provider's failure, not the harness's:
+    a 5xx, or a 200 stream that ended with no usage and no finish reason (an
+    in-stream error such as OpenRouter's "Provider returned an empty
+    response"). A window rejection is the bench's own and doesn't count."""
+    bad = 0
+    for r in recs:
+        if r.get("window_rejected") or r.get("side"):
+            continue
+        st = r.get("status") or 200
+        if st >= 500 or (st == 200 and r.get("usage") is None and r.get("finish_reason") is None):
+            bad += 1
+    return bad
 
 
 def with_stall_retry(name, fn, retries=1):
@@ -874,7 +915,10 @@ def suite_task(args):
         work = base / "work"
         vars = tasklib.make_vars(task)
         tasklib.materialize(task, work, vars)
-        ep = Endpoint(base / "ep", upstream=args.upstream)
+        window = task.window if args.window is None else (args.window or None)
+        ep = Endpoint(base / "ep", upstream=args.upstream, window=window)
+        if isinstance(h, Construct):
+            h.window = window
         h.configure(ep.url, args.model, upstream=args.upstream)
         tasklib.seed_home(task, h.home, vars)
         budget = tasklib.Budget(task, ep)
@@ -917,8 +961,11 @@ def suite_task(args):
         first = next((x for x in recs if x.get("n_tools")), None)
         # How it got there, from construct's own tool records.
         proc = process.metrics(process.tool_events(h.home, t0)) if isinstance(h, Construct) else {}
+        if isinstance(h, Construct) and (window or task.window):
+            proc["compaction"] = compaction.metrics(h.home, t0, recs, window or task.window)
         return {
             **proc,
+            "provider_failures": provider_failures(recs),
             "task": task.name,
             "turns": turns,
             "checks": checks,
@@ -954,6 +1001,7 @@ def suite_task(args):
             + (f" cache={m['cache_hit_rate']:.0%}" if m["cache_hit_rate"] is not None else "")
             + (f" ${m['cost_usd']:.3f}" if m["cost_usd"] is not None else "")
             + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
+            + (f" {compaction.line(m['compaction'])}" if "compaction" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
             + (" OVER BUDGET" if m["over_budget"] else "")
         )
@@ -965,7 +1013,15 @@ def suite_task(args):
     for r in range(args.rounds):
         for task in tasks:
             for n in order(names, r):
-                m = once(n, homes[n], task, r)
+                # A run the provider broke says nothing about the harness: run it again.
+                for attempt in range(args.invalid_retries + 1):
+                    m = once(n, homes[n], task, r)
+                    m["invalid"] = m["provider_failures"] > 0
+                    if not m["invalid"]:
+                        break
+                    INVALID[n] = INVALID.get(n, 0) + 1
+                    print(f"  {n}: {task.name} round {r}: {m['provider_failures']} provider failures; invalid (attempt {attempt + 1})")
+                    time.sleep(60)
                 results[n].append(m)
                 show(f"round {r}", n, m)
                 time.sleep(args.pause)
@@ -991,7 +1047,7 @@ def suite_task(args):
 
     summary = {n: summarize(v) for n, v in results.items()}
     by_task = {t.name: {n: summarize([x for x in v if x["task"] == t.name]) for n, v in results.items()} for t in tasks}
-    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "jev": args.jev, "arms": ARMS, "learn": Construct.learn})
+    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "invalid_reruns": INVALID, "jev": args.jev, "arms": ARMS, "learn": Construct.learn, "window": args.window})
 
 
 # ---------------------------------------------------------------- routing
@@ -1279,9 +1335,11 @@ def main():
     ap.add_argument("--pause", type=float, default=2.0)
     ap.add_argument("--no-warmup", action="store_true")
     ap.add_argument("--harness", nargs="+", default=None, help="default: all three, or none when --arm is given")
-    ap.add_argument("--arm", action="append", default=[], metavar="NAME:TOOLS",
-                    help="a construct arm with a [tools] overlay, e.g. hashline:'editor=\"hashline\"'; repeat for each arm")
+    ap.add_argument("--arm", action="append", default=[], metavar="NAME[@BIN]:OVERLAY",
+                    help="a construct arm: a [tools] overlay, e.g. hashline:'editor=\"hashline\"', or cfg:TOML for top-level config; @BIN runs another build; repeat for each arm")
     ap.add_argument("--no-learn", action="store_true", help="[learn] enabled = false in every construct home")
+    ap.add_argument("--invalid-retries", type=int, default=2, help="re-run a task run the provider failed under (task suite) up to N times")
+    ap.add_argument("--window", type=int, default=None, help="override every task's context window; 0 = none (a control run)")
     ap.add_argument("--jev", action="store_true", help="give construct the TypeSafe key (Jev router)")
     ap.add_argument("--seed-skills", action="store_true", help="seed construct homes with bench/jev/library.json skills")
     args = ap.parse_args()

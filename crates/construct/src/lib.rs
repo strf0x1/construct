@@ -5,6 +5,7 @@
 
 pub mod agent;
 pub mod cli;
+pub mod compact;
 pub mod config;
 pub mod event;
 pub mod jev;

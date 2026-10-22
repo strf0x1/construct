@@ -68,6 +68,11 @@ pub struct Config {
     pub log: Option<PathBuf>,
     pub dump_dir: Option<PathBuf>,
     pub chunk_ms: u64,
+    /// Act as a model with this context window: a request whose prompt counts
+    /// more tokens is answered 400 `context_length_exceeded`, the way
+    /// providers reject one. Upstream, the count is the provider's own (the
+    /// response is buffered to read it); scripted, it is bytes / 4.
+    pub window: Option<u64>,
     /// Report simulated prefix-cache hits and writes in usage.
     pub cache: bool,
 }
@@ -264,6 +269,9 @@ async fn forward(
             .body(Body::from(bytes))
             .unwrap();
     }
+    if s.cfg.window.is_some() {
+        return windowed(s, resp, rec).await;
+    }
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(64);
     let s2 = s.clone();
     tokio::spawn(async move {
@@ -316,6 +324,47 @@ async fn forward(
         .header("content-type", "text/event-stream")
         .header("cache-control", "no-cache")
         .body(Body::from_stream(stream))
+        .unwrap()
+}
+
+/// A streamed upstream answer under `--window`: buffered whole, so the
+/// provider's prompt count decides between passing it on and rejecting it.
+/// Timings are meaningless here; the compaction suite doesn't read them.
+async fn windowed(s: Arc<Shared>, resp: reqwest::Response, mut rec: Value) -> Response {
+    let bytes = resp.bytes().await.unwrap_or_default();
+    rec["t_first_byte"] = json!(ms(&s));
+    let text = String::from_utf8_lossy(&bytes);
+    let (mut usage, mut calls, mut finish) = (Value::Null, 0usize, Value::Null);
+    for line in text.lines() {
+        let Some(d) = line.trim().strip_prefix("data:") else { continue };
+        let Ok(v) = serde_json::from_str::<Value>(d.trim()) else { continue };
+        if v["usage"].is_object() {
+            usage = v["usage"].clone();
+        }
+        if let Some(tc) = v.pointer("/choices/0/delta/tool_calls").and_then(Value::as_array) {
+            calls += tc
+                .iter()
+                .filter(|c| c.pointer("/function/name").and_then(Value::as_str).is_some_and(|n| !n.is_empty()))
+                .count();
+        }
+        if let Some(f) = v.pointer("/choices/0/finish_reason").filter(|f| !f.is_null()) {
+            finish = f.clone();
+        }
+    }
+    let prompt = usage["prompt_tokens"].as_u64().unwrap_or(0);
+    if let Some(r) = over_window(&s, &mut rec, prompt) {
+        return r;
+    }
+    rec["t_end"] = json!(ms(&s));
+    rec["usage"] = usage;
+    rec["resp_tool_calls"] = json!(calls);
+    rec["finish_reason"] = finish;
+    write_log(&s, &rec);
+    Response::builder()
+        .status(200)
+        .header("content-type", "text/event-stream")
+        .header("cache-control", "no-cache")
+        .body(Body::from(bytes))
         .unwrap()
 }
 
@@ -390,11 +439,37 @@ fn sse(v: Value) -> Bytes {
     Bytes::from(format!("data: {v}\n\n"))
 }
 
+/// The provider's answer to a prompt over `--window`, logged with
+/// `window_rejected` so a scorer can count overflows.
+fn over_window(s: &Shared, rec: &mut Value, prompt_tokens: u64) -> Option<Response> {
+    let w = s.cfg.window?;
+    if prompt_tokens <= w {
+        return None;
+    }
+    let msg = format!(
+        "This model's maximum context length is {w} tokens. However, your messages resulted in {prompt_tokens} tokens."
+    );
+    rec["status"] = json!(400);
+    rec["window_rejected"] = json!(true);
+    rec["usage"] = json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 0 });
+    rec["error"] = json!(msg);
+    rec["t_first_byte"] = json!(ms(s));
+    rec["t_end"] = rec["t_first_byte"].clone();
+    write_log(s, rec);
+    let body =
+        json!({ "error": { "message": msg, "type": "invalid_request_error", "code": "context_length_exceeded" } });
+    Some((StatusCode::BAD_REQUEST, axum::Json(body)).into_response())
+}
+
 async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     // Side calls without tools (opencode's title generation, compaction)
     // don't advance the script; only the agent loop does.
     let side = req["tools"].as_array().is_none_or(|t| t.is_empty());
     rec["side"] = json!(side);
+    let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
+    if let Some(r) = over_window(&s, &mut rec, prompt_tokens) {
+        return r;
+    }
     let step = if side {
         let mut n = s.side_next.lock().unwrap();
         let text = s.cfg.side.get(*n).cloned().unwrap_or_else(|| "Side reply".into());
@@ -422,7 +497,6 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let model = req["model"].as_str().unwrap_or("mock").to_string();
     let stream = req["stream"].as_bool().unwrap_or(false);
     let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
-    let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
     let mut usage =
         json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
     if s.cfg.cache {

@@ -46,6 +46,49 @@ SOLUTIONS = {
         (w / "test_stats.py").write_text((w / "test_stats.py").read_text().replace("\n\nif __name__", "\n    def test_median(self):\n        from stats import median\n        self.assertEqual(median([1, 2, 3]), 2)\n\n\nif __name__")),
     ),
 }
+
+
+def fix_shop(w):
+    """The six bugs planted in the compaction suite's `shop` package."""
+    for f, a, b in [
+        ("money", "CENT, rounding=ROUND_DOWN)\n\n\ndef split", "CENT, rounding=ROUND_HALF_UP)\n\n\ndef split"),
+        ("inventory", "available(sku) > quantity", "available(sku) >= quantity"),
+        ("pricing", "for minimum, discount in TIERS:", "for minimum, discount in reversed(TIERS):"),
+        ("shipping", "sum(unit_kg for", "sum(unit_kg * quantity for"),
+        ("tax", "region.lower()", "region.upper()"),
+        ("reports", "key=lambda kv: kv[1])", "key=lambda kv: kv[1], reverse=True)"),
+    ]:
+        p = w / "shop" / f"{f}.py"
+        p.write_text(p.read_text().replace(a, b, 1))
+
+
+def validate_quantities(w, v):
+    import re
+
+    n = iter(range(101, 200))
+    for mod in ["stock", "picking", "transfers", "returns"]:
+        p = w / "inventory" / f"{mod}.py"
+        check = lambda m: m.group(0) + f'    if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:\n        raise InventoryError("{v["prefix"]}-{next(n)}", "quantity must be a positive int")\n'
+        p.write_text(re.sub(r'    """[^\n]*recorded in the ledger."""\n', check, p.read_text()))
+    (w / "tests" / "test_quantity.py").write_text(f"# suite: {v['suite']}\nimport unittest\n")
+    log = w / "CHANGELOG.md"
+    log.write_text(log.read_text() + f"\n## Unreleased ({v['ticket']})\n\n- Quantities are validated.\n")
+
+
+def recall_answer(w, v):
+    task = tasklib.load("compact-recall")
+    tasklib.after_turn(task, 1, w)  # the hook deletes telemetry/ and keeps the answer's hashes
+    fix_shop(w)
+    (w / "docs").mkdir(exist_ok=True)
+    (w / "docs" / "API.md").write_text("- round_cents\n- split\n- bulk_discount\n- rate_for\n")
+    t = w / "tests" / "test_money.py"
+    t.write_text(t.read_text() + "\n    def test_split_seven(self):\n        self.assertEqual(sum(split('1.00', 7)), Decimal('1.00'))\n")
+    (w / "ANSWER.txt").write_text(f"S-{v['sensor']},97.31,dump-05.log\n")
+
+
+SOLUTIONS["compact-long-fix"] = lambda w, v: fix_shop(w)
+SOLUTIONS["compact-conventions"] = validate_quantities
+SOLUTIONS["compact-recall"] = recall_answer
 CHECK_ENV = {"team-seed": {"BENCH_SESSION": "median"}}
 
 
@@ -316,6 +359,42 @@ class Arms(unittest.TestCase):
         ep.log.write_text('{"i": 0}\n{"i": 1, "usage": {"prom')
         self.assertEqual(ep.records(), [{"i": 0}])
 
+    def test_a_cfg_arm_overlays_top_level_config_and_a_task_window(self):
+        import bench
+        import tomllib
+
+        name, arm = bench.parse_arm("aging:cfg:compaction = { age_rounds = 16 }")
+        self.assertEqual(arm, {"tools": "", "cfg": "compaction = { age_rounds = 16 }", "bin": ""})
+        bench.ARMS[name] = arm
+        try:
+            h = bench.make_harness(name, Path(tempfile.mkdtemp()) / "home")
+            h.window = 20000
+            h.configure("http://127.0.0.1:9/v1", "m")
+            parsed = tomllib.loads((h.home / "config.toml").read_text())
+            self.assertEqual((parsed["context_window"], parsed["compaction"]), (20000, {"age_rounds": 16}))
+            exe = bench.ROOT / "target" / "debug" / "construct"
+            if not exe.exists():
+                self.skipTest("no construct binary built")
+            r = subprocess.run([str(exe), "manifest"], env={**h.full_env(), "PATH": os.environ.get("PATH", "")}, capture_output=True, text=True, timeout=60)
+            m = json.loads(r.stdout)
+            self.assertEqual((m["context_window"], m["compaction"]["age_rounds"], m["compaction"]["keep_rounds"]), (20000, 16, 4))
+        finally:
+            bench.ARMS.pop(name, None)
+
+    def test_an_arm_can_run_another_binary(self):
+        import bench
+
+        exe = Path(tempfile.mkdtemp()) / "construct"
+        exe.write_text("")
+        name, arm = bench.parse_arm(f"main@{exe}:")
+        self.assertEqual((name, arm["bin"]), ("main", str(exe)))
+        bench.ARMS[name] = arm
+        try:
+            h = bench.make_harness(name, Path(tempfile.mkdtemp()))
+            self.assertEqual(h.headless("hi")[0], str(exe))
+        finally:
+            bench.ARMS.pop(name, None)
+
     def test_an_openrouter_upstream_names_the_dialect_and_a_mock_does_not(self):
         import bench
         import tomllib
@@ -344,9 +423,64 @@ class Arms(unittest.TestCase):
     def test_bad_arms_are_refused(self):
         import bench
 
-        for spec in ["noname", "construct:editor=\"x\"", "a:editor=hashline"]:
+        for spec in ["noname", "construct:editor=\"x\"", "a:editor=hashline", "a:cfg:compaction = {", "a@/no/such/bin:"]:
             with self.subTest(spec), self.assertRaises(SystemExit):
                 bench.parse_arm(spec)
+
+
+class Compaction(unittest.TestCase):
+    def test_provider_failures_are_told_from_the_harness_and_the_window(self):
+        import bench
+
+        recs = [
+            {"status": 200, "usage": {"prompt_tokens": 9}, "finish_reason": "stop"},
+            {"status": 200, "usage": None, "finish_reason": None},  # empty stream
+            {"status": 502},
+            {"status": 400, "window_rejected": True},
+            {"status": 429},
+        ]
+        self.assertEqual(bench.provider_failures(recs), 2)
+
+
+    def test_an_error_row_is_not_a_message(self):
+        rows = journal.legacy([("error", 1, {"message": "compaction failed"}), ("user", 2, {"message": {"role": "user", "content": "hi"}})])
+        self.assertEqual([r["type"] for r in rows], ["message"])
+
+
+    def test_scorecard_from_a_journal_and_the_endpoint_log(self):
+        import compaction
+
+        home = Path(tempfile.mkdtemp())
+        d = home / "projects" / "p"
+        d.mkdir(parents=True)
+        db = sqlite3.connect(d / "journal.sqlite")
+        db.execute("CREATE TABLE events(seq INTEGER PRIMARY KEY, session_id, type, v, at_ms, payload)")
+        call = lambda i: {"id": i, "type": "function", "function": {"name": "read", "arguments": '{"path":"a"}'}}
+        rows = [
+            ("assistant", {"message": {"role": "assistant", "tool_calls": [call("c1")]}}),
+            ("usage", {"prompt": 1000, "completion": 10, "cached": 900}),
+            ("compacted", {"before": 9, "after": 9, "mode": "elide", "reason": "threshold", "reached": True, "ms": 3, "cut": {"elide": ["c1"]}}),
+            ("usage", {"prompt": 600, "completion": 10, "cached": 0}),
+            ("tool_start", {"id": "c2", "name": "read", "args": '{"path":"a"}'}),
+            ("compacted", {"before": 9, "after": 4, "mode": "summarize", "reason": "overflow", "reached": False, "ms": 50, "summary_prompt": 300, "summary_completion": 100}),
+            ("compacted", {"before": 20, "after": 6}),
+        ]
+        for i, (t, p) in enumerate(rows):
+            db.execute("INSERT INTO events VALUES (?, 's', ?, 1, ?, ?)", (i + 1, t, 5000 + i, json.dumps(p)))
+        db.commit()
+        db.close()
+        recs = [
+            {"n_tools": 7, "status": 200, "usage": {"prompt_tokens": 15000}},
+            {"n_tools": 7, "window_rejected": True, "status": 400, "usage": {"prompt_tokens": 21000}},
+            {"n_tools": 0, "side": True, "usage": {"prompt_tokens": 300}},
+        ]
+        m = compaction.metrics(home, 1, recs, 20000)
+        self.assertEqual((m["cuts"], m["cuts_elide"], m["cuts_summarize"], m["cuts_legacy"]), (3, 1, 1, 1))
+        self.assertEqual((m["cuts_overflow"], m["cuts_unreached"], m["overflows"]), (1, 1, 1))
+        self.assertEqual((m["peak_fill"], m["compact_ms"], m["summary_tokens"], m["stub_reruns"]), (0.75, 53, 400, 1))
+        self.assertAlmostEqual(m["cache_hit"], 900 / 1600)
+        self.assertEqual(m["cache_hit_after_cut"], 0.0)
+        self.assertIn("cuts=3", compaction.line(m))
 
 
 class Compare(unittest.TestCase):

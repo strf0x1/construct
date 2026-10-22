@@ -115,9 +115,41 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cost: Option<f64>,
     },
+    /// History was cut to fit the window. `before`/`after` count messages;
+    /// the token fields are the planner's estimates. `cut` is what the
+    /// projector replays on resume (absent in journals from before it).
     Compacted {
         before: usize,
         after: usize,
+        /// "elide" or "summarize".
+        #[serde(default)]
+        mode: String,
+        /// "threshold", "overflow" or "age".
+        #[serde(default)]
+        reason: String,
+        #[serde(default)]
+        tokens_before: u64,
+        #[serde(default)]
+        tokens_after: u64,
+        /// The prompt budget planned against: window less output reserve.
+        #[serde(default)]
+        budget: u64,
+        /// Whether the cut reached the target.
+        #[serde(default)]
+        reached: bool,
+        /// How long the run was blocked, summarizer included.
+        #[serde(default)]
+        ms: u64,
+        /// The summarizer's own usage, when it ran.
+        #[serde(default)]
+        summary_prompt: u64,
+        #[serde(default)]
+        summary_completion: u64,
+        /// Why a summary was planned but not written (the cut fell back to eliding).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fallback: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cut: Option<crate::compact::Cut>,
     },
     TurnEnd {
         steps: u32,

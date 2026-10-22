@@ -21,6 +21,9 @@ task.toml keys:
                 {sha256:other:N} the first N hex of sha256 of an earlier var.
     [budget]    max_requests, max_prompt_tokens: past either, the run is
                 stopped and scored over_budget instead of running to timeout.
+    window      the model's context window in tokens: the endpoint rejects a
+                longer prompt as a provider would, and construct is told the
+                same window (the compaction suite, bench/compaction.py)
 """
 
 import fnmatch
@@ -59,6 +62,10 @@ class Task:
     @property
     def changes(self) -> list:
         return self.spec.get("changes", [])
+
+    @property
+    def window(self):
+        return self.spec.get("window")
 
     @property
     def budget(self) -> dict:

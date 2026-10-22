@@ -1,0 +1,16 @@
+description = "Rules read at the start (a random error-code prefix, suite marker and ticket) must be followed after reading the whole package. Run at a 32k window."
+turns = [
+  "Read docs/CONVENTIONS.md first. Then add quantity validation to every public function in the `inventory` package that takes a `quantity` parameter: quantity must be a positive int (bool doesn't count), otherwise the function raises InventoryError. Follow the conventions for error codes, tests and the changelog. Put the new tests in a new module tests/test_quantity.py, covering every function you changed, and run the whole suite.",
+]
+timeout_s = 1500
+window = 32000
+changes = ["inventory/*.py", "tests/test_quantity.py", "CHANGELOG.md"]
+
+[vars]
+prefix = "QX{hex2}"
+suite = "inv-{hex6}"
+ticket = "OPS-{hex4}"
+
+[budget]
+max_requests = 120
+max_prompt_tokens = 2500000

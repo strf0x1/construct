@@ -46,7 +46,7 @@ pub fn export(entries: &[Entry]) -> Vec<Value> {
                 "type": "tool", "at": at,
                 "data": { "id": id, "name": name, "ok": ok, "ms": ms, "code": code, "data": data },
             }),
-            Event::Compacted { before, after } => {
+            Event::Compacted { before, after, .. } => {
                 json!({ "type": "compact", "at": at, "data": { "before": before, "after": after } })
             }
             e => match e.message() {
