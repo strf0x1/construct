@@ -115,6 +115,49 @@ gone "PERMISSION" 500
     assert!(!env.home.join("config.toml").exists());
 }
 
+/// What `tui/prompt.rs` promises to look like: choices colored by
+/// consequence, and the selection a filled bar that moves with the keys. Text
+/// alone can't see any of it.
+#[test]
+fn the_prompt_colors_choices_by_consequence_and_fills_the_selected_row() {
+    let file = outside_path("perm-styled", "c.txt");
+    let env = Env::new("perm-styled", json!({ "steps": [read_call(&file), { "text": "all done" }] }));
+    make(&file, "charlie\n");
+    let image = env.dir.join("prompt.svg");
+    let mut d = tui(&env, &[]);
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type read it
+key enter
+wait "PERMISSION" {}
+sleep 600
+expect-style "PERMISSION" fg=#1a1b26 bold
+expect-style "Allow once" fg=#9ece6a bg=#2c3048 bold
+expect-style "Always allow" fg=#e0af68 bg=default
+expect-style "Deny" fg=#f7768e
+key down
+sleep 100
+expect-style "Allow for this session" bg=#2c3048 bold
+expect-style "Allow once" bg=default !bold
+image {}
+key enter
+wait "all done" {}
+"#,
+            budget(3000),
+            budget(5000),
+            image.display(),
+            budget(5000)
+        ),
+    );
+    quit(&mut d);
+    assert_eq!(access_rows(&env)[0]["decision"], "session");
+    let svg = std::fs::read_to_string(&image).unwrap();
+    assert!(svg.starts_with("<svg") && svg.contains("fill=\"#2c3048\""), "{svg}");
+}
+
 #[test]
 fn deny_tells_the_model_and_always_writes_the_path_to_config() {
     let file = outside_path("perm-deny-always", "b.txt");

@@ -27,6 +27,8 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
 | `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
+| `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
+| `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
 | `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. `journal.py` reads construct's journals (stdlib `sqlite3`) as the old session rows. |
@@ -59,8 +61,34 @@ EOF
 ```
 
 Script commands: `wait`, `gone`, `type`, `key` (enter esc tab up down pgup pgdn
-ctrl-x alt-enter …), `sleep`, `snap`, `expect`, `resize`, `settle`. `--metrics`
-prints first-output, first-frame and per-wait timings as JSON.
+ctrl-x alt-enter …), `sleep`, `snap` (`--style` for colors), `expect`,
+`expect-style`, `image`, `resize`, `settle`. `--metrics` prints first-output,
+first-frame and per-wait timings as JSON. The driver strips `NO_COLOR` from
+the child.
+
+## See it yourself: verify UI changes end to end
+
+You can drive and look at the TUI without a human: the `verify-construct`
+skill (`.agents/skills/verify-construct/SKILL.md`, linked from
+`.claude/skills/`) runs a recipe (scripted model + drive script + `check.sh`)
+in a fresh home and keeps evidence under `.verify/evidence/`:
+
+```sh
+.agents/skills/verify-construct/scripts/doctor.sh      # OK, or why this build isn't worth driving
+.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/permission-prompt
+```
+
+`snap --style` shows colors and attributes as `⟦fg=#7aa2f7 bold⟧text⟦/⟧`,
+`expect-style` asserts them, and `image x.png` renders the frame so you can
+open it and look. `docs/feature-map/` says what each feature is, how to reach
+it and what proves it.
+
+A change to anything a user sees in the TUI (`tui/`, prompts, notices, the
+status line) is driven before the PR: run the matching recipe (or write one),
+open the image, and put the recipe name, run id and result in the PR. If the
+behavior must not regress, encode it as an e2e test as well. Never trust a
+recipe that only checks the screen: the scripted model's reply is fixed, so
+`check.sh` must read the real tool result or journal row.
 
 ## Tests
 
@@ -99,6 +127,7 @@ tier named; post the number either way.
 | Tier | Command | Deterministic | Cost | Required for |
 |---|---|---|---|---|
 | 0 check | `cargo xtask check` | yes | ~1 min warm, no network | every PR |
+| 0 drive | `verify-construct` recipe (`scripts/drive.sh <recipe>`) | yes (scripted model) | ~5 s a recipe, no network | anything a user sees in the TUI: post recipe, run id, PASS/FAIL |
 | 1 overhead | `bench.py size frame tools memory` (mock model) | timing noise only | ~5 min, no network | startup, the TUI loop, tool execution, request building |
 | 2 behaviour | `bench.py task\|routing\|loop --model …` (real model) | no | minutes to an hour, costs money | prompts, tool schemas or wording, router, learning, editor |
 

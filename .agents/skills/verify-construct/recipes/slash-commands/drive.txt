@@ -1,0 +1,29 @@
+# Built-in slash commands, typed at the prompt. No model request is made.
+wait "ask construct" 5000
+type /help
+key enter
+wait "/new" 2000
+expect "/skills"
+expect "/model"
+snap --style help
+type /skills
+key enter
+wait "no skills yet" 2000
+type /model verify-model-x
+key enter
+wait "model → verify-model-x" 2000
+expect-style "model → verify-model-x" fg=#7aa2f7
+type /nope
+key enter
+wait "unknown command /nope" 2000
+expect-style "unknown command /nope" fg=#e0af68
+image {evidence}/slash.png
+type /memory
+key enter
+wait "memory is empty" 2000
+type /new
+key enter
+gone "unknown command /nope" 2000
+type /quit
+key enter
+gone "ask construct" 3000

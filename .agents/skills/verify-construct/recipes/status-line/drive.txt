@@ -1,0 +1,13 @@
+# After a turn the bottom row shows the model and the token count.
+wait "ask construct" 5000
+type say hi
+key enter
+wait "hello from the mock" 5000
+settle 300 5000
+expect " tok"
+expect-style "◆" fg=#bb9af7
+snap --style after-turn
+image {evidence}/status.png
+type /new
+key enter
+wait "0 tok" 2000

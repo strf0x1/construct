@@ -1,0 +1,13 @@
+# The parent delegates; the child's blocked read asks the user, badged as a subagent.
+wait "ask construct" 5000
+type ask scout
+key enter
+wait "PERMISSION" 10000
+expect "subagent · scout"
+expect "read is blocked by the sandbox"
+sleep 600
+expect-style "subagent · scout" fg=#bb9af7
+image {evidence}/child-prompt.png
+type y
+wait "the scout reported" 10000
+snap --style after
