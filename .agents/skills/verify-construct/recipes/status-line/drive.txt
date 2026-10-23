@@ -8,3 +8,6 @@ expect " tok"
 expect-style "◆" fg=#bb9af7
 snap --style after-turn
 image {evidence}/status.png
+type /new
+key enter
+wait "0 tok" 2000

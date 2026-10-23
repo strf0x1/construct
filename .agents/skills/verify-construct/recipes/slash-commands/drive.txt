@@ -18,3 +18,12 @@ key enter
 wait "unknown command /nope" 2000
 expect-style "unknown command /nope" fg=#e0af68
 image {evidence}/slash.png
+type /memory
+key enter
+wait "memory is empty" 2000
+type /new
+key enter
+gone "unknown command /nope" 2000
+type /quit
+key enter
+gone "ask construct" 3000

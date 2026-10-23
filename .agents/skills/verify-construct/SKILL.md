@@ -45,6 +45,7 @@ A recipe is a directory named after the feature id:
 | `model.json` | the scripted model: `{"steps":[{"call":"read","args":{"path":"{outside}/a.txt"}},{"text":"done"}]}`. One step per model request, in order, across the parent and any delegated children. |
 | `drive.txt` | the drive script (commands below) |
 | `setup.sh` | optional; runs first with `WORK`, `OUTSIDE`, `CHOME` (the construct home: put `config.toml` there) and `EVIDENCE` set |
+| `check.sh` | optional, and you want one; runs after a passing drive with the same variables, once the evidence is collected. It asserts what the system did (a tool result in `$EVIDENCE/requests/`, rows in `$EVIDENCE/journal.txt`, files in `$WORK`), and a non-zero exit fails the run |
 
 `{work}`, `{outside}`, `{home}`, `{evidence}` in `model.json` and
 `drive.txt` become those paths. For a one-off check, copy a recipe dir to your
@@ -90,17 +91,27 @@ reader: you see the frame as a user would. Use it for layout and for anything
 
 - `transcript.txt`: every `snap`, the failure screen if any, and `--metrics`
   timings as JSON.
-- `requests.jsonl`: every request the mock received. This is what the model was
-  told: tool results, permission outcomes, system prompt.
+- `requests/req-0001.json`, …: each request body in full, in order. This is
+  what the model was told: system prompt, tools, every tool result (so a
+  permission outcome shows up as the result text). `requests.jsonl` has one
+  summary line per request (model, tool names, sizes).
 - `journal.txt`: the session journal (`seq | session | type | payload`):
   `access` rows hold permission decisions, `tool_end` rows hold results, and a
   child's rows sit under its own session id.
 - any `image` output.
 
+**The screen can be right while the feature is broken.** The scripted model
+says whatever its steps say, whether or not the tool call behind it worked:
+the `delegation` recipe drew a perfect subagent prompt, recorded the user's
+"once", and showed the child's cheerful reply, while the child's read had
+failed with EACCES (issue #66). Only its `check.sh`, reading the child's
+`tool_end` row, caught it. Every recipe that triggers a tool call needs a
+`check.sh` that reads the call's real outcome.
+
 Prove a change from both sides: what the user sees (snap/image/expect-style)
 **and** what the system did (requests.jsonl, journal.txt, files in `{work}`).
-A "allowed once" notice is not proof that the read happened; the tool result
-in `requests.jsonl` is. Report the run id and the recipe with the result.
+An "allowed once" notice is not proof that the read happened; the tool result
+in the next `requests/req-*.json` is. Report the run id and the recipe with the result.
 
 ## Cleanup
 
