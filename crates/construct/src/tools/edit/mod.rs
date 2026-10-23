@@ -6,7 +6,7 @@ pub mod hashline;
 pub mod replace;
 
 use super::fs::{encoding_error, is_utf16, resolve};
-use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, arg, def, obj};
+use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, arg, def, obj};
 use serde_json::{Value, json};
 
 pub struct Edit;
@@ -19,6 +19,9 @@ impl Edit {
 impl Tool for Edit {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Edit
     }
     fn group(&self) -> Group {
         Group::Core

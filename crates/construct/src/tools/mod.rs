@@ -85,6 +85,10 @@ pub trait Tool: Send + Sync {
     /// Wire name the model calls.
     fn name(&self) -> &str;
     fn group(&self) -> Group;
+    /// What the tool does, in ACP's vocabulary (`other` unless one fits).
+    fn kind(&self) -> ToolKind {
+        ToolKind::Other
+    }
     /// The OpenAI function definition.
     fn definition(&self) -> Value;
     /// Changes nothing, so it may run beside other read-only calls.
@@ -101,6 +105,21 @@ pub trait Tool: Send + Sync {
     async fn call_with(&self, ctx: &Ctx, _call: &Call, args: Value) -> Result<Output, ToolError> {
         self.call(ctx, args).await
     }
+}
+
+/// Categories of tool call as the Agent Client Protocol defines them: a fixed
+/// list a client uses to pick an icon, which is why this is not the tool's
+/// name. Variants are added when a tool needs one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolKind {
+    Read,
+    Edit,
+    Search,
+    Execute,
+    Fetch,
+    #[default]
+    Other,
 }
 
 /// Presentation hints, so the UI never matches on tool names.
@@ -327,6 +346,11 @@ impl Catalog {
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
         self.tools().iter().find(|t| t.name() == name).cloned()
+    }
+
+    /// The kind of the named tool; `other` for one the catalog doesn't have.
+    pub fn kind_of(&self, name: &str) -> ToolKind {
+        self.get(name).map(|t| t.kind()).unwrap_or_default()
     }
 
     pub fn names(&self) -> Vec<String> {

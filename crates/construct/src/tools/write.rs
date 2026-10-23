@@ -2,7 +2,7 @@
 //! been read first.
 
 use super::fs::resolve;
-use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
 use serde_json::{Value, json};
 
 pub struct Write;
@@ -15,6 +15,9 @@ impl Write {
 impl Tool for Write {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Edit
     }
     fn group(&self) -> Group {
         Group::Core

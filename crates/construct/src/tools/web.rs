@@ -2,7 +2,7 @@
 //! Search uses Exa or Brave when a key resolves, otherwise DuckDuckGo's HTML
 //! endpoint, so it works with no setup at all.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -18,6 +18,9 @@ impl WebSearch {
 impl Tool for WebSearch {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Search
     }
     fn group(&self) -> Group {
         Group::Web
@@ -50,6 +53,9 @@ impl WebFetch {
 impl Tool for WebFetch {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Fetch
     }
     fn group(&self) -> Group {
         Group::Web

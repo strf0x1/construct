@@ -183,6 +183,7 @@ impl App {
             | Event::Head { .. }
             // The nested view of a child's work is not drawn yet.
             | Event::Child { .. }
+            | Event::Permission { .. }
             | Event::System { .. }
             | Event::User { .. }
             | Event::Assistant { .. }

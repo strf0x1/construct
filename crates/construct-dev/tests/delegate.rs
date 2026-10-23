@@ -311,3 +311,185 @@ fn a_child_on_its_own_endpoint_gets_its_own_key_or_none() {
         assert_eq!(auth_seen(&env), vec![json!("Bearer pare…"), child_auth, json!("Bearer pare…")], "{name}");
     }
 }
+
+/// The first scenario above, on either transport: what the child's journal
+/// rows were (types, in order) and what the parent got back.
+fn scout_run(name: &str, protocol: &str) -> (Vec<String>, String, Vec<Row>) {
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            delegate("read note.txt and say what it holds"),
+            { "call": "read", "args": { "path": "note.txt" } },
+            { "text": "it holds: hello" },
+            { "text": "The scout says: hello." }
+        ] }),
+    );
+    std::fs::write(env.work.join("note.txt"), "hello\n").unwrap();
+    let extra = format!("protocol = \"{protocol}\"\nallow_read = [\"{}\"]", env.work.display());
+    env.config(&agent_config(&env, &extra));
+    let out = env.run(&["run", "--json", "--no-learn", "ask the scout"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let sessions = env.sessions();
+    assert_eq!(sessions.len(), 2, "{sessions:?}");
+    let rows = rows_of(&env, &sessions[1]);
+    let types = rows.iter().map(|r| r.ty.clone()).collect();
+    let back = last_tool_result(env.requests().last().unwrap());
+    let parent_end = rows_of(&env, &sessions[0]).into_iter().filter(|r| r.ty == "tool_end").collect();
+    (types, back, parent_end)
+}
+
+#[test]
+fn construct_over_acp_journals_the_same_rows_as_construct_over_jsonl() {
+    let (jsonl_rows, jsonl_back, _) = scout_run("delegate-jsonl", "jsonl");
+    let (acp_rows, acp_back, parent_end) = scout_run("delegate-acp", "acp");
+    assert!(jsonl_rows.iter().any(|t| t == "tool_result") && jsonl_rows.iter().any(|t| t == "usage"), "{jsonl_rows:?}");
+    assert_eq!(acp_rows, jsonl_rows);
+    assert!(acp_back.starts_with("The scout says: hello.") || acp_back.starts_with("it holds: hello"), "{acp_back}");
+    // Same shape of answer on both wires.
+    assert_eq!(acp_back.split("\n[full").next(), jsonl_back.split("\n[full").next());
+    let end = parent_end.iter().find(|r| r.payload["name"] == "delegate").unwrap();
+    assert_eq!(end.payload["ok"], true);
+    assert!(end.payload["data"]["session"].is_string());
+}
+
+/// A parent that delegates once to the scripted foreign ACP agent `ext`.
+fn ext_run(name: &str, extra: &str, fake_args: &[&str]) -> (Env, std::process::Output) {
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            { "call": "delegate", "args": { "agent": "ext", "task": "clean the build dir" } },
+            { "text": "the agent finished" }
+        ] }),
+    );
+    let args: Vec<String> =
+        std::iter::once("acp-fake").chain(fake_args.iter().copied()).map(|a| format!("{a:?}")).collect();
+    // The agent's install path: the parent may read it, and so may the child.
+    let bin = dev_bin();
+    let dir = bin.parent().unwrap().display();
+    env.config(&format!(
+        "[sandbox]\nallow_read = [\"{dir}\"]\n[agents.ext]\ndescription = \"a foreign agent\"\nprotocol = \"acp\"\nallow_read = [\"{dir}\"]\ncommand = [\"{}\", {}]\n{extra}\n",
+        bin.display(),
+        args.join(", ")
+    ));
+    let out = env.run(&["run", "--json", "--no-learn", "ask ext"]);
+    (env, out)
+}
+
+fn ext_rows(env: &Env) -> (String, Vec<Row>) {
+    let sessions = env.sessions();
+    assert_eq!(sessions.len(), 2, "{sessions:?}");
+    (sessions[1].clone(), rows_of(env, &sessions[1]))
+}
+
+#[test]
+fn a_foreign_acp_agents_permission_request_is_rejected_by_default_and_journaled() {
+    let (env, out) = ext_run("acp-ext-reject", "", &[]);
+    assert!(out.status.success(), "{}", text(&out));
+    let (child, rows) = ext_rows(&env);
+    // The child's session id is the ACP session id, linked to the parent's call.
+    assert_eq!(child, "fake-session-1");
+    assert_eq!(rows[0].ty, "head");
+    assert_eq!(rows[0].payload["harness"], "ext");
+    assert_eq!(rows[0].payload["version"], "9.9");
+    assert!(rows[0].payload["parent_call_id"].is_string());
+    let types: Vec<&str> = rows.iter().map(|r| r.ty.as_str()).collect();
+    assert_eq!(types, ["head", "user", "turn_start", "tool_start", "permission", "tool_end", "assistant", "turn_end"]);
+    // The call is journaled once, with the input that arrived after it opened.
+    assert_eq!(rows[3].payload["name"], "bash");
+    assert!(rows[3].payload["args"].as_str().unwrap().contains("rm -rf build"), "{}", rows[3].payload);
+    assert_eq!(rows[5].payload["name"], "bash");
+    let usage = &rows[7].payload;
+    assert_eq!(
+        (usage["prompt"].as_u64(), usage["completion"].as_u64(), usage["cached"].as_u64()),
+        (Some(11), Some(7), Some(5))
+    );
+    let p = &rows[4].payload;
+    assert_eq!((p["decision"].as_str(), p["title"].as_str()), (Some("reject"), Some("rm -rf build")));
+    assert_eq!(p["options"].as_array().unwrap().len(), 4);
+    // The answer reached the child: it reports the option it was given.
+    assert_eq!(rows[5].payload["output"], "permission: opt-reject_once");
+    assert_eq!(rows[5].payload["ok"], false);
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.starts_with("done: opt-reject_once"), "{back}");
+    let end = env.journal().into_iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "delegate").unwrap();
+    assert_eq!(end.payload["data"]["session"], "fake-session-1");
+}
+
+#[test]
+fn on_permission_allow_answers_with_an_allow_option() {
+    let (env, out) = ext_run("acp-ext-allow", "on_permission = \"allow\"", &[]);
+    assert!(out.status.success(), "{}", text(&out));
+    let (_, rows) = ext_rows(&env);
+    let perm = rows.iter().find(|r| r.ty == "permission").unwrap();
+    assert_eq!(perm.payload["decision"], "allow");
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.starts_with("done: opt-allow_once"), "{back}");
+}
+
+#[test]
+fn with_no_option_of_the_wanted_kind_the_request_is_cancelled_not_allowed() {
+    let (env, out) = ext_run("acp-ext-nokind", "", &["--kinds", "allow_once,allow_always"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let (_, rows) = ext_rows(&env);
+    assert_eq!(rows.iter().find(|r| r.ty == "permission").unwrap().payload["decision"], "cancelled");
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.starts_with("done: cancelled"), "{back}");
+}
+
+#[test]
+fn what_construct_does_not_advertise_is_refused_as_an_unknown_method() {
+    let (env, out) = ext_run("acp-ext-fs", "", &["--ask-fs"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.contains("fs error -32601"), "{back}");
+}
+
+#[test]
+fn a_timeout_sends_session_cancel_and_the_agent_ends_its_turn() {
+    let (env, out) = ext_run("acp-ext-timeout", "timeout = 2", &["--wait-for-cancel"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let end = env.journal().into_iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "delegate").unwrap();
+    assert_eq!(end.payload["ok"], false);
+    assert_eq!(end.payload["code"], "timeout");
+    // It wrapped up on the cancel rather than being killed: its turn ended.
+    let (_, rows) = ext_rows(&env);
+    let last = rows.last().unwrap();
+    assert_eq!((last.ty.as_str(), last.payload["interrupted"].as_bool()), ("turn_end", Some(true)));
+}
+
+#[test]
+fn a_child_with_network_granted_still_starts_under_the_sandbox() {
+    // `network = true` leaves TCP unhandled by the ruleset; a port exception
+    // for the model endpoint on top of that used to stop the helper at exec.
+    let env =
+        Env::new("delegate-network", json!({ "steps": [delegate("say hi"), { "text": "hi" }, { "text": "done" }] }));
+    env.config(&agent_config(&env, "network = true"));
+    let out = env.run(&["run", "--json", "--no-learn", "ask the scout"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let end = env.journal().into_iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "delegate").unwrap();
+    assert_eq!(end.payload["ok"], true, "{}", end.payload);
+}
+
+#[test]
+fn an_agent_that_ignores_stdin_closing_is_stopped_once_its_turn_is_done() {
+    // codex-acp keeps running after its answer. Its work was done, so that is
+    // neither a timeout nor a failure, and the parent must not wait for it.
+    let started = std::time::Instant::now();
+    let (env, out) = ext_run("acp-ext-linger", "timeout = 60", &["--linger"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let end = env.journal().into_iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "delegate").unwrap();
+    assert_eq!(end.payload["ok"], true, "{}", end.payload);
+    assert!(started.elapsed().as_secs() < budget(30), "waited for the lingering agent");
+}
+
+#[test]
+fn an_agents_env_reaches_the_child_and_construct_owned_names_are_refused() {
+    let (env, out) = ext_run("acp-ext-env", "env = { GREETING = \"hello there\" }", &["--report-env", "GREETING"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let back = last_tool_result(env.requests().last().unwrap());
+    assert!(back.contains("GREETING=hello there"), "{back}");
+
+    let (_, out) = ext_run("acp-ext-env-bad", "env = { CONSTRUCT_HOME = \"/elsewhere\" }", &[]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("is not a variable a definition may set"), "{}", text(&out));
+}

@@ -4,8 +4,8 @@
 //! wrap up, or is stopped the way the sandbox helper expects (SIGTERM, then
 //! the group). Its scratch directory is removed when it is gone.
 
-use super::wire::{Origin, ToChild, parse_event};
-use crate::agents::AgentDef;
+use super::wire::{Jsonl, Origin, ToChild, Wire};
+use crate::agents::{AgentDef, Protocol};
 use crate::config::Config;
 use crate::event::Event;
 use crate::sandbox::{GRACE, Policy, StopOnDrop};
@@ -49,6 +49,72 @@ pub struct Outcome {
     pub stopped: Option<Stop>,
     /// Why it failed, when it did without being stopped.
     pub error: Option<String>,
+    /// The child's turn is over; the parent closes its input.
+    pub finished: bool,
+    /// The tail of the child's stderr, for explaining a stop or a failure.
+    pub diagnostics: String,
+}
+
+impl Outcome {
+    /// What the parent keeps of the child's stream, apart from passing it up.
+    pub fn note(&mut self, ev: &Event) {
+        match ev {
+            Event::Head { id, .. } => self.session = Some(id.clone()),
+            Event::Assistant { message } if message.tool_calls.is_empty() => {
+                if let Some(text) = &message.content {
+                    self.summary = text.clone();
+                }
+            }
+            Event::Error { message } => self.error = Some(message.clone()),
+            Event::TurnEnd { steps, prompt, completion, .. } => {
+                self.steps = *steps;
+                self.prompt = *prompt;
+                self.completion = *completion;
+                self.finished = true;
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The program to run, its arguments, and the conversation to have with it.
+type Plan = (String, Vec<String>, Box<dyn Wire>);
+
+fn plan(spec: &Spec<'_>, task: &str, call: &Call) -> Result<Plan, String> {
+    let exe = std::env::current_exe().map_err(|e| format!("can't find construct's own binary: {e}"))?;
+    let exe = exe.display().to_string();
+    let protocol = spec.def.protocol(spec.name).map_err(|e| format!("{e:#}"))?;
+    let origin = Origin {
+        policy: spec.policy.clone(),
+        system: spec.system.clone(),
+        parent_session: call.session().unwrap_or_default().to_string(),
+        parent_call_id: call.id.clone(),
+    };
+    Ok(match (protocol, spec.def.command.split_first()) {
+        (Protocol::Jsonl, _) => {
+            let start = ToChild::Start {
+                config: Box::new(spec.config.clone()),
+                cwd: spec.cwd.to_path_buf(),
+                origin: Box::new(origin),
+            };
+            (exe, vec!["__child".into()], Box::new(Jsonl::new(start, task)))
+        }
+        (Protocol::Acp, None) => {
+            let start = crate::acp::Start { config: Box::new(spec.config.clone()), origin: Box::new(origin) };
+            let wire = crate::acp::client::Client::construct(spec.cwd, task, start, spec.def.allows_permissions());
+            (exe, vec!["__child".into(), "--acp".into()], Box::new(wire))
+        }
+        (Protocol::Acp, Some((prog, args))) => {
+            let wire = crate::acp::client::Client::foreign(
+                spec.name,
+                spec.parent,
+                spec.cwd,
+                task,
+                spec.def.allows_permissions(),
+            );
+            (prog.clone(), args.to_vec(), Box::new(wire))
+        }
+    })
 }
 
 pub async fn run(
@@ -64,8 +130,8 @@ pub async fn run(
 }
 
 async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Receiver<bool>) -> Result<Outcome, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("can't find construct's own binary: {e}"))?;
-    let mut cmd = spec.policy.spawn(&exe.display().to_string(), ["__child"]);
+    let (prog, args, mut wire) = plan(&spec, task, call)?;
+    let mut cmd = spec.policy.spawn(&prog, &args);
     cmd.current_dir(spec.cwd)
         .env("CONSTRUCT_HOME", spec.policy.tmp.join("home"))
         .env(super::DEPTH_ENV, (super::depth() + 1).to_string())
@@ -73,6 +139,7 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .process_group(0);
+    cmd.envs(&spec.def.env);
     // Only the secrets the definition names. A name that isn't set is left out.
     for name in spec.def.secret_names(spec.parent) {
         if let Some(v) = crate::secrets::get(&name) {
@@ -86,20 +153,7 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
     else {
         return Err("starting the child failed: no pipes".into());
     };
-    let origin = Origin {
-        policy: spec.policy.clone(),
-        system: spec.system.clone(),
-        parent_session: call.session().unwrap_or_default().to_string(),
-        parent_call_id: call.id.clone(),
-    };
-    let start =
-        ToChild::Start { config: Box::new(spec.config.clone()), cwd: spec.cwd.to_path_buf(), origin: Box::new(origin) };
-    let said = async {
-        stdin.write_all(start.line().as_bytes()).await?;
-        stdin.write_all(ToChild::Prompt { text: task.to_string() }.line().as_bytes()).await?;
-        stdin.flush().await
-    };
-    said.await.map_err(|e| format!("the child closed its input: {e}"))?;
+    write_all(&mut stdin, wire.open()).await.map_err(|e| format!("the child closed its input: {e}"))?;
     let mut stdin = Some(stdin);
 
     // Kept while the child runs, or a chatty child would block on a full pipe.
@@ -117,7 +171,6 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
     });
 
     let mut out = Outcome::default();
-    let mut finished = false;
     let mut lines = BufReader::new(stdout).lines();
     let deadline = tokio::time::sleep(Duration::from_secs(spec.def.timeout));
     tokio::pin!(deadline);
@@ -128,29 +181,33 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
         tokio::select! {
             line = lines.next_line() => match line {
                 Ok(Some(l)) => {
-                    let Some(ev) = parse_event(&l) else { continue };
-                    note(&mut out, &ev, &mut finished);
-                    call.forward(ev);
-                    if finished {
-                        // Done with the child: closing its input ends it.
-                        stdin = None;
+                    let reply = wire.line(&l, call, &mut out);
+                    if let Some(w) = stdin.as_mut() {
+                        let _ = write_all(w, reply).await;
+                    }
+                    if out.finished && stdin.take().is_some() {
+                        // Done with the child: closing its input ends it. One
+                        // that doesn't take the hint (some ACP adapters keep
+                        // running) is stopped after a moment: its work is
+                        // done, so this is not a timeout.
+                        hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
                     }
                 }
                 Ok(None) | Err(_) => break,
             },
-            _ = &mut deadline, if out.stopped.is_none() => {
+            _ = &mut deadline, if out.stopped.is_none() && !out.finished => {
                 out.stopped = Some(Stop::Timeout);
-                cancel_child(&mut stdin).await;
+                cancel_child(&mut stdin, wire.cancel()).await;
                 hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
             }
-            r = cancel.changed(), if out.stopped.is_none() => {
+            r = cancel.changed(), if out.stopped.is_none() && !out.finished => {
                 if r.is_ok() && *cancel.borrow() {
                     out.stopped = Some(Stop::Interrupted);
-                    cancel_child(&mut stdin).await;
+                    cancel_child(&mut stdin, wire.cancel()).await;
                     hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
                 }
             }
-            _ = &mut hard, if out.stopped.is_some() => {
+            _ = &mut hard, if out.stopped.is_some() || out.finished => {
                 // It didn't wrap up: stop it the way the helper expects.
                 guard.stop();
                 break;
@@ -173,7 +230,8 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
     };
     guard.0 = None;
     let diagnostics = tokio::time::timeout(GRACE, tail).await.ok().and_then(Result::ok).unwrap_or_default();
-    if !finished && out.stopped.is_none() && out.error.is_none() {
+    out.diagnostics = diagnostics.clone();
+    if !out.finished && out.stopped.is_none() && out.error.is_none() {
         let how = match status.and_then(|s| s.code()) {
             Some(c) => format!("exit {c}"),
             None => "killed by a signal".into(),
@@ -187,29 +245,15 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
     Ok(out)
 }
 
-async fn cancel_child(stdin: &mut Option<tokio::process::ChildStdin>) {
+async fn cancel_child(stdin: &mut Option<tokio::process::ChildStdin>, lines: Vec<String>) {
     if let Some(w) = stdin {
-        let _ = w.write_all(ToChild::Cancel.line().as_bytes()).await;
-        let _ = w.flush().await;
+        let _ = write_all(w, lines).await;
     }
 }
 
-/// What the parent keeps of the child's stream, apart from passing it up.
-fn note(out: &mut Outcome, ev: &Event, finished: &mut bool) {
-    match ev {
-        Event::Head { id, .. } => out.session = Some(id.clone()),
-        Event::Assistant { message } if message.tool_calls.is_empty() => {
-            if let Some(text) = &message.content {
-                out.summary = text.clone();
-            }
-        }
-        Event::Error { message } => out.error = Some(message.clone()),
-        Event::TurnEnd { steps, prompt, completion, .. } => {
-            out.steps = *steps;
-            out.prompt = *prompt;
-            out.completion = *completion;
-            *finished = true;
-        }
-        _ => {}
+async fn write_all(w: &mut tokio::process::ChildStdin, lines: Vec<String>) -> std::io::Result<()> {
+    for l in lines {
+        w.write_all(l.as_bytes()).await?;
     }
+    w.flush().await
 }

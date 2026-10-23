@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use construct_dev::{drive, mcp_fake, serve};
+use construct_dev::{acp_fake, drive, mcp_fake, serve};
 use std::io::Read;
 use std::path::PathBuf;
 
@@ -50,6 +50,8 @@ enum Cmd {
     },
     /// A tiny stdio MCP server (tools: add, echo) for tests.
     McpFake(mcp_fake::Opts),
+    /// A scripted ACP agent on stdio (one permission request) for tests.
+    AcpFake(acp_fake::Opts),
     /// Run a program in a pty and execute a drive script against it.
     Drive {
         /// Script file, or - for stdin.
@@ -118,6 +120,7 @@ fn main() -> Result<()> {
             })
         }
         Cmd::McpFake(o) => mcp_fake::run(o),
+        Cmd::AcpFake(o) => acp_fake::run(o),
         Cmd::Check => exit_with(xtask::check()?),
         Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Snapshots => exit_with(xtask::snapshots()?),

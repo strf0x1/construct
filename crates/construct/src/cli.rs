@@ -75,10 +75,17 @@ enum Cmd {
     /// ({"users","errors","loaded"}). For gate evals.
     #[command(hide = true)]
     Gate,
+    /// Serve construct as an Agent Client Protocol agent on stdin and stdout
+    /// (for editors and other harnesses).
+    Acp,
     /// A delegated child: reads its setup and prompts as JSON lines on stdin
     /// and writes events as JSON lines on stdout. Started by the delegate tool.
     #[command(name = "__child", hide = true)]
-    Child,
+    Child {
+        /// Speak ACP instead of JSON lines.
+        #[arg(long)]
+        acp: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -122,7 +129,11 @@ pub fn run() -> Result<()> {
             }
             rt.block_on(headless(cfg, paths, resume, text, json, !no_learn))
         }
-        Some(Cmd::Child) => rt.block_on(crate::child::serve::run()),
+        Some(Cmd::Child { acp: false }) => rt.block_on(crate::child::serve::run()),
+        Some(Cmd::Child { acp: true }) => {
+            rt.block_on(crate::acp::server::run(cfg, paths, crate::acp::server::Mode::Child))
+        }
+        Some(Cmd::Acp) => rt.block_on(crate::acp::server::run(cfg, paths, crate::acp::server::Mode::User)),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learn_cmd(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {

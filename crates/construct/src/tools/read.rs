@@ -1,7 +1,7 @@
 //! read: a text file with line numbers, or a directory listing.
 
 use super::fs::{encoding_error, is_utf16, resolve};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, num, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -18,6 +18,9 @@ impl Read {
 impl Tool for Read {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Read
     }
     fn group(&self) -> Group {
         Group::Core

@@ -1,7 +1,7 @@
 //! glob: find files by pattern, newest first, honouring .gitignore.
 
 use super::fs::{display, resolve, walker};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, arg, blocking, def, obj};
+use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, obj};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -18,6 +18,9 @@ impl Glob {
 impl Tool for Glob {
     fn name(&self) -> &'static str {
         Self::NAME
+    }
+    fn kind(&self) -> ToolKind {
+        ToolKind::Search
     }
     fn group(&self) -> Group {
         Group::Core

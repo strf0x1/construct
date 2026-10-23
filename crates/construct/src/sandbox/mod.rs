@@ -326,7 +326,12 @@ fn restrict(policy: &Policy) -> Result<(), String> {
         .and_then(|r| if policy.no_network { r.handle_access(AccessNet::from_all(abi)) } else { Ok(r) })
         .and_then(|r| r.scope(Scope::Signal))
         .and_then(|r| r.create())
-        .and_then(|r| r.add_rules(policy.connect_ports.iter().map(|p| Ok(NetPort::new(*p, AccessNet::ConnectTcp)))))
+        // A port rule for access the ruleset doesn't handle is an error, so
+        // the exceptions exist only when TCP is denied.
+        .and_then(|r| {
+            let ports = if policy.no_network { policy.connect_ports.as_slice() } else { &[] };
+            r.add_rules(ports.iter().map(|p| Ok(NetPort::new(*p, AccessNet::ConnectTcp))))
+        })
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.system, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.read, ro)))
         .and_then(|r| r.add_rules(path_beneath_rules(&policy.write, rw)))

@@ -168,6 +168,16 @@ pub enum Event {
     Learn {
         status: String,
     },
+    /// A delegated ACP agent asked for permission (`session/request_permission`)
+    /// and the parent answered by the definition's `on_permission`. `decision`
+    /// is "allow", "reject" or "cancelled" (no option of the wanted kind).
+    Permission {
+        tool_call_id: String,
+        title: String,
+        /// The kinds the child offered (`allow_once`, `reject_once`, ...).
+        options: Vec<String>,
+        decision: String,
+    },
     /// An event from a child session a tool is running, as the parent sees
     /// it. `id` is the delegating call's id, so a UI nests it under that call.
     /// Wire only: the parent journals the inner event under the child's own
