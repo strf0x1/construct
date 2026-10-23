@@ -1,0 +1,24 @@
+# A read outside the workspace asks; the panel's look is part of the feature.
+wait "ask construct" 5000
+type read it
+key enter
+wait "PERMISSION" 8000
+# keys are ignored for 450 ms after the prompt appears (so a stray key can't answer it)
+sleep 600
+snap --style prompt
+expect "main agent"
+expect-style "PERMISSION" fg=#1a1b26 bold
+expect-style "Allow once" fg=#9ece6a bg=#2c3048 bold
+expect-style "Always allow" fg=#e0af68
+expect-style "Deny" fg=#f7768e
+image {evidence}/prompt.png
+key down
+sleep 100
+expect-style "Allow for this session" bg=#2c3048 bold
+expect-style "Allow once" bg=default !bold
+image {evidence}/prompt-session-selected.png
+key enter
+wait "allowed for this session" 3000
+wait "all done" 5000
+gone "PERMISSION" 500
+snap after

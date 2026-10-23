@@ -50,10 +50,18 @@ impl Driver {
     pub fn spawn(cmd: &[String], env: &[(String, String)], cwd: Option<&str>, cols: u16, rows: u16) -> Result<Self> {
         let pty = NativePtySystem::default();
         let pair = pty.openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })?;
-        let mut b = CommandBuilder::new(&cmd[0]);
+        // A relative program path means relative to us, not to `cwd`.
+        let prog = match std::path::Path::new(&cmd[0]) {
+            p if p.is_relative() && p.components().count() > 1 => std::env::current_dir()?.join(p),
+            p => p.to_path_buf(),
+        };
+        let mut b = CommandBuilder::new(prog);
         b.args(&cmd[1..]);
         b.env("TERM", "xterm-256color");
         b.env("COLORTERM", "truecolor");
+        // Agent shells often export NO_COLOR, and a screen with no color can't
+        // be checked for it. `--env NO_COLOR=1` puts it back.
+        b.env_remove("NO_COLOR");
         // An empty value unsets the variable, so callers can keep the parent's
         // settings (CONSTRUCT_MODEL, …) from leaking into the child.
         for (k, v) in env {

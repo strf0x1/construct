@@ -1,0 +1,6 @@
+{"steps":[
+  {"call":"delegate","args":{"agent":"scout","task":"read the file"}},
+  {"call":"read","args":{"path":"{outside}/f.txt"}},
+  {"text":"it holds: scout-data"},
+  {"text":"the scout reported"}
+]}

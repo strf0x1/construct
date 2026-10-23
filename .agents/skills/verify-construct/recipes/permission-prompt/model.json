@@ -1,0 +1,1 @@
+{"steps":[{"call":"read","args":{"path":"{outside}/a.txt"}},{"text":"all done"}]}
