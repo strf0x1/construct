@@ -44,6 +44,8 @@ pub struct Driver {
     pub last_output: Option<Duration>,
     carry: Vec<u8>,
     closed: bool,
+    /// Every byte the child wrote, escape sequences included.
+    pub raw: Vec<u8>,
 }
 
 impl Driver {
@@ -113,6 +115,7 @@ impl Driver {
             last_output: None,
             carry: Vec::new(),
             closed: false,
+            raw: Vec::new(),
         })
     }
 
@@ -141,6 +144,7 @@ impl Driver {
             self.first_output = Some(self.start.elapsed());
         }
         self.bytes += b.len();
+        self.raw.extend_from_slice(b);
         self.last_output = Some(self.start.elapsed());
         self.parser.process(b);
         self.answer_queries(b);

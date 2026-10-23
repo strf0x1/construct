@@ -1,6 +1,6 @@
 //! Key handling, the input line editor, and slash commands.
 
-use super::app::{App, Block, Cmd, Kind};
+use super::app::{App, Block, Cmd, Kind, Status};
 use super::ask::Choice;
 use super::theme;
 use crate::config::Paths;
@@ -158,7 +158,11 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             app.cursor = 0;
         }
         KeyCode::Char('k') if ctrl => app.input.truncate(app.cursor),
-        KeyCode::Up if !app.input.contains('\n') => {
+        // Up/Down scroll the transcript: with alternate-scroll the wheel arrives
+        // as these keys and can't be told apart. History moves to ctrl+p/n.
+        KeyCode::Up => app.scroll += 3,
+        KeyCode::Down => app.scroll = app.scroll.saturating_sub(3),
+        KeyCode::Char('p') if ctrl && !app.input.contains('\n') => {
             if app.history.is_empty() {
                 return false;
             }
@@ -171,7 +175,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             app.input = app.history[i].clone();
             app.cursor = app.input.len();
         }
-        KeyCode::Down if !app.input.contains('\n') => {
+        KeyCode::Char('n') if ctrl && !app.input.contains('\n') => {
             if let Some(i) = app.hist_pos {
                 if i + 1 < app.history.len() {
                     app.hist_pos = Some(i + 1);
@@ -237,11 +241,33 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             };
             app.notice(theme::DIM, text);
         }
+        "copy" => copy(app, arg),
         "help" | "?" => app.notice(
             theme::DIM,
-            "/new  fresh session · /model <id>  switch model · /skills · /memory · /learn  run the learning pass now · /quit\nenter send · alt+enter or ctrl+j newline · esc interrupt · ctrl+o expand tool output · pgup/pgdn or wheel scroll · ctrl+c clear/quit",
+            "/new  fresh session · /model <id>  switch model · /skills · /memory · /learn  run the learning pass now · /copy  last reply (or /copy error) to the clipboard · /quit\nenter send · alt+enter or ctrl+j newline · esc interrupt · ctrl+o expand tool output · wheel, up/down or pgup/pgdn scroll · ctrl+p/ctrl+n input history · ctrl+c clear/quit\nselect text with the mouse (shift-drag if your terminal asks for it); /copy works over ssh",
         ),
         other => app.notice(theme::YELLOW, format!("unknown command /{other} — try /help")),
     }
     false
+}
+
+/// `/copy` puts the last assistant message on the clipboard; `/copy error` the
+/// last failed tool's output.
+fn copy(app: &mut App, arg: &str) {
+    let (what, text) = match arg {
+        "" => ("last reply", app.blocks.iter().rev().find(|b| b.kind == Kind::Assistant).map(|b| b.text.clone())),
+        "error" => (
+            "last tool error",
+            app.blocks.iter().rev().find(|b| b.kind == Kind::Tool && b.status == Status::Err).map(|b| b.text.clone()),
+        ),
+        _ => return app.notice(theme::YELLOW, "usage: /copy · /copy error".to_string()),
+    };
+    match text.filter(|t| !t.trim().is_empty()) {
+        None => app.notice(theme::YELLOW, format!("no {what} to copy")),
+        Some(t) => {
+            let cut = super::clip::copy(&t);
+            let note = if cut { ", cut to fit" } else { "" };
+            app.notice(theme::DIM, format!("copied {what} ({} chars{note})", t.chars().count()));
+        }
+    }
 }
