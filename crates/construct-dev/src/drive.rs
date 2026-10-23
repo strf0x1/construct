@@ -7,8 +7,13 @@
 //!   key <name>                 enter esc tab backspace up down left right pgup pgdn
 //!                              ctrl-<c> alt-enter
 //!   sleep <ms>
-//!   snap [label]               print the screen
+//!   snap [--style] [label]     print the screen; --style marks colored and
+//!                              bold/dim/inverse runs as ⟦fg=#7aa2f7 bold⟧text⟦/⟧
 //!   expect <text>              fail unless <text> is on screen now
+//!   expect-style <text> <attrs>  fail unless every glyph of <text> has <attrs>:
+//!                              fg=#rrggbb|0-255|default bg=… bold dim italic
+//!                              underline inverse, ! to negate (`!bold`)
+//!   image <path>               write the screen as SVG, or PNG if path ends .png
 //!   resize <cols> <rows>
 //!   settle <quiet_ms> [timeout_ms]  wait until the screen is quiet for quiet_ms;
 //!                              records when it last changed ("settled")
@@ -22,6 +27,8 @@ use serde_json::{Value, json};
 use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+
+use crate::style;
 
 pub struct Driver {
     parser: vt100::Parser,
@@ -338,6 +345,19 @@ fn text_and_timeout(rest: &str) -> (String, Option<u64>) {
     }
 }
 
+/// Split `"two words" fg=#fff bold` (or `word fg=#fff bold`) into the
+/// quoted or first word and the rest.
+fn text_and_rest(rest: &str) -> (String, String) {
+    let rest = rest.trim();
+    if let Some(body) = rest.strip_prefix('"')
+        && let Some(end) = body.find('"')
+    {
+        return (body[..end].to_string(), body[end + 1..].trim().to_string());
+    }
+    let (a, b) = rest.split_once(' ').unwrap_or((rest, ""));
+    (a.to_string(), b.trim().to_string())
+}
+
 pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<Value> {
     let mut waits = vec![];
     for (n, raw) in script.lines().enumerate() {
@@ -367,11 +387,33 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
                 }
                 "snap" => {
                     d.pump(Duration::from_millis(30));
-                    writeln!(out, "--- snap {} @{:.0}ms ---", unquote(rest), d.start.elapsed().as_secs_f64() * 1000.0)?;
-                    for l in d.text().lines() {
+                    let (styled, label) = match rest.trim().strip_prefix("--style") {
+                        Some(l) => (true, l),
+                        None => (false, rest),
+                    };
+                    let text = if styled { style::styled_text(d.parser.screen()) } else { d.text() };
+                    writeln!(
+                        out,
+                        "--- snap {} @{:.0}ms ---",
+                        unquote(label),
+                        d.start.elapsed().as_secs_f64() * 1000.0
+                    )?;
+                    for l in text.lines() {
                         writeln!(out, "{}", l.trim_end())?;
                     }
                     writeln!(out, "---")?;
+                }
+                "expect-style" => {
+                    d.pump(Duration::from_millis(30));
+                    let (text, spec) = text_and_rest(rest);
+                    style::check(d.parser.screen(), &text, &style::Want::parse(&spec)?)
+                        .map_err(|e| anyhow!("{e}\n--- screen ---\n{}", style::styled_text(d.parser.screen())))?;
+                }
+                "image" => {
+                    d.pump(Duration::from_millis(30));
+                    let path = std::path::PathBuf::from(unquote(rest));
+                    style::write_image(d.parser.screen(), &path)?;
+                    writeln!(out, "--- image {} ---", path.display())?;
                 }
                 "expect" => {
                     d.pump(Duration::from_millis(30));
