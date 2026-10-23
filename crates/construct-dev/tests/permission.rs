@@ -594,3 +594,73 @@ gone "PERMISSION" 300
     assert_eq!(rows.len(), 1, "the sibling needed no question: {rows:?}");
     assert_eq!(rows[0]["paths"][0].as_str(), Some(a.parent().unwrap().canonicalize().unwrap().to_str().unwrap()));
 }
+
+/// What a session's `read` calls returned, from its journal rows.
+fn tool_results(env: &Env, session: &str) -> Vec<String> {
+    env.journal()
+        .into_iter()
+        .filter(|r| r.ty == "tool_end" && r.session == session)
+        .map(|r| r.payload.to_string())
+        .collect()
+}
+
+// Refs #66. Fails today: the child process is Landlock-confined as a whole
+// (ADR 0014), so an approval widens `Policy::check_read` but not the kernel
+// ruleset and `read_dir` gets EACCES. See the PR for the diagnosis.
+#[test]
+#[ignore = "known failing, #66: a child's grant cannot widen its own Landlock ruleset"]
+fn approving_a_childs_directory_read_gives_it_the_listing() {
+    let dir = outside_path("perm-child-dir", "listing");
+    let (env, mut d) = scout_tui("perm-child-dir", &dir, "");
+    std::fs::remove_file(&dir).unwrap(); // scout_tui made a file there
+    make(&dir.join("alpha.txt"), "a\n");
+    make(&dir.join("beta.txt"), "b\n");
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type ask scout
+key enter
+wait "PERMISSION" {}
+sleep 600
+type y
+wait "the scout reported" {}
+"#,
+            budget(3000),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    let sessions = env.sessions();
+    let got = tool_results(&env, &sessions[1]);
+    assert!(got.iter().any(|r| r.contains("alpha.txt") && r.contains("beta.txt")), "{got:?}");
+}
+
+#[test]
+fn approving_the_sessions_own_directory_read_once_gives_the_listing() {
+    let dir = outside_path("perm-dir-once", "listing");
+    let env = Env::new("perm-dir-once", json!({ "steps": [read_call(&dir), { "text": "all done" }] }));
+    make(&dir.join("alpha.txt"), "a\n");
+    let mut d = tui(&env, &[]);
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type read it
+key enter
+wait "PERMISSION" {}
+sleep 600
+type y
+wait "all done" {}
+"#,
+            budget(3000),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    assert!(results(&env)[0].contains("alpha.txt"), "{:?}", results(&env));
+}
