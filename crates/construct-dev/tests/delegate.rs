@@ -493,3 +493,27 @@ fn an_agents_env_reaches_the_child_and_construct_owned_names_are_refused() {
     assert!(!out.status.success());
     assert!(text(&out).contains("is not a variable a definition may set"), "{}", text(&out));
 }
+
+#[test]
+fn a_child_gets_the_openrouter_key_the_parent_fell_back_to() {
+    let env = Env::new(
+        "delegate-key-fallback",
+        json!({ "steps": [delegate("hi"), { "text": "hello" }, { "text": "done" }] }),
+    );
+    env.config(&agent_config(&env, ""));
+    let out =
+        env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "orou-CCCC")], &["run", "--no-learn", "go"]);
+    assert!(out.status.success(), "{}", text(&out));
+    // Parent, child, parent: all three carry the one key.
+    assert_eq!(auth_seen(&env), vec![json!("Bearer orou…"); 3]);
+}
+
+#[test]
+fn no_key_fails_before_any_request() {
+    let env = Env::new("delegate-key-missing", json!({ "steps": [delegate("hi"), { "text": "done" }] }));
+    env.config(&agent_config(&env, ""));
+    let out = env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "")], &["run", "--no-learn", "go"]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY"), "{}", text(&out));
+    assert!(auth_seen(&env).is_empty(), "a request reached the endpoint");
+}

@@ -55,6 +55,18 @@ pub fn api_key(secret_name: &str) -> Option<String> {
     get(secret_name).or_else(|| get("OPENROUTER_API_KEY"))
 }
 
+/// The message when no endpoint key resolves; nothing is sent without one.
+pub fn missing_key(secret_name: &str) -> String {
+    let mut names = vec![secret_name];
+    if secret_name != "OPENROUTER_API_KEY" {
+        names.push("OPENROUTER_API_KEY");
+    }
+    format!(
+        "no API key: set {} (or construct secrets set {secret_name}); for a keyless local endpoint set api_key_secret = \"\"",
+        names.join(" or ")
+    )
+}
+
 /// A key from the environment alone: no keyring, no OpenRouter fallback. A
 /// delegated child uses this, since the parent hands it exactly the secrets
 /// its definition names, and anything else it could find is not its to use.
