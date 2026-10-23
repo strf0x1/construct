@@ -1,13 +1,14 @@
 //! The TUI's state: transcript blocks, the input line, and how agent events
 //! change them.
 
+use super::ask::Prompt;
 use super::theme;
 use crate::agent::Event;
 use crate::config::Config;
 use crate::tools::{Catalog, OutputKind};
 use ratatui::style::Color;
 use ratatui::text::Line;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
@@ -107,6 +108,8 @@ pub(super) struct App {
     pub(super) stream_chars: usize,
     /// The session's tools, once the agent is built; display hints come from here.
     pub(super) catalog: Option<Arc<Catalog>>,
+    /// Questions waiting for a key, oldest first; the front one is on screen.
+    pub(super) prompts: VecDeque<Prompt>,
 }
 
 /// The argument a tool's display hints name, or the raw arguments.
@@ -150,11 +153,13 @@ impl App {
             quit_armed: None,
             stream_chars: 0,
             catalog: None,
+            prompts: VecDeque::new(),
         }
     }
 
     pub(super) fn animating(&self) -> bool {
         self.busy
+            || !self.prompts.is_empty()
             || self.learning.is_some()
             || self.started.elapsed() < Duration::from_millis(1600)
             || self.toast.as_ref().is_some_and(|t| t.2.elapsed() < Duration::from_secs(4))
@@ -184,6 +189,9 @@ impl App {
             // The nested view of a child's work is not drawn yet.
             | Event::Child { .. }
             | Event::Permission { .. }
+            // Shown when the prompt is answered, so a child's are too.
+            | Event::Access { .. }
+            | Event::Ask { .. }
             | Event::System { .. }
             | Event::User { .. }
             | Event::Assistant { .. }
@@ -322,6 +330,18 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Drop questions whose call has gone (interrupted, timed out).
+    pub(super) fn prune_prompts(&mut self) {
+        self.prompts.retain(|p| !p.stale());
+    }
+
+    /// Answer the question on screen with `answer`, and note it in the transcript.
+    pub(super) fn answer_prompt(&mut self, answer: impl FnOnce(&mut Prompt) -> (String, bool)) {
+        let Some(mut p) = self.prompts.pop_front() else { return };
+        let (text, allowed) = answer(&mut p);
+        self.notice(if allowed { theme::GREEN } else { theme::YELLOW }, format!("⚠ {text}"));
     }
 
     pub(super) fn close_reasoning(&mut self) {

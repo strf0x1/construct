@@ -45,13 +45,13 @@ impl Tool for Edit {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_write(Self::NAME, &a, "path").await?;
         run(ctx, &a).map(|s| Output::plain(s).with_kind(OutputKind::Diff))
     }
 }
 
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-    ctx.sandbox.check_write(&path).map_err(ToolError::sandbox)?;
     let old = arg(a, "old_string").ok_or("old_string is required")?;
     let new = arg(a, "new_string").ok_or("new_string is required")?;
     let all = a.get("replace_all").and_then(Value::as_bool).unwrap_or(false);

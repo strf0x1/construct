@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{markdown, theme};
+use super::{markdown, prompt, theme};
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -342,9 +342,15 @@ impl App {
         let size = term.size()?;
         let area = Rect::new(0, 0, size.width, size.height);
         let width = area.width;
+        self.prune_prompts();
         let (input, cursor) = self.input_lines(width as usize);
         let input_h = (input.len() as u16).clamp(1, 8);
-        let bottom = input_h + 3; // activity + rule + input + status
+        // A question takes the place of the activity line, rule and input.
+        let panel_h = self.prompts.front().map(|p| prompt::height(p, width).min(area.height.saturating_sub(4)));
+        let bottom = match panel_h {
+            Some(h) => h + 1,    // panel + status
+            None => input_h + 3, // activity + rule + input + status
+        };
         let main_h = area.height.saturating_sub(bottom);
         let body = if self.blocks.is_empty() {
             self.splash(area, phase)
@@ -371,6 +377,11 @@ impl App {
             // pad from the top so short transcripts sit right above the input
             let pad = main_h.saturating_sub(visible.len() as u16);
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
+            if let (Some(h), Some(p)) = (panel_h, self.prompts.front()) {
+                prompt::render(f, Rect::new(0, main_h, width, h), p, self.prompts.len() - 1, phase);
+                f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + h, width, 1));
+                return;
+            }
             f.render_widget(Paragraph::new(activity.clone()), Rect::new(0, main_h, width, 1));
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),
@@ -407,7 +418,7 @@ fn tool_body(kind: OutputKind, out: &str) -> String {
     }
 }
 
-fn fit(s: &str, w: usize) -> String {
+pub(super) fn fit(s: &str, w: usize) -> String {
     if s.width() <= w {
         return s.to_string();
     }

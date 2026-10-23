@@ -49,6 +49,7 @@ impl Tool for Grep {
         Display { primary_arg: "pattern", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_read(Self::NAME, &a, "path").await?;
         blocking(ctx, || run(ctx, &a))
     }
 }
@@ -56,7 +57,6 @@ impl Tool for Grep {
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
-    ctx.sandbox.check_read(&root).map_err(ToolError::sandbox)?;
     let insensitive = a.get("ignore_case").and_then(Value::as_bool).unwrap_or(false);
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(insensitive)

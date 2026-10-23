@@ -928,6 +928,7 @@ dependencies = [
  "similar 3.2.0",
  "tokio",
  "toml",
+ "toml_edit",
  "unicode-normalization",
  "unicode-width 0.2.2",
 ]

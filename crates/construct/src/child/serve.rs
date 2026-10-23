@@ -6,8 +6,10 @@
 use super::wire::{ToChild, event_line};
 use crate::agent::{Agent, Event};
 use crate::config::Paths;
+use crate::permission::Upstream;
 use anyhow::{Result, bail};
 use std::io::Write;
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 pub async fn run() -> Result<()> {
@@ -20,6 +22,9 @@ pub async fn run() -> Result<()> {
     let mut agent = Agent::child(*config, paths, cwd, *origin)?;
     let cancel = agent.canceller();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
+    // The child has no user to ask: its questions go to the parent.
+    let upstream = Arc::new(Upstream::new(tx.clone()));
+    agent.ctx.perms.set_ask(upstream.clone());
     let printer = tokio::task::spawn_blocking(move || {
         let mut out = std::io::stdout();
         while let Some(ev) = rx.blocking_recv() {
@@ -48,11 +53,13 @@ pub async fn run() -> Result<()> {
                         open = false;
                         cancel.send_replace(true);
                     }
-                    Some(l) => {
-                        if let Some(ToChild::Cancel) = ToChild::parse(&l) {
+                    Some(l) => match ToChild::parse(&l) {
+                        Some(ToChild::Cancel) => {
                             cancel.send_replace(true);
                         }
-                    }
+                        Some(ToChild::Answer { id, decision }) => upstream.answer(&id, decision),
+                        _ => {}
+                    },
                 },
             }
         }

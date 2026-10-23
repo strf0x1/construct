@@ -14,12 +14,14 @@
 use super::map::{EVENT_METHOD, META_KEY};
 use super::rpc::{self, Incoming};
 use super::{Start, VERSION};
+use crate::agents::{Gate, OnPermission};
 use crate::child::run::Outcome;
-use crate::child::wire::Wire;
+use crate::child::wire::{Pending, Reply, Wire};
 use crate::config::Config;
 use crate::event::Event;
 use crate::llm::Message;
 use crate::manifest::Manifest;
+use crate::permission::{Decision, Request, ToolAsk, Verdict};
 use crate::tools::{Call, OutputKind};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -41,7 +43,8 @@ pub struct Client {
     kind: Kind,
     cwd: PathBuf,
     task: String,
-    allow: bool,
+    /// How the definition answers `session/request_permission`.
+    gate: Gate,
     /// The child promised to stream its events whole, and we asked for it.
     lossless: bool,
     session: Option<String>,
@@ -65,22 +68,22 @@ struct Tool {
 }
 
 impl Client {
-    pub fn construct(cwd: &Path, task: &str, start: Start, allow: bool) -> Self {
-        Self::new(Kind::Construct(Box::new(start)), cwd, task, allow)
+    pub fn construct(cwd: &Path, task: &str, start: Start, gate: Gate) -> Self {
+        Self::new(Kind::Construct(Box::new(start)), cwd, task, gate)
     }
 
     /// `name` is the definition's, which is what the record calls the harness.
-    pub fn foreign(name: &str, parent: &Config, cwd: &Path, task: &str, allow: bool) -> Self {
+    pub fn foreign(name: &str, parent: &Config, cwd: &Path, task: &str, gate: Gate) -> Self {
         let kind = Kind::Foreign { harness: name.to_string(), manifest: Box::new(Manifest::foreign(parent)) };
-        Self::new(kind, cwd, task, allow)
+        Self::new(kind, cwd, task, gate)
     }
 
-    fn new(kind: Kind, cwd: &Path, task: &str, allow: bool) -> Self {
+    fn new(kind: Kind, cwd: &Path, task: &str, gate: Gate) -> Self {
         Self {
             kind,
             cwd: cwd.to_path_buf(),
             task: task.to_string(),
-            allow,
+            gate,
             lossless: false,
             session: None,
             version: String::new(),
@@ -255,24 +258,16 @@ impl Client {
         self.emit(call, out, ev);
     }
 
-    /// Answer `session/request_permission` by the definition's policy, and
-    /// journal both halves. The answer is always one of the offered options.
+    /// Answer `session/request_permission`, and journal both halves. The
+    /// definition decides (`allow_kinds`, then `on_permission`); a standing
+    /// "ask" becomes a question for the user, answered later through `out.asks`.
+    /// The answer is always one of the offered options, or `cancelled`.
     fn permission(&mut self, id: &Value, params: &Value, call: &Call, out: &mut Outcome) -> Vec<String> {
         let options = params["options"].as_array().cloned().unwrap_or_default();
         let kinds: Vec<String> = options.iter().filter_map(|o| o["kind"].as_str().map(str::to_string)).collect();
-        let want = if self.allow { "allow" } else { "reject" };
-        let pick = |prefix: &str| {
-            let find = |k: String| options.iter().find(|o| o["kind"] == json!(k));
-            find(format!("{prefix}_once")).or_else(|| find(format!("{prefix}_always")))
-        };
-        // Only the wanted kind is ever chosen: no option to say yes means no.
-        let chosen = pick(want).and_then(|o| o["optionId"].as_str().map(str::to_string));
-        let (outcome, decision) = match &chosen {
-            Some(opt) => (json!({ "outcome": "selected", "optionId": opt }), want),
-            None => (json!({ "outcome": "cancelled" }), "cancelled"),
-        };
         let title = params["toolCall"]["title"].as_str().unwrap_or_default().to_string();
         let tool_call_id = params["toolCall"]["toolCallId"].as_str().unwrap_or_default().to_string();
+        let kind = params["toolCall"]["kind"].as_str().map(str::to_string);
         // The question is about a call, so the record shows the call first,
         // with the input the agent is asking about.
         if let Some(tool) = self.calls.get_mut(&tool_call_id)
@@ -281,8 +276,69 @@ impl Client {
             tool.args = input.to_string();
         }
         self.start_tool(&tool_call_id, call, out);
-        self.emit(call, out, Event::Permission { tool_call_id, title, options: kinds, decision: decision.into() });
-        vec![rpc::ok(id, json!({ "outcome": outcome }))]
+        let by_config = kind.as_deref().is_some_and(|k| self.gate.kinds.iter().any(|g| g == k));
+        let standing = match (by_config, self.gate.on) {
+            (true, _) => Some(("allow", "config")),
+            (false, OnPermission::Allow) => Some(("allow", "policy")),
+            (false, OnPermission::Reject) => Some(("reject", "policy")),
+            (false, OnPermission::Ask) => None,
+        };
+        if let Some((want, scope)) = standing {
+            let (outcome, decision) = answer(&options, Some(want));
+            let ev = Event::Permission {
+                tool_call_id,
+                title,
+                options: kinds,
+                decision: decision.into(),
+                scope: scope.into(),
+            };
+            self.emit(call, out, ev);
+            return vec![rpc::ok(id, json!({ "outcome": outcome }))];
+        }
+        let ask = ToolAsk {
+            agent: String::new(),
+            call_id: tool_call_id.clone(),
+            title: title.clone(),
+            kind,
+            can_allow: pick(&options, "allow").is_some(),
+            can_reject: pick(&options, "reject").is_some(),
+        };
+        let id = id.clone();
+        let reply = move |d: Decision| {
+            let want = match d.verdict {
+                Verdict::Once | Verdict::Session | Verdict::Always => Some("allow"),
+                Verdict::Deny => Some("reject"),
+                Verdict::Cancel => None,
+            };
+            let (outcome, decision) = answer(&options, want);
+            let ev = Event::Permission {
+                tool_call_id,
+                title,
+                options: kinds,
+                decision: decision.into(),
+                scope: d.verdict.word().into(),
+            };
+            Reply { lines: vec![rpc::ok(&id, json!({ "outcome": outcome }))], events: vec![ev] }
+        };
+        out.asks.push(Pending { request: Request::Tool(ask), reply: Box::new(reply) });
+        vec![]
+    }
+}
+
+/// The option to answer with for `prefix` ("allow" or "reject"): the once
+/// kind, else the always kind. Only the wanted kind is ever chosen.
+fn pick<'a>(options: &'a [Value], prefix: &str) -> Option<&'a Value> {
+    let find = |k: String| options.iter().find(|o| o["kind"] == json!(k));
+    find(format!("{prefix}_once")).or_else(|| find(format!("{prefix}_always")))
+}
+
+/// The outcome for `want` and the decision to journal: no option to say what
+/// was wanted (or nothing wanted) means `cancelled`.
+fn answer(options: &[Value], want: Option<&'static str>) -> (Value, &'static str) {
+    let chosen = want.and_then(|w| pick(options, w)).and_then(|o| o["optionId"].as_str().map(str::to_string));
+    match (chosen, want) {
+        (Some(opt), Some(w)) => (json!({ "outcome": "selected", "optionId": opt }), w),
+        _ => (json!({ "outcome": "cancelled" }), "cancelled"),
     }
 }
 

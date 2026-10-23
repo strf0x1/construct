@@ -6,7 +6,8 @@
 //! report of what it stopped.
 
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
-use crate::sandbox::{GRACE, SWEPT, StopOnDrop};
+use crate::permission::{Access, blocked_in};
+use crate::sandbox::{GRACE, Policy, SWEPT, StopOnDrop};
 use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -57,16 +58,47 @@ impl Tool for Shell {
     }
 }
 
+/// Most times one call may be run again after the user widens the sandbox for
+/// it: a read refused, then the write that follows it.
+const MAX_ASKS: usize = 2;
+
 async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
     let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
     let cwd =
         a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
-    ctx.sandbox.check_read(&cwd).map_err(ToolError::sandbox)?;
+    ctx.can_path(Shell::NAME, Access::Read, &cwd).await?;
+    let mut policy = ctx.policy();
+    let mut asks = 0;
+    loop {
+        let r = run_once(ctx, &policy, command, &cwd, timeout).await;
+        // A Landlock denial is only visible in the command's own output, so
+        // asking comes after the fact: the user sees which paths it named and
+        // that approving runs the command again.
+        let Err(e) = &r else { return r };
+        if e.code != "exit" || asks == MAX_ASKS {
+            return r;
+        }
+        let Some((access, paths)) = blocked_in(&policy, &e.message) else { return r };
+        let Some(extra) = ctx.perms.shell(command, access, paths, ctx.cancel.clone()).await else { return r };
+        policy = match access {
+            Access::Read => policy.widened(&extra, &[]),
+            Access::Write => policy.widened(&[], &extra),
+        };
+        asks += 1;
+    }
+}
 
+async fn run_once(
+    ctx: &Ctx,
+    policy: &Policy,
+    command: &str,
+    cwd: &std::path::Path,
+    timeout: u64,
+) -> Result<String, ToolError> {
     let shell = if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" };
-    let mut cmd = ctx.sandbox.command(shell, &format!("exec 2>&1\n{command}"));
-    cmd.current_dir(&cwd)
+    let mut cmd = policy.command(shell, &format!("exec 2>&1\n{command}"));
+    cmd.current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -146,12 +178,12 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
             // Landlock denials look like ordinary permission errors; say why.
-            let hint =
-                if !ctx.sandbox.off && (out.contains("Permission denied") || out.contains("Operation not permitted")) {
-                    "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
-                } else {
-                    ""
-                };
+            let hint = if !policy.off && (out.contains("Permission denied") || out.contains("Operation not permitted"))
+            {
+                "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
+            } else {
+                ""
+            };
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),

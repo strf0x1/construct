@@ -123,6 +123,7 @@ impl Tool for HashlineRead {
         Display { primary_arg: "path", preview_lines: 0 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_read(Self::NAME, &a, "path").await?;
         blocking(ctx, || self.run(ctx, &a))
     }
 }
@@ -130,7 +131,6 @@ impl Tool for HashlineRead {
 impl HashlineRead {
     fn run(&self, ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
         let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-        ctx.sandbox.check_read(&path).map_err(ToolError::sandbox)?;
         let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         if meta.is_dir() {
             return list_dir(&path);
@@ -263,6 +263,7 @@ impl Tool for HashlineEdit {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_write(Self::NAME, &a, "path").await?;
         self.run(ctx, &a)
     }
 }
@@ -290,7 +291,6 @@ impl HashlineEdit {
             return Err(fail("MISSING_FIELD", "\"edits\" must be a non-empty array of operations.".into()));
         };
         let path = resolve(ctx, raw);
-        ctx.sandbox.check_write(&path).map_err(ToolError::sandbox)?;
         if !path.exists() {
             return Err(fail("not_found", format!("{raw} does not exist. Use the write tool to create new files.")));
         }
