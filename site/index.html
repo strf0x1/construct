@@ -125,6 +125,7 @@ h1.glitch{animation:glitch .38s steps(2) 1}
         <button data-p="ocean" style="--c:#8cc8ff" aria-label="Ocean / ice"></button>
         <button data-p="jade" style="--c:#7fe0bd" aria-label="Jade / mint"></button>
         <button data-p="ruby" style="--c:#ff8585" aria-label="Ruby / red"></button>
+        <button data-p="iridescent" style="--c:#c6c1ff;background:linear-gradient(135deg,#8ce8e0,#c6afff,#ffabd6,#ffe5ad)" aria-label="Iridescent / pearl"></button>
       </span>
     </nav>
   </header>
@@ -169,6 +170,7 @@ const PALETTES={
   ocean:   {shadow:'#0a1c40',mid:'#3a7cc8',high:'#e2f3ff',accent:'#8cc8ff',bg:'#04080f'},
   jade:    {shadow:'#062a20',mid:'#2b9b77',high:'#ddfff1',accent:'#7fe0bd',bg:'#040c0a'},
   ruby:    {shadow:'#400b15',mid:'#c83a4a',high:'#ffe5e5',accent:'#ff8585',bg:'#100507'},
+  iridescent:{shadow:'#161a38',mid:'#828bc4',high:'#f5f2ff',accent:'#c6c1ff',bg:'#070910'},
 };
 const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
 let pal, palName;
@@ -284,7 +286,7 @@ void main(){float z=uD-aPos.z,n=.1,f=40.;
 const FS_FACE=`#version 300 es
 precision highp float;
 in vec3 vPos;in vec3 vNor;in vec2 vTone;
-uniform vec3 uShadow,uMid,uHigh,uCorePos;uniform float uD,uCore,uFlash;
+uniform vec3 uShadow,uMid,uHigh,uCorePos;uniform float uD,uCore,uFlash,uIridescent;
 out vec4 o;
 void main(){
  vec3 N=normalize(vNor),V=normalize(vec3(0,0,uD)-vPos);
@@ -295,10 +297,21 @@ void main(){
  float spec=pow(max(dot(N,normalize(L+V)),0.),48.);
  float fres=pow(1.-max(dot(N,V),0.),3.);
  c+=uHigh*(spec*.55+fres*.28);
+ float filmLight=.3+t*.75;
  if(vTone.y>.5){ // interior: dark glass lit from the core
   float d=length(vPos-uCorePos);
-  c=mix(uShadow*.55,uHigh,clamp(uCore*exp(-d*1.6)*1.1,0.,1.));
+  float coreLight=clamp(uCore*exp(-d*1.6)*1.1,0.,1.);
+  c=mix(uShadow*.55,uHigh,coreLight);
   c+=uMid*fres*.3;
+  filmLight=.18+coreLight*.75+fres*.15;
+ }
+ if(uIridescent>.5){ // pearlescent film: hue shifts with each facet's viewing angle
+  float angle=1.-abs(dot(N,V));
+  float phase=angle*1.8+dot(N,normalize(vec3(.6,.8,.3)))*.35;
+  vec3 film=.5+.5*cos(6.2831853*(phase+vec3(0.,.33,.67)));
+  film=mix(vec3(.72),film,.65);
+  c=mix(c,film*filmLight,.7);
+  c+=uHigh*spec*.35;
  }
  c+=uHigh*uFlash*.35;
  o=vec4(c,1);}`;
@@ -514,6 +527,7 @@ function frame(now){
     const u=faceProg.u;
     gl.uniform2f(u.uScale,sx,sy);gl.uniform2f(u.uOffset,ox,oy);gl.uniform1f(u.uD,D);
     gl.uniform3fv(u.uShadow,pal.shadow);gl.uniform3fv(u.uMid,pal.mid);gl.uniform3fv(u.uHigh,pal.high);
+    gl.uniform1f(u.uIridescent,palName==='iridescent'?1:0);
     gl.uniform3fv(u.uCorePos,bob);gl.uniform1f(u.uCore,core*clamp01(burst*3));gl.uniform1f(u.uFlash,flash);
     gl.bindBuffer(gl.ARRAY_BUFFER,faceBuf);gl.bufferSubData(gl.ARRAY_BUFFER,0,faceData);
     gl.bindVertexArray(faceVao);gl.drawArrays(gl.TRIANGLES,0,fi/8);
