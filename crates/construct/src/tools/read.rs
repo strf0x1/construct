@@ -46,13 +46,13 @@ impl Tool for Read {
         Display { primary_arg: "path", preview_lines: 0 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_read(Self::NAME, &a, "path").await?;
         blocking(ctx, || run(ctx, &a))
     }
 }
 
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-    ctx.sandbox.check_read(&path).map_err(ToolError::sandbox)?;
     let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     if meta.is_dir() {
         return list_dir(&path);

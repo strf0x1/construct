@@ -39,6 +39,7 @@ impl Tool for Glob {
         Display { primary_arg: "pattern", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_read(Self::NAME, &a, "path").await?;
         blocking(ctx, || run(ctx, &a))
     }
 }
@@ -46,7 +47,6 @@ impl Tool for Glob {
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
-    ctx.sandbox.check_read(&root).map_err(ToolError::sandbox)?;
     let pat =
         if pattern.contains('/') || pattern.starts_with("**") { pattern.to_string() } else { format!("**/{pattern}") };
     let set =

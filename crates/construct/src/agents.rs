@@ -38,10 +38,15 @@ pub struct AgentDef {
     /// refused; what the parent decides is the sandbox, the environment, the
     /// timeout and `on_permission`.
     pub command: Vec<String>,
-    /// What to answer the child's `session/request_permission`: `"reject"`
-    /// (the default) or `"allow"`. Either way the request and the answer are
-    /// journaled (`Event::Permission`).
+    /// What to answer the child's `session/request_permission`: `"ask"` (the
+    /// default: the user is asked in the TUI, and a session without one
+    /// rejects), `"reject"` or `"allow"`. Either way the request and the
+    /// answer are journaled (`Event::Permission`).
     pub on_permission: String,
+    /// ACP tool kinds (`read`, `edit`, `execute`, ...) answered with an allow
+    /// without asking, whatever `on_permission` says. "Always" in the prompt
+    /// adds a kind here.
+    pub allow_kinds: Vec<String>,
     /// The child's system prompt. `prompt_file` is read when it is empty.
     pub prompt: String,
     pub prompt_file: String,
@@ -82,6 +87,7 @@ impl Default for AgentDef {
             protocol: String::new(),
             command: vec![],
             on_permission: String::new(),
+            allow_kinds: vec![],
             prompt: String::new(),
             prompt_file: String::new(),
             model: String::new(),
@@ -106,6 +112,31 @@ pub fn check_name(name: &str) -> Result<()> {
         "[agents.{name}]: an agent name is 1-32 letters, digits, '-' or '_'"
     );
     Ok(())
+}
+
+/// ACP's tool kinds, which `allow_kinds` draws from.
+pub const ACP_KINDS: &[&str] =
+    &["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OnPermission {
+    /// Ask the user; with nobody to ask, reject.
+    Ask,
+    Allow,
+    Reject,
+}
+
+/// A definition's standing answer to `session/request_permission`.
+#[derive(Debug, Clone)]
+pub struct Gate {
+    pub on: OnPermission,
+    pub kinds: Vec<String>,
+}
+
+impl Gate {
+    pub fn reject() -> Self {
+        Self { on: OnPermission::Reject, kinds: vec![] }
+    }
 }
 
 /// Which wire a definition's child speaks.
@@ -135,16 +166,24 @@ impl AgentDef {
             }
         }
         ensure!(
-            matches!(self.on_permission.as_str(), "" | "reject" | "allow"),
-            "[agents.{name}] on_permission: {:?} is not \"reject\" or \"allow\"",
+            matches!(self.on_permission.as_str(), "" | "ask" | "reject" | "allow"),
+            "[agents.{name}] on_permission: {:?} is not \"ask\", \"reject\" or \"allow\"",
             self.on_permission
         );
+        for k in &self.allow_kinds {
+            ensure!(ACP_KINDS.contains(&k.as_str()), "[agents.{name}] allow_kinds: {k:?} is not one of {ACP_KINDS:?}");
+        }
         Ok(p)
     }
 
-    /// Whether to answer a permission request with an allow.
-    pub fn allows_permissions(&self) -> bool {
-        self.on_permission == "allow"
+    /// How this definition answers an ACP child's permission requests.
+    pub fn gate(&self) -> Gate {
+        let on = match self.on_permission.as_str() {
+            "allow" => OnPermission::Allow,
+            "reject" => OnPermission::Reject,
+            _ => OnPermission::Ask,
+        };
+        Gate { on, kinds: self.allow_kinds.clone() }
     }
 
     /// The system prompt: inline, else the file (`~/` expands, relative to `cwd`).
@@ -315,7 +354,14 @@ mod tests {
         assert!(acp(&|d| d.tools = vec!["read".into()]).contains("tools"));
         assert!(acp(&|d| d.model = "m".into()).contains("model"));
         assert!(acp(&|d| d.protocol = "jsonl".into()).contains("protocol"));
-        assert!(acp(&|d| d.on_permission = "ask".into()).contains("on_permission"));
+        assert!(acp(&|d| d.on_permission = "maybe".into()).contains("on_permission"));
+        assert!(acp(&|d| d.allow_kinds = vec!["bash".into()]).contains("allow_kinds"));
+        let mut asks = AgentDef { protocol: "acp".into(), command: vec!["x".into()], ..Default::default() };
+        assert_eq!(asks.gate().on, OnPermission::Ask, "asking is the default; with nobody to ask it rejects");
+        asks.on_permission = "allow".into();
+        asks.allow_kinds = vec!["read".into()];
+        assert!(asks.protocol("x").is_ok());
+        assert_eq!((asks.gate().on, asks.gate().kinds), (OnPermission::Allow, vec!["read".to_string()]));
         assert!(AgentDef { protocol: "grpc".into(), ..Default::default() }.protocol("x").is_err());
     }
 

@@ -11,6 +11,7 @@
 use super::run::Outcome;
 use crate::config::Config;
 use crate::event::Event;
+use crate::permission::{Decision, Request};
 use crate::sandbox::Policy;
 use crate::tools::Call;
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,11 @@ pub enum ToChild {
     },
     /// Stop the turn in flight, as the user's Esc does.
     Cancel,
+    /// The parent's answer to the child's `Event::Ask` named `id`.
+    Answer {
+        id: String,
+        decision: Decision,
+    },
 }
 
 impl ToChild {
@@ -62,6 +68,29 @@ pub fn event_line(ev: &Event) -> String {
 /// reader of the vocabulary does.
 pub fn parse_event(line: &str) -> Option<Event> {
     serde_json::from_str(line).ok()
+}
+
+/// A question the child asked that only the user can answer. The wire holds
+/// the way to turn the answer into lines; `child::run` fetches the answer
+/// (bounded by the delegation's timeout and cancel) and writes them.
+pub struct Pending {
+    pub request: Request,
+    pub reply: Replier,
+}
+
+pub type Replier = Box<dyn FnOnce(Decision) -> Reply + Send>;
+
+impl std::fmt::Debug for Pending {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Pending").field("request", &self.request).finish_non_exhaustive()
+    }
+}
+
+/// What an answer turns into: lines for the child, and events for the record.
+#[derive(Default)]
+pub struct Reply {
+    pub lines: Vec<String>,
+    pub events: Vec<Event>,
 }
 
 /// One delegation's conversation with its child.
@@ -96,9 +125,18 @@ impl Wire for Jsonl {
     }
 
     fn line(&mut self, line: &str, call: &Call, out: &mut Outcome) -> Vec<String> {
-        if let Some(ev) = parse_event(line) {
-            out.note(&ev);
-            call.forward(ev);
+        match parse_event(line) {
+            // The child asks its parent; the answer goes back as a line.
+            Some(Event::Ask { id, request }) => {
+                let reply =
+                    move |decision| Reply { lines: vec![ToChild::Answer { id, decision }.line()], events: vec![] };
+                out.asks.push(Pending { request, reply: Box::new(reply) });
+            }
+            Some(ev) => {
+                out.note(&ev);
+                call.forward(ev);
+            }
+            None => {}
         }
         vec![]
     }

@@ -4,8 +4,10 @@
 //! visibly in progress.
 
 mod app;
+mod ask;
 mod input;
 mod markdown;
+mod prompt;
 mod theme;
 mod view;
 mod worker;
@@ -107,7 +109,8 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<Event>();
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
     let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
-    let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx));
+    let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<ask::Prompt>();
+    let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx, prompt_tx));
 
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
@@ -131,6 +134,10 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                         _ => {}
                     }
                 }
+                dirty = true;
+            }
+            Some(prompt) = prompt_rx.recv() => {
+                app.prompts.push_back(prompt);
                 dirty = true;
             }
             Some(ev) = ev_rx.recv() => {

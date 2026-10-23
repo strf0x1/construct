@@ -87,7 +87,7 @@ pub fn run(o: Opts) -> Result<()> {
                     kinds.iter().map(|k| json!({ "optionId": format!("opt-{k}"), "name": k, "kind": k })).collect();
                 send(json!({ "jsonrpc": "2.0", "id": "perm-1", "method": "session/request_permission", "params": {
                     "sessionId": sid,
-                    "toolCall": { "toolCallId": "t1", "title": "rm -rf build" },
+                    "toolCall": { "toolCallId": "t1", "title": "rm -rf build", "kind": "execute" },
                     "options": options } }));
                 if o.ask_fs {
                     send(json!({ "jsonrpc": "2.0", "id": "fs-1", "method": "fs/read_text_file",

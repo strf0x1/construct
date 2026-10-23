@@ -4,14 +4,19 @@
 //! wrap up, or is stopped the way the sandbox helper expects (SIGTERM, then
 //! the group). Its scratch directory is removed when it is gone.
 
-use super::wire::{Jsonl, Origin, ToChild, Wire};
+use super::wire::{Jsonl, Origin, Pending, Replier, ToChild, Wire};
 use crate::agents::{AgentDef, Protocol};
 use crate::config::Config;
 use crate::event::Event;
+use crate::permission::{Decision, Perms};
 use crate::sandbox::{GRACE, Policy, StopOnDrop};
 use crate::tools::Call;
+use futures::StreamExt;
+use futures::future::BoxFuture;
+use futures::stream::FuturesUnordered;
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::watch;
@@ -29,6 +34,8 @@ pub struct Spec<'a> {
     pub cwd: &'a Path,
     /// The parent's own endpoint config, to resolve the secrets it names.
     pub parent: &'a Config,
+    /// Where the child's questions for the user are decided and remembered.
+    pub perms: Arc<Perms>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +60,8 @@ pub struct Outcome {
     pub finished: bool,
     /// The tail of the child's stderr, for explaining a stop or a failure.
     pub diagnostics: String,
+    /// Questions the wire just read that wait for the user; the loop takes them.
+    pub asks: Vec<Pending>,
 }
 
 impl Outcome {
@@ -101,17 +110,11 @@ fn plan(spec: &Spec<'_>, task: &str, call: &Call) -> Result<Plan, String> {
         }
         (Protocol::Acp, None) => {
             let start = crate::acp::Start { config: Box::new(spec.config.clone()), origin: Box::new(origin) };
-            let wire = crate::acp::client::Client::construct(spec.cwd, task, start, spec.def.allows_permissions());
+            let wire = crate::acp::client::Client::construct(spec.cwd, task, start, spec.def.gate());
             (exe, vec!["__child".into(), "--acp".into()], Box::new(wire))
         }
         (Protocol::Acp, Some((prog, args))) => {
-            let wire = crate::acp::client::Client::foreign(
-                spec.name,
-                spec.parent,
-                spec.cwd,
-                task,
-                spec.def.allows_permissions(),
-            );
+            let wire = crate::acp::client::Client::foreign(spec.name, spec.parent, spec.cwd, task, spec.def.gate());
             (prog.clone(), args.to_vec(), Box::new(wire))
         }
     })
@@ -177,6 +180,11 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
     let never = Duration::from_secs(60 * 60 * 24 * 365);
     let hard = tokio::time::sleep(never);
     tokio::pin!(hard);
+    // Questions for the user. Each is bounded by `over`, which is set when the
+    // delegation is stopped or its turn ends, so a prompt never outlives the
+    // call that raised it and the child hears `cancelled`.
+    let (over_tx, over) = watch::channel(false);
+    let mut waiting: FuturesUnordered<BoxFuture<'static, (Replier, Decision)>> = FuturesUnordered::new();
     loop {
         tokio::select! {
             line = lines.next_line() => match line {
@@ -184,6 +192,12 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
                     let reply = wire.line(&l, call, &mut out);
                     if let Some(w) = stdin.as_mut() {
                         let _ = write_all(w, reply).await;
+                    }
+                    for p in out.asks.drain(..) {
+                        waiting.push(ask(spec.perms.clone(), p, spec.name, over.clone()));
+                    }
+                    if out.finished {
+                        over_tx.send_replace(true);
                     }
                     if out.finished && stdin.take().is_some() {
                         // Done with the child: closing its input ends it. One
@@ -195,13 +209,25 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
                 }
                 Ok(None) | Err(_) => break,
             },
+            Some((replier, decision)) = waiting.next(), if !waiting.is_empty() => {
+                let reply = replier(decision);
+                for ev in reply.events {
+                    out.note(&ev);
+                    call.forward(ev);
+                }
+                if let Some(w) = stdin.as_mut() {
+                    let _ = write_all(w, reply.lines).await;
+                }
+            }
             _ = &mut deadline, if out.stopped.is_none() && !out.finished => {
+                over_tx.send_replace(true);
                 out.stopped = Some(Stop::Timeout);
                 cancel_child(&mut stdin, wire.cancel()).await;
                 hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
             }
             r = cancel.changed(), if out.stopped.is_none() && !out.finished => {
                 if r.is_ok() && *cancel.borrow() {
+                    over_tx.send_replace(true);
                     out.stopped = Some(Stop::Interrupted);
                     cancel_child(&mut stdin, wire.cancel()).await;
                     hard.as_mut().reset(tokio::time::Instant::now() + GRACE);
@@ -243,6 +269,36 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
         });
     }
     Ok(out)
+}
+
+/// One of the child's questions, as a future of its answer: decided by
+/// `perms` (which asks the user), or cancelled when the delegation is over.
+fn ask(
+    perms: Arc<Perms>,
+    p: Pending,
+    agent: &str,
+    mut over: watch::Receiver<bool>,
+) -> BoxFuture<'static, (Replier, Decision)> {
+    let request = p.request.from_agent(agent);
+    Box::pin(async move {
+        let d = tokio::select! {
+            biased;
+            _ = stopped(&mut over) => Decision::CANCEL,
+            d = perms.decide(request) => d,
+        };
+        (p.reply, d)
+    })
+}
+
+async fn stopped(over: &mut watch::Receiver<bool>) {
+    loop {
+        if *over.borrow() {
+            return;
+        }
+        if over.changed().await.is_err() {
+            std::future::pending::<()>().await;
+        }
+    }
 }
 
 async fn cancel_child(stdin: &mut Option<tokio::process::ChildStdin>, lines: Vec<String>) {

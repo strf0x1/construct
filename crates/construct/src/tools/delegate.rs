@@ -103,7 +103,10 @@ impl Tool for Delegate {
             return Err(ToolError::new("unknown_agent", format!("no agent {name:?}; the agents are {known:?}")));
         };
         let tag: String = call.id.chars().filter(char::is_ascii_alphanumeric).collect();
-        let policy = ctx.sandbox.for_agent(&p.def, &ctx.paths, &tag, p.port).map_err(ToolError::sandbox)?;
+        let policy = ctx.policy().for_agent(&p.def, &ctx.paths, &tag, p.port).map_err(ToolError::sandbox)?;
+        // What the user lent this agent earlier in the session.
+        let lent = ctx.perms.roots_for(name);
+        let policy = policy.widened(&lent.read, &lent.write);
         // Where the child works: the parent's directory if it was granted
         // that, else a scratch directory of its own.
         let cwd = if policy.check_read(&ctx.cwd).is_ok() { ctx.cwd.clone() } else { policy.tmp.join("work") };
@@ -117,6 +120,7 @@ impl Tool for Delegate {
             policy,
             cwd: &cwd,
             parent: &self.parent,
+            perms: ctx.perms.clone(),
         };
         let started = std::time::Instant::now();
         let out = run(spec, task, call, ctx.cancel.clone()).await.map_err(|e| ToolError::new("spawn", e))?;

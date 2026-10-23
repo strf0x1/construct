@@ -9,6 +9,7 @@
 //! huge list. Once on, a group stays on for the session: the tool list then
 //! only ever grows, which keeps provider prefix caches warm.
 
+pub mod access;
 pub mod call;
 pub mod delegate;
 pub mod edit;
@@ -228,6 +229,8 @@ pub struct Ctx {
     pub project_skills: Option<Library>,
     pub mcp: Option<Arc<crate::mcp::Manager>>,
     pub sandbox: crate::sandbox::Policy,
+    /// Who may be asked, and what has been approved (`permission`).
+    pub perms: Arc<crate::permission::Perms>,
     read_files: Mutex<HashSet<PathBuf>>,
 }
 
@@ -247,6 +250,7 @@ impl Ctx {
             .expect("http client");
         let skills = Library::new(&paths);
         let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
+        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()));
         Self {
             cwd,
             paths,
@@ -257,6 +261,7 @@ impl Ctx {
             project_skills,
             mcp,
             sandbox,
+            perms,
             read_files: Mutex::new(HashSet::new()),
         }
     }

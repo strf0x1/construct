@@ -182,7 +182,7 @@ impl Policy {
 
     /// The real location of `p`; for a path that doesn't exist yet, its
     /// nearest existing ancestor resolved plus the rest.
-    fn real(p: &Path) -> PathBuf {
+    pub(crate) fn real(p: &Path) -> PathBuf {
         if let Ok(c) = p.canonicalize() {
             return c;
         }
@@ -218,6 +218,15 @@ impl Policy {
             return Ok(());
         }
         Err(self.denied(&r, "write"))
+    }
+
+    /// This policy with `read` and `write` roots added: what a grant the user
+    /// approved looks like to the check and to the shell helper.
+    pub fn widened(&self, read: &[PathBuf], write: &[PathBuf]) -> Self {
+        let mut p = self.clone();
+        p.read.extend(read.iter().cloned());
+        p.write.extend(write.iter().cloned());
+        p
     }
 
     fn denied(&self, p: &Path, what: &str) -> String {
@@ -319,6 +328,10 @@ fn restrict(policy: &Policy) -> Result<(), String> {
     let abi = ABI::V6;
     let ro = AccessFs::from_read(abi);
     let rw = AccessFs::from_all(abi);
+    // A grant for a place that doesn't exist (yet) has nothing to restrict,
+    // and a rule for it would fail the whole ruleset.
+    let live = |v: &[PathBuf]| v.iter().filter(|p| p.exists()).cloned().collect::<Vec<_>>();
+    let (system, read, write) = (live(&policy.system), live(&policy.read), live(&policy.write));
     let status = Ruleset::default()
         .set_compatibility(CompatLevel::BestEffort)
         .handle_access(rw)
@@ -332,9 +345,9 @@ fn restrict(policy: &Policy) -> Result<(), String> {
             let ports = if policy.no_network { policy.connect_ports.as_slice() } else { &[] };
             r.add_rules(ports.iter().map(|p| Ok(NetPort::new(*p, AccessNet::ConnectTcp))))
         })
-        .and_then(|r| r.add_rules(path_beneath_rules(&policy.system, ro)))
-        .and_then(|r| r.add_rules(path_beneath_rules(&policy.read, ro)))
-        .and_then(|r| r.add_rules(path_beneath_rules(&policy.write, rw)))
+        .and_then(|r| r.add_rules(path_beneath_rules(&system, ro)))
+        .and_then(|r| r.add_rules(path_beneath_rules(&read, ro)))
+        .and_then(|r| r.add_rules(path_beneath_rules(&write, rw)))
         .and_then(|r| r.restrict_self())
         .map_err(|e| format!("landlock: {e}"))?;
     if status.ruleset == RulesetStatus::NotEnforced {

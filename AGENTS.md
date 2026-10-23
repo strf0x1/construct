@@ -18,12 +18,13 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/llm/` | Streaming `/chat/completions` client (hand-rolled SSE). Provider quirks live only in `dialect.rs` (it edits the standard body); `usage.rs` reads every provider's token, cache and cost fields. |
 | `crates/construct/src/tools/` | One `impl Tool` per file (shell, read, write, edit, grep, glob, web, memory, skill, history, mcp); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
+| `crates/construct/src/permission/` | Asking the user before a tool goes past the sandbox, and remembering it: `Request`/`Ask`, `Perms` (session grants, `config.toml` edits, protected paths), the shell-output path heuristic, the child's upward asker. ADR 0016. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
 | `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
 | `crates/construct/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
 | `crates/construct/src/sandbox/` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. `supervise.rs`: that helper is a subreaper, and nothing a shell call starts outlives it. |
-| `crates/construct/src/tui/` | ratatui app, markdown renderer, theme. |
+| `crates/construct/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
 | `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. |
