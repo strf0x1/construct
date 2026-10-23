@@ -224,6 +224,7 @@ impl Agent {
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
+        self.ctx.perms.set_sink(self.journal.clone(), tx.clone());
         for ev in std::mem::take(&mut self.unsent) {
             let _ = tx.send(ev);
         }

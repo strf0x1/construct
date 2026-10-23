@@ -177,6 +177,30 @@ pub enum Event {
         /// The kinds the child offered (`allow_once`, `reject_once`, ...).
         options: Vec<String>,
         decision: String,
+        /// Who decided: "policy" (`on_permission`), "config" (`allow_kinds`),
+        /// or the user's answer ("once", "session", "always", "cancelled").
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        scope: String,
+    },
+    /// The user decided whether a tool may go past the sandbox. Not recorded
+    /// for headless runs, which only ever say no. `decision` is "once",
+    /// "session", "always", "deny" or "cancelled"; `paths` are what was granted
+    /// (the folder, if the user chose that). `agent` names a delegated agent.
+    Access {
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        agent: String,
+        tool: String,
+        /// "read" or "write".
+        access: String,
+        paths: Vec<String>,
+        decision: String,
+    },
+    /// A delegated child asks its parent a question (`permission::Request`).
+    /// Child to parent on the wire only: the parent answers it itself and
+    /// neither journals nor shows it.
+    Ask {
+        id: String,
+        request: crate::permission::Request,
     },
     /// An event from a child session a tool is running, as the parent sees
     /// it. `id` is the delegating call's id, so a UI nests it under that call.
@@ -202,6 +226,7 @@ impl Event {
                 | Event::ToolPending { .. }
                 | Event::Learn { .. }
                 | Event::Child { .. }
+                | Event::Ask { .. }
         )
     }
 

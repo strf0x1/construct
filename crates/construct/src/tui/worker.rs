@@ -2,6 +2,7 @@
 //! from commands, and starts the learning pass.
 
 use super::Cmd;
+use super::ask::{Prompt, TuiAsk};
 use super::trace;
 use crate::agent::{Agent, Event};
 use crate::config::{Config, Paths};
@@ -21,6 +22,7 @@ pub(super) async fn agent_task(
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
     tx: mpsc::UnboundedSender<Event>,
     ready: mpsc::UnboundedSender<Ready>,
+    prompts: mpsc::UnboundedSender<Prompt>,
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
@@ -32,6 +34,7 @@ pub(super) async fn agent_task(
         }
     };
     trace("agent ready");
+    agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
     agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
     let _ = ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone()));
@@ -53,6 +56,7 @@ pub(super) async fn agent_task(
                 match build(None, c) {
                     Ok(a) => {
                         agent = a;
+                        agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
                         reviewed = (agent.messages.len(), agent.journal.last_seq());
                         let _ = ready.send((
                             agent.journal.session.clone(),

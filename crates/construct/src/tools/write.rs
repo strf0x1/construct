@@ -33,13 +33,13 @@ impl Tool for Write {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        ctx.can_write(Self::NAME, &a, "path").await?;
         run(ctx, &a).map(Output::plain)
     }
 }
 
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-    ctx.sandbox.check_write(&path).map_err(ToolError::sandbox)?;
     let content = arg(a, "content").ok_or("content is required")?;
     let existed = path.exists();
     if existed && !ctx.was_read(&path) {
