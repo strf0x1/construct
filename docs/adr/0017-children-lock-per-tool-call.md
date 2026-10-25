@@ -1,6 +1,6 @@
 # 0017 — Delegated children lock per tool call, like the session
 
-Status: proposed. 2026-10-25. Partly supersedes 0014 (the child process is no
+Status: accepted, except the `openat2` item, which is deferred (see Evidence). 2026-10-25. Partly supersedes 0014 (the child process is no
 longer confined as a whole on the filesystem).
 
 ## Context
@@ -139,3 +139,18 @@ For acceptance, the implementing PR should show:
   - a symlink swapped in between check and open is refused.
 - Tier 0 ok. Tier 1 `bench.py tools`, with the `openat2` path compared
   against main.
+
+## Implementation notes
+
+`Policy::net_only()` is the policy the child *process* starts under: its
+Landlock ruleset handles TCP (unless `network = true`) and signals, and no
+filesystem access. The child's tools still get the full `Policy::for_agent`
+policy through `origin.policy`, enforced per call as in the session. The #75
+test is un-ignored; the child's own read result is now asserted, and e2e tests
+cover a shell re-run after approval, a protected path refused with no prompt,
+and TCP beyond the endpoint still denied.
+
+Not done here: the `openat2`/`RESOLVE_BENEATH` opens and the symlink-farm
+contract test and symlink-swap e2e. Until they land, a child's file tools have
+the same check-then-open race as the session's (ADR 0004). Also still open: the
+two questions above (session grants flowing down; "once" in a child).
