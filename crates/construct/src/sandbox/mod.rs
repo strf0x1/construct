@@ -24,6 +24,7 @@ use crate::config::{McpServer, Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+pub mod open;
 mod stop;
 mod supervise;
 pub use stop::{GRACE, StopOnDrop};

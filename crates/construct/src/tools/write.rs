@@ -3,6 +3,7 @@
 
 use super::fs::resolve;
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
+use crate::sandbox::{Policy, open};
 use serde_json::{Value, json};
 
 pub struct Write;
@@ -33,25 +34,22 @@ impl Tool for Write {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_write(Self::NAME, &a, "path").await?;
-        run(ctx, &a).map(Output::plain)
+        let policy = ctx.can_write(Self::NAME, &a, "path").await?;
+        run(ctx, &policy, &a).map(Output::plain)
     }
 }
 
-fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
     let content = arg(a, "content").ok_or("content is required")?;
-    let existed = path.exists();
+    let existed = open::exists(policy, &path);
     if existed && !ctx.was_read(&path) {
         return Err(ToolError::new(
             "not_read",
             format!("{} exists and hasn't been read this session; read it first so nothing is lost", path.display()),
         ));
     }
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, content).map_err(|e| format!("{}: {e}", path.display()))?;
+    open::write_file(policy, &path, content.as_bytes())?;
     ctx.mark_read(&path);
     Ok(format!(
         "{} {} ({} lines)",

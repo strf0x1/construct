@@ -2,6 +2,7 @@
 
 use super::fs::{encoding_error, is_utf16, resolve};
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
+use crate::sandbox::{Policy, open};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -46,18 +47,18 @@ impl Tool for Read {
         Display { primary_arg: "path", preview_lines: 0 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_read(Self::NAME, &a, "path").await?;
-        blocking(ctx, || run(ctx, &a))
+        let policy = ctx.can_read(Self::NAME, &a, "path").await?;
+        blocking(ctx, || run(ctx, &policy, &a))
     }
 }
 
-fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-    let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let meta = open::metadata(policy, &path)?;
     if meta.is_dir() {
-        return list_dir(&path);
+        return list_dir(policy, &path);
     }
-    let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let bytes = open::read_file(policy, &path)?;
     if is_utf16(&bytes) {
         return Err(encoding_error(&path.display().to_string(), true));
     }
@@ -84,15 +85,8 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     Ok(out)
 }
 
-pub(super) fn list_dir(path: &Path) -> Result<String, ToolError> {
-    let mut names: Vec<String> = std::fs::read_dir(path)
-        .map_err(|e| e.to_string())?
-        .flatten()
-        .map(|e| {
-            let n = e.file_name().to_string_lossy().to_string();
-            if e.path().is_dir() { format!("{n}/") } else { n }
-        })
-        .collect();
+pub(super) fn list_dir(policy: &Policy, path: &Path) -> Result<String, ToolError> {
+    let mut names = open::list_dir(policy, path)?;
     names.sort();
     Ok(format!("{} is a directory:\n{}", path.display(), names.join("\n")))
 }

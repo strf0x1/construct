@@ -4,6 +4,8 @@
 //! through a temp file in the same directory and a rename, so a crash never
 //! leaves half a file.
 
+use crate::sandbox::{Policy, open};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 const BOM: char = '\u{feff}';
@@ -53,17 +55,21 @@ pub fn decode(bytes: Vec<u8>) -> Result<(String, bool), ReadError> {
     }
 }
 
-pub fn read(path: &Path) -> Result<Snapshot, ReadError> {
-    let path = std::fs::canonicalize(path).map_err(ReadError::Io)?;
-    let permissions = std::fs::metadata(&path).map_err(ReadError::Io)?.permissions();
-    let (text, bom) = decode(std::fs::read(&path).map_err(ReadError::Io)?)?;
+pub fn read(policy: &Policy, path: &Path) -> Result<Snapshot, ReadError> {
+    let io = |e: String| ReadError::Io(std::io::Error::other(e));
+    let path = Policy::real(path);
+    let mut file = open::open_read(policy, &path).map_err(io)?;
+    let permissions = file.metadata().map_err(ReadError::Io)?.permissions();
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut file, &mut bytes).map_err(ReadError::Io)?;
+    let (text, bom) = decode(bytes)?;
     // EOL flavour from the first line break; a mixed file is normalized to it.
     let crlf = text.find('\n').is_some_and(|i| i > 0 && text.as_bytes()[i - 1] == b'\r');
     let (lines, trailing_newline) = split(&text);
     Ok(Snapshot { path, lines, crlf, bom, trailing_newline, permissions })
 }
 
-pub fn write(s: &Snapshot, lines: &[String]) -> std::io::Result<()> {
+pub fn write(policy: &Policy, s: &Snapshot, lines: &[String]) -> Result<(), String> {
     let eol = if s.crlf { "\r\n" } else { "\n" };
     let mut text = String::new();
     if s.bom {
@@ -73,20 +79,17 @@ pub fn write(s: &Snapshot, lines: &[String]) -> std::io::Result<()> {
     if s.trailing_newline && !lines.is_empty() {
         text.push_str(eol);
     }
-    let name = s.path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
-    let tmp = s.path.with_file_name(format!(".{name}.hashline-{}.tmp", std::process::id()));
-    std::fs::write(&tmp, text)?;
-    let done = std::fs::set_permissions(&tmp, s.permissions.clone()).and_then(|()| std::fs::rename(&tmp, &s.path));
-    if done.is_err() {
-        let _ = std::fs::remove_file(&tmp);
-    }
-    done
+    open::replace_file(policy, &s.path, text.as_bytes(), s.permissions.mode())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    fn off() -> Policy {
+        Policy { off: true, ..Policy::default() }
+    }
 
     struct Dir(PathBuf);
     impl Drop for Dir {
@@ -109,7 +112,7 @@ mod tests {
     }
 
     fn snap(p: &Path) -> Snapshot {
-        read(p).ok().expect("readable")
+        read(&off(), p).ok().expect("readable")
     }
 
     fn v(s: &[&str]) -> Vec<String> {
@@ -122,7 +125,7 @@ mod tests {
         let p = file(&d, b"a\nb\nc\n");
         let s = snap(&p);
         assert_eq!((s.lines.clone(), s.crlf, s.trailing_newline), (v(&["a", "b", "c"]), false, true));
-        write(&s, &v(&["a", "B", "c"])).unwrap();
+        write(&off(), &s, &v(&["a", "B", "c"])).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "a\nB\nc\n");
     }
 
@@ -132,7 +135,7 @@ mod tests {
         let p = file(&d, b"a\r\nb\r\n");
         let s = snap(&p);
         assert_eq!((s.lines.clone(), s.crlf), (v(&["a", "b"]), true));
-        write(&s, &v(&["a", "b", "c"])).unwrap();
+        write(&off(), &s, &v(&["a", "b", "c"])).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "a\r\nb\r\nc\r\n");
     }
 
@@ -142,7 +145,7 @@ mod tests {
         let p = file(&d, b"a\nb");
         let s = snap(&p);
         assert_eq!((s.lines.clone(), s.trailing_newline), (v(&["a", "b"]), false));
-        write(&s, &v(&["a", "b", "c"])).unwrap();
+        write(&off(), &s, &v(&["a", "b", "c"])).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "a\nb\nc");
     }
 
@@ -153,7 +156,7 @@ mod tests {
         let s = snap(&p);
         assert!(s.bom);
         assert_eq!(s.lines, v(&["head", "body"]));
-        write(&s, &v(&["HEAD", "body"])).unwrap();
+        write(&off(), &s, &v(&["HEAD", "body"])).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "\u{feff}HEAD\nbody\n");
     }
 
@@ -175,7 +178,7 @@ mod tests {
         let d = dir("mode");
         let p = file(&d, b"#!/bin/sh\necho hi\n");
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
-        write(&snap(&p), &v(&["#!/bin/sh", "echo bye"])).unwrap();
+        write(&off(), &snap(&p), &v(&["#!/bin/sh", "echo bye"])).unwrap();
         assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o755);
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "#!/bin/sh\necho bye\n");
         assert_eq!(std::fs::read_dir(&d.0).unwrap().count(), 1, "no temp file left behind");
@@ -187,7 +190,7 @@ mod tests {
         let p = file(&d, b"x\n");
         let link = d.0.join("link.txt");
         std::os::unix::fs::symlink(&p, &link).unwrap();
-        write(&snap(&link), &v(&["y"])).unwrap();
+        write(&off(), &snap(&link), &v(&["y"])).unwrap();
         assert!(std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "y\n");
     }
@@ -196,7 +199,7 @@ mod tests {
     fn writing_no_lines_leaves_an_empty_file() {
         let d = dir("empty");
         let p = file(&d, b"gone\n");
-        write(&snap(&p), &[]).unwrap();
+        write(&off(), &snap(&p), &[]).unwrap();
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "");
     }
 }
