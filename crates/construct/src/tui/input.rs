@@ -241,10 +241,14 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             };
             app.notice(theme::DIM, text);
         }
+        "status" => {
+            let block = status(app);
+            app.notice(theme::DIM, block);
+        }
         "copy" => copy(app, arg),
         "help" | "?" => app.notice(
             theme::DIM,
-            "/new  fresh session · /model <id>  switch model · /skills · /memory · /learn  run the learning pass now · /copy  last reply (or /copy error) to the clipboard · /quit\nenter send · alt+enter or ctrl+j newline · esc interrupt · ctrl+o expand tool output · wheel, up/down or pgup/pgdn scroll · ctrl+p/ctrl+n input history · ctrl+c clear/quit\nselect text with the mouse (shift-drag if your terminal asks for it); /copy works over ssh",
+            "/new  fresh session · /model <id>  switch model · /skills · /memory · /learn  run the learning pass now · /status  session id, journal and totals · /copy  last reply (or /copy error, /copy status) to the clipboard · /quit\nenter send · alt+enter or ctrl+j newline · esc interrupt · ctrl+o expand tool output · wheel, up/down or pgup/pgdn scroll · ctrl+p/ctrl+n input history · ctrl+c clear/quit\nselect text with the mouse (shift-drag if your terminal asks for it); /copy works over ssh",
         ),
         other => app.notice(theme::YELLOW, format!("unknown command /{other} — try /help")),
     }
@@ -260,7 +264,8 @@ fn copy(app: &mut App, arg: &str) {
             "last tool error",
             app.blocks.iter().rev().find(|b| b.kind == Kind::Tool && b.status == Status::Err).map(|b| b.text.clone()),
         ),
-        _ => return app.notice(theme::YELLOW, "usage: /copy · /copy error".to_string()),
+        "status" => ("status", Some(status(app))),
+        _ => return app.notice(theme::YELLOW, "usage: /copy · /copy error · /copy status".to_string()),
     };
     match text.filter(|t| !t.trim().is_empty()) {
         None => app.notice(theme::YELLOW, format!("no {what} to copy")),
@@ -270,4 +275,19 @@ fn copy(app: &mut App, arg: &str) {
             app.notice(theme::DIM, format!("copied {what} ({} chars{note})", t.chars().count()));
         }
     }
+}
+
+/// The `/status` block, summed from this session's journal rows.
+fn status(app: &App) -> String {
+    let read = || -> anyhow::Result<String> {
+        let paths = Paths::resolve()?;
+        let file = crate::journal::path(&paths, &std::env::current_dir()?);
+        let entries = crate::journal::Journal::open(&file)?.since(&app.session, 0)?;
+        let totals = crate::journal::Totals::of(&entries);
+        Ok(crate::journal::status_block(&app.session, &file, &app.cfg.model, app.cfg.context_window, &totals))
+    };
+    if app.session.is_empty() {
+        return "session not started yet".to_string();
+    }
+    read().unwrap_or_else(|e| format!("status unavailable: {e:#}"))
 }

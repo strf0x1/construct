@@ -1496,3 +1496,87 @@ fn skill_tools_reject_misrouted_args_and_say_where_a_skill_lives() {
     assert!(r[3].starts_with("[global: ") && r[3].contains(&dir), "{}", r[3]);
     assert!(std::fs::read_to_string(path).unwrap().contains("1. look"), "edit must not have changed anything");
 }
+
+#[test]
+fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
+    let env = Env::new("tui-status", json!({ "steps": [ { "text": "first-reply" }, { "text": "second-reply" } ] }));
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        120,
+        30,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(5000));
+    let script = format!(
+        "wait \"ask construct\" {short}\ntype one\nkey enter\nwait \"first-reply\" {long}\n\
+         type two\nkey enter\nwait \"second-reply\" {long}\ntype /status\nkey enter\nwait \"requests\" {short}\n"
+    );
+    if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    let screen = d.text();
+    let rows = env.journal();
+    let head = rows.iter().find(|r| r.ty == "head").expect("head row");
+    assert!(screen.contains(&format!("session   {}", head.session)), "session id on screen\n{screen}");
+    assert!(screen.contains("journal   ") && screen.contains("journal.sqlite"), "{screen}");
+    let usage: Vec<_> = rows.iter().filter(|r| r.ty == "usage").collect();
+    assert_eq!(usage.len(), 2);
+    let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
+    // Totals on screen are the journal's own sums, formatted the same way.
+    let human = construct::journal::human;
+    let line = screen.lines().find(|l| l.contains("requests")).expect("requests line").to_string();
+    assert!(line.contains("requests  2"), "{line}");
+    assert!(line.contains(&format!("input {}", human(sum("prompt")))), "{line} vs prompt {}", sum("prompt"));
+    assert!(line.contains(&format!("output {}", human(sum("completion")))), "{line}");
+    // The status line carries the same cumulative counters and the id.
+    let last = screen.lines().rfind(|l| !l.trim().is_empty()).unwrap().to_string();
+    assert!(last.contains(&format!("{} in", human(sum("prompt")))), "{last}");
+    let tail = head.session.split_once('-').unwrap().1;
+    assert!(last.contains(tail), "{last}");
+    // /copy status writes the block as OSC 52.
+    if let Err(e) =
+        drive::run_script(&mut d, &format!("type /copy status\nkey enter\nwait \"copied status\" {short}\n"), &mut log)
+    {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    assert!(has(&d.raw, b"\x1b]52;c;"), "/copy status wrote a sequence");
+    d.kill();
+}
+
+#[test]
+fn sessions_show_prints_a_session_from_another_project() {
+    let env = Env::new(
+        "sessions-show",
+        json!({ "steps": [ { "call": "read", "args": { "path": "a.txt" } }, { "call": "read", "args": { "path": "nope.txt" } }, { "text": "It says hello." } ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    let other = env.dir.join("other-project");
+    std::fs::create_dir_all(&other).unwrap();
+    std::fs::write(other.join("a.txt"), "hello\n").unwrap();
+    let out = env.run_in(&other, &[], &["run", "--no-learn", "what does a.txt say?"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let id = env.journal_in(&other).into_iter().find(|r| r.ty == "head").unwrap().session;
+    // Asked from a different project: found by id anywhere under the home.
+    let shown = env.run(&["sessions", "show", &id]);
+    let s = text(&shown);
+    assert!(shown.status.success(), "{s}");
+    for want in [
+        &id,
+        "## user",
+        "what does a.txt say?",
+        "-> read",
+        "<- read ok",
+        "<- read error",
+        "## assistant",
+        "It says hello.",
+        "usage in",
+        "# totals: 3 requests",
+    ] {
+        assert!(s.contains(want), "missing {want:?} in\n{s}");
+    }
+    let missing = env.run(&["sessions", "show", "no-such-session"]);
+    assert!(!missing.status.success());
+}

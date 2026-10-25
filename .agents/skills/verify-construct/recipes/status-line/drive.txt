@@ -1,13 +1,19 @@
-# After a turn the bottom row shows the model and the token count.
+# After a turn the bottom row shows the model, cumulative in/out/cache and the session id.
 wait "ask construct" 5000
 type say hi
 key enter
 wait "hello from the mock" 5000
 settle 300 5000
-expect " tok"
+expect " in · "
 expect-style "◆" fg=#bb9af7
+type /status
+key enter
+wait "requests" 3000
 snap --style after-turn
 image {evidence}/status.png
+type /copy status
+key enter
+wait "copied status" 3000
 type /new
 key enter
-wait "0 tok" 2000
+wait "0 in" 2000

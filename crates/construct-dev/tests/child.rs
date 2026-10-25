@@ -69,6 +69,22 @@ impl Wire {
         Self { rx, seen: vec![] }
     }
 
+    /// Read until the model's slow response has opened, so a cancel sent
+    /// next lands inside the turn (before it, the child rightly ignores it).
+    fn until_opened(&mut self) {
+        let limit = std::time::Duration::from_millis(budget(10_000));
+        loop {
+            let ev = self
+                .rx
+                .recv_timeout(limit)
+                .unwrap_or_else(|_| panic!("no response stream in {limit:?}: {:?}", self.seen));
+            self.seen.push(ev.clone());
+            if matches!(ev, Event::Opened) {
+                return;
+            }
+        }
+    }
+
     /// Read until the next turn ends; returns whether it was interrupted.
     fn turn_end(&mut self) -> bool {
         let limit = std::time::Duration::from_millis(budget(10_000));
@@ -154,7 +170,7 @@ fn a_cancel_line_interrupts_but_the_child_stays_up_for_the_next_prompt() {
     let (mut child, _) = spawn(&env, &def);
     let mut wire = Wire::new(&mut child);
     send(&mut child, &ToChild::Prompt { text: "first".into() });
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    wire.until_opened();
     send(&mut child, &ToChild::Cancel);
     assert!(wire.turn_end(), "cancel interrupted the first turn");
     send(&mut child, &ToChild::Prompt { text: "second".into() });
