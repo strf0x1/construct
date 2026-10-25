@@ -1,0 +1,17 @@
+description = "Delegation: only the scout knows the codeword and can run the command, so the answer has to come back through a sandboxed child. Construct only; the other harnesses have no `delegate`."
+turns = [
+  "Ask the scout agent for the codeword and the output of its `uname -s` check, then write both, on one line separated by a space, to answer.txt. Don't guess: the codeword is only known to the scout.",
+]
+timeout_s = 300
+changes = ["answer.txt"]
+config = '''
+[agents.scout]
+description = "Knows the codeword and can run one shell command"
+prompt = "You are the scout. The codeword is 7f3a9c1e. When asked, run `uname -s` with the shell tool and reply with exactly: the codeword, a space, the command's output."
+tools = ["shell"]
+timeout = 120
+'''
+
+[budget]
+max_requests = 30
+max_prompt_tokens = 200000
