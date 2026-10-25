@@ -34,7 +34,7 @@ async fn patch(editor: &str, old: &str, new: &str) -> (Result<String, String>, S
     call(json!({ "action": "create", "name": "crate-release", "content": SKILL })).await.unwrap();
     let r = call(json!({ "action": "patch", "name": "crate-release", "old_string": old, "new_string": new }))
         .await
-        .map(|o| o.text)
+        .map(|o| o.text.split(" (global: ").next().unwrap().to_string())
         .map_err(|e| e.message);
     let file = std::fs::read_to_string(paths.skills_dir().join("crate-release/SKILL.md")).unwrap();
     let _ = std::fs::remove_dir_all(&root);

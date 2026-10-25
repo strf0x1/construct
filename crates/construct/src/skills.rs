@@ -80,6 +80,11 @@ impl Library {
         Self { dir }
     }
 
+    /// Where a skill's directory is (or would be) on disk.
+    pub fn path_of(&self, name: &str) -> PathBuf {
+        self.dir.join(name)
+    }
+
     pub fn list(&self) -> Vec<Skill> {
         let mut out = Vec::new();
         let Ok(rd) = std::fs::read_dir(&self.dir) else { return out };

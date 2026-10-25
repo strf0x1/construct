@@ -2,7 +2,19 @@
 //! on the global library and, inside a repo, its project kit.
 
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
+use crate::skills::Library;
 use serde_json::{Value, json};
+
+/// `global: ~/.construct/skills/x`, for results the model reads back.
+fn locate(ctx: &Ctx, lib: &Library, name: &str) -> String {
+    let scope = if std::ptr::eq(lib, &ctx.skills) { "global" } else { "project" };
+    let path = lib.path_of(name).join("SKILL.md").display().to_string();
+    let path = match std::env::var("HOME") {
+        Ok(h) if !h.is_empty() && path.starts_with(&h) => format!("~{}", &path[h.len()..]),
+        _ => path,
+    };
+    format!("{scope}: {path}")
+}
 
 pub struct SkillView;
 
@@ -35,12 +47,23 @@ impl Tool for SkillView {
         Display { primary_arg: "name", preview_lines: 0 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        let n = a["name"].as_str().ok_or("name is required")?;
-        let r = match ctx.project_skills.as_ref().filter(|p| p.get(n).is_some()) {
-            Some(p) => p.view(n, a["file"].as_str()),
-            None => ctx.skills.view(n, a["file"].as_str()),
+        if let Some(k) = a.as_object().and_then(|o| o.keys().find(|k| !["name", "file"].contains(&k.as_str()))) {
+            return Err(format!(
+                "{} only loads a skill and takes no {k:?}; use {} to list, create or edit",
+                Self::NAME,
+                SkillManage::NAME
+            )
+            .into());
+        }
+        let Some(n) = a["name"].as_str() else {
+            return Err(
+                format!("name is required; {} with action=list shows the available skills", SkillManage::NAME).into()
+            );
         };
-        r.map(Output::plain).map_err(ToolError::from)
+        let lib = ctx.project_skills.as_ref().filter(|p| p.get(n).is_some()).unwrap_or(&ctx.skills);
+        let body = lib.view(n, a["file"].as_str())?;
+        let head = if a["file"].is_null() { format!("[{}]\n", locate(ctx, lib, n)) } else { String::new() };
+        Ok(Output::plain(format!("{head}{body}")))
     }
 }
 
@@ -103,16 +126,26 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
                 pr.touch();
                 p
             }
-            _ => return Err("not in a git repo, so there is no project kit; use scope 'global'".into()),
+            _ => return Err("not in a git repo, so there is no project kit; use scope 'global' (the default)".into()),
         },
         _ => &ctx.skills,
     };
     match s("action").unwrap_or("") {
         "list" => {
             let mut lines: Vec<String> = project
-                .map(|p| p.list().iter().map(|k| format!("- {} (project): {}", k.name, k.description)).collect())
+                .map(|p| {
+                    p.list()
+                        .iter()
+                        .map(|k| format!("- {} ({}): {}", k.name, locate(ctx, p, &k.name), k.description))
+                        .collect()
+                })
                 .unwrap_or_default();
-            lines.extend(ctx.skills.list().iter().map(|k| format!("- {}: {}", k.name, k.description)));
+            lines.extend(
+                ctx.skills
+                    .list()
+                    .iter()
+                    .map(|k| format!("- {} ({}): {}", k.name, locate(ctx, &ctx.skills, &k.name), k.description)),
+            );
             if lines.is_empty() {
                 return Ok("the skill library is empty".into());
             }
@@ -131,4 +164,10 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
         "delete" => lib.archive(name()?, s("absorbed_into")),
         other => Err(format!("unknown action {other:?}")),
     }
+    .map(|msg| match (s("action"), s("name")) {
+        (Some("create" | "edit" | "patch" | "write_file" | "remove_file"), Some(n)) => {
+            format!("{msg} ({})", locate(ctx, lib, n))
+        }
+        _ => msg,
+    })
 }

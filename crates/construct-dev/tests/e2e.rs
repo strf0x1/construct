@@ -1401,3 +1401,28 @@ fn an_mcp_server_name_that_cannot_round_trip_is_refused() {
     assert!(!out.status.success());
     assert!(text(&out).contains("[mcp.my__server]"), "{}", text(&out));
 }
+
+#[test]
+fn skill_tools_reject_misrouted_args_and_say_where_a_skill_lives() {
+    let skill_md = "---\nname: where-am-i\ndescription: Finding where skills live\n---\n\n1. look\n";
+    let env = Env::new(
+        "skill-paths",
+        json!({ "steps": [
+            { "call": "skill_manage", "args": { "action": "create", "name": "where-am-i", "content": skill_md } },
+            { "call": "skill", "args": { "action": "edit", "name": "where-am-i", "new_string": "x" } },
+            { "call": "skill", "args": {} },
+            { "call": "skill", "args": { "name": "where-am-i" } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "make a skill"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    let path = env.home.join("skills/where-am-i/SKILL.md");
+    let dir = env.home.join("skills/where-am-i").display().to_string();
+    assert!(r[0].contains("created skill where-am-i") && r[0].contains("global: ") && r[0].contains(&dir), "{}", r[0]);
+    assert!(r[1].contains("skill_manage") && r[1].contains("action"), "{}", r[1]);
+    assert!(r[2].contains("skill_manage"), "{}", r[2]);
+    assert!(r[3].starts_with("[global: ") && r[3].contains(&dir), "{}", r[3]);
+    assert!(std::fs::read_to_string(path).unwrap().contains("1. look"), "edit must not have changed anything");
+}
