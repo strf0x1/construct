@@ -247,7 +247,19 @@ fn status_line_keeps_counters_beside_a_toast() {
         panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
     }
     let last = screen(&env, &d).lines().rfind(|l| !l.is_empty()).unwrap().to_string();
-    insta::assert_snapshot!("status_line_with_toast", last);
+    // The prompt's size shifts a token or two with the path lengths of the machine.
+    let masked = last
+        .split(' ')
+        .map(|w| {
+            if w.chars().next().is_some_and(|c| c.is_ascii_digit()) && w.len() < 6 && !w.contains('%') {
+                "[N]"
+            } else {
+                w
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    insta::assert_snapshot!("status_line_with_toast", masked);
     assert!(last.contains(" in · ") && last.contains("cache"), "{last}");
     d.kill();
 }
