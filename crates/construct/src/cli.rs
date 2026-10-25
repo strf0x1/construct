@@ -93,6 +93,9 @@ enum SessionsCmd {
     /// Print a session as JSONL in the old `sessions/<id>.jsonl` shape
     /// (session, message, usage, route, tool, compact rows).
     Export { id: String },
+    /// Print a session as a readable transcript, found in any project's
+    /// journal (messages, tool calls with ok/error, access decisions, usage).
+    Show { id: String },
 }
 
 #[derive(Subcommand)]
@@ -192,6 +195,11 @@ pub fn run() -> Result<()> {
             for line in journal::export(&entries) {
                 writeln!(out, "{line}")?;
             }
+            Ok(())
+        }
+        Some(Cmd::Sessions { cmd: SessionsCmd::Show { id } }) => {
+            let (_, entries) = journal::find(&paths, &id)?;
+            print!("{}", journal::transcript(&entries));
             Ok(())
         }
         Some(Cmd::Memory) => {

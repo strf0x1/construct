@@ -19,16 +19,16 @@ expression: "screen(&env, &d)"
 
 
 
-
   ◆ construct
   lean · fast · learns as it goes
 
   model    openrouter/free
   endpoint http://127.0.0.1:[PORT]/v1
   router   auto
+  session  [SESSION0]
 
   enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 › ask construct anything… (/help)
- ◆ openrouter/free                                                                            0 tok
+ ◆ openrouter/free                                            0 in · 0 out · cache 0% · [SESSION0]

@@ -3,6 +3,7 @@
 
 use super::app::{App, Kind, Phase, Status};
 use super::{markdown, prompt, theme};
+use crate::journal::human;
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -148,12 +149,15 @@ impl App {
             }
             Kind::Notice(color) => {
                 let st = Style::new().fg(*color);
-                out.extend(markdown::wrap(
-                    vec![Span::styled(b.text.clone(), st)],
-                    w,
-                    vec![Span::raw("  ")],
-                    vec![Span::raw("    ")],
-                ));
+                // One wrapped paragraph per line, so multi-line notices (/status, /help) keep their breaks.
+                for line in b.text.split('\n') {
+                    out.extend(markdown::wrap(
+                        vec![Span::styled(line.to_string(), st)],
+                        w,
+                        vec![Span::raw("  ")],
+                        vec![Span::raw("    ")],
+                    ));
+                }
             }
         }
         // spacing: a blank line before user turns and assistant text
@@ -205,6 +209,9 @@ impl App {
         lines.push(row("model", self.cfg.model.clone()));
         lines.push(row("endpoint", self.cfg.base_url.clone()));
         lines.push(row("router", self.cfg.router.mode.clone()));
+        if !self.session.is_empty() {
+            lines.push(row("session", self.session.clone()));
+        }
         lines.push(Line::default());
         lines.push(Line::from(Span::styled(
             "  enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help",
@@ -292,48 +299,83 @@ impl App {
         Line::from(spans)
     }
 
+    /// The bottom line. The counters and the session id are never dropped:
+    /// the toast and then the group labels give way first, then the model
+    /// name is cut. Totals are cumulative over the session's requests.
     pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
-        let left = vec![
-            Span::styled(" ◆ ", Style::new().fg(theme::ACCENT2)),
-            Span::styled(self.cfg.model.clone(), theme::dim()),
-        ];
-        let mut right: Vec<Span<'static>> = vec![];
-        if let Some((s, _)) = &self.learning {
-            right.push(Span::styled(
-                format!("◇ {s}  "),
-                Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2)),
-            ));
-        } else if let Some((t, c, at)) = &self.toast
-            && at.elapsed() < Duration::from_secs(6)
-        {
-            right.push(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)));
-        }
-        if !self.groups.is_empty() {
-            right.push(Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
-        }
         let u = &self.usage;
-        right.push(Span::styled(format!("{} tok", human(u.prompt_tokens + u.completion_tokens)), theme::faint()));
-        if u.cached_tokens > 0 {
-            right.push(Span::styled(format!(" · cache {:.0}%", u.hit_rate() * 100.0), theme::faint()));
-        }
+        let mut counters = format!(
+            "{} in · {} out · cache {:.0}%",
+            human(u.prompt_tokens),
+            human(u.completion_tokens),
+            u.hit_rate() * 100.0
+        );
         if let Some(c) = u.cost {
-            right.push(Span::styled(format!(" · ${c:.3}"), theme::faint()));
+            counters.push_str(&format!(" · ${c:.3}"));
         }
+        let mut must = vec![Span::styled(counters, theme::faint())];
         if self.context_pct > 0 {
-            right.push(Span::styled(
+            must.push(Span::styled(
                 format!(" · ctx {}%", self.context_pct),
                 if self.context_pct > 70 { Style::new().fg(theme::YELLOW) } else { theme::faint() },
             ));
         }
         if self.scroll > 0 {
-            right.push(Span::styled(format!(" · ↑{}", self.scroll), Style::new().fg(theme::CYAN)));
+            must.push(Span::styled(format!(" · ↑{}", self.scroll), Style::new().fg(theme::CYAN)));
         }
-        right.push(Span::raw(" "));
-        let lw: usize = left.iter().map(|s| s.content.width()).sum();
-        let rw: usize = right.iter().map(|s| s.content.width()).sum();
+        if !self.session.is_empty() {
+            must.push(Span::styled(format!(" · {}", short_session(&self.session)), theme::faint()));
+        }
+        must.push(Span::raw(" "));
+        let w = |v: &[Span<'static>]| v.iter().map(|s| s.content.width()).sum::<usize>();
+        let must_w = w(&must);
+        // What is left of the line after a minimal model name (" ◆ " + 8).
+        let mut spare = width.saturating_sub(must_w + 11);
+        let mut extras: Vec<Span<'static>> = vec![];
+        let toast = if let Some((s, _)) = &self.learning {
+            Some(Span::styled(format!("◇ {s}  "), Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2))))
+        } else if let Some((t, c, at)) = &self.toast
+            && at.elapsed() < Duration::from_secs(6)
+        {
+            Some(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)))
+        } else {
+            None
+        };
+        let groups =
+            (!self.groups.is_empty()).then(|| Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
+        // The toast is cut to what is left (it is a hint); groups show whole or not at all.
+        if let Some(sp) = toast {
+            let sw = sp.content.width();
+            if sw <= spare {
+                spare -= sw;
+                extras.push(sp);
+            } else if spare >= 12 {
+                let keep: String = sp.content.chars().take(spare - 3).collect();
+                spare = 0;
+                extras.push(Span::styled(format!("{keep}…  "), sp.style));
+            }
+        }
+        if let Some(sp) = groups
+            && sp.content.width() <= spare
+        {
+            extras.push(sp);
+        }
+        let right_w = w(&extras) + must_w;
+        let model_room = width.saturating_sub(right_w + 3 + 1);
+        let model = if self.cfg.model.width() <= model_room {
+            self.cfg.model.clone()
+        } else {
+            let keep = model_room.saturating_sub(1);
+            let mut m: String = self.cfg.model.chars().take(keep).collect();
+            m.push('…');
+            m
+        };
+        let left = vec![Span::styled(" ◆ ", Style::new().fg(theme::ACCENT2)), Span::styled(model, theme::dim())];
+        let lw = w(&left);
         let mut spans = left;
-        spans.push(Span::raw(" ".repeat(width.saturating_sub(lw + rw))));
-        spans.extend(right);
+        spans.push(Span::raw(" ".repeat(width.saturating_sub(lw + right_w))));
+        spans.extend(extras);
+        spans.extend(must);
         Line::from(spans)
     }
 
@@ -436,10 +478,8 @@ pub(super) fn fit(s: &str, w: usize) -> String {
     out
 }
 
-fn human(n: u64) -> String {
-    match n {
-        0..1_000 => n.to_string(),
-        1_000..1_000_000 => format!("{:.1}k", n as f64 / 1e3),
-        _ => format!("{:.2}M", n as f64 / 1e6),
-    }
+/// A session id (`20261023-034723-c3ca`) without its date: enough to tell
+/// sessions apart on the status line. `/status` has the whole id.
+fn short_session(id: &str) -> String {
+    id.split_once('-').map_or(id, |(_, rest)| rest).to_string()
 }

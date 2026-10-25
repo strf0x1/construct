@@ -30,6 +30,10 @@ fn normalize(env: &Env, s: &str) -> String {
     s = s.replace(&format!("127.0.0.1:{}", env.port), "127.0.0.1:[PORT]");
     for (i, id) in env.sessions().iter().enumerate() {
         s = s.replace(id, &format!("[SESSION{i}]"));
+        // The status line shows the id without its date.
+        if let Some((_, tail)) = id.split_once('-') {
+            s = s.replace(tail, &format!("[SESSION{i}]"));
+        }
     }
     // `- date: YYYY-MM-DD`: keep the label, drop the ten date characters.
     let mut parts = s.split("- date: ");
@@ -218,5 +222,32 @@ fn screens() {
     insta::assert_snapshot!("first_frame", screen(&env, &d));
     run(&mut d, &mut log, &format!("type run it\nkey enter\nwait \"All good.\" {long}\nsettle 300 {long}\n"));
     insta::assert_snapshot!("finished_turn", screen(&env, &d));
+    d.kill();
+}
+
+/// At 80 columns with a toast showing, the counters and the session id stay
+/// on the status line; the toast gives way to them, not the other way round.
+#[test]
+fn status_line_keeps_counters_beside_a_toast() {
+    let env = Env::new("snap-status", json!({ "steps": [ { "text": "done" } ] }));
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        80,
+        24,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(5000));
+    let script = format!(
+        "wait \"ask construct\" {short}\ntype hi\nkey enter\nwait \"done\" {long}\nkey ctrl-c\nwait \"press ctrl+c\" {short}\n"
+    );
+    if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    let last = screen(&env, &d).lines().rfind(|l| !l.is_empty()).unwrap().to_string();
+    insta::assert_snapshot!("status_line_with_toast", last);
+    assert!(last.contains(" in · ") && last.contains("cache"), "{last}");
     d.kill();
 }
