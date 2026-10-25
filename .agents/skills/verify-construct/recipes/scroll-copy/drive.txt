@@ -1,0 +1,26 @@
+# Wheel arrives as up/down keys (alternate scroll); /copy writes OSC 52.
+wait "ask construct" 5000
+type go
+key enter
+wait "line-80" 5000
+key up
+key up
+key up
+key up
+key up
+key up
+key up
+key up
+key up
+key up
+wait "line-5" 2000
+gone "line-80" 2000
+key esc
+wait "line-80" 2000
+type /copy
+key enter
+wait "copied last reply" 2000
+image {evidence}/scroll-copy.png
+type /quit
+key enter
+gone "ask construct" 3000

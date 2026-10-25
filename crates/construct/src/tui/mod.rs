@@ -5,6 +5,7 @@
 
 mod app;
 mod ask;
+mod clip;
 mod input;
 mod markdown;
 mod prompt;
@@ -17,8 +18,8 @@ use crate::config::{Config, Paths};
 use anyhow::Result;
 use app::{App, Block, Cmd, Kind};
 use crossterm::event::{
-    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event as CEvent, EventStream,
-    KeyEventKind, KeyboardEnhancementFlags, MouseEventKind, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    DisableBracketedPaste, EnableBracketedPaste, Event as CEvent, EventStream, KeyEventKind, KeyboardEnhancementFlags,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::execute;
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
@@ -41,12 +42,19 @@ impl Drop for Guard {
     }
 }
 
+/// Alternate-scroll mode: in the alternate screen the terminal turns the wheel
+/// into up/down keys, so scrolling works without mouse capture and the
+/// terminal keeps native selection. Reset on every exit path.
+const ALT_SCROLL_ON: &str = "\x1b[?1007h";
+const ALT_SCROLL_OFF: &str = "\x1b[?1007l";
+
 fn restore(kbd: bool) {
     let mut out = std::io::stdout();
     if kbd {
         let _ = execute!(out, PopKeyboardEnhancementFlags);
     }
-    let _ = execute!(out, DisableMouseCapture, DisableBracketedPaste, LeaveAlternateScreen, crossterm::cursor::Show);
+    let _ = out.write_all(ALT_SCROLL_OFF.as_bytes());
+    let _ = execute!(out, DisableBracketedPaste, LeaveAlternateScreen, crossterm::cursor::Show);
     let _ = terminal::disable_raw_mode();
 }
 
@@ -87,7 +95,9 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     trace("tui start");
     terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableBracketedPaste, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen, EnableBracketedPaste)?;
+    stdout.write_all(ALT_SCROLL_ON.as_bytes())?;
+    stdout.flush()?;
     // Push unconditionally: asking the terminal first costs up to 2s on
     // terminals that never answer, and the flags are ignored where unsupported.
     let kbd = true;
@@ -159,11 +169,6 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                         if handle_key(&mut app, k, &cmd_tx) { break; }
                     }
                     CEvent::Paste(s) => { let s = s.replace("\r\n", "\n").replace('\r', "\n"); app.insert(&s); }
-                    CEvent::Mouse(m) => match m.kind {
-                        MouseEventKind::ScrollUp => app.scroll += 3,
-                        MouseEventKind::ScrollDown => app.scroll = app.scroll.saturating_sub(3),
-                        _ => continue,
-                    },
                     CEvent::Resize(..) => { app.cache.clear(); }
                     _ => continue,
                 }

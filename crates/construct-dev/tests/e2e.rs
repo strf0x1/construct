@@ -471,6 +471,76 @@ wait "back again" {long}
     );
 }
 
+fn has(hay: &[u8], needle: &[u8]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+#[test]
+fn tui_wheel_scrolls_without_mouse_capture_and_copy_writes_osc52() {
+    let long: String = (1..=80).map(|i| format!("line-{i:02}\n\n")).collect();
+    let env = Env::new(
+        "tui-scroll",
+        json!({ "steps": [
+            { "text": long },
+            { "call": "read", "args": { "path": "missing.txt" } },
+            { "text": "final-reply" }
+        ] }),
+    );
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        100,
+        30,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let (short, long_t) = (budget(3000), budget(5000));
+    let run = |d: &mut drive::Driver, log: &mut Vec<u8>, script: String| {
+        if let Err(e) = drive::run_script(d, &script, log) {
+            panic!("{e:#}\n{}", String::from_utf8_lossy(log));
+        }
+    };
+    run(
+        &mut d,
+        &mut log,
+        format!("wait \"ask construct\" {short}\ntype go\nkey enter\nwait \"line-80\" {long_t}\nexpect \"line-80\"\n"),
+    );
+    assert!(has(&d.raw, b"\x1b[?1007h"), "alternate scroll is on");
+    assert!(!has(&d.raw, b"\x1b[?1000h"), "mouse capture stays off");
+    // The wheel in alternate-scroll mode is just up/down keys.
+    d.send(&b"\x1b[A".repeat(10)).unwrap();
+    run(&mut d, &mut log, format!("wait \"line-5\" {short}\ngone \"line-80\" {short}\n"));
+    d.send(&b"\x1b[B".repeat(40)).unwrap();
+    run(&mut d, &mut log, format!("wait \"line-80\" {short}\n"));
+    // /copy: the last assistant message, then the last tool error, as OSC 52.
+    run(
+        &mut d,
+        &mut log,
+        format!(
+            "type another\nkey enter\nwait \"final-reply\" {long_t}\ntype /copy\nkey enter\nwait \"copied last reply\" {short}\n"
+        ),
+    );
+    let b64 = |s: &str| {
+        let out = std::process::Command::new("base64")
+            .arg("-w0")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        use std::io::Write;
+        out.stdin.as_ref().unwrap().write_all(s.as_bytes()).unwrap();
+        String::from_utf8(out.wait_with_output().unwrap().stdout).unwrap()
+    };
+    assert!(has(&d.raw, format!("\x1b]52;c;{}\x07", b64("final-reply")).as_bytes()), "/copy wrote the reply");
+    run(&mut d, &mut log, format!("type /copy error\nkey enter\nwait \"copied last tool error\" {short}\n"));
+    assert!(has(&d.raw, b"\x1b]52;c;"), "/copy error wrote a sequence");
+    d.send(b"/quit\r").unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    d.pump(Duration::from_millis(budget(500)));
+    assert!(has(&d.raw, b"\x1b[?1007l"), "alternate scroll reset on exit");
+}
+
 #[test]
 fn a_session_with_nothing_to_learn_costs_no_review() {
     let env = Env::new(

@@ -20,6 +20,7 @@
 #   requests.jsonl  one summary line per model request (model, tools, sizes)
 #   requests/       each request body in full (req-0001.json, …): what the model was told
 #   journal.txt     the session journal (seq | session | type | payload)
+#   raw.log         every byte the TUI wrote, escape sequences included
 #   *.png / *.svg   whatever the script wrote with `image {evidence}/…`
 # Set VERIFY_NO_BUILD=1 to skip the cargo build, VERIFY_KEEP=1 to keep scratch.
 set -euo pipefail
@@ -63,7 +64,7 @@ fill "$recipe/drive.txt" >"$scratch/drive.txt"
 mkdir -p "$scratch/requests"
 port=$("$root/scripts/mock.sh" "$scratch/mock" "$scratch/model.json" --dump "$scratch/requests")
 set +e
-"$root/target/debug/construct-dev" drive --metrics --cols "$cols" --rows "$rows" --cwd "$WORK" \
+DRIVE_RAW_LOG="$EVIDENCE/raw.log" "$root/target/debug/construct-dev" drive --metrics --cols "$cols" --rows "$rows" --cwd "$WORK" \
   --script "$scratch/drive.txt" \
   --env CONSTRUCT_HOME="$CHOME" --env CONSTRUCT_BASE_URL="http://127.0.0.1:$port/v1" --env OPENAI_API_KEY=x \
   --env CONSTRUCT_MODEL= --env OPENROUTER_API_KEY= --env TYPESAFE_API_KEY= \
