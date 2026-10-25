@@ -3,6 +3,7 @@
 
 use super::fs::{display, resolve, walker};
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, obj};
+use crate::sandbox::{Policy, open};
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{BinaryDetection, SearcherBuilder, sinks::UTF8};
 use serde_json::{Value, json};
@@ -49,12 +50,12 @@ impl Tool for Grep {
         Display { primary_arg: "pattern", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_read(Self::NAME, &a, "path").await?;
-        blocking(ctx, || run(ctx, &a))
+        let policy = ctx.can_read(Self::NAME, &a, "path").await?;
+        blocking(ctx, || run(ctx, &policy, &a))
     }
 }
 
-fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
     let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
     let insensitive = a.get("ignore_case").and_then(Value::as_bool).unwrap_or(false);
@@ -76,9 +77,11 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let mut search_file = |path: &Path, out: &mut Vec<String>, total: &mut usize| {
         let mut found = false;
         let shown = display(ctx, path);
-        let _ = searcher.search_path(
+        // Opened through the policy, so a file swapped for a link to outside is not read.
+        let Ok(file) = open::open_read(policy, path) else { return false };
+        let _ = searcher.search_file(
             &matcher,
-            path,
+            &file,
             UTF8(|ln, line| {
                 *total += 1;
                 found = true;
@@ -90,7 +93,7 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
         );
         found
     };
-    if root.is_file() {
+    if open::metadata(policy, &root).is_ok_and(|m| m.is_file()) {
         if search_file(&root, &mut out, &mut total) {
             files += 1;
         }

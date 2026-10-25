@@ -40,8 +40,12 @@ pub fn resolve(ctx: &Ctx, p: &str) -> PathBuf {
     if expanded.is_absolute() { expanded } else { ctx.cwd.join(expanded) }
 }
 
+/// A walk below `root` that never follows a link: not out of the root, not
+/// into a directory swapped for one. (Opening what it finds goes through
+/// `sandbox::open`, which is the check that holds against a swap.)
 pub(super) fn walker(root: &Path, hidden: bool) -> WalkBuilder {
     let mut w = WalkBuilder::new(root);
+    w.follow_links(false);
     w.hidden(!hidden).git_ignore(true).git_global(true).git_exclude(true).parents(true).require_git(false);
     w.filter_entry(|e| e.file_name() != ".git");
     w

@@ -160,12 +160,26 @@ impl Perms {
         path: &Path,
         cancel: watch::Receiver<bool>,
     ) -> Result<(), String> {
+        self.path_asked(tool, access, path, cancel).await.map(|_| ())
+    }
+
+    /// `path`, saying what the user approved: the real path when the sandbox
+    /// said no and the user said yes (possibly for this call only, so it is
+    /// not in `policy()`), None when the policy already allowed it. The file
+    /// tools open under exactly that, never under a second look at the name.
+    pub async fn path_asked(
+        &self,
+        tool: &str,
+        access: Access,
+        path: &Path,
+        cancel: watch::Receiver<bool>,
+    ) -> Result<Option<PathBuf>, String> {
         let policy = self.policy();
         let denied = match access {
             Access::Read => policy.check_read(path),
             Access::Write => policy.check_write(path),
         };
-        let Err(msg) = denied else { return Ok(()) };
+        let Err(msg) = denied else { return Ok(None) };
         let real = Policy::real(path);
         if protected(&real) {
             return Err(format!("{msg} That place is protected; only a path typed into config.toml opens it."));
@@ -181,7 +195,7 @@ impl Perms {
             no_always: false,
         };
         match self.ask_paths(req, cancel).await {
-            Some((v, _)) if v.allows() => Ok(()),
+            Some((v, _)) if v.allows() => Ok(Some(real)),
             Some((Verdict::Deny, _)) => Err(format!("{msg} The user was asked and declined.")),
             _ => Err(msg),
         }

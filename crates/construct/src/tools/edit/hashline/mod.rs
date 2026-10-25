@@ -16,6 +16,7 @@ use super::super::fs::{encoding_error, resolve};
 use super::super::read::{LINE_MAX, READ_LINES, list_dir};
 use super::super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
 use crate::config::{AnchorMode, HashlineConfig, Salt};
+use crate::sandbox::{Policy, open};
 use fsio::ReadError;
 use serde_json::{Value, json};
 
@@ -123,19 +124,19 @@ impl Tool for HashlineRead {
         Display { primary_arg: "path", preview_lines: 0 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_read(Self::NAME, &a, "path").await?;
-        blocking(ctx, || self.run(ctx, &a))
+        let policy = ctx.can_read(Self::NAME, &a, "path").await?;
+        blocking(ctx, || self.run(ctx, &policy, &a))
     }
 }
 
 impl HashlineRead {
-    fn run(&self, ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+    fn run(&self, ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
         let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
-        let meta = std::fs::metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let meta = open::metadata(policy, &path)?;
         if meta.is_dir() {
-            return list_dir(&path);
+            return list_dir(policy, &path);
         }
-        let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let bytes = open::read_file(policy, &path)?;
         let len = bytes.len();
         let (text, _) = match fsio::decode(bytes) {
             Ok(t) => t,
@@ -263,13 +264,13 @@ impl Tool for HashlineEdit {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_write(Self::NAME, &a, "path").await?;
-        self.run(ctx, &a)
+        let policy = ctx.can_write(Self::NAME, &a, "path").await?;
+        self.run(ctx, &policy, &a)
     }
 }
 
 impl HashlineEdit {
-    fn run(&self, ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
+    fn run(&self, ctx: &Ctx, policy: &Policy, a: &Value) -> Result<Output, ToolError> {
         let raw = arg(a, "path").unwrap_or("");
         let edits = a.get("edits").and_then(Value::as_array);
         let fail = |code: &'static str, message: String| {
@@ -291,13 +292,20 @@ impl HashlineEdit {
             return Err(fail("MISSING_FIELD", "\"edits\" must be a non-empty array of operations.".into()));
         };
         let path = resolve(ctx, raw);
-        if !path.exists() {
-            return Err(fail("not_found", format!("{raw} does not exist. Use the write tool to create new files.")));
-        }
-        if !path.is_file() {
+        let meta = match open::metadata(policy, &path) {
+            Ok(m) => m,
+            Err(e) if e.contains("blocked by the sandbox") => return Err(fail("sandbox", e)),
+            Err(_) => {
+                return Err(fail(
+                    "not_found",
+                    format!("{raw} does not exist. Use the write tool to create new files."),
+                ));
+            }
+        };
+        if !meta.is_file() {
             return Err(fail("not_a_file", format!("{raw} is not a regular file.")));
         }
-        let snap = match fsio::read(&path) {
+        let snap = match fsio::read(policy, &path) {
             Ok(s) => s,
             Err(ReadError::Binary) => {
                 return Err(fail(
@@ -347,7 +355,7 @@ impl HashlineEdit {
         }
 
         let outcome = apply::apply(&snap.lines, &resolved);
-        fsio::write(&snap, &outcome.lines).map_err(|e| fail("io", format!("{raw}: {e}")))?;
+        fsio::write(policy, &snap, &outcome.lines).map_err(|e| fail("io", format!("{raw}: {e}")))?;
         ctx.mark_read(&path);
         let new = anchors::build(outcome.lines, cfg.min_hash_len, cfg.anchor, cfg.salt);
         let text =

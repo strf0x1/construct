@@ -7,6 +7,7 @@ pub mod replace;
 
 use super::fs::{encoding_error, is_utf16, resolve};
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, arg, def, obj};
+use crate::sandbox::{Policy, open};
 use serde_json::{Value, json};
 
 pub struct Edit;
@@ -45,24 +46,24 @@ impl Tool for Edit {
         Display { primary_arg: "path", preview_lines: 8 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        ctx.can_write(Self::NAME, &a, "path").await?;
-        run(ctx, &a).map(|s| Output::plain(s).with_kind(OutputKind::Diff))
+        let policy = ctx.can_write(Self::NAME, &a, "path").await?;
+        run(ctx, &policy, &a).map(|s| Output::plain(s).with_kind(OutputKind::Diff))
     }
 }
 
-fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
     let old = arg(a, "old_string").ok_or("old_string is required")?;
     let new = arg(a, "new_string").ok_or("new_string is required")?;
     let all = a.get("replace_all").and_then(Value::as_bool).unwrap_or(false);
-    let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let bytes = open::read_file(policy, &path)?;
     let shown = path.display().to_string();
     if is_utf16(&bytes) {
         return Err(encoding_error(&shown, true));
     }
     let text = String::from_utf8(bytes).map_err(|_| encoding_error(&shown, false))?;
     let updated = replace::replace_once(&text, old, new, all)?;
-    std::fs::write(&path, &updated).map_err(|e| e.to_string())?;
+    open::write_file(policy, &path, updated.as_bytes())?;
     ctx.mark_read(&path);
     Ok(format!("edited {}\n{}", path.display(), diff_summary(&text, &updated)))
 }
