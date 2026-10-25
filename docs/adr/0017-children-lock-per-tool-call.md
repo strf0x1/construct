@@ -111,13 +111,13 @@ tools kernel confinement in the session and the child alike, and could be
 restarted freely on approval because it holds no state. Revisit also if a
 child needs a tool whose file access can't go through the policy.
 
-Open, to settle before this is accepted:
+Settled (2026-10-25, on #75):
 
-- Whether the session's own grants, given before the delegation, flow down to
-  a child without asking, when the path is outside its definition. This ADR
-  only fixes that the user's answers and denials bind both.
-- Whether a child's prompt should still offer "once", now that once works.
-  It does, so the default is yes.
+- The session's own grants do not flow down to a child. A path outside its
+  definition asks again, even if the user approved it for the session, so a
+  narrowly scoped child stays narrow. (This is what `Policy::for_agent` already
+  does: a child's roots come from its definition and what was lent to *it*.)
+- A child's prompt keeps "once"; it now means the same as in the session.
 
 ## Evidence
 
@@ -152,5 +152,4 @@ and TCP beyond the endpoint still denied.
 
 Not done here: the `openat2`/`RESOLVE_BENEATH` opens and the symlink-farm
 contract test and symlink-swap e2e. Until they land, a child's file tools have
-the same check-then-open race as the session's (ADR 0004). Also still open: the
-two questions above (session grants flowing down; "once" in a child).
+the same check-then-open race as the session's (ADR 0004).
