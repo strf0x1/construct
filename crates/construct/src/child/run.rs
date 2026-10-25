@@ -134,7 +134,8 @@ pub async fn run(
 
 async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Receiver<bool>) -> Result<Outcome, String> {
     let (prog, args, mut wire) = plan(&spec, task, call)?;
-    let mut cmd = spec.policy.spawn(&prog, &args);
+    // Network and signals only: the child's tools are confined per call.
+    let mut cmd = spec.policy.net_only().spawn(&prog, &args);
     cmd.current_dir(spec.cwd)
         .env("CONSTRUCT_HOME", spec.policy.tmp.join("home"))
         .env(super::DEPTH_ENV, (super::depth() + 1).to_string())

@@ -43,7 +43,7 @@ call, in a process that may not be the one with the terminal.
   down. The parent decides, remembers and writes, because its home and config
   are the real ones; the child's `Always` is returned to it as `Session`. What
   was lent to an agent for the session is added to its policy at its next
-  delegation. A child over ACP transport has no question channel yet and keeps
+  delegation, and to the call that asked at once (ADR 0017). A child over ACP transport has no question channel yet and keeps
   denying; that, and `construct acp` asking its client, are separate decisions.
 - ACP agents: `[agents.x] on_permission` is now `ask` (default), `reject` or
   `allow`; `ask` with nobody to ask is a reject, which is what the default was

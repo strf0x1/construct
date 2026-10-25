@@ -483,6 +483,9 @@ wait "the scout reported" {}
         env.journal().into_iter().filter(|r| r.ty == "access" && r.session == sessions[1]).map(|r| r.payload).collect();
     assert_eq!(child_access.len(), 1, "{child_access:?}");
     assert_eq!(child_access[0]["decision"], "once");
+    // And the read itself succeeded: the summary is scripted, this is not.
+    let got = tool_results(&env, &sessions[1]);
+    assert!(got.iter().any(|r| r.contains("scout-data")), "{got:?}");
 }
 
 #[test]
@@ -593,4 +596,146 @@ gone "PERMISSION" 300
     let rows = access_rows(&env);
     assert_eq!(rows.len(), 1, "the sibling needed no question: {rows:?}");
     assert_eq!(rows[0]["paths"][0].as_str(), Some(a.parent().unwrap().canonicalize().unwrap().to_str().unwrap()));
+}
+
+/// What a session's `read` calls returned, from its journal rows.
+fn tool_results(env: &Env, session: &str) -> Vec<String> {
+    env.journal()
+        .into_iter()
+        .filter(|r| r.ty == "tool_end" && r.session == session)
+        .map(|r| r.payload.to_string())
+        .collect()
+}
+
+#[test]
+fn approving_a_childs_directory_read_gives_it_the_listing() {
+    let dir = outside_path("perm-child-dir", "listing");
+    let (env, mut d) = scout_tui("perm-child-dir", &dir, "");
+    std::fs::remove_file(&dir).unwrap(); // scout_tui made a file there
+    make(&dir.join("alpha.txt"), "a\n");
+    make(&dir.join("beta.txt"), "b\n");
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type ask scout
+key enter
+wait "PERMISSION" {}
+sleep 600
+type y
+wait "the scout reported" {}
+"#,
+            budget(3000),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    let sessions = env.sessions();
+    let got = tool_results(&env, &sessions[1]);
+    assert!(got.iter().any(|r| r.contains("alpha.txt") && r.contains("beta.txt")), "{got:?}");
+}
+
+#[test]
+fn approving_the_sessions_own_directory_read_once_gives_the_listing() {
+    let dir = outside_path("perm-dir-once", "listing");
+    let env = Env::new("perm-dir-once", json!({ "steps": [read_call(&dir), { "text": "all done" }] }));
+    make(&dir.join("alpha.txt"), "a\n");
+    let mut d = tui(&env, &[]);
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type read it
+key enter
+wait "PERMISSION" {}
+sleep 600
+type y
+wait "all done" {}
+"#,
+            budget(3000),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    assert!(results(&env)[0].contains("alpha.txt"), "{:?}", results(&env));
+}
+
+/// A TUI session that delegates once to `scout`, which makes `call`.
+fn child_tui(name: &str, call: Value, scout_cfg: &str, extra: &[(&str, &str)]) -> (Env, drive::Driver) {
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            { "call": "delegate", "args": { "agent": "scout", "task": "do it" } },
+            call,
+            { "text": "child done" },
+            { "text": "the scout reported" }
+        ] }),
+    );
+    env.config(&format!("[agents.scout]\ndescription = \"does things\"\nprompt = \"You are a scout.\"\n{scout_cfg}\n"));
+    let d = tui(&env, extra);
+    (env, d)
+}
+
+fn ask_scout_script() -> String {
+    format!("wait \"ask construct\" {}\ntype ask scout\nkey enter\n", budget(3000))
+}
+
+#[test]
+fn a_childs_shell_command_runs_again_after_approval_and_succeeds() {
+    let file = outside_path("perm-child-shell", "d.txt");
+    let cmd = format!("cat {}", file.display());
+    let (env, mut d) = child_tui(
+        "perm-child-shell",
+        json!({ "call": "shell", "args": { "command": cmd } }),
+        "tools = [\"shell\"]",
+        &[],
+    );
+    make(&file, "delta\n");
+    play(
+        &mut d,
+        &format!(
+            "{}wait \"PERMISSION\" {}\nexpect \"runs the command again\"\nsleep 600\ntype y\nwait \"the scout reported\" {}\n",
+            ask_scout_script(),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    let got = tool_results(&env, &env.sessions()[1]);
+    assert!(got.iter().any(|r| r.contains("delta")), "{got:?}");
+}
+
+#[test]
+fn a_protected_path_is_refused_to_a_child_without_a_prompt() {
+    let home = Env::dir_for("perm-child-protected").join("fakehome");
+    let key = home.join(".ssh/id_ed25519");
+    let (env, mut d) =
+        child_tui("perm-child-protected", read_call(&key), "tools = [\"read\"]", &[("HOME", home.to_str().unwrap())]);
+    make(&key, "PRIVATE\n");
+    play(
+        &mut d,
+        &format!("{}wait \"the scout reported\" {}\ngone \"PERMISSION\" 300\n", ask_scout_script(), budget(10000)),
+    );
+    quit(&mut d);
+    let got = tool_results(&env, &env.sessions()[1]);
+    assert!(got.iter().any(|r| r.contains("protected")) && !got.iter().any(|r| r.contains("PRIVATE")), "{got:?}");
+    assert!(access_rows(&env).is_empty());
+}
+
+#[test]
+fn a_childs_shell_still_cannot_open_tcp_beyond_its_endpoint() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let cmd = format!("timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/{port}'; echo rc=$?");
+    let (env, mut d) =
+        child_tui("perm-child-net", json!({ "call": "shell", "args": { "command": cmd } }), "tools = [\"shell\"]", &[]);
+    play(&mut d, &format!("{}wait \"the scout reported\" {}\n", ask_scout_script(), budget(10000)));
+    quit(&mut d);
+    let got = tool_results(&env, &env.sessions()[1]);
+    assert!(got.iter().any(|r| r.contains("rc=1")), "{got:?}");
+    assert!(listener.set_nonblocking(true).is_ok() && listener.accept().is_err(), "the child connected");
 }

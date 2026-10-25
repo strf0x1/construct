@@ -921,6 +921,10 @@ def suite_task(args):
             h.window = window
         h.configure(ep.url, args.model, upstream=args.upstream)
         tasklib.seed_home(task, h.home, vars)
+        if isinstance(h, Construct) and task.config:
+            # Tables go last: the keys configure() wrote stay top-level.
+            with (h.home / "config.toml").open("a") as f:
+                f.write("\n" + tasklib.fill(task.config, vars) + "\n")
         budget = tasklib.Budget(task, ep)
         turns, stopped = [], None
         t0 = time.time()

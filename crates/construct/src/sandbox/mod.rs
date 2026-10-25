@@ -52,6 +52,10 @@ pub struct Policy {
     /// it into stdout: an MCP server's stdout is its protocol.
     #[serde(default)]
     pub own_stderr: bool,
+    /// Lock only network and signals, not the filesystem: the process is a
+    /// delegated child, whose tools are confined per call instead (ADR 0017).
+    #[serde(default)]
+    pub net_only: bool,
 }
 
 /// Read-only, executable everywhere a shell needs to look.
@@ -122,6 +126,7 @@ impl Policy {
             no_network: false,
             connect_ports: vec![],
             own_stderr: false,
+            net_only: false,
         }
     }
 
@@ -173,7 +178,15 @@ impl Policy {
             no_network: !def.network,
             connect_ports: vec![endpoint_port],
             own_stderr: true,
+            net_only: false,
         })
+    }
+
+    /// This policy as the delegated child's own process is started under it:
+    /// the filesystem is left to its per-call confinement (ADR 0017), so an
+    /// approval can widen what its next tool call may reach.
+    pub fn net_only(&self) -> Self {
+        Self { net_only: true, ..self.clone() }
     }
 
     fn under(roots: &[PathBuf], p: &Path) -> bool {
@@ -331,10 +344,15 @@ fn restrict(policy: &Policy) -> Result<(), String> {
     // A grant for a place that doesn't exist (yet) has nothing to restrict,
     // and a rule for it would fail the whole ruleset.
     let live = |v: &[PathBuf]| v.iter().filter(|p| p.exists()).cloned().collect::<Vec<_>>();
-    let (system, read, write) = (live(&policy.system), live(&policy.read), live(&policy.write));
-    let status = Ruleset::default()
-        .set_compatibility(CompatLevel::BestEffort)
-        .handle_access(rw)
+    let (system, read, write) = if policy.net_only {
+        Default::default()
+    } else {
+        (live(&policy.system), live(&policy.read), live(&policy.write))
+    };
+    let base = Ruleset::default().set_compatibility(CompatLevel::BestEffort);
+    // A delegated child's process handles no filesystem access at all.
+    let status = Ok(base)
+        .and_then(|r: Ruleset| if policy.net_only { Ok(r) } else { r.handle_access(rw) })
         // Handling TCP access with no rule allowing a port denies it all.
         .and_then(|r| if policy.no_network { r.handle_access(AccessNet::from_all(abi)) } else { Ok(r) })
         .and_then(|r| r.scope(Scope::Signal))
