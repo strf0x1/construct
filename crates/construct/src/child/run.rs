@@ -145,8 +145,16 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece
         .process_group(0);
     cmd.envs(&spec.def.env);
     // Only the secrets the definition names. A name that isn't set is left out.
+    // The endpoint key the child inherits is the one the parent resolved,
+    // fallback included, handed over under the name the child reads.
+    let inherited = spec.def.inherits_key().then(|| spec.parent.api_key_secret.clone());
     for name in spec.def.secret_names(spec.parent) {
-        if let Some(v) = crate::secrets::get(&name) {
+        let found = if inherited.as_deref() == Some(&name) {
+            crate::secrets::api_key(&name)
+        } else {
+            crate::secrets::get(&name)
+        };
+        if let Some(v) = found {
             cmd.env(name, v);
         }
     }

@@ -206,6 +206,12 @@ impl AgentDef {
         names
     }
 
+    /// Whether the child uses the parent's endpoint key, so it may also be
+    /// handed the key the parent's fallback found (`secrets::api_key`).
+    pub fn inherits_key(&self) -> bool {
+        self.api_key_secret.is_empty() && self.base_url.is_empty() && self.command.is_empty()
+    }
+
     fn key_secret(&self, parent: &Config) -> String {
         match (self.api_key_secret.as_str(), self.base_url.is_empty() && self.command.is_empty()) {
             ("", true) => parent.api_key_secret.clone(),

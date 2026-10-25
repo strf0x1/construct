@@ -12,7 +12,7 @@ use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
 use crate::tools::{Call, Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use futures::future::join_all;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -71,6 +71,9 @@ impl Agent {
             Some(_) => crate::secrets::env_key(&cfg.api_key_secret),
             None => crate::secrets::api_key(&cfg.api_key_secret),
         };
+        if key.is_none() && !cfg.api_key_secret.is_empty() {
+            bail!(crate::secrets::missing_key(&cfg.api_key_secret));
+        }
         let client = llm::Client::new(&cfg, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
