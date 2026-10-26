@@ -31,6 +31,8 @@ class Tasks(unittest.TestCase):
             with self.subTest(name):
                 task = tasklib.load(name)
                 r = replay.spec(task)
+                if not tasklib.has_rev(r["merge"]):
+                    self.skipTest(f"{name}: a shallow clone has no {r['merge'][:8]} (git fetch --unshallow)")
                 parent = subprocess.run(["git", "rev-parse", f"{r['merge']}^1"], cwd=tasklib.ROOT, capture_output=True, text=True, check=True).stdout.strip()
                 self.assertEqual(task.git, parent, "the fixture is the tree the PR started from")
                 for path in r["hidden"]:

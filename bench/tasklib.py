@@ -166,11 +166,18 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True):
         seed_target(task, dest)
 
 
+def has_rev(rev: str) -> bool:
+    """Whether this clone has `rev`: a shallow clone lacks a `git` task's past commits."""
+    return subprocess.run(["git", "cat-file", "-e", f"{rev}^{{commit}}"], cwd=ROOT, capture_output=True).returncode == 0
+
+
 def export_tree(rev: str, dest: Path):
     """This repo's tree at `rev`, without its history, at `dest`. Files get
     the time of extraction (-m), not the commit's: a warm target's workspace
     crates must look stale, or cargo reuses test binaries that have another
     tree's path compiled in (`env!("CARGO_MANIFEST_DIR")`)."""
+    if not has_rev(rev):
+        sys.exit(f"this clone has no commit {rev[:8]}: a `git` task needs the repo's history (git fetch --unshallow)")
     dest.mkdir(parents=True)
     archive = subprocess.run(["git", "archive", "--format=tar", rev], cwd=ROOT, check=True, capture_output=True).stdout
     subprocess.run(["tar", "-x", "-m", "-C", str(dest)], input=archive, check=True)

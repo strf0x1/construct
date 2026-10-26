@@ -116,6 +116,8 @@ class Tasks(unittest.TestCase):
     def test_every_task_loads_and_fills_its_vars(self):
         for name in tasklib.names():
             with self.subTest(name):
+                if tasklib.load(name).git and not tasklib.has_rev(tasklib.load(name).git):
+                    self.skipTest(f"{name}: a shallow clone has no {tasklib.load(name).git[:8]} (git fetch --unshallow)")
                 task, vars, work = self.materialize(name)
                 self.assertTrue(task.turns or task.spec.get("sessions"), "a task needs turns or sessions")
                 self.assertTrue((task.dir / "check.sh").exists())
