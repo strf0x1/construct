@@ -17,16 +17,20 @@ fn main() {
     // Rerun when the sources change (dirty flag) or HEAD moves (sha).
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=Cargo.toml");
-    if let Some(dir) = git(&["rev-parse", "--git-dir"]) {
-        println!("cargo:rerun-if-changed={dir}/HEAD");
-        if let Some(r) = git(&["symbolic-ref", "-q", "HEAD"]) {
-            println!("cargo:rerun-if-changed={dir}/{r}");
-        }
+    // A rerun-if-changed path that does not exist makes cargo rebuild on every
+    // invocation, and a rebuilt `construct` relinks every dependent test
+    // binary. `--git-path` resolves worktrees and packed refs; a path that is
+    // not there (a packed ref has no file) is skipped, and logs/HEAD catches a
+    // commit onto a ref that was packed.
+    let mut watch = vec!["HEAD".to_string(), "logs/HEAD".to_string(), "packed-refs".to_string()];
+    if let Some(r) = git(&["symbolic-ref", "-q", "HEAD"]) {
+        watch.push(r);
     }
-    if let Some(common) = git(&["rev-parse", "--git-common-dir"]) {
-        println!("cargo:rerun-if-changed={common}/packed-refs");
-        if let Some(r) = git(&["symbolic-ref", "-q", "HEAD"]) {
-            println!("cargo:rerun-if-changed={common}/{r}");
+    for name in watch {
+        if let Some(path) = git(&["rev-parse", "--git-path", &name])
+            && std::path::Path::new(&path).exists()
+        {
+            println!("cargo:rerun-if-changed={path}");
         }
     }
 }
