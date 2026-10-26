@@ -27,6 +27,8 @@ pub(super) enum Kind {
     Reasoning,
     Tool,
     Notice(Color),
+    /// The `/help` panel; drawn by `help.rs`, so the block carries no text.
+    Help,
 }
 
 pub(super) struct Block {

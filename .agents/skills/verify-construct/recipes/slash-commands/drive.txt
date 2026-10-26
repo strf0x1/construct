@@ -5,7 +5,12 @@ key enter
 wait "/new" 2000
 expect "/skills"
 expect "/model"
+expect "╭─ commands"
+expect "╭─ keys"
+expect-style "/skills" fg=#7aa2f7 bold
+expect-style "ctrl+o" fg=#7dcfff bold
 snap --style help
+image {evidence}/help.png
 type /skills
 key enter
 wait "no skills yet" 2000

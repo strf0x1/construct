@@ -10,7 +10,7 @@ Typing a line that starts with `/` at the prompt runs a built-in command instead
 
 ## Sub-features
 
-- `slash-help` `/help` (or `/?`) prints the command and key list.
+- `slash-help` `/help` (or `/?`) draws the commands and keys as two rounded boxes: command names bold blue, arguments yellow, key names bold cyan.
 - `slash-skills` `/skills` lists skills, or says there are none yet.
 - `slash-model` `/model <id>` switches the model; the notice and the status line show it.
 - `slash-memory` `/memory` prints memory or says it is empty.
@@ -32,7 +32,7 @@ Preconditions:
 
 - Baseline state (no skills). Recipe: `.agents/skills/verify-construct/recipes/slash-commands`.
 
-- **Help.** Drive: `type /help`, `key enter`, `wait "/new"`, `expect "/skills"`, `snap --style help`. Expect: the command list.
+- **Help.** Drive: `type /help`, `key enter`, `wait "/new"`, `expect "╭─ commands"`, `expect-style "/skills" fg=#7aa2f7 bold`, `expect-style "ctrl+o" fg=#7dcfff bold`, `image {evidence}/help.png`. Expect: a `commands` box and a `keys` box, rows aligned in columns.
 - **Skills.** Drive: `type /skills`, `key enter`, `wait "no skills yet"`. Expect: the empty-library notice.
 - **Model.** Drive: `type /model verify-model-x`, `key enter`, `wait "model → verify-model-x"`, `expect-style "model → verify-model-x" fg=#7aa2f7`. Expect: the notice in blue and the status line showing `verify-model-x`.
 - **Unknown.** Drive: `type /nope`, `key enter`, `expect-style "unknown command /nope" fg=#e0af68`, `image {evidence}/slash.png`. Expect: the yellow hint.
@@ -41,6 +41,5 @@ Preconditions:
 
 ## Gotchas
 
-- `/help` currently runs its two lines together ("/quitenter send") because the notice drops the newline; assert on single words, not the joined text (issue #63).
 - `/skills <name>` and `/<skill-name>` do nothing yet (issue #63).
 - `/model` with no argument does nothing (issue #69).

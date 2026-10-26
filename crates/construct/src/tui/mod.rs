@@ -6,6 +6,7 @@
 mod app;
 mod ask;
 mod clip;
+mod help;
 mod input;
 mod markdown;
 mod prompt;
