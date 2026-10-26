@@ -268,6 +268,19 @@ impl Ctx {
             shell_blocked: Default::default(),
         }
     }
+    /// The project kit (when there is one) and then the global library: the
+    /// order a name is looked up in, so a kit skill hides a global one.
+    pub fn skill_libs(&self) -> Vec<&Library> {
+        self.project_skills.iter().chain(std::iter::once(&self.skills)).collect()
+    }
+    /// The library that holds `name`, kit first.
+    pub fn skill_lib(&self, name: &str) -> Option<&Library> {
+        self.skill_libs().into_iter().find(|l| l.get(name).is_some())
+    }
+    /// Every skill the model or the user can reach, read from disk now.
+    pub fn all_skills(&self) -> Vec<crate::skills::Skill> {
+        crate::skills::merged(&self.skill_libs())
+    }
     /// A new user turn: per-turn counts start over.
     pub fn turn_began(&self) {
         self.shell_blocked.store(0, std::sync::atomic::Ordering::Relaxed);

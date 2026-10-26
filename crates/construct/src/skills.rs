@@ -42,6 +42,21 @@ pub struct Library {
     dir: PathBuf,
 }
 
+/// Every skill across `libs`, sorted by name. A name in an earlier library
+/// hides the same name in a later one, so pass the project kit first.
+pub fn merged(libs: &[&Library]) -> Vec<Skill> {
+    let mut out: Vec<Skill> = Vec::new();
+    for lib in libs {
+        for s in lib.list() {
+            if !out.iter().any(|o| o.name == s.name) {
+                out.push(s);
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
 pub fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }

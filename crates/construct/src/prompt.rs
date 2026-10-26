@@ -62,12 +62,26 @@ fn today() -> String {
 }
 
 /// The reminder appended to a user turn when the router suggests skills.
-pub fn skill_reminder(skills: &[(String, f32)], lib: &crate::skills::Library) -> Option<String> {
+/// The user message for `/<skill> text`: the skill the user picked, then
+/// what they asked. With no `text` the skill itself is the request.
+pub fn invoked_skill(name: &str, body: &str, text: &str) -> String {
+    let ask = if text.trim().is_empty() {
+        "The user gave no further request; follow the skill, and ask what they want if it needs input.".to_string()
+    } else {
+        text.to_string()
+    };
+    format!("<skill name=\"{name}\" invoked-by=\"user\">\n{}\n</skill>\n\n{ask}", body.trim_end())
+}
+
+pub fn skill_reminder(skills: &[(String, f32)], all: &[crate::skills::Skill]) -> Option<String> {
     if skills.is_empty() {
         return None;
     }
-    let lines: Vec<String> =
-        skills.iter().filter_map(|(n, _)| lib.get(n)).map(|s| format!("- {}: {}", s.name, s.description)).collect();
+    let lines: Vec<String> = skills
+        .iter()
+        .filter_map(|(n, _)| all.iter().find(|s| &s.name == n))
+        .map(|s| format!("- {}: {}", s.name, s.description))
+        .collect();
     if lines.is_empty() {
         return None;
     }

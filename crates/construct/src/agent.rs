@@ -209,7 +209,7 @@ impl Agent {
             .find(|m| m.role == "assistant" && m.content.is_some())
             .and_then(|m| m.content.as_deref())
             .unwrap_or("");
-        let skills = self.ctx.skills.list();
+        let skills = self.ctx.all_skills();
         let mcp: BTreeMap<String, String> = self
             .ctx
             .mcp
@@ -225,6 +225,24 @@ impl Agent {
     }
 
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
+        self.run_turn(text, None, tx).await
+    }
+
+    /// A turn the user started with `/<skill> text`: the skill's SKILL.md (as
+    /// the `skill` tool returns it) goes into the user message ahead of
+    /// `text`, and an `invoke` event records which skill it was. A skill that
+    /// is gone by now is an error and no turn.
+    pub async fn invoke(&mut self, skill: &str, text: &str, tx: &Events) -> Result<()> {
+        match crate::tools::skill::load(&self.ctx, skill, None) {
+            Ok(body) => self.run_turn(text, Some((skill, body)), tx).await,
+            Err(e) => {
+                self.journal.emit(Event::Error { message: e }, tx);
+                Ok(())
+            }
+        }
+    }
+
+    async fn run_turn(&mut self, text: &str, invoked: Option<(&str, String)>, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
         self.ctx.turn_began();
@@ -236,7 +254,14 @@ impl Agent {
         if self.user_turns == 0 {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
-        let route = self.route(text).await;
+        let mut route = self.route(text).await;
+        if let Some((name, _)) = &invoked {
+            route.skills.retain(|(n, _)| n != name);
+            // Its linked files are read with the skill tool.
+            if !route.groups.contains(&Group::Skills) {
+                route.groups.push(Group::Skills);
+            }
+        }
         self.journal.emit(
             Event::Route {
                 groups: route.groups.iter().map(Group::label).collect(),
@@ -250,10 +275,21 @@ impl Agent {
         self.enable(route.groups.clone(), tx).await;
 
         for (name, _) in &route.skills {
-            self.ctx.skills.suggested(name);
+            if let Some(lib) = self.ctx.skill_lib(name) {
+                lib.suggested(name);
+            }
         }
         let mut content = text.to_string();
-        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.skills) {
+        if let Some((name, body)) = invoked {
+            let scope = if self.ctx.project_skills.as_ref().is_some_and(|p| p.get(name).is_some()) {
+                "project"
+            } else {
+                "global"
+            };
+            self.journal.emit(Event::Invoke { skill: name.to_string(), scope: scope.to_string() }, tx);
+            content = crate::prompt::invoked_skill(name, &body, text);
+        }
+        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills()) {
             content.push_str("\n\n");
             content.push_str(&r);
         }

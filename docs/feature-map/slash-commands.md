@@ -6,25 +6,27 @@ verified_at: ffa04de
 ---
 # Slash commands
 
-Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model <id>` switches the model for the next turn, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript; an unknown command prints a yellow hint to try `/help`.
+Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model <id>` switches the model for the next turn, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
 
 ## Sub-features
 
-- `slash-help` `/help` (or `/?`) draws the commands and keys as two rounded boxes: command names bold blue, arguments yellow, key names bold cyan.
-- `slash-skills` `/skills` lists skills, or says there are none yet.
+- `slash-help` `/help` (or `/?`) draws rounded boxes for commands, skills (only when there are any) and keys: command names bold blue, skill names bold green, arguments yellow, key names bold cyan.
+- `slash-skills` `/skills` lists skills (project kit and global), or says there are none yet. `/skills <name> <request>` runs one.
+- `slash-palette` typing `/word` lists matching commands (blue) and skills (green, `skill ·` before the description), best match first: name prefix, then substring, then letters in order, then description. ↑↓ move the selection, tab completes it, esc closes the list. Enter runs a command that takes no argument; for a skill or `/model` it completes the name plus a space and waits for the rest. Past 8 rows a faint `… N more` row says how many are hidden.
+- `slash-skill-run` `/<skill> <request>` runs a turn with the skill loaded and journals an `invoke` row (`skill`, `scope`). The library is read from disk each time, so a skill written mid-session can be run at once. A built-in command wins over a skill with the same name; `/skills <name>` still reaches that skill.
 - `slash-model` `/model <id>` switches the model; the notice and the status line show it.
 - `slash-memory` `/memory` prints memory or says it is empty.
 - `slash-new` `/new` (or `/clear`) clears the transcript and counters and starts a new session.
 - `slash-quit` `/quit`, `/exit` or `/q` exits.
-- `slash-unknown` any other `/word` prints `unknown command /word — try /help` in yellow.
+- `slash-unknown` any other `/word` (not a command or a skill) prints `unknown command /word — try /help` in yellow.
 
 ## How to get to it (user POV)
 
-- Type the command at the `ask construct anything… (/help)` prompt and press enter.
+- Type the command at the `ask construct anything… (/help)` prompt and press enter, or type `/` and pick from the palette.
 
 ## Done when
 
-- `/help` shows every command; `/skills` shows the library state; `/model x` shows `model → x` in blue and `x` in the status line; an unknown command shows the yellow hint. None of these sends a model request.
+- `/help` shows every command; `/skills` shows the library state; `/model x` shows `model → x` in blue and `x` in the status line; an unknown command shows the yellow hint. None of these sends a model request. The palette shows `▸ /create-verification` first for `/cre` when that skill exists, and `/create-verification do X` sends one request whose last user message holds the SKILL.md and `do X`.
 
 ## Driving it
 
@@ -39,7 +41,13 @@ Preconditions:
 - **Memory, new, quit.** Drive: `type /memory`, `key enter`, `wait "memory is empty"`, `type /new`, `key enter`, `gone "unknown command /nope"`, `type /quit`, `key enter`, `gone "ask construct" 3000`. Expect: the memory notice, a cleared transcript, then construct exits.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/slash-commands`. Expect: `ok: no model requests` — `requests.jsonl` is empty.
 
+Palette and skill run: `setup.sh` writes the `create-verification` skill to the scratch home. Model: one text reply `ran-it`. Recipe: `.agents/skills/verify-construct/recipes/slash-palette`.
+
+- **Palette.** Drive: `type /`, `expect "more (↑↓ to scroll)"`, `type cre`, `wait "▸ /create-verification"`, `expect-style "/create-verification" fg=#9ece6a bold`, `image {evidence}/palette.png`. Expect: the skill alone, green, with its description.
+- **Complete and run.** Drive: `key enter`, `expect "› /create-verification"`, `type do-the-thing`, `key enter`, `wait "ran-it"`. Expect: the reply.
+- **Second view.** The recipe's `check.sh`. Expect: `ok: request carried SKILL.md and do-the-thing; invoke row for create-verification` — the last `requests/req-*.json` holds the SKILL.md body and the request, and `journal.txt` has the `invoke` row.
+- Contract: `crates/construct-dev/tests/slash.rs` (a skill written by `skill_manage` in turn 1 runs from the palette in turn 2; built-ins from the palette; esc), golden `help_panel` in `snapshots.rs`.
+
 ## Gotchas
 
-- `/skills <name>` and `/<skill-name>` do nothing yet (issue #63).
 - `/model` with no argument does nothing (issue #69).

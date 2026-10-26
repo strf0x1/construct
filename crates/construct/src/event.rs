@@ -71,6 +71,12 @@ pub enum Event {
         ms: u64,
         note: String,
     },
+    /// The user started this turn with `/<skill>`; the skill's text is in
+    /// the `user` event that follows. `scope` is "project" or "global".
+    Invoke {
+        skill: String,
+        scope: String,
+    },
     /// The model's response stream opened.
     Opened,
     Text {

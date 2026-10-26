@@ -1,0 +1,48 @@
+---
+source: crates/construct-dev/tests/snapshots.rs
+expression: "screen(&env, &d)"
+---
+
+
+
+
+
+
+
+
+
+
+
+
+  ╭─ commands ─────────────────────────────────────────────────────────────────╮
+  │ /new                  fresh session (also /clear)                          │
+  │ /model <id>           switch model for the next turn                       │
+  │ /skills [name]        list the skill library, or run one (also /<name>     │
+  │                       <request>)                                           │
+  │ /memory               show what construct remembers                        │
+  │ /learn                run the learning pass now                            │
+  │ /status               session id, journal and totals                       │
+  │ /copy [error|status]  last reply (or last tool error, or status) to the    │
+  │                       clipboard                                            │
+  │ /help                 this list (also /?)                                  │
+  │ /quit                 exit (also /exit, /q)                                │
+  ╰────────────────────────────────────────────────────────────────────────────╯
+  ╭─ skills ───────────────────────────────────────────────────────────────────╮
+  │ /release-crate  Publish a release of a Rust crate                          │
+  ╰────────────────────────────────────────────────────────────────────────────╯
+  ╭─ keys ─────────────────────────────────────────────────────────────────────╮
+  │ enter               send                                                   │
+  │ / ↑↓ tab            commands and skills as you type; esc closes            │
+  │ alt+enter ctrl+j    newline                                                │
+  │ esc                 interrupt                                              │
+  │ ctrl+o              expand tool output                                     │
+  │ wheel ↑↓ pgup pgdn  scroll                                                 │
+  │ ctrl+p ctrl+n       input history                                          │
+  │ ctrl+c              clear the input, then quit                             │
+  ╰────────────────────────────────────────────────────────────────────────────╯
+   select text with the mouse (shift-drag if your terminal asks for it); /copy
+   works over ssh
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+› ask construct anything… (/help)
+ ◆ openrouter/free                                            0 in · 0 out · cache 0% · [SESSION0]

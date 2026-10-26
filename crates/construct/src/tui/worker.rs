@@ -47,6 +47,10 @@ pub(super) async fn agent_task(
                 let _ = agent.turn(&text, &tx).await;
                 maybe_learn(&mut agent, &tx, &mut reviewed, false);
             }
+            Cmd::Skill { name, text } => {
+                let _ = agent.invoke(&name, &text, &tx).await;
+                maybe_learn(&mut agent, &tx, &mut reviewed, false);
+            }
             Cmd::LearnNow => maybe_learn(&mut agent, &tx, &mut reviewed, true),
             Cmd::Model(m) => agent.cfg.model = m,
             Cmd::New => {
