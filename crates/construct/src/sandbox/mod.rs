@@ -111,6 +111,9 @@ impl Policy {
         if let Some(h) = &home {
             system.extend(HOME_RO.iter().map(|p| h.join(p)));
         }
+        // A skill's own files (scripts, references) are readable; changing
+        // them goes through skill_manage (#64).
+        system.push(paths.skills_dir());
         let mut sys_rw: Vec<PathBuf> = SYSTEM_RW.iter().map(PathBuf::from).collect();
         if let Some(h) = &home {
             sys_rw.extend(HOME_RW.iter().map(|p| h.join(p)));

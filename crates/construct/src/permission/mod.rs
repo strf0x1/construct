@@ -17,12 +17,14 @@
 //! home are the real ones.
 
 mod grants;
+mod named;
 mod paths;
 mod perms;
 mod persist;
 mod upstream;
 
 pub use grants::protected;
+pub use named::{Outside, outside};
 pub use paths::blocked_in;
 pub use perms::Perms;
 pub use upstream::Upstream;
@@ -66,6 +68,9 @@ pub struct PathAsk {
     /// Approving runs the whole call again (a shell command found out too late).
     #[serde(default)]
     pub rerun: bool,
+    /// Asked before a shell command runs, for the paths it names (#64).
+    #[serde(default)]
+    pub ahead: bool,
     /// "Always" is not on offer: it would write a child's definition wider
     /// than the session's own sandbox.
     #[serde(default)]

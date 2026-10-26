@@ -913,7 +913,8 @@ def suite_task(args):
     def once(name, h, task, r):
         base = WORK / "task" / name / task.name / f"r{r}"
         work = base / "work"
-        vars = tasklib.make_vars(task)
+        vars = {**tasklib.make_vars(task), "outside": str(base / "outside")}
+        tasklib.seed_outside(task, base / "outside", vars)
         tasklib.materialize(task, work, vars)
         window = task.window if args.window is None else (args.window or None)
         ep = Endpoint(base / "ep", upstream=args.upstream, window=window)

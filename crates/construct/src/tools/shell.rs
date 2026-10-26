@@ -6,7 +6,7 @@
 //! report of what it stopped.
 
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
-use crate::permission::{Access, blocked_in};
+use crate::permission::{Access, Outside, blocked_in, outside};
 use crate::sandbox::{GRACE, Policy, SWEPT, StopOnDrop};
 use serde_json::{Value, json};
 use std::process::Stdio;
@@ -51,7 +51,7 @@ impl Tool for Shell {
         Display { primary_arg: "command", preview_lines: 4 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        run(ctx, &a).await.map(|s| Output::plain(s).with_kind(OutputKind::Tail)).map_err(|mut e| {
+        run(ctx, &a).await.map(|o| o.with_kind(OutputKind::Tail)).map_err(|mut e| {
             e.kind = OutputKind::Tail;
             e
         })
@@ -62,31 +62,104 @@ impl Tool for Shell {
 /// it: a read refused, then the write that follows it.
 const MAX_ASKS: usize = 2;
 
-async fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
+/// Blocked shell calls in one turn from which every result tells the model to
+/// stop searching and ask, and no more prompts are shown (#64).
+pub const STOP_AFTER: usize = 3;
+
+async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
     let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
     let cwd =
         a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
     ctx.can_path(Shell::NAME, Access::Read, &cwd).await?;
     let mut policy = ctx.policy();
-    let mut asks = 0;
-    loop {
-        let r = run_once(ctx, &policy, command, &cwd, timeout).await;
-        // A Landlock denial is only visible in the command's own output, so
-        // asking comes after the fact: the user sees which paths it named and
-        // that approving runs the command again.
-        let Err(e) = &r else { return r };
-        if e.code != "exit" || asks == MAX_ASKS {
-            return r;
+    let stopped = ctx.shell_blocks() >= STOP_AFTER;
+    // A command that hides its errors (`2>/dev/null`, `|| echo missing`)
+    // leaves nothing to ask about afterwards, so the paths it names are
+    // asked about before it runs.
+    let named = outside(&policy, command, &cwd);
+    let mut declined = vec![];
+    if !named.ask.is_empty() && !stopped {
+        match ctx.perms.shell(command, Access::Read, named.ask.clone(), true, ctx.cancel.clone()).await {
+            Some(extra) => policy = policy.widened(&extra, &[]),
+            None => declined = named.ask.clone(),
         }
-        let Some((access, paths)) = blocked_in(&policy, &e.message) else { return r };
-        let Some(extra) = ctx.perms.shell(command, access, paths, ctx.cancel.clone()).await else { return r };
+        if *ctx.cancel.borrow() {
+            return Err(ToolError::new("interrupted", "[interrupted before the command ran]"));
+        }
+    }
+    let mut asks = 0;
+    let r = loop {
+        let r = run_once(ctx, &policy, command, &cwd, timeout).await;
+        // A Landlock denial is otherwise visible only in the command's own
+        // output, so asking comes after the fact: the user sees which paths
+        // it named and that approving runs the command again.
+        let Err(e) = &r else { break r };
+        if e.code != "exit" || asks == MAX_ASKS || stopped {
+            break r;
+        }
+        let Some((access, paths)) = blocked_in(&policy, &e.message) else { break r };
+        let paths: Vec<_> = paths.into_iter().filter(|p| !declined.contains(p)).collect();
+        if paths.is_empty() {
+            break r;
+        }
+        let Some(extra) = ctx.perms.shell(command, access, paths, false, ctx.cancel.clone()).await else { break r };
         policy = match access {
             Access::Read => policy.widened(&extra, &[]),
             Access::Write => policy.widened(&[], &extra),
         };
         asks += 1;
+    };
+    match r {
+        Ok(out) => {
+            let (text, data) = sandbox_note(ctx, out, &named, &policy, false);
+            let o = Output::plain(text);
+            Ok(match data {
+                Some(d) => o.with_data(d),
+                None => o,
+            })
+        }
+        Err(mut e) => {
+            let hinted = e.message.contains("[sandbox:");
+            let (text, data) = sandbox_note(ctx, std::mem::take(&mut e.message), &named, &policy, hinted);
+            e.message = text;
+            e.data = data.or(e.data);
+            Err(e)
+        }
     }
+}
+
+/// `out` with what the sandbox kept from the command said, whatever its exit
+/// code or redirects: the paths it named that are still out of reach, and,
+/// from the `STOP_AFTER`th blocked call in a turn, a nudge to stop and ask.
+/// `hinted`: the output already showed a denial. The data, for the journal
+/// and scorers, says what was blocked and whether the stop was given.
+fn sandbox_note(ctx: &Ctx, mut out: String, named: &Outside, policy: &Policy, hinted: bool) -> (String, Option<Value>) {
+    let blocked = named.clone().still_blocked(policy);
+    let note = blocked.note(&ctx.paths.home, &ctx.paths.skills_dir());
+    if note.is_empty() && !hinted {
+        return (out, None);
+    }
+    if !note.is_empty() {
+        out.push('\n');
+        out.push_str(&note);
+    }
+    let n = ctx.shell_blocked();
+    if n >= STOP_AFTER {
+        out.push_str(&format!(
+            "\n[sandbox: {n} shell calls this turn were blocked by the sandbox. Stop searching outside the workspace and ask the user where the file is, or to allow the path.]"
+        ));
+    }
+    let shown = |v: &[std::path::PathBuf]| v.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
+    let data = json!({ "sandbox": {
+        "outside": shown(&[blocked.ask, blocked.protected].concat()),
+        "broad": shown(&blocked.broad),
+        "construct": !blocked.construct.is_empty(),
+        "from_output": hinted,
+        "blocked_this_turn": n,
+        "stop": n >= STOP_AFTER,
+    }});
+    (out, Some(data))
 }
 
 async fn run_once(

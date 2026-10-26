@@ -8,7 +8,7 @@
 //! Config the user wrote by hand is already inside `Policy`, so it never
 //! reaches here.
 
-use super::grants::{Grants, Roots, folder_for, protected};
+use super::grants::{Grants, Roots, folder_for, in_construct_home, protected};
 use super::persist;
 use super::{Access, Ask, Decision, NoAsk, PathAsk, Request, ToolAsk, Verdict};
 use crate::config::Paths;
@@ -181,6 +181,16 @@ impl Perms {
         };
         let Err(msg) = denied else { return Ok(None) };
         let real = Policy::real(path);
+        if in_construct_home(&real) {
+            use crate::tools::{history::JournalQuery, memory::Memory, skill::SkillManage, skill::SkillView};
+            return Err(format!(
+                "{msg} That is construct's own home: use the {}, {}, {} and {} tools for what lives there.",
+                SkillView::NAME,
+                SkillManage::NAME,
+                Memory::NAME,
+                JournalQuery::NAME
+            ));
+        }
         if protected(&real) {
             return Err(format!("{msg} That place is protected; only a path typed into config.toml opens it."));
         }
@@ -192,6 +202,7 @@ impl Perms {
             paths: vec![real.display().to_string()],
             detail: String::new(),
             rerun: false,
+            ahead: false,
             no_always: false,
         };
         match self.ask_paths(req, cancel).await {
@@ -201,13 +212,15 @@ impl Perms {
         }
     }
 
-    /// A shell command failed on paths outside the policy: ask whether to run
-    /// it again with them. The paths to add to this one run, if yes.
+    /// A shell command names paths outside the policy (`ahead`: before it
+    /// runs), or failed on them: ask whether to run it with them. The paths to
+    /// add to this one run, if yes.
     pub async fn shell(
         &self,
         command: &str,
         access: Access,
         paths: Vec<PathBuf>,
+        ahead: bool,
         cancel: watch::Receiver<bool>,
     ) -> Option<Vec<PathBuf>> {
         let req = PathAsk {
@@ -217,7 +230,8 @@ impl Perms {
             paths: paths.iter().map(|p| p.display().to_string()).collect(),
             folder: None,
             detail: command.to_string(),
-            rerun: true,
+            rerun: !ahead,
+            ahead,
             no_always: false,
         };
         let (verdict, roots) = self.ask_paths(req, cancel).await?;
@@ -381,6 +395,7 @@ mod tests {
                 folder: None,
                 detail: String::new(),
                 rerun: false,
+                ahead: false,
                 no_always: false,
             })
         };
@@ -414,6 +429,7 @@ mod tests {
             folder: None,
             detail: String::new(),
             rerun: false,
+            ahead: false,
             no_always: false,
         });
         assert_eq!(perms.decide(req).await, Decision::DENY);
@@ -431,6 +447,7 @@ mod tests {
             folder: Some(folder.display().to_string()),
             detail: String::new(),
             rerun: false,
+            ahead: false,
             no_always: false,
         };
         let d = Decision { verdict: Verdict::Session, folder: true };

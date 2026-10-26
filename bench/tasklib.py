@@ -4,6 +4,8 @@
     ├── task.toml   turns, timeout_s, changes, [vars], [budget]   (see below)
     ├── fixture/    copied into the work dir and committed to a fresh git repo
     ├── home/       optional: copied into the harness home (e.g. a skill)
+    ├── outside/    optional: copied to a folder beside the work dir, outside
+    │               the sandbox; its path is the var {{outside}}
     ├── hooks/      optional: after-turn-N.sh runs in the work dir after turn
     │               N, for a world that changes between turns
     ├── expected/   optional: the files a correct run leaves, for check.sh
@@ -16,8 +18,8 @@ task.toml keys:
     timeout_s   per turn
     changes     globs of paths the task is expected to change; any other
                 change in the work dir is reported as unintended
-    [vars]      per-run values: name = template, filled into fixture/ and
-                home/ as {{name}}. Templates: {hexN} is N random hex digits,
+    [vars]      per-run values: name = template, filled into fixture/, home/
+                and outside/ (contents and file names) as {{name}}. Templates: {hexN} is N random hex digits,
                 {sha256:other:N} the first N hex of sha256 of an earlier var.
     [budget]    max_requests, max_prompt_tokens: past either, the run is
                 stopped and scored over_budget instead of running to timeout.
@@ -114,6 +116,8 @@ def fill(text: str, vars: dict) -> str:
 
 def _copy_filled(src: Path, dest: Path, vars: dict):
     shutil.copytree(src, dest, dirs_exist_ok=True)  # copy2: keeps the executable bit
+    for p in sorted(dest.rglob("*{{*"), key=lambda p: -len(p.parts)):
+        p.rename(p.with_name(fill(p.name, vars)))
     for p in dest.rglob("*"):
         if p.is_file() and not p.is_symlink():
             try:
@@ -135,6 +139,14 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None):
         git("remote", "add", "origin", remote)
     git("add", "-A")
     git("-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init")
+
+
+def seed_outside(task: Task, dest: Path, vars: dict):
+    """The task's outside/ folder, filled, at `dest` (a fresh one)."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    if (task.dir / "outside").exists():
+        _copy_filled(task.dir / "outside", dest, vars)
 
 
 def seed_home(task: Task, home: Path, vars: dict):

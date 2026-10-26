@@ -88,9 +88,19 @@ def metrics(events: list) -> dict:
     for i in rejected:
         codes[events[i].get("code") or "error"] = codes.get(events[i].get("code") or "error", 0) + 1
     edit_tokens = sum(events[i]["completion_tokens"] for i in edits)
+    shells = [e for e in events if e["name"] == "shell"]
+    boxed = [(e.get("data") or {}).get("sandbox") for e in shells]
+    boxed = [b for b in boxed if b]
     return {
         "tool_calls": len(events),
         "reads": sum(1 for e in events if e["name"] == "read"),
+        # What the sandbox kept from shell calls (#64), from the tool's data.
+        "shell": {
+            "calls": len(shells),
+            "blocked": len(boxed),
+            "stops": sum(1 for b in boxed if b.get("stop")),
+            "broad": sum(1 for b in boxed if b.get("broad")),
+        },
         "edit": {
             "calls": len(edits),
             "applied": len(edits) - len(rejected),
