@@ -361,7 +361,7 @@ fn render_table(c: &mut Ctx, t: Table) {
         let mut spans = Vec::new();
         for (i, &w) in widths.iter().enumerate().take(cols) {
             let cell = r.get(i).map(String::as_str).unwrap_or("");
-            let cell = fit(cell, w);
+            let cell = super::view::fit(cell, w);
             let pad = w.saturating_sub(cell.width());
             let padded = match t.align.get(i) {
                 Some(Alignment::Right) => format!("{}{cell}", " ".repeat(pad)),
@@ -381,22 +381,4 @@ fn render_table(c: &mut Ctx, t: Table) {
         }
     }
     c.out.push(Line::default());
-}
-
-fn fit(s: &str, w: usize) -> String {
-    if s.width() <= w {
-        return s.to_string();
-    }
-    let mut out = String::new();
-    let mut cw = 0;
-    for ch in s.chars() {
-        let x = ch.width().unwrap_or(0);
-        if cw + x + 1 > w {
-            break;
-        }
-        out.push(ch);
-        cw += x;
-    }
-    out.push('…');
-    out
 }
