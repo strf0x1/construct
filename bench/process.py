@@ -99,6 +99,7 @@ def metrics(events: list) -> dict:
             "calls": len(shells),
             "blocked": len(boxed),
             "stops": sum(1 for b in boxed if b.get("stop")),
+            "refused": sum(1 for b in boxed if b.get("refused")),
             "broad": sum(1 for b in boxed if b.get("broad")),
         },
         "edit": {

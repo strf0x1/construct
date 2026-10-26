@@ -63,7 +63,9 @@ impl Tool for Shell {
 const MAX_ASKS: usize = 2;
 
 /// Blocked shell calls in one turn from which every result tells the model to
-/// stop searching and ask, and no more prompts are shown (#64).
+/// stop searching and ask, no more prompts are shown, and a command that
+/// names a path outside the sandbox is not run at all (#64): a weak model
+/// reads past the words, but not past a refusal.
 pub const STOP_AFTER: usize = 3;
 
 async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
@@ -78,6 +80,9 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
     // leaves nothing to ask about afterwards, so the paths it names are
     // asked about before it runs.
     let named = outside(&policy, command, &cwd);
+    if stopped && !named.is_empty() {
+        return Err(refused(ctx, &named));
+    }
     let mut declined = vec![];
     if !named.ask.is_empty() && !stopped {
         match ctx.perms.shell(command, Access::Read, named.ask.clone(), true, ctx.cancel.clone()).await {
@@ -127,6 +132,25 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
             Err(e)
         }
     }
+}
+
+/// The answer to a command that names paths outside the sandbox once the turn
+/// has had `STOP_AFTER` blocked calls: it is not run.
+fn refused(ctx: &Ctx, named: &Outside) -> ToolError {
+    let n = ctx.shell_blocked();
+    let places: Vec<String> = [&named.ask, &named.broad, &named.construct, &named.protected]
+        .into_iter()
+        .flatten()
+        .map(|p| p.display().to_string())
+        .collect();
+    ToolError::new(
+        "sandbox",
+        format!(
+            "[sandbox: not run. {n} shell calls this turn were blocked by the sandbox, and this one names {} outside it too. Stop searching outside the workspace and ask the user where the file is, or to allow the path.]",
+            places.join(", ")
+        ),
+    )
+    .with_data(json!({ "sandbox": { "outside": places, "blocked_this_turn": n, "stop": true, "refused": true } }))
 }
 
 /// `out` with what the sandbox kept from the command said, whatever its exit

@@ -827,6 +827,10 @@ fn hidden_sandbox_denials_still_reach_the_model_and_a_hunt_is_stopped() {
         shell(format!("ls -la {} 2>/dev/null || echo \"ptest dir does not exist\"", dir.display())),
         shell("find / -maxdepth 1 -name nothing-here 2>/dev/null".into()),
         shell(format!("ls -la {} 2>/dev/null", env.home.display())),
+        // Past the stop: named outside, so not run at all (the marker stays unmade).
+        shell(format!("touch ran-anyway; ls {} 2>/dev/null", dir.display())),
+        // Nothing outside named: runs as ever.
+        shell("echo still-works".into()),
         { "text": "all done" }
     ]});
     let env = Env::new("perm-shell-hidden", steps);
@@ -844,14 +848,18 @@ fn hidden_sandbox_denials_still_reach_the_model_and_a_hunt_is_stopped() {
     assert!(!got[2].contains("Stop searching"), "{}", got[2]);
     assert!(got[3].contains("construct's own files") && got[3].contains("skill_manage"), "{}", got[3]);
     assert!(got[3].contains("3 shell calls this turn were blocked") && got[3].contains("ask the user"), "{}", got[3]);
+    assert!(got[4].contains("not run") && got[4].contains("ask the user"), "{}", got[4]);
+    assert!(!env.work.join("ran-anyway").exists(), "a refused command must not run");
+    assert!(got[5].contains("still-works") && !got[5].contains("[sandbox:"), "{}", got[5]);
     assert!(access_rows(&env).is_empty(), "nobody was asked");
-    // The same, as data for scorers: one row per blocked call, the last with the stop.
+    // The same, as data for scorers: one row per blocked call, the stop from the third.
     let boxed: Vec<Value> = env
         .journal()
         .into_iter()
         .filter(|r| r.ty == "tool_end" && r.payload["name"] == "shell")
         .filter_map(|r| r.payload["data"].get("sandbox").cloned())
         .collect();
-    assert_eq!(boxed.len(), 3, "{boxed:?}");
-    assert_eq!(boxed.iter().map(|b| b["stop"] == true).collect::<Vec<_>>(), [false, false, true]);
+    assert_eq!(boxed.len(), 4, "{boxed:?}");
+    assert_eq!(boxed.iter().map(|b| b["stop"] == true).collect::<Vec<_>>(), [false, false, true, true]);
+    assert_eq!(boxed[3]["refused"], true);
 }
