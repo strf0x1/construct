@@ -18,7 +18,7 @@ chosen route: a small single-threaded helper that restricts itself and execs.
 ## Decision
 
 The shell tool does not spawn the shell directly. `Policy::command` in
-`crates/construct/src/sandbox.rs` spawns
+`crates/construct/src/sandbox/mod.rs` spawns
 `construct __sandbox <policy-json> -- <shell> -c <script>`. `main.rs` sees
 `__sandbox` first, before the runtime or any thread exists, and calls
 `sandbox::exec_child`: it builds the Landlock ruleset (best-effort ABI, signal

@@ -1,4 +1,4 @@
-# 0008 — The count salt closes stale duplicates under line+hash; hash-only stays unsafe
+# 0018 — The count salt closes stale duplicates under line+hash; hash-only stays unsafe
 
 Status: accepted, 2026-10-21. Accepts 0007's proposal (build the salt as a
 knob, rerun). The salt stays in the codebase as an opt-in knob, and no
