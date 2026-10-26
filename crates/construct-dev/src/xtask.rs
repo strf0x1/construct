@@ -46,9 +46,20 @@ fn workspace_root() -> Result<PathBuf> {
     Ok(manifest.parent().context("workspace manifest has no parent")?.to_path_buf())
 }
 
+/// Point git at the repo's hooks (`.githooks/post-checkout` seeds a new
+/// worktree's `target/`) unless the user already chose a hooks path. Best effort.
+fn enable_hooks(root: &PathBuf) {
+    let git = |args: &[&str]| Command::new("git").args(args).current_dir(root).output().ok();
+    let set = git(&["config", "--get", "core.hooksPath"]).is_some_and(|o| !o.stdout.is_empty());
+    if !set && root.join(".githooks").is_dir() {
+        git(&["config", "core.hooksPath", ".githooks"]);
+    }
+}
+
 /// Returns true if every gate passed.
 pub fn check() -> Result<bool> {
     let root = workspace_root()?;
+    enable_hooks(&root);
     for (name, args) in GATES {
         let t = Instant::now();
         let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;
