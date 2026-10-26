@@ -227,7 +227,8 @@ impl Library {
             return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
         }
         let dest = self.dir.join(".archive").join(format!("{name}-{}", now()));
-        std::fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
+        let dir = dest.parent().ok_or_else(|| format!("{name}: archive path has no parent"))?;
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         std::fs::rename(&skill.dir, &dest).map_err(|e| e.to_string())?;
         Ok(match absorbed_into {
             Some(i) if !i.is_empty() => format!("archived {name} (absorbed into {i})"),

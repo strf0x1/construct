@@ -1,3 +1,5 @@
+//! What the planner cuts, elides and summarizes: the tests for `plan`, the
+//! stub glosses and the summary budget.
 use super::*;
 use crate::llm::{FunctionCall, ToolCall};
 

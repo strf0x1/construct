@@ -1,3 +1,5 @@
+//! The developer CLI: scripted or recording model endpoint, pty driver,
+//! ACP/MCP fakes, and the `cargo xtask` gates.
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use construct_dev::{acp_fake, drive, mcp_fake, serve};

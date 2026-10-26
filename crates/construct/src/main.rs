@@ -1,3 +1,5 @@
+//! The binary: the sandbox helper re-exec (`construct __sandbox`) and
+//! `cli::run`. Everything testable lives in the library.
 use anyhow::Result;
 use construct::{cli, sandbox, tui};
 

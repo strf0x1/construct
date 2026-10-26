@@ -21,3 +21,6 @@ __pycache__/
 *.snap.new
 *.pending-snap
 .verify/
+
+# Agent worktrees live inside the checkout; they are copies, not the repo.
+.claude/worktrees/

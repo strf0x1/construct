@@ -2,7 +2,7 @@
 
 Status: done, for issue #1. Steps 1–3 landed in #23, step 4 in #24 (and
 hash-only anchors in #25), step 5 with this status line, step 6 in #28 (ADR
-0002; the stale-duplicate follow-ups are ADRs 0007 and 0008). Written
+0002; the stale-duplicate follow-ups are ADRs 0007 and 0018). Written
 2026-10-20 against `1e83f33`. Depends on proposal 03 phase 1 (a lib crate)
 only so the contract tests have something to link; the design itself is
 independent.

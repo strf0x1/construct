@@ -1,3 +1,6 @@
+//! The cheap check before any LLM review: did this session teach anything,
+//! and did a skill that was loaded turn out wrong? A no here skips the LLM
+//! review (the gate itself may ask Jev).
 use super::ledger::{Observation, ledger};
 use super::{Kind, log_line_quiet};
 use crate::config::{Config, Paths};

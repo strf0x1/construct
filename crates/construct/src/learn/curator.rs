@@ -1,3 +1,6 @@
+//! The curator: once the agent owns enough unpinned skills, one LLM pass
+//! merges, retires and re-describes them, so the library stays small enough
+//! to route over.
 use super::prompts::CURATOR;
 use super::{Outcome, learner, run_loop};
 use crate::config::{Config, Paths};

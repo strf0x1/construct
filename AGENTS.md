@@ -21,7 +21,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/permission/` | Asking the user before a tool goes past the sandbox, and remembering it: `Request`/`Ask`, `Perms` (session grants, `config.toml` edits, protected paths), the shell-output path heuristic, the child's upward asker. ADR 0016. |
 | `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
 | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
-| `crates/construct/src/learn.rs` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
+| `crates/construct/src/learn/` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. |
 | `crates/construct/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
 | `crates/construct/src/sandbox/` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. `supervise.rs`: that helper is a subreaper, and nothing a shell call starts outlives it. |
 | `crates/construct/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |

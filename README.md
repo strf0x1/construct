@@ -46,10 +46,10 @@ that from an incident into a contained, denied, logged non-event.
 
 | Piece | Where | What |
 |---|---|---|
-| The loop | `crates/construct/src/agent.rs`, `crates/construct/src/llm.rs` | Route, stream, run tools, compact. Everything observable is an `Event`. |
+| The loop | `crates/construct/src/agent.rs`, `crates/construct/src/llm/` | Route, stream, run tools, compact. Everything observable is an `Event`. |
 | Tools | `crates/construct/src/tools/` | shell, read/write/edit/grep/glob, web, memory/skill/session search. |
 | Router | `crates/construct/src/router.rs`, `crates/construct/src/jev.rs` | Per-turn tool groups + skill suggestions. Jev (TypeSafe's System One) when a key resolves, local otherwise. |
-| Learning | `crates/construct/src/learn.rs` | Observation ledger → recurrence gate → a skill or memory only when a problem *repeats*. Runs detached after a session. |
+| Learning | `crates/construct/src/learn/` | Observation ledger → recurrence gate → a skill or memory only when a problem *repeats*. Runs detached after a session. |
 | Memory & skills | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs`, `crates/construct/src/project.rs` | Capped `§` memory, agent-written skills, and per-repo "project kits" that follow the repo, not the session. |
 | Sandbox | `crates/construct/src/sandbox/mod.rs` | The boundary: Landlock for shell and MCP servers, path checks for file tools, a credential-free env. |
 | TUI | `crates/construct/src/tui/` | ratatui app, first frame waits on nothing. |
