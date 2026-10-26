@@ -60,6 +60,7 @@ fn label(p: &Prompt, c: Choice) -> (String, Color) {
     let saves = if agent.is_empty() { "config.toml".to_string() } else { format!("[agents.{agent}] in config.toml") };
     let text = match (&p.request, c) {
         (Request::Path(r), Choice::Once) if r.rerun => "Allow and run the command again".into(),
+        (Request::Path(r), Choice::Once) if r.ahead => "Allow and run the command".into(),
         (Request::Path(_), Choice::Once) => "Allow once".into(),
         (Request::Path(_), Choice::Session) => "Allow for this session".into(),
         (Request::Path(_), Choice::Always) => format!("Always allow · saved to {saves}"),
@@ -87,12 +88,13 @@ fn body(p: &Prompt, w: usize) -> Vec<Line<'static>> {
     let mut out = vec![Line::default()];
     match &p.request {
         Request::Path(r) => {
-            let shell = r.rerun;
             let wants = match r.access {
                 Access::Read => "read from",
                 Access::Write => "write to",
             };
-            let intro = if shell {
+            let intro = if r.ahead {
+                format!("A shell command wants to {} paths outside the sandbox:", r.access.word())
+            } else if r.rerun {
                 format!("A shell command was blocked by the sandbox. It tried to {wants}:")
             } else {
                 format!("{} is blocked by the sandbox. It needs to {wants}:", r.tool)
@@ -134,7 +136,7 @@ fn body(p: &Prompt, w: usize) -> Vec<Line<'static>> {
                     Span::styled(head(&r.detail.replace('\n', " ⏎ "), w.saturating_sub(4)), theme::dim()),
                 ]));
             }
-            if shell {
+            if r.rerun {
                 out.push(Line::from(Span::styled(
                     "  ↻ allowing it runs the command again",
                     Style::new().fg(theme::YELLOW),

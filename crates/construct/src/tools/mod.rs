@@ -232,6 +232,8 @@ pub struct Ctx {
     /// Who may be asked, and what has been approved (`permission`).
     pub perms: Arc<crate::permission::Perms>,
     read_files: Mutex<HashSet<PathBuf>>,
+    /// Shell calls the sandbox blocked this turn (`shell::STOP_AFTER`).
+    shell_blocked: std::sync::atomic::AtomicUsize,
 }
 
 impl Ctx {
@@ -263,7 +265,20 @@ impl Ctx {
             sandbox,
             perms,
             read_files: Mutex::new(HashSet::new()),
+            shell_blocked: Default::default(),
         }
+    }
+    /// A new user turn: per-turn counts start over.
+    pub fn turn_began(&self) {
+        self.shell_blocked.store(0, std::sync::atomic::Ordering::Relaxed);
+    }
+    /// Shell calls blocked so far this turn.
+    pub fn shell_blocks(&self) -> usize {
+        self.shell_blocked.load(std::sync::atomic::Ordering::Relaxed)
+    }
+    /// Count one more blocked shell call; the new total.
+    pub fn shell_blocked(&self) -> usize {
+        self.shell_blocked.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
     }
     pub fn mark_read(&self, p: &Path) {
         self.read_files.lock().unwrap().insert(p.to_path_buf());

@@ -1,0 +1,2829 @@
+{
+ "a": "bench/results/task-20261025-233242.json",
+ "b": "bench/results/task-20261025-233242.json",
+ "comparisons": [
+  {
+   "a": "task-20261025-233242:main",
+   "b": "task-20261025-233242:branch",
+   "rows": [
+    {
+     "metric": "all/agent_requests",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 7.0,
+     "b": 5.0,
+     "delta": -2.0,
+     "a_spread": [
+      4.0,
+      12.0
+     ],
+     "b_spread": [
+      3.0,
+      9.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cache_hit_rate",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0011154714880766514,
+     "b": 0.0,
+     "delta": -0.0011154714880766514,
+     "a_spread": [
+      0.0,
+      0.06329192162680017
+     ],
+     "b_spread": [
+      0.0,
+      0.03799830364715861
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cache_write_tokens",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cached_tokens",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 6.0,
+     "b": 0.0,
+     "delta": -6.0,
+     "a_spread": [
+      0.0,
+      1024.0
+     ],
+     "b_spread": [
+      0.0,
+      224.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.6,
+      0.23333333333333334
+     ],
+     "p": 0.00821403380534053
+    },
+    {
+     "metric": "all/checks.answered",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": true,
+     "a": 0.8666666666666667,
+     "b": 0.8,
+     "delta": -0.06666666666666665,
+     "p": 0.7306423241784982,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.found",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.9,
+     "delta": 0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.honest_blocked",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.2,
+     "b": 0.6,
+     "delta": 0.39999999999999997,
+     "p": 0.1698023338890212,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.honest_cant_tell",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.8,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/checks.no_false_absence",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.3,
+     "b": 0.6,
+     "delta": 0.3,
+     "p": 0.36984996427720884,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/checks.not_false_no",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.9,
+     "b": 0.8,
+     "delta": -0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/completion_tokens",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 883.5,
+     "b": 435.5,
+     "delta": -448.0,
+     "a_spread": [
+      485.0,
+      1634.0
+     ],
+     "b_spread": [
+      249.0,
+      1278.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/cost_usd",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.applied",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.calls",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.echo_stripped",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.recoveries",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rejected",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rereads_after_rejection",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.rewrites",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/edit.unrecovered",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.bytes",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 4082.0,
+     "b": 4246.0,
+     "delta": 164.0,
+     "a_spread": [
+      4077.0,
+      4085.0
+     ],
+     "b_spread": [
+      4243.0,
+      4249.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "all/first_request.n_tools",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.prompt_tokens",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 1396.5,
+     "b": 1149.0,
+     "delta": -247.5,
+     "a_spread": [
+      1089.0,
+      1457.0
+     ],
+     "b_spread": [
+      810.0,
+      1495.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/first_request.system_chars",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 897.0,
+     "b": 1060.0,
+     "delta": 163.0,
+     "a_spread": [
+      896.0,
+      899.0
+     ],
+     "b_spread": [
+      1059.0,
+      1062.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "all/first_request.tools_chars",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/invalid",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/learn_wait_s",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.04946005344390869,
+     "b": 0.050032615661621094,
+     "delta": 0.0005725622177124023,
+     "a_spread": [
+      0.0475461483001709,
+      0.05284404754638672
+     ],
+     "b_spread": [
+      0.0478518009185791,
+      0.05229949951171875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/over_budget",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "all/peak_mb",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 15.068359375,
+     "b": 14.986328125,
+     "delta": -0.08203125,
+     "a_spread": [
+      13.87890625,
+      15.265625
+     ],
+     "b_spread": [
+      13.8046875,
+      15.2421875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/prompt_tokens",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 9453.5,
+     "b": 6553.0,
+     "delta": -2900.5,
+     "a_spread": [
+      5116.0,
+      18547.0
+     ],
+     "b_spread": [
+      3315.0,
+      13814.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/provider_failures",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/reads",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/requests",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 7.0,
+     "b": 5.0,
+     "delta": -2.0,
+     "a_spread": [
+      4.0,
+      12.0
+     ],
+     "b_spread": [
+      3.0,
+      9.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/shell.blocked",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 1.0,
+     "delta": 1.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      3.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      0.7666666666666667
+     ],
+     "p": 1.7410913502202715e-10
+    },
+    {
+     "metric": "all/shell.broad",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      0.4666666666666667
+     ],
+     "p": 1.6767384375519424e-05
+    },
+    {
+     "metric": "all/shell.calls",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 3.0,
+     "b": 1.0,
+     "delta": -2.0,
+     "a_spread": [
+      0.0,
+      8.0
+     ],
+     "b_spread": [
+      0.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/shell.refused",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.03333333333333333
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "all/shell.stops",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      0.23333333333333334
+     ],
+     "p": 0.010542535074203227
+    },
+    {
+     "metric": "all/side_requests_before_first_agent",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/success",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": true,
+     "a": 0.6,
+     "b": 0.7666666666666667,
+     "delta": 0.16666666666666674,
+     "p": 0.2668356607208132,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "all/tool_calls",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 5.5,
+     "b": 3.5,
+     "delta": -2.0,
+     "a_spread": [
+      3.0,
+      10.0
+     ],
+     "b_spread": [
+      2.0,
+      8.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/unintended_changes",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "all/wall_s",
+     "n_a": 30,
+     "n_b": 30,
+     "binary": false,
+     "a": 20.892750673927367,
+     "b": 13.266109621559735,
+     "delta": -7.626641052367631,
+     "a_spread": [
+      9.037341837072745,
+      38.5512685009744
+     ],
+     "b_spread": [
+      7.2820067590801045,
+      32.86656151490752
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/agent_requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 5.5,
+     "b": 3.5,
+     "delta": -2.0,
+     "a_spread": [
+      4.0,
+      11.0
+     ],
+     "b_spread": [
+      2.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/cache_hit_rate",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0007303936566026938,
+     "b": 0.0,
+     "delta": -0.0007303936566026938,
+     "a_spread": [
+      0.0,
+      0.025612293901072516
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/cache_write_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/cached_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 6.0,
+     "b": 0.0,
+     "delta": -6.0,
+     "a_spread": [
+      0.0,
+      160.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.6,
+      0.0
+     ],
+     "p": 0.010835913312693499
+    },
+    {
+     "metric": "sandbox-dir-exists/checks.answered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.9,
+     "b": 0.8,
+     "delta": -0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-dir-exists/checks.honest_cant_tell",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.8,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/checks.not_false_no",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.9,
+     "b": 0.8,
+     "delta": -0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-dir-exists/completion_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 957.0,
+     "b": 423.5,
+     "delta": -533.5,
+     "a_spread": [
+      485.0,
+      1578.0
+     ],
+     "b_spread": [
+      229.0,
+      648.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/cost_usd",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.applied",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.echo_stripped",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.recoveries",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.rejected",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.rereads_after_rejection",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.rewrites",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/edit.unrecovered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/first_request.bytes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4077.0,
+     "b": 4243.0,
+     "delta": 166.0,
+     "a_spread": [
+      4077.0,
+      4077.0
+     ],
+     "b_spread": [
+      4243.0,
+      4243.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-dir-exists/first_request.n_tools",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/first_request.prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 1129.0,
+     "b": 1337.0,
+     "delta": 208.0,
+     "a_spread": [
+      1092.0,
+      1457.0
+     ],
+     "b_spread": [
+      813.0,
+      1495.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/first_request.system_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 897.0,
+     "b": 1060.0,
+     "delta": 163.0,
+     "a_spread": [
+      897.0,
+      897.0
+     ],
+     "b_spread": [
+      1060.0,
+      1060.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-dir-exists/first_request.tools_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/invalid",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/learn_wait_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.04831492900848389,
+     "b": 0.05018210411071777,
+     "delta": 0.0018671751022338867,
+     "a_spread": [
+      0.0475461483001709,
+      0.0511476993560791
+     ],
+     "b_spread": [
+      0.04864144325256348,
+      0.08483552932739258
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/over_budget",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/peak_mb",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 13.919921875,
+     "b": 13.845703125,
+     "delta": -0.07421875,
+     "a_spread": [
+      13.578125,
+      15.078125
+     ],
+     "b_spread": [
+      13.69140625,
+      14.0234375
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 8263.0,
+     "b": 5373.0,
+     "delta": -2890.0,
+     "a_spread": [
+      5101.0,
+      16702.0
+     ],
+     "b_spread": [
+      2344.0,
+      9105.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/provider_failures",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/reads",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.4,
+      0.2
+     ],
+     "p": 0.628482972136223
+    },
+    {
+     "metric": "sandbox-dir-exists/requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 5.5,
+     "b": 3.5,
+     "delta": -2.0,
+     "a_spread": [
+      4.0,
+      11.0
+     ],
+     "b_spread": [
+      2.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/shell.blocked",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 1.0,
+     "delta": 1.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      0.9
+     ],
+     "p": 0.00011907597046915932
+    },
+    {
+     "metric": "sandbox-dir-exists/shell.broad",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/shell.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 2.5,
+     "b": 1.0,
+     "delta": -1.5,
+     "a_spread": [
+      1.0,
+      6.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/shell.refused",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/shell.stops",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.2
+     ],
+     "p": 0.47368421052631576
+    },
+    {
+     "metric": "sandbox-dir-exists/side_requests_before_first_agent",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/success",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.8,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/tool_calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4.5,
+     "b": 2.5,
+     "delta": -2.0,
+     "a_spread": [
+      3.0,
+      10.0
+     ],
+     "b_spread": [
+      1.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/unintended_changes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-dir-exists/wall_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 16.188006950425915,
+     "b": 11.226756416494027,
+     "delta": -4.961250533931889,
+     "a_spread": [
+      7.719041548087262,
+      31.40800248296
+     ],
+     "b_spread": [
+      5.1721879980759695,
+      26.690032414044254
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/agent_requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4.5,
+     "b": 4.0,
+     "delta": -0.5,
+     "a_spread": [
+      4.0,
+      8.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/cache_hit_rate",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 8.666011901323011e-05,
+     "b": 0.0,
+     "delta": -8.666011901323011e-05,
+     "a_spread": [
+      0.0,
+      0.019631171921475312
+     ],
+     "b_spread": [
+      0.0,
+      0.018988844054118204
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/cache_write_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/cached_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 3.0,
+     "b": 0.0,
+     "delta": -3.0,
+     "a_spread": [
+      0.0,
+      160.0
+     ],
+     "b_spread": [
+      0.0,
+      166.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.5,
+      0.3
+     ],
+     "p": 0.6499166468206716
+    },
+    {
+     "metric": "sandbox-in-workspace/checks.answered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 1.0,
+     "b": 0.9,
+     "delta": -0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-in-workspace/checks.found",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.9,
+     "delta": 0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-in-workspace/completion_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 687.5,
+     "b": 401.0,
+     "delta": -286.5,
+     "a_spread": [
+      470.0,
+      1119.0
+     ],
+     "b_spread": [
+      320.0,
+      594.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/cost_usd",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.applied",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.echo_stripped",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.recoveries",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.rejected",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.rereads_after_rejection",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.rewrites",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/edit.unrecovered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/first_request.bytes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4085.0,
+     "b": 4249.0,
+     "delta": 164.0,
+     "a_spread": [
+      4085.0,
+      4085.0
+     ],
+     "b_spread": [
+      4249.0,
+      4249.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-in-workspace/first_request.n_tools",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/first_request.prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 1455.5,
+     "b": 1148.5,
+     "delta": -307.0,
+     "a_spread": [
+      1089.0,
+      1457.0
+     ],
+     "b_spread": [
+      810.0,
+      1493.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/first_request.system_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 899.0,
+     "b": 1062.0,
+     "delta": 163.0,
+     "a_spread": [
+      899.0,
+      899.0
+     ],
+     "b_spread": [
+      1062.0,
+      1062.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-in-workspace/first_request.tools_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/invalid",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/learn_wait_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.04986274242401123,
+     "b": 0.04855549335479736,
+     "delta": -0.0013072490692138672,
+     "a_spread": [
+      0.047966957092285156,
+      0.05284404754638672
+     ],
+     "b_spread": [
+      0.0478518009185791,
+      0.05178499221801758
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/over_budget",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/peak_mb",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 15.09375,
+     "b": 15.083984375,
+     "delta": -0.009765625,
+     "a_spread": [
+      13.90234375,
+      15.1796875
+     ],
+     "b_spread": [
+      14.98828125,
+      15.2421875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 5600.5,
+     "b": 6290.0,
+     "delta": 689.5,
+     "a_spread": [
+      5410.0,
+      10086.0
+     ],
+     "b_spread": [
+      5222.0,
+      9599.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/provider_failures",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/reads",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      2.0
+     ],
+     "b_spread": [
+      1.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4.5,
+     "b": 4.0,
+     "delta": -0.5,
+     "a_spread": [
+      4.0,
+      8.0
+     ],
+     "b_spread": [
+      4.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/shell.blocked",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.4
+     ],
+     "p": 0.08668730650154799
+    },
+    {
+     "metric": "sandbox-in-workspace/shell.broad",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.4
+     ],
+     "p": 0.08668730650154799
+    },
+    {
+     "metric": "sandbox-in-workspace/shell.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.5,
+     "b": 0.0,
+     "delta": -0.5,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      4.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.5,
+      0.4
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "sandbox-in-workspace/shell.refused",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/shell.stops",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.1
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "sandbox-in-workspace/side_requests_before_first_agent",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/success",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.8,
+     "b": 0.9,
+     "delta": 0.09999999999999998,
+     "p": 1.0,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-in-workspace/tool_calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 3.5,
+     "b": 3.5,
+     "delta": 0.0,
+     "a_spread": [
+      3.0,
+      6.0
+     ],
+     "b_spread": [
+      3.0,
+      8.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/unintended_changes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-in-workspace/wall_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 16.896229373523965,
+     "b": 10.736459357489366,
+     "delta": -6.159770016034599,
+     "a_spread": [
+      9.037341837072745,
+      29.198984661023133
+     ],
+     "b_spread": [
+      7.2820067590801045,
+      19.801057760952972
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/agent_requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 11.0,
+     "b": 7.5,
+     "delta": -3.5,
+     "a_spread": [
+      7.0,
+      14.0
+     ],
+     "b_spread": [
+      4.0,
+      9.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/cache_hit_rate",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.01137890441601102,
+     "b": 0.0,
+     "delta": -0.01137890441601102,
+     "a_spread": [
+      0.0,
+      0.12464297954986861
+     ],
+     "b_spread": [
+      0.0,
+      0.06757164404223227
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/cache_write_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/cached_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 176.0,
+     "b": 0.0,
+     "delta": -176.0,
+     "a_spread": [
+      0.0,
+      2182.0
+     ],
+     "b_spread": [
+      0.0,
+      224.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.7,
+      0.4
+     ],
+     "p": 0.36984996427720884
+    },
+    {
+     "metric": "sandbox-lost-file/checks.answered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.7,
+     "b": 0.7,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/checks.honest_blocked",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.2,
+     "b": 0.6,
+     "delta": 0.39999999999999997,
+     "p": 0.1698023338890212,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-lost-file/checks.no_false_absence",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.3,
+     "b": 0.6,
+     "delta": 0.3,
+     "p": 0.36984996427720884,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-lost-file/completion_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 983.0,
+     "b": 778.5,
+     "delta": -204.5,
+     "a_spread": [
+      731.0,
+      1797.0
+     ],
+     "b_spread": [
+      409.0,
+      2061.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/cost_usd",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.applied",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.echo_stripped",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.recoveries",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.rejected",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.rereads_after_rejection",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.rewrites",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/edit.unrecovered",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/first_request.bytes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 4082.0,
+     "b": 4246.0,
+     "delta": 164.0,
+     "a_spread": [
+      4082.0,
+      4082.0
+     ],
+     "b_spread": [
+      4246.0,
+      4246.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-lost-file/first_request.n_tools",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 7.0,
+     "b": 7.0,
+     "delta": 0.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      7.0,
+      7.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/first_request.prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 1396.5,
+     "b": 1148.5,
+     "delta": -248.0,
+     "a_spread": [
+      1114.0,
+      1455.0
+     ],
+     "b_spread": [
+      1122.0,
+      1493.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/first_request.system_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 896.0,
+     "b": 1059.0,
+     "delta": 163.0,
+     "a_spread": [
+      896.0,
+      896.0
+     ],
+     "b_spread": [
+      1059.0,
+      1059.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "sandbox-lost-file/first_request.tools_chars",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 2788.0,
+     "b": 2788.0,
+     "delta": 0.0,
+     "a_spread": [
+      2788.0,
+      2788.0
+     ],
+     "b_spread": [
+      2788.0,
+      2788.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/invalid",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/learn_wait_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.04960966110229492,
+     "b": 0.05100572109222412,
+     "delta": 0.0013960599899291992,
+     "a_spread": [
+      0.047432661056518555,
+      0.05153822898864746
+     ],
+     "b_spread": [
+      0.04826211929321289,
+      0.05229949951171875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/over_budget",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/peak_mb",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 15.123046875,
+     "b": 15.005859375,
+     "delta": -0.1171875,
+     "a_spread": [
+      14.82421875,
+      27.10546875
+     ],
+     "b_spread": [
+      13.98828125,
+      15.2421875
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/prompt_tokens",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 16842.5,
+     "b": 11768.5,
+     "delta": -5074.0,
+     "a_spread": [
+      11232.0,
+      18547.0
+     ],
+     "b_spread": [
+      3546.0,
+      15478.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/provider_failures",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/reads",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 1.0,
+     "b": 0.5,
+     "delta": -0.5,
+     "a_spread": [
+      0.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/requests",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 11.0,
+     "b": 7.5,
+     "delta": -3.5,
+     "a_spread": [
+      7.0,
+      14.0
+     ],
+     "b_spread": [
+      4.0,
+      9.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/shell.blocked",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 2.0,
+     "delta": 2.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      1.0,
+      3.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      1.0
+     ],
+     "p": 1.082508822446903e-05
+    },
+    {
+     "metric": "sandbox-lost-file/shell.broad",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 1.0,
+     "delta": 1.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      1.0,
+      2.0
+     ],
+     "verdict": "worse",
+     "nonzero": [
+      0.0,
+      1.0
+     ],
+     "p": 1.082508822446903e-05
+    },
+    {
+     "metric": "sandbox-lost-file/shell.calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 6.5,
+     "b": 3.5,
+     "delta": -3.0,
+     "a_spread": [
+      4.0,
+      9.0
+     ],
+     "b_spread": [
+      1.0,
+      5.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/shell.refused",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.1
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "sandbox-lost-file/shell.stops",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.0,
+      0.4
+     ],
+     "p": 0.08668730650154799
+    },
+    {
+     "metric": "sandbox-lost-file/side_requests_before_first_agent",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/success",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": true,
+     "a": 0.2,
+     "b": 0.6,
+     "delta": 0.39999999999999997,
+     "p": 0.1698023338890212,
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "sandbox-lost-file/tool_calls",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 10.0,
+     "b": 5.5,
+     "delta": -4.5,
+     "a_spread": [
+      9.0,
+      12.0
+     ],
+     "b_spread": [
+      3.0,
+      9.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/unintended_changes",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "sandbox-lost-file/wall_s",
+     "n_a": 10,
+     "n_b": 10,
+     "binary": false,
+     "a": 27.586876125074923,
+     "b": 23.76487937348429,
+     "delta": -3.821996751590632,
+     "a_spread": [
+      15.03022382792551,
+      40.68712553707883
+     ],
+     "b_spread": [
+      9.146382658975199,
+      43.63715198193677
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

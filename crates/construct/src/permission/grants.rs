@@ -1,7 +1,8 @@
 //! What has been approved for the session, and what no prompt may offer.
 //!
-//! Protected places (`~/.ssh`, `~/.gnupg`, the bench key files) are never
-//! shown in a prompt, never approved by a session grant, and never inside a
+//! Protected places (`~/.ssh`, `~/.gnupg`, the bench key files, and
+//! construct's own home, whose config, journals and memory are reached through
+//! construct's tools, #64) are never shown in a prompt, never approved by a session grant, and never inside a
 //! folder grant: the only way in is a path typed into `config.toml`, which
 //! `Policy::new` still honours. An agent that has read the bench keys once is
 //! the reason this list exists (docs/adr/0004).
@@ -15,8 +16,18 @@ use std::path::{Path, PathBuf};
 const PROTECTED: &[&str] = &[".ssh", ".gnupg", ".config/construct-bench.key", ".config/construct-bench-jev.key"];
 
 fn protected_roots() -> Vec<PathBuf> {
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else { return vec![] };
-    PROTECTED.iter().map(|r| Policy::real(&home.join(r))).collect()
+    let mut out: Vec<PathBuf> = match std::env::var_os("HOME").map(PathBuf::from) {
+        Some(home) => PROTECTED.iter().map(|r| Policy::real(&home.join(r))).collect(),
+        None => vec![],
+    };
+    out.extend(crate::config::Paths::resolve().ok().map(|p| Policy::real(&p.home)));
+    out
+}
+
+/// Whether `p` is inside construct's own home (config, journals, memory,
+/// skills), which its tools reach and a prompt never offers.
+pub fn in_construct_home(p: &Path) -> bool {
+    crate::config::Paths::resolve().is_ok_and(|c| Policy::real(p).starts_with(Policy::real(&c.home)))
 }
 
 /// Whether `p` is a place a prompt can't approve.
@@ -102,6 +113,8 @@ mod tests {
         assert!(protected(&home.join(".gnupg")));
         assert!(protected(&home.join(".config/construct-bench.key")));
         assert!(!protected(&home.join(".aws/config")));
+        let construct = crate::config::Paths::resolve().unwrap().home;
+        assert!(protected(&construct.join("config.toml")));
         // The folder holding a protected file is not on offer; one that
         // merely sits beside it is.
         assert_eq!(folder_for(&home.join(".config/construct-bench.key")), None);

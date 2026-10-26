@@ -31,6 +31,13 @@ fn quit(d: &mut drive::Driver) {
     std::thread::sleep(std::time::Duration::from_millis(300));
 }
 
+/// `cat` of a path the command only works out when it runs, so nothing
+/// before it can see the path: only the denial in its output names it.
+fn hidden_cat(p: &Path) -> String {
+    let octal: String = p.display().to_string().bytes().map(|b| format!("\\{b:03o}")).collect();
+    format!("cat \"$(printf '{octal}')\"")
+}
+
 /// Where a test's file outside the work dir will be (known before its `Env`
 /// exists, because the scripted model has to name it).
 fn outside_path(test: &str, name: &str) -> PathBuf {
@@ -227,7 +234,9 @@ fn a_headless_run_still_denies_and_records_no_decision_nobody_made() {
 #[test]
 fn a_shell_command_the_sandbox_stopped_is_offered_again_with_the_path() {
     let file = outside_path("perm-shell", "d.txt");
-    let cmd = format!("cat {}", file.display());
+    // Built at run time, so it can't be seen before the command runs: only
+    // the denial in its output names it.
+    let cmd = hidden_cat(&file);
     let env = Env::new(
         "perm-shell",
         json!({ "steps": [{ "call": "shell", "args": { "command": cmd } }, { "text": "all done" }] }),
@@ -687,7 +696,8 @@ fn ask_scout_script() -> String {
 #[test]
 fn a_childs_shell_command_runs_again_after_approval_and_succeeds() {
     let file = outside_path("perm-child-shell", "d.txt");
-    let cmd = format!("cat {}", file.display());
+    // Named only at run time, so the child learns of it from the denial.
+    let cmd = hidden_cat(&file);
     let (env, mut d) = child_tui(
         "perm-child-shell",
         json!({ "call": "shell", "args": { "command": cmd } }),
@@ -707,6 +717,31 @@ fn a_childs_shell_command_runs_again_after_approval_and_succeeds() {
     quit(&mut d);
     let got = tool_results(&env, &env.sessions()[1]);
     assert!(got.iter().any(|r| r.contains("delta")), "{got:?}");
+}
+
+#[test]
+fn a_childs_shell_command_naming_an_outside_path_asks_the_parent_before_it_runs() {
+    let file = outside_path("perm-child-ahead", "d.txt");
+    let cmd = format!("cat {} 2>/dev/null || echo missing", file.display());
+    let (env, mut d) = child_tui(
+        "perm-child-ahead",
+        json!({ "call": "shell", "args": { "command": cmd } }),
+        "tools = [\"shell\"]",
+        &[],
+    );
+    make(&file, "delta\n");
+    play(
+        &mut d,
+        &format!(
+            "{}wait \"PERMISSION\" {}\nexpect \"subagent\"\nexpect \"wants to read paths outside the sandbox\"\nsleep 600\ntype y\nwait \"the scout reported\" {}\n",
+            ask_scout_script(),
+            budget(10000),
+            budget(10000)
+        ),
+    );
+    quit(&mut d);
+    let got = tool_results(&env, &env.sessions()[1]);
+    assert!(got.iter().any(|r| r.contains("delta") && !r.contains("missing")), "{got:?}");
 }
 
 #[test]
@@ -738,4 +773,93 @@ fn a_childs_shell_still_cannot_open_tcp_beyond_its_endpoint() {
     let got = tool_results(&env, &env.sessions()[1]);
     assert!(got.iter().any(|r| r.contains("rc=1")), "{got:?}");
     assert!(listener.set_nonblocking(true).is_ok() && listener.accept().is_err(), "the child connected");
+}
+
+#[test]
+fn a_shell_command_naming_an_outside_path_asks_before_it_runs() {
+    let dir = outside_path("perm-shell-ahead", "sibling");
+    let cmd = format!("ls {} 2>/dev/null || echo \"Directory does not exist\"", dir.display());
+    let env = Env::new(
+        "perm-shell-ahead",
+        json!({ "steps": [{ "call": "shell", "args": { "command": cmd } }, { "text": "all done" }] }),
+    );
+    make(&dir.join("other.txt"), "more\n");
+    let mut d = tui(&env, &[]);
+    play(
+        &mut d,
+        &format!(
+            r#"
+wait "ask construct" {}
+type list the sibling
+key enter
+wait "PERMISSION" {}
+expect "wants to read paths outside the sandbox"
+expect "Allow and run the command"
+gone "runs the command again" 100
+sleep 600
+type y
+wait "all done" {}
+"#,
+            budget(3000),
+            budget(8000),
+            budget(5000)
+        ),
+    );
+    quit(&mut d);
+    let got = results(&env);
+    assert!(got[0].contains("other.txt") && !got[0].contains("does not exist"), "{}", got[0]);
+    assert!(!got[0].contains("[sandbox:"), "{}", got[0]);
+    let rows = access_rows(&env);
+    assert_eq!((rows[0]["tool"].as_str(), rows[0]["decision"].as_str()), (Some("shell"), Some("once")));
+}
+
+/// #64: headless, nobody can be asked, and the commands hide their errors
+/// the way models write them. The model is still told what the sandbox kept
+/// from it, and from the third blocked call in a turn to stop and ask.
+#[test]
+fn hidden_sandbox_denials_still_reach_the_model_and_a_hunt_is_stopped() {
+    let dir = outside_path("perm-shell-hidden", "ptest");
+    let shell = |cmd: String| json!({ "call": "shell", "args": { "command": cmd } });
+    let env = Env::new("perm-shell-hidden", json!({ "steps": [] }));
+    let skill = env.home.join("skills/demo/SKILL.md");
+    let steps = json!({ "steps": [
+        shell(format!("cat {}", skill.display())),
+        shell(format!("ls -la {} 2>/dev/null || echo \"ptest dir does not exist\"", dir.display())),
+        shell("find / -maxdepth 1 -name nothing-here 2>/dev/null".into()),
+        shell(format!("ls -la {} 2>/dev/null", env.home.display())),
+        // Past the stop: named outside, so not run at all (the marker stays unmade).
+        shell(format!("touch ran-anyway; ls {} 2>/dev/null", dir.display())),
+        // Nothing outside named: runs as ever.
+        shell("echo still-works".into()),
+        { "text": "all done" }
+    ]});
+    let env = Env::new("perm-shell-hidden", steps);
+    make(&skill, "---\nname: demo\n---\nskill body\n");
+    make(&dir.join("notes.txt"), "n\n");
+    let out = env.run(&["run", "--json", "--no-learn", "find my notes"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let got = results(&env);
+    // A skill's own files are readable by the shell.
+    assert!(got[0].contains("skill body") && !got[0].contains("[sandbox:"), "{}", got[0]);
+    // Exit 0, the error thrown away, and a fallback that isn't true.
+    assert!(got[1].contains("ptest dir does not exist"), "{}", got[1]);
+    assert!(got[1].contains("is outside the sandbox") && got[1].contains("doesn't mean it isn't there"), "{}", got[1]);
+    assert!(got[2].contains("only the workspace, system paths and toolchains are visible under /"), "{}", got[2]);
+    assert!(!got[2].contains("Stop searching"), "{}", got[2]);
+    assert!(got[3].contains("construct's own files") && got[3].contains("skill_manage"), "{}", got[3]);
+    assert!(got[3].contains("3 shell calls this turn were blocked") && got[3].contains("ask the user"), "{}", got[3]);
+    assert!(got[4].contains("not run") && got[4].contains("ask the user"), "{}", got[4]);
+    assert!(!env.work.join("ran-anyway").exists(), "a refused command must not run");
+    assert!(got[5].contains("still-works") && !got[5].contains("[sandbox:"), "{}", got[5]);
+    assert!(access_rows(&env).is_empty(), "nobody was asked");
+    // The same, as data for scorers: one row per blocked call, the stop from the third.
+    let boxed: Vec<Value> = env
+        .journal()
+        .into_iter()
+        .filter(|r| r.ty == "tool_end" && r.payload["name"] == "shell")
+        .filter_map(|r| r.payload["data"].get("sandbox").cloned())
+        .collect();
+    assert_eq!(boxed.len(), 4, "{boxed:?}");
+    assert_eq!(boxed.iter().map(|b| b["stop"] == true).collect::<Vec<_>>(), [false, false, true, true]);
+    assert_eq!(boxed[3]["refused"], true);
 }
