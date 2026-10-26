@@ -58,6 +58,35 @@ For how to actually build, run, and test it — including running the whole thin
 against a scripted model with no API key — see **[AGENTS.md](AGENTS.md)**. That's
 the working manual; this file is the why.
 
+## Try your changes interactively
+
+```sh
+./scripts/try.py
+```
+
+Builds the current checkout, copies the fresh binary and a small Python project
+into `.construct/try/run-…/`, and opens the construct TUI ready to type. The
+default is [Claude Haiku 5.5 on OpenRouter](https://openrouter.ai/anthropic/claude-haiku-5.5).
+It uses `OPENROUTER_API_KEY` from your environment or OS keyring, or your existing
+`~/.config/construct-bench.key`. To save a key once, run
+`target/debug/construct secrets set OPENROUTER_API_KEY` (reads the key from stdin).
+
+The sample has a broken `mean` function and tests: try asking construct to run
+the tests and fix it. Each launch gets its own project copy, config, memory,
+and journal, with the workspace sandbox enabled. The test folder is printed
+before launch and kept after exit so you can inspect the results.
+
+```sh
+./scripts/try.py --project /path/to/project  # test in a copy of your own project
+./scripts/try.py --model anthropic/claude-haiku-5.5
+./scripts/try.py --release                 # optimized build; slower to compile
+```
+
+Project copies start a new Git repository and omit `.git`, `.construct`, `.env*`,
+`*.key`, `*.pem`, `target`, `node_modules`, `.venv`, and `__pycache__`; install dependencies in the copy if
+needed. Extra construct arguments go after `--`. Use `--base-url` for a local
+or scripted endpoint (credentials then use `OPENAI_API_KEY`).
+
 ## What's benchmarked (and what isn't, yet)
 
 Honesty clause, because it's easy to overclaim:
