@@ -1,0 +1,17 @@
+#!/bin/sh
+# Seed a new worktree's target/ from the main checkout's, copy-on-write, so the
+# first build reuses every compiled third-party crate instead of starting cold
+# (and a worktree costs a few GB, not a full copy). Runs only on a fresh
+# checkout (previous HEAD is all zeros, which is what `git worktree add` and
+# `git clone` pass). Any failure leaves no target/ and cargo builds from scratch
+# as before: reflink needs the same btrfs/xfs filesystem as the main checkout.
+# Enabled by `git config core.hooksPath .githooks`; `cargo xtask check` sets it.
+case "$1" in *[!0]*) exit 0 ;; esac
+[ -e target ] && exit 0
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+main=$(dirname "$common")
+[ "$main" != "$(pwd -P)" ] && [ -d "$main/target" ] || exit 0
+if ! cp -a --reflink=always "$main/target" target 2>/dev/null; then
+    rm -rf target
+fi
+exit 0
