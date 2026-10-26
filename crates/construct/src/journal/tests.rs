@@ -1,3 +1,5 @@
+//! The journal's promise, in tests: append then read back in seq order,
+//! rewind, full-text search, one migration, and per-directory sessions.
 use super::*;
 use crate::llm::Message;
 

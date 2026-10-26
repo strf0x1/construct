@@ -1,3 +1,5 @@
+//! The observation ledger: what a session taught, appended as JSONL and kept
+//! until the same problem *class* recurs in another session.
 use super::digest;
 use super::prompts::OBSERVE;
 use crate::config::{Config, Paths};
@@ -37,7 +39,9 @@ pub(super) fn append_ledger(paths: &Paths, obs: &[Observation]) {
         return;
     }
     let p = ledger_path(paths);
-    let _ = std::fs::create_dir_all(p.parent().unwrap());
+    if let Some(dir) = p.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
         for o in obs {
             let _ = writeln!(f, "{}", serde_json::to_string(o).unwrap_or_default());

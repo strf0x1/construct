@@ -1,3 +1,5 @@
+//! The review pass: one LLM turn over a session digest that may only touch
+//! memory and skills. Skills come from recurrence, not from one session.
 use super::gate::skills_loaded;
 use super::ledger::{append_ledger, ledger, observe, recurrences};
 use super::prompts::{MEMORY_FOCUS, NOTHING, SKILL_FOCUS, SYSTEM};
