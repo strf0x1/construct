@@ -21,6 +21,11 @@ itself. An ADR is not edited after the fact except to mark it superseded; a
 changed decision is a new ADR. Check here before changing a behaviour that
 looks arbitrary: it may have been measured.
 
+## rust-eval.md
+
+How to score a model on Rust work in this repo: the `rust-replay-*` bench
+tasks, the convention lint, and the rubric for the blind judge pass.
+
 ## How a proposal becomes an ADR
 
 When a proposal (or a step of one) lands, the decision it made gets an ADR in

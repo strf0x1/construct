@@ -1,0 +1,38 @@
+# Replay of PR #43 (the journal and the history tools): redo a merged change from its
+# intent; the PR's own tests score it (bench/replay.py, docs/rust-eval.md).
+git = "6628328c8a4536169d7d153bfae7ad719ad4e11c"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Give the model two ways into this project's journal, both in `Group::History` so they are routed on demand and the first request stays small, and drop the `chatstrata` runtime dependency.
+
+1. `recall_result`: return the original output of an earlier tool call by its call id (argument `id`), from the journal, so it works in a later session even if the file changed since.
+2. `journal_query` (argument `sql`): run one read-only `SELECT` against this project's journal. Open it read-only plus `PRAGMA query_only`, with a statement timeout via a progress handler, and a row and byte cap on the result. The tool description carries the compact schema (table, columns, the `json_extract` idiom, the FTS5 table), so a small model can write a query without exploring first.
+
+Exact behaviour the model will rely on:
+- Results are text: a header line of column names joined by ` | `, then one line per row the same way (e.g. `type | count(*)` then `head | 1`). A single column has no separator (`type` then `user`).
+- Anything but one read-only SELECT is refused with a message containing `journal_query runs one read-only SELECT`: that covers `DELETE`, `PRAGMA ...`, `ATTACH`, a `WITH ... DELETE`, two statements, and table-valued pragma functions such as `pragma_journal_mode`. The journal must be untouched afterwards (still in WAL mode).
+- A query running past 5 seconds is stopped with an error containing `query stopped after 5 s`.
+- Results are capped at 200 rows and 16 KB; a cut result ends with a note starting `[result cut at 200 rows` or `[result cut at 16 KB`.
+
+Remove the `chatstrata` shell-out in `crates/construct/src/tools/history.rs` (`session_search`); `journal_query` replaces it. Drop "chatstrata" from the local router's History keywords. A history turn must work with no `chatstrata` binary on `PATH`.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 43
+# the PR turned on rusqlite's "hooks" feature (the progress handler) in the root manifest
+reference_paths = ["crates", "Cargo.toml"]
+merge = "845a444765292607a0e5b7e730f51779490358cd"
+hidden = ["crates/construct-dev/tests/e2e.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "e2e"
+names = ["recall_result_returns_an_earlier_turns_tool_output", "journal_query_returns_rows", "journal_query_refuses_anything_but_one_select", "journal_query_stops_a_slow_query", "journal_query_cuts_an_oversized_result_with_a_note", "a_history_turn_works_without_chatstrata_on_path"]

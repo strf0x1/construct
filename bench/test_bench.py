@@ -110,7 +110,7 @@ class Tasks(unittest.TestCase):
         task = tasklib.load(name)
         vars = tasklib.make_vars(task, random.Random(7))
         work = self.tmp / name
-        tasklib.materialize(task, work, vars)
+        tasklib.materialize(task, work, vars, warm=False)
         return task, vars, work
 
     def test_every_task_loads_and_fills_its_vars(self):
@@ -119,8 +119,9 @@ class Tasks(unittest.TestCase):
                 task, vars, work = self.materialize(name)
                 self.assertTrue(task.turns or task.spec.get("sessions"), "a task needs turns or sessions")
                 self.assertTrue((task.dir / "check.sh").exists())
-                left = [p for p in work.rglob("*") if p.is_file() and ".git" not in p.parts and "{{" in p.read_text(errors="ignore")]
-                self.assertEqual(left, [], "every {{var}} is filled")
+                if not task.git:  # a tree from git has no vars (and Rust's `{{` is an escaped brace)
+                    left = [p for p in work.rglob("*") if p.is_file() and ".git" not in p.parts and "{{" in p.read_text(errors="ignore")]
+                    self.assertEqual(left, [], "every {{var}} is filled")
                 self.assertEqual(tasklib.changed_paths(work), [], "the fixture is committed")
 
     def test_var_templates(self):

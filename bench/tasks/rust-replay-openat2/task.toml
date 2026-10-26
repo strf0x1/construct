@@ -1,0 +1,37 @@
+# Replay of PR #82 (the sandbox and the file tools): redo a merged change from its
+# intent; the PR's own tests score it (bench/replay.py, docs/rust-eval.md).
+git = "d154946f91b8f220e1f27e636a49cf56e16c82fc"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Close the check-then-open symlink race in the file tools.
+
+File tools check a path against the sandbox policy, then open it by name. A parallel shell call in the same session, or a delegated child (ADR 0017 stopped Landlock-locking the child's filesystem), can swap a symlink in between the check and the open, so the open lands outside the allowed roots.
+
+Fix (decided in ADR 0017): open via `openat2` with `RESOLVE_BENEATH` relative to the granted root (plus `O_NOFOLLOW` for single files), so the kernel rejects an escape at open time, in the session and the child alike. Fall back to canonicalize-and-check where `openat2` isn't available (kernels before 5.6). Call sites: `tools/read.rs`, `write.rs`, `edit/`, `edit/hashline/fsio.rs`, and the `fs.rs` walker (grep/glob).
+
+Put the opening in a new public module, `construct::sandbox::open`, that is the only way the file tools touch the filesystem. It must offer at least:
+- `read_file(&Policy, &Path) -> Result<Vec<u8>, String>`
+- `write_file(&Policy, &Path, &[u8]) -> Result<(), String>` (creates missing parent directories inside the grant)
+- `replace_file(&Policy, &Path, &[u8], mode: u32) -> Result<(), String>`: an atomic replace (temp file plus rename through a directory fd) that sets the file's mode and leaves no `.tmp` file behind.
+A refusal's message contains `blocked by the sandbox`. A path the user approved outside the workspace (`Policy::widened`) works, but only as far as the grant: a link out of an approved folder, or a neighbour of an approved single file, is refused.
+
+Through every file tool (read, write, edit under both editors, grep, glob), nothing may read, list, search or write through a link that leaves the workspace; links that stay inside keep working.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 82
+merge = "6a7a3cdcbf75859622aaa949b40594253f568aba"
+hidden = ["crates/construct/tests/symlink_farm.rs"]
+
+[[replay.tests]]
+package = "construct"
+test = "symlink_farm"
+names = ["nothing_leaves_the_workspace_through_a_link", "a_link_that_stays_inside_still_works", "a_file_flipping_to_a_link_is_never_followed", "an_approved_outside_path_works_but_only_as_far_as_the_grant", "replace_keeps_the_mode_and_leaves_no_temp_file"]

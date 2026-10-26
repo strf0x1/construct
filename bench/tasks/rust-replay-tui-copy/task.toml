@@ -1,0 +1,31 @@
+# Replay of PR #78 (the TUI): redo a merged change from its
+# intent; the PR's own tests score it (bench/replay.py, docs/rust-eval.md).
+git = "b52173c6fa53212aaed4814743c917ef4f25d2c5"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""In the TUI I can't select text to copy an error out. The TUI turns on mouse capture (`EnableMouseCapture` in `crates/construct/src/tui/mod.rs`) to get scroll-wheel events, and while capture is on the terminal sends every click and drag to the app instead of selecting.
+
+Wanted:
+- Scroll without mouse capture: use alternate-scroll mode (`ESC [ ?1007 h` when the TUI starts, `ESC [ ?1007 l` on every exit path), where the terminal turns the wheel into up/down arrow keys in the alternate screen. Mouse capture stays off (no `ESC [ ?1000 h`), so native selection works.
+- Up/Down then scroll the transcript (the wheel arrives as those keys and can't be told apart from them). Move input-history navigation to ctrl+p / ctrl+n.
+- `/copy` puts the last assistant message on the clipboard, and `/copy error` the last failed tool's output, using OSC 52 (`ESC ] 52 ; c ; <base64 of the text> BEL`), which also works over SSH. Confirm with a notice that starts `copied last reply` or `copied last tool error`.
+- Mention the new keys, `/copy`, and shift-drag selection in `/help`.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 78
+merge = "d154946f91b8f220e1f27e636a49cf56e16c82fc"
+hidden = ["crates/construct-dev/tests/e2e.rs", "crates/construct-dev/src/drive.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "e2e"
+names = ["tui_wheel_scrolls_without_mouse_capture_and_copy_writes_osc52"]
