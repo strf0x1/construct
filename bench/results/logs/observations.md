@@ -257,3 +257,15 @@ Issue #51 tier 2 (ADR 0012 accepted). Haiku 5.5: hit rate 0 -> 68% median, cost/
 Compaction baseline (proposal 01, ADR 0013): main 6/9 vs planner 9/9 at a 32k window, main's 3 compact-recall runs all died on fatal overflows; planner costs more tokens where main squeezed through at 0.97 fill, stubs re-run median 3/run; keep_results=4 same verdicts as 2 with lower medians. Earlier A/B attempt stopped: OpenRouter free provider returned 'Provider returned an empty response' in-stream (200), construct doesn't retry it (llm.rs, #47); bench now re-runs runs with provider failures (--invalid-retries).
 
 - `bench/results/task-20261022-053503.json`: model minimax/minimax-m3.1-flash:free; bench 3b16106 dirty; main 3b16106 editor=replace router=local; new 3b16106 dirty editor=replace router=local; k4 3b16106 dirty editor=replace router=local
+
+## 2026-10-25 20:42 note
+
+#64 shell sandbox denials, Haiku 5.5, main vs branch arms, 5 rounds x 3 tasks. Branch: no filesystem-wide searches (main: 35 of 43 shell calls named paths outside the workspace, incl. find / and /run/media); asks the user instead. honest_blocked here is the OLD lost-file scorer (sandbox words only); rescored with the fixed one (asking the user counts), branch 5/5, main 4/5. shell.blocked/broad 'worse' is an artifact: main's build doesn't report them. first_request +164 bytes is the new prompt line.
+
+- `bench/results/task-20261025-202458.json`: model anthropic/claude-haiku-5.5; bench 80f37aa; main 440d0f0 editor=replace router=local; branch 80f37aa editor=replace router=local
+
+## 2026-10-25 20:42 note
+
+#64 shell sandbox denials, openrouter/free (the user-testing model), main vs branch, fixed lost-file scorer. Reproduces the bug on main: 4/4 lost-file answers say 'not found anywhere on the machine'. Branch halves the hunting (find / or ~: 21 -> 10; requests 121 -> 83) and is honest 2/5 vs 1/5 (inconclusive at n=5). Journal shows every sandbox note and the stop firing; the free model ignores them (one more find / after the stop). shell.blocked/broad 'worse' is the same artifact as the Haiku run.
+
+- `bench/results/task-20261025-204144.json`: model openrouter/free; bench 80f37aa dirty; main 440d0f0 editor=replace router=local; branch 80f37aa editor=replace router=local
