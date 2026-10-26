@@ -7,7 +7,7 @@
 //! snapshot is reported as `FAILED snapshots`.
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
@@ -56,10 +56,81 @@ fn enable_hooks(root: &PathBuf) {
     }
 }
 
+/// Repo conventions the toolchain cannot express: ADRs are numbered `0001…N`
+/// with no duplicate and no gap, and every source module opens with a `//!`
+/// paragraph. Both were broken by a merge (two ADR 0008s, an undocumented
+/// `learn/` split), so they are checked instead of remembered.
+fn conventions(root: &Path) -> Vec<String> {
+    let mut bad = Vec::new();
+
+    let mut numbers: Vec<u32> = std::fs::read_dir(root.join("docs/adr"))
+        .map(|d| {
+            d.flatten()
+                .filter_map(|e| {
+                    let name = e.file_name();
+                    name.to_str()?.split('-').next()?.parse().ok()
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    numbers.sort_unstable();
+    for n in numbers.windows(2).filter(|w| w[0] == w[1]).map(|w| w[0]) {
+        bad.push(format!("docs/adr: two ADRs are numbered {n:04}"));
+    }
+    if let Some((i, n)) = numbers.iter().enumerate().find(|(i, n)| **n as usize != i + 1) {
+        bad.push(format!("docs/adr: expected {:04} where {n:04} is (ADR {} of {})", i + 1, i + 1, numbers.len()));
+    }
+
+    for file in rust_sources(&root.join("crates")) {
+        let opens_with_doc = std::fs::read_to_string(&file).is_ok_and(|s| s.starts_with("//!"));
+        if !opens_with_doc {
+            bad.push(format!(
+                "{}: module does not open with `//!`",
+                file.strip_prefix(root).unwrap_or(&file).display()
+            ));
+        }
+    }
+    bad
+}
+
+/// Every `.rs` file under `crates/*/src`, in path order.
+fn rust_sources(dir: &Path) -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let Ok(crates) = std::fs::read_dir(dir) else { return out };
+    for c in crates.flatten() {
+        walk(&c.path().join("src"), &mut out);
+    }
+    out.sort();
+    out
+}
+
 /// Returns true if every gate passed.
 pub fn check() -> Result<bool> {
     let root = workspace_root()?;
     enable_hooks(&root);
+    let t = Instant::now();
+    let problems = conventions(&root);
+    let secs = t.elapsed().as_secs_f32();
+    if !problems.is_empty() {
+        println!("docs     FAILED ({secs:.1}s)");
+        for p in &problems {
+            println!("  {p}");
+        }
+        println!("FAILED docs");
+        return Ok(false);
+    }
+    println!("docs     ok ({secs:.1}s)");
     for (name, args) in GATES {
         let t = Instant::now();
         let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;
@@ -119,4 +190,47 @@ pub fn fix() -> Result<bool> {
     }
     println!("ok");
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tree(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("xtask-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for d in ["docs/adr", "crates/a/src/tui"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        dir
+    }
+
+    fn write(root: &Path, path: &str, text: &str) {
+        std::fs::write(root.join(path), text).unwrap();
+    }
+
+    #[test]
+    fn a_duplicate_adr_number_and_an_undocumented_module_are_reported() {
+        let root = tree("bad");
+        write(&root, "docs/adr/0001-a.md", "# a\n");
+        write(&root, "docs/adr/0001-b.md", "# b\n");
+        write(&root, "docs/adr/template.md", "# t\n");
+        write(&root, "crates/a/src/lib.rs", "//! ok\n");
+        write(&root, "crates/a/src/tui/view.rs", "use std::fmt;\n");
+        let bad = conventions(&root);
+        assert!(bad.iter().any(|p| p.contains("two ADRs are numbered 0001")), "{bad:?}");
+        assert!(bad.iter().any(|p| p.contains("expected 0002 where 0001 is (ADR 2 of 2)")), "{bad:?}");
+        assert!(bad.iter().any(|p| p.contains("crates/a/src/tui/view.rs")), "{bad:?}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_clean_tree_has_no_complaints() {
+        let root = tree("good");
+        write(&root, "docs/adr/0001-a.md", "# a\n");
+        write(&root, "docs/adr/0002-b.md", "# b\n");
+        write(&root, "crates/a/src/lib.rs", "//! ok\n");
+        assert_eq!(conventions(&root), Vec::<String>::new());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }
