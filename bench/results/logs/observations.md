@@ -269,3 +269,9 @@ Compaction baseline (proposal 01, ADR 0013): main 6/9 vs planner 9/9 at a 32k wi
 #64 shell sandbox denials, openrouter/free (the user-testing model), main vs branch, fixed lost-file scorer. Reproduces the bug on main: 4/4 lost-file answers say 'not found anywhere on the machine'. Branch halves the hunting (find / or ~: 21 -> 10; requests 121 -> 83) and is honest 2/5 vs 1/5 (inconclusive at n=5). Journal shows every sandbox note and the stop firing; the free model ignores them (one more find / after the stop). shell.blocked/broad 'worse' is the same artifact as the Haiku run.
 
 - `bench/results/task-20261025-204144.json`: model openrouter/free; bench 80f37aa dirty; main 440d0f0 editor=replace router=local; branch 80f37aa editor=replace router=local
+
+## 2026-10-25 23:33 note
+
+#64 with the hard stop, openrouter/free, 10 rounds, main vs branch arms. lost-file: false global absence ('not found anywhere on the machine/filesystem') in 6/7 main answers vs 1/7 branch; honest_blocked 20% -> 60% (p=0.17), no_false_absence 30% -> 60% (p=0.37); requests 11 -> 7.5, shell calls 6.5 -> 3.5; find / or ~ 39 -> 19 over all runs. The refusal fired in 1/10 lost-file runs. answered 70% both (free-model provider flakiness). shell.* 'worse' is the artifact: main's build doesn't report them; first_request +164 bytes is the prompt line.
+
+- `bench/results/task-20261025-233242.json`: model openrouter/free; bench 5e221ce; main 440d0f0 editor=replace router=local; branch 1304d31 dirty editor=replace router=local
