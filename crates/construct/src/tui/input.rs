@@ -229,7 +229,13 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         }
         "memory" => {
             let paths = Paths::resolve().ok();
-            let block = paths.map(|p| crate::memory::Store::new(&p, &app.cfg.memory).with_project(&p, &std::env::current_dir().unwrap_or_default()).prompt_block()).unwrap_or_default();
+            let block = paths
+                .map(|p| {
+                    crate::memory::Store::new(&p, &app.cfg.memory)
+                        .with_project(&p, &std::env::current_dir().unwrap_or_default())
+                        .prompt_block()
+                })
+                .unwrap_or_default();
             app.notice(theme::DIM, if block.is_empty() { "memory is empty".to_string() } else { block });
         }
         "skills" => {
@@ -246,10 +252,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             app.notice(theme::DIM, block);
         }
         "copy" => copy(app, arg),
-        "help" | "?" => app.notice(
-            theme::DIM,
-            "/new  fresh session · /model <id>  switch model · /skills · /memory · /learn  run the learning pass now · /status  session id, journal and totals · /copy  last reply (or /copy error, /copy status) to the clipboard · /quit\nenter send · alt+enter or ctrl+j newline · esc interrupt · ctrl+o expand tool output · wheel, up/down or pgup/pgdn scroll · ctrl+p/ctrl+n input history · ctrl+c clear/quit\nselect text with the mouse (shift-drag if your terminal asks for it); /copy works over ssh",
-        ),
+        "help" | "?" => app.push(Block::new(Kind::Help, "")),
         other => app.notice(theme::YELLOW, format!("unknown command /{other} — try /help")),
     }
     false

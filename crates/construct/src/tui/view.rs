@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{markdown, prompt, theme};
+use super::{help, markdown, prompt, theme};
 use crate::journal::human;
 use crate::tools::OutputKind;
 use anyhow::Result;
@@ -147,6 +147,7 @@ impl App {
                     }
                 }
             }
+            Kind::Help => out.extend(help::lines(w)),
             Kind::Notice(color) => {
                 let st = Style::new().fg(*color);
                 // One wrapped paragraph per line, so multi-line notices (/status, /help) keep their breaks.
