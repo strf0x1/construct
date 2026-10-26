@@ -1,0 +1,33 @@
+# Replay of PR #76 (delegation and secrets): redo a merged change from its
+# intent; the PR's own tests score it (bench/replay.py, docs/rust-eval.md).
+git = "e14893f5028dc6eb2a58c54133ab6984b10d5fec"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Fix a bug in delegation: a delegated child gets a 401 when the parent's API key came from the `OPENROUTER_API_KEY` fallback.
+
+What happens: I set `OPENROUTER_API_KEY`, not `OPENAI_API_KEY`, and `delegate to scout` failed with `model endpoint returned 401 Unauthorized`. The parent session itself worked. The parent resolves its key with `secrets::api_key` (the configured secret, `OPENAI_API_KEY`, then the `OPENROUTER_API_KEY` fallback), but the child is only given the configured secret names (`AgentDef::secret_names`) and reads its key without a fallback, so it got an empty `OPENAI_API_KEY`.
+
+Related: with no key at all, construct sends the request without auth and shows the provider's 401 text, which never says that no key was found.
+
+Wanted:
+- A child on the parent's endpoint gets the key the parent actually used, under the name the child reads. With only `OPENROUTER_API_KEY` set, the parent's and the child's requests all carry `Authorization: Bearer <that key>`.
+- With no key resolved, fail before any request is sent, in the parent and in the child, with an error containing exactly `no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY`. An explicitly keyless endpoint (`api_key_secret = ""`) must still work.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 76
+merge = "bdf61d11a4c1d003b2f47e8b040a1343a0a4ac59"
+hidden = ["crates/construct-dev/tests/delegate.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "delegate"
+names = ["a_child_gets_the_openrouter_key_the_parent_fell_back_to", "no_key_fails_before_any_request"]

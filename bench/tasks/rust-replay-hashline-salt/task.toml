@@ -1,0 +1,40 @@
+# Replay of PR #40 (the hashline editor and config): redo a merged change from its
+# intent; the PR's own tests score it (bench/replay.py, docs/rust-eval.md).
+git = "e9a0d9b0f480d041a6f4bf18cccd4fe2c73b3501"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Add a `[tools.hashline] salt = "rank" | "count"` knob to the hashline editor (see `docs/adr/0007-hashline-stale-duplicates.md`).
+
+Why: duplicate lines are salted by rank only (`content + " " + rank` in `anchors::build`). A new copy inserted above shifts ranks, so a stale hash-only anchor follows the shifted rank to the wrong copy, and line+hash misses it when the inserted block is exactly as tall as the gap between copies.
+
+Design:
+- `salt` is a field of `HashlineConfig` (`crates/construct/src/config.rs`), a serde enum `construct::config::Salt` with variants `Rank` (`"rank"`, the default, today's behaviour, byte-identical to the TypeScript reference) and `Count` (`"count"`), like `AnchorMode`.
+- Under `"count"` a duplicate hashes as `content + " " + rank + "/" + count`, in both anchor modes. Adding or removing any copy then re-hashes every copy, so a stale anchor fails loudly (`ANCHOR_NOT_FOUND` under hash, `ANCHOR_MISMATCH` under line+hash). Lines with a count of 1 hash exactly as before.
+- Thread it through `anchors::build`, which takes it as a new last parameter (`build(lines, min_hash_len, mode, salt)`), and its callers in `hashline/mod.rs`. `construct manifest` (and the manifest event) must show it under `hashline.salt`.
+- Unit tests in `anchors.rs` under `"count"`: the stale relocation is rejected in hash mode; the gap case is rejected in line+hash; a count-unchanged swap still relocates (document that remaining hole). `matches_the_reference_implementation` stays on `"rank"`, unchanged.
+- One e2e scenario: under `salt = "count"`, a stale duplicate anchor is rejected and the retry lands.
+- Golden snapshots must not change: the default salt is `"rank"`.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 40
+merge = "4b6139a6f19fd97bfc3270de4d5991376e46af93"
+hidden = ["crates/construct-dev/tests/e2e.rs", "crates/construct/tests/hashline_contract.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "e2e"
+names = ["hashline_count_salt_rejects_a_stale_duplicate_and_the_retry_lands"]
+
+[[replay.tests]]
+package = "construct"
+test = "hashline_contract"
+# the PR changed this contract (`anchors::build` takes the salt): all of it must pass

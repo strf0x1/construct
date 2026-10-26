@@ -3,6 +3,7 @@
     bench/tasks/<name>/
     ├── task.toml   turns, timeout_s, changes, [vars], [budget]   (see below)
     ├── fixture/    copied into the work dir and committed to a fresh git repo
+    │               (or, with `git` in task.toml, this repo's tree at a revision)
     ├── home/       optional: copied into the harness home (e.g. a skill)
     ├── outside/    optional: copied to a folder beside the work dir, outside
     │               the sandbox; its path is the var {{outside}}
@@ -11,7 +12,9 @@
     ├── expected/   optional: the files a correct run leaves, for check.sh
     └── check.sh    the scorer: runs in the work dir after the last turn and
                     prints one JSON object of named booleans. It never reads
-                    the transcript, and the agent never sees it.
+                    the transcript, and the agent never sees it. It may write
+                    unscored details as JSON to $BENCH_REPORT; they land in
+                    the run's result as `report`.
 
 task.toml keys:
     turns       prompts, one per turn, all in one session
@@ -28,6 +31,11 @@ task.toml keys:
     window      the model's context window in tokens: the endpoint rejects a
                 longer prompt as a provider would, and construct is told the
                 same window (the compaction suite, bench/compaction.py)
+    git         a revision of this repo: the fixture is its tree (`git
+                archive`), with no history, so the agent can't read ahead.
+                A warm cargo target for it, if `bench/replay.py warm` made
+                one, is reflinked into the work dir (rust-replay-*)
+    check_timeout_s  how long check.sh may run (default 300)
 """
 
 import fnmatch
@@ -39,11 +47,15 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 TASKS = Path(__file__).resolve().parent / "tasks"
+ROOT = TASKS.parent.parent
+# Warm cargo targets for `git` fixtures, one per task (bench/replay.py warm).
+WARM = Path(os.environ.get("BENCH_CACHE", Path.home() / ".cache" / "construct-bench")) / "warm"
 
 # Never counted as unintended: what running a project's tests leaves behind.
 IGNORED = ["__pycache__/*", "*/__pycache__/*", "*.pyc", ".pytest_cache/*"]
@@ -78,6 +90,14 @@ class Task:
     @property
     def budget(self) -> dict:
         return self.spec.get("budget", {})
+
+    @property
+    def git(self):
+        return self.spec.get("git")
+
+    @property
+    def check_timeout_s(self) -> int:
+        return self.spec.get("check_timeout_s", 300)
 
 
 def names() -> list:
@@ -128,17 +148,52 @@ def _copy_filled(src: Path, dest: Path, vars: dict):
                 p.write_text(fill(t, vars))
 
 
-def materialize(task: Task, dest: Path, vars: dict, remote=None):
+def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True):
     """A fresh work dir: the fixture, filled, committed to a new git repo."""
     if dest.exists():
         shutil.rmtree(dest)
-    _copy_filled(task.dir / "fixture", dest, vars)
+    if task.git:
+        export_tree(task.git, dest)
+    else:
+        _copy_filled(task.dir / "fixture", dest, vars)
     git = lambda *a: subprocess.run(["git", *a], cwd=dest, check=True)
     git("init", "-q")
     if remote:
         git("remote", "add", "origin", remote)
     git("add", "-A")
     git("-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init")
+    if task.git and warm:
+        seed_target(task, dest)
+
+
+def has_rev(rev: str) -> bool:
+    """Whether this clone has `rev`: a shallow clone lacks a `git` task's past commits."""
+    return subprocess.run(["git", "cat-file", "-e", f"{rev}^{{commit}}"], cwd=ROOT, capture_output=True).returncode == 0
+
+
+def export_tree(rev: str, dest: Path):
+    """This repo's tree at `rev`, without its history, at `dest`. Files get
+    the time of extraction (-m), not the commit's: a warm target's workspace
+    crates must look stale, or cargo reuses test binaries that have another
+    tree's path compiled in (`env!("CARGO_MANIFEST_DIR")`)."""
+    if not has_rev(rev):
+        sys.exit(f"this clone has no commit {rev[:8]}: a `git` task needs the repo's history (git fetch --unshallow)")
+    dest.mkdir(parents=True)
+    archive = subprocess.run(["git", "archive", "--format=tar", rev], cwd=ROOT, check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-m", "-C", str(dest)], input=archive, check=True)
+
+
+def seed_target(task: Task, dest: Path):
+    """Reflink the task's warm cargo target into the work dir, so the agent's
+    first build compiles only the workspace crates. Copy-on-write only: a full
+    copy of a target is gigabytes, so on another filesystem the build is cold."""
+    warm = WARM / task.name / "target"
+    if not warm.exists() or (dest / "target").exists():
+        return
+    r = subprocess.run(["cp", "-a", "--reflink=always", str(warm), str(dest / "target")], capture_output=True)
+    if r.returncode != 0:
+        shutil.rmtree(dest / "target", ignore_errors=True)
+        print(f"  {task.name}: no reflink from {warm} (put BENCH_WORK on its filesystem); the first build is cold", file=sys.stderr)
 
 
 def seed_outside(task: Task, dest: Path, vars: dict):
@@ -164,16 +219,31 @@ def after_turn(task: Task, n: int, work: Path):
 def check(task: Task, work: Path, env=None) -> dict:
     """Run check.sh; its last stdout line is the JSON verdict. A scorer that
     crashes scores as one failed check rather than stopping the bench."""
-    e = {**os.environ, "BENCH_PYTHON": sys.executable, **(env or {})}
-    r = subprocess.run(["bash", str(task.dir / "check.sh")], cwd=work, env=e, capture_output=True, text=True, timeout=300)
+    return check_report(task, work, env)[0]
+
+
+def check_report(task: Task, work: Path, env=None):
+    """check() and the details check.sh wrote to $BENCH_REPORT (or None)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        report = Path(tmp) / "report.json"
+        e = {**os.environ, "BENCH_PYTHON": sys.executable, "BENCH_REPORT": str(report), **(env or {})}
+        try:
+            r = subprocess.run(["bash", str(task.dir / "check.sh")], cwd=work, env=e, capture_output=True, text=True, timeout=task.check_timeout_s)
+        except subprocess.TimeoutExpired:
+            print(f"  {task.name}: check.sh ran past {task.check_timeout_s}s", file=sys.stderr)
+            return {"check_ran": False}, None
+        try:
+            details = json.loads(report.read_text()) if report.exists() else None
+        except ValueError:
+            details = None
     lines = r.stdout.strip().splitlines()
     try:
         out = json.loads(lines[-1])
         assert isinstance(out, dict) and all(isinstance(v, bool) for v in out.values())
-        return out
+        return out, details
     except (IndexError, ValueError, AssertionError):
         print(f"  {task.name}: check.sh gave no verdict (rc={r.returncode}): {(r.stderr or r.stdout)[-500:]}", file=sys.stderr)
-        return {"check_ran": False}
+        return {"check_ran": False}, details
 
 
 def changed_paths(work: Path) -> list:

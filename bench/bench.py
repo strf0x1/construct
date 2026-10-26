@@ -11,6 +11,7 @@ measured the same way, outside the harnesses.
   bench.py tools     [--rounds N] [--calls N]     tool-call latency (scripted model)
   bench.py memory    [--rounds N] [--steps N]     RSS over a long task (scripted model)
   bench.py task      [--rounds N] --model M [--tasks NAME ...]   real tasks (bench/tasks/) via OpenRouter
+                     [--script STEPS.json]        ... or a scripted model, to dry-run a task's plumbing
   bench.py routing   [--rounds N] --model M       the router on the release-signing task
   bench.py loop      [--rounds N] --model M       the learning loop on the team-seed task
   bench.py compare   A.json [B.json] [--a SIDE --b SIDE]   verdict per metric; exit 1 on any `worse`
@@ -904,6 +905,27 @@ def cache_stats(v):
     return {k: stats([x.get(k) for x in v]) for k in ("cached_tokens", "cache_write_tokens", "cache_hit_rate", "cost_usd")}
 
 
+def scripted_steps(path):
+    """A scripted model's steps from a file ({"steps": [...]} or the list), or
+    None for a real model. A dry run of a task's plumbing costs nothing."""
+    if not path:
+        return None
+    data = json.loads(Path(path).read_text())
+    return data["steps"] if isinstance(data, dict) else data
+
+
+def final_message(home: Path, since: float):
+    """The agent's last words in the run: what it says it did, for the judge
+    (docs/rust-eval.md) to hold against the diff."""
+    text = None
+    for session in journal.sessions(home, since):
+        for row in session:
+            m = row.get("message") or {}
+            if m.get("role") == "assistant" and isinstance(m.get("content"), str) and m["content"].strip():
+                text = m["content"]
+    return text
+
+
 def suite_task(args):
     names = args.harness
     tasks = [tasklib.load(t) for t in args.tasks]
@@ -917,10 +939,11 @@ def suite_task(args):
         tasklib.seed_outside(task, base / "outside", vars)
         tasklib.materialize(task, work, vars)
         window = task.window if args.window is None else (args.window or None)
-        ep = Endpoint(base / "ep", upstream=args.upstream, window=window)
+        upstream = None if args.script else args.upstream
+        ep = Endpoint(base / "ep", script=scripted_steps(args.script), upstream=upstream, window=window)
         if isinstance(h, Construct):
             h.window = window
-        h.configure(ep.url, args.model, upstream=args.upstream)
+        h.configure(ep.url, args.model, upstream=upstream)
         tasklib.seed_home(task, h.home, vars)
         if isinstance(h, Construct) and task.config:
             # Tables go last: the keys configure() wrote stay top-level.
@@ -960,7 +983,7 @@ def suite_task(args):
         recs = ep.records()
         ep.close()
         assert_no_keys(base)
-        checks = tasklib.check(task, work)
+        checks, report = tasklib.check_report(task, work)
         unintended = tasklib.unintended(task, work)
         main = [x for x in recs if not x.get("side")]
         first = next((x for x in recs if x.get("n_tools")), None)
@@ -996,6 +1019,8 @@ def suite_task(args):
             "tool_gaps_ms": tool_gaps(recs),
             "peak_mb": max((t["peak_mb"] or 0) for t in turns),
             "learn_wait_s": learn_s,
+            **({"report": report} if report is not None else {}),
+            **({"final_message": final_message(h.home, t0)} if isinstance(h, Construct) else {}),
             "records": recs,
         }
 
@@ -1335,6 +1360,7 @@ def main():
     ap.add_argument("--steps", type=int, default=120)
     ap.add_argument("--model", default="mock-model")
     ap.add_argument("--upstream", default="https://openrouter.ai/api/v1")
+    ap.add_argument("--script", default=None, metavar="STEPS.json", help="task suite: a scripted model (construct-dev serve --script) instead of the upstream; no key, no cost")
     ap.add_argument("--timeout", type=int, default=None, help="seconds per turn (default: the task's timeout_s)")
     ap.add_argument("--tasks", nargs="+", default=["stats-median"], help=f"task directories to run (have: {', '.join(tasklib.names())})")
     ap.add_argument("--pause", type=float, default=2.0)
