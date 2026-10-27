@@ -1,10 +1,13 @@
 //! The slash palette: typing `/` lists built-in commands and skills under the
 //! input, narrowed with each keystroke, best match on top. The skill library
 //! is read from disk whenever the query changes, so a skill written or edited
-//! mid-session is in the list (and runnable) without a restart.
+//! mid-session is in the list (and runnable) without a restart. After
+//! `/model ` the same list shows models from the cached endpoint list
+//! instead; it is only ever read from disk here, never fetched.
 
 use super::help;
 use super::theme;
+use crate::llm::catalog::{self, ModelInfo};
 use crate::skills::Skill;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -19,28 +22,73 @@ pub(super) struct Item {
     pub(super) arg: &'static str,
     pub(super) about: String,
     pub(super) skill: bool,
+    /// A model id for `/model`; `name` is the bare id.
+    pub(super) model: bool,
 }
 
 impl Item {
     /// Picking it completes the name and waits for more input instead of
-    /// running it: skills (the request follows) and commands with a required
-    /// `<arg>`.
+    /// running it: skills (the request follows), commands with a required
+    /// `<arg>`, and models (a second enter runs `/model <id>`).
     pub(super) fn takes_input(&self) -> bool {
-        self.skill || self.arg.starts_with('<')
+        self.skill || self.model || self.arg.starts_with('<')
+    }
+
+    /// What picking it puts in the input.
+    pub(super) fn completion(&self) -> String {
+        if self.model {
+            format!("/model {}", self.name)
+        } else if self.takes_input() {
+            format!("{} ", self.name)
+        } else {
+            self.name.clone()
+        }
     }
 }
 
 pub(super) struct Palette {
     /// The text after `/` the items were matched against.
     pub(super) query: String,
+    /// Whether the items are models for `/model <id>`, not commands.
+    pub(super) models: bool,
     pub(super) items: Vec<Item>,
     pub(super) selected: usize,
 }
 
-/// The query when `input` is a lone slash word (`/cre`), else none: once a
-/// space or newline is typed the user is writing the request.
-pub(super) fn query(input: &str) -> Option<&str> {
-    input.strip_prefix('/').filter(|q| !q.contains(char::is_whitespace))
+/// What the palette is asked for.
+#[derive(Debug, PartialEq)]
+pub(super) enum Query<'a> {
+    /// A lone slash word (`/cre`).
+    Command(&'a str),
+    /// The id after `/model ` (`/model clau`).
+    Model(&'a str),
+}
+
+/// The query when `input` is a lone slash word or the one word after
+/// `/model `, else none: once another space or newline is typed the user is
+/// writing the request.
+pub(super) fn query(input: &str) -> Option<Query<'_>> {
+    let q = input.strip_prefix('/')?;
+    let word = |w: &str| !w.contains(char::is_whitespace);
+    match q.strip_prefix("model ") {
+        Some(id) => word(id).then_some(Query::Model(id)),
+        None => word(q).then_some(Query::Command(q)),
+    }
+}
+
+/// Models from the cached list matching `q`, id prefixes first, each with its
+/// window and price. Only tool-capable models are listed, as in `/models`.
+pub(super) fn model_candidates(q: &str, models: &[ModelInfo]) -> Vec<Item> {
+    catalog::search(models, q)
+        .into_iter()
+        .map(|m| Item {
+            name: m.id.clone(),
+            arg: "",
+            about: catalog::row(m).strip_prefix(&m.id).unwrap_or_default().trim().to_string(),
+            skill: false,
+            model: true,
+        })
+        .collect()
 }
 
 /// Built-ins and skills matching `q`, best first. A skill whose name is a
@@ -52,12 +100,14 @@ pub(super) fn candidates(q: &str, skills: &[Skill]) -> Vec<Item> {
         arg: e.arg,
         about: e.about.to_string(),
         skill: false,
+        model: false,
     });
     let skills = skills.iter().filter(|s| !help::is_builtin(&s.name)).map(|s| Item {
         name: format!("/{}", s.name),
         arg: "",
         about: s.description.clone(),
         skill: true,
+        model: false,
     });
     let mut scored: Vec<((u8, usize), Item)> =
         builtins.chain(skills).filter_map(|i| score(&q, &i.name[1..], &i.about).map(|s| (s, i))).collect();
@@ -110,8 +160,8 @@ impl Palette {
     }
 
     /// At most `rows` (and `MAX_ROWS`) rows for a terminal `width`, scrolled
-    /// to the selection: name column (commands in the accent color, skills
-    /// green), then the description, dimmed and cut to fit.
+    /// to the selection: name column (commands and models in the accent
+    /// color, skills green), then the description, dimmed and cut to fit.
     pub(super) fn lines(&self, width: usize, rows: usize) -> Vec<Line<'static>> {
         let mut rows = rows.clamp(1, MAX_ROWS);
         // One row says how many more there are, so the list never just stops.
@@ -195,16 +245,68 @@ mod tests {
 
     #[test]
     fn query_stops_at_whitespace() {
-        assert_eq!(query("/cre"), Some("cre"));
-        assert_eq!(query("/"), Some(""));
+        assert_eq!(query("/cre"), Some(Query::Command("cre")));
+        assert_eq!(query("/"), Some(Query::Command("")));
         assert_eq!(query("/create-verification do it"), None);
         assert_eq!(query("hello"), None);
     }
 
     #[test]
+    fn model_query_is_the_one_word_after_model() {
+        assert_eq!(query("/model "), Some(Query::Model("")));
+        assert_eq!(query("/model mock/sm"), Some(Query::Model("mock/sm")));
+        assert_eq!(query("/model mock/small now"), None);
+        assert_eq!(query("/model  mock"), None);
+        assert_eq!(query("/models sm"), None);
+        assert_eq!(query("/modelx"), Some(Query::Command("modelx")));
+    }
+
+    fn info(id: &str, context: u32, tools: bool) -> ModelInfo {
+        ModelInfo {
+            id: id.into(),
+            name: id.into(),
+            context: Some(context),
+            prompt_per_m: Some(0.3),
+            completion_per_m: Some(2.5),
+            tools,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn models_narrow_by_id_prefix_first_and_carry_window_and_price() {
+        let list = [
+            info("other/the-mock/clone", 8000, true),
+            info("mock/small", 32768, true),
+            info("mock/vision-only", 8000, false),
+            info("mock/large", 1_000_000, true),
+        ];
+        let got = model_candidates("mock/", &list);
+        let ids: Vec<&str> = got.iter().map(|i| i.name.as_str()).collect();
+        assert_eq!(ids, ["mock/large", "mock/small", "other/the-mock/clone"]);
+        let small = &got[1];
+        assert!(small.model && !small.skill && small.arg.is_empty());
+        assert!(small.about.starts_with("32k") && small.about.contains("$0.30/$2.50"), "{}", small.about);
+        assert_eq!(small.completion(), "/model mock/small");
+        assert!(small.takes_input());
+        assert_eq!(model_candidates("small", &list).len(), 1);
+        assert!(model_candidates("zzz", &list).is_empty());
+        assert!(model_candidates("", &[]).is_empty());
+    }
+
+    #[test]
+    fn commands_complete_with_a_space_only_when_they_take_input() {
+        let got = candidates("", &[skill("deploy", "ship it")]);
+        let of = |n: &str| got.iter().find(|i| i.name == n).unwrap().completion();
+        assert_eq!(of("/deploy"), "/deploy ");
+        assert_eq!(of("/model"), "/model ");
+        assert_eq!(of("/help"), "/help");
+    }
+
+    #[test]
     fn rows_fit_the_width_and_mark_the_selection() {
         let lib = [skill("create-verification", &"long description ".repeat(20))];
-        let mut p = Palette { query: String::new(), items: candidates("", &lib), selected: 0 };
+        let mut p = Palette { query: String::new(), models: false, items: candidates("", &lib), selected: 0 };
         p.step(false);
         let lines = p.lines(60, 20);
         assert!(lines.len() <= MAX_ROWS);

@@ -124,3 +124,42 @@ fn the_palette_runs_commands_and_esc_closes_it() {
     assert!(env.requests().is_empty(), "no slash command reached the model");
     d.kill();
 }
+
+/// After `/model ` the palette lists the endpoint's cached models with their
+/// window and price; enter completes the id, a second enter switches to it,
+/// and an id the list does not know still works, with no list shown for it.
+#[test]
+fn model_ids_complete_from_the_cached_list() {
+    let env = Env::new("slash-model-ids", json!({ "steps": [ { "text": "unused" } ] }));
+    env.config("model = \"mock\"\n[provider]\ndialect = \"openrouter\"\n[learn]\nenabled = false\n");
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        100,
+        30,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let short = budget(3000);
+    // The list is fetched at startup; give the agent task a moment to cache it.
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "wait \"ask construct\" {short}\nsleep 500\ntype /model mock/\nwait \"▸ mock/small\" {short}\n\
+             expect \"32k\"\nexpect \"$0.30/$2.50\"\nkey enter\ngone \"32k\" {short}\n"
+        ),
+    );
+    assert!(d.text().lines().any(|l| l.trim_end() == "› /model mock/small"), "enter completes the id\n{}", d.text());
+    run(&mut d, &mut log, &format!("key enter\nwait \"model → mock/small (window 32768 tokens)\" {short}\n"));
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "type /model not-in-the-list\ngone \"▸\" {short}\nkey enter\nwait \"model → not-in-the-list\" {short}\n"
+        ),
+    );
+    assert!(env.requests().is_empty(), "no model request was made");
+    d.kill();
+}

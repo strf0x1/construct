@@ -1,0 +1,18 @@
+# Model ids in the slash palette: after `/model ` the list shows the cached
+# endpoint models, narrowed per keystroke; enter completes, a second enter runs.
+wait "ask construct" 5000
+sleep 500
+type /model mock/
+wait "▸ mock/small" 3000
+expect "32k"
+expect "$0.30/$2.50"
+gone "/models"
+image {evidence}/model-palette.png
+key enter
+expect "› /model mock/small"
+gone "32k"
+key enter
+wait "window 32768 tokens" 2000
+type hi
+key enter
+wait "ran-it" 5000

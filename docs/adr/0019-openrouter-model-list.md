@@ -41,3 +41,11 @@ a model id in the slash palette is open.
 
 `crates/construct/src/llm/catalog.rs` unit tests,
 `crates/construct-dev/tests/models.rs`, and the `models` verify recipe.
+
+## Note: model ids in the palette
+
+The slash palette now completes model ids: after `/model ` it lists the
+cached list's tool-capable models (same `catalog::search` and `row` as
+`/models`), and enter completes `/model <id>`. The palette only reads the
+cache from disk, when it opens on `/model `; it never fetches. This closes
+the open item above.

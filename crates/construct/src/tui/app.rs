@@ -2,10 +2,11 @@
 //! change them.
 
 use super::ask::Prompt;
-use super::palette::{self, Palette};
+use super::palette::{self, Palette, Query};
 use super::theme;
 use crate::agent::Event;
 use crate::config::{Config, Paths};
+use crate::llm::catalog::{self, ModelInfo};
 use crate::skills::{Library, Skill};
 use crate::tools::{Catalog, OutputKind};
 use ratatui::style::Color;
@@ -123,6 +124,9 @@ pub(super) struct App {
     pub(super) palette: Option<Palette>,
     /// The input esc closed the palette on; it stays closed until that changes.
     pub(super) palette_off: Option<String>,
+    /// The endpoint's cached model list, read when the palette opens on
+    /// `/model `; the agent task may have written it since the last time.
+    models: Vec<ModelInfo>,
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
     skill_libs: Option<Vec<Library>>,
@@ -172,6 +176,7 @@ impl App {
             prompts: VecDeque::new(),
             palette: None,
             palette_off: None,
+            models: Vec::new(),
             skill_libs: None,
         }
     }
@@ -187,21 +192,33 @@ impl App {
         crate::skills::merged(&libs.iter().collect::<Vec<_>>())
     }
 
-    /// Open, narrow or close the palette to match the input. The library is
-    /// re-read only when the query changes.
+    /// Open, narrow or close the palette to match the input. The skill
+    /// library is re-read only when the query changes, and the model list
+    /// only when the palette opens on `/model `.
     pub(super) fn refresh_palette(&mut self) {
-        let q = match palette::query(&self.input) {
-            Some(q) if self.palette_off.as_deref() != Some(self.input.as_str()) => q.to_string(),
+        let query = match palette::query(&self.input) {
+            Some(q) if self.palette_off.as_deref() != Some(self.input.as_str()) => q,
             _ => {
                 self.palette = None;
                 return;
             }
         };
-        if self.palette.as_ref().is_some_and(|p| p.query == q) {
+        let (q, models) = match query {
+            Query::Command(q) => (q.to_string(), false),
+            Query::Model(q) => (q.to_string(), true),
+        };
+        if self.palette.as_ref().is_some_and(|p| p.query == q && p.models == models) {
             return;
         }
-        let items = palette::candidates(&q, &self.skills());
-        self.palette = (!items.is_empty()).then_some(Palette { query: q, items, selected: 0 });
+        let items = if models {
+            if !self.palette.as_ref().is_some_and(|p| p.models) {
+                self.models = Paths::resolve().map(|p| catalog::cached(&p, &self.cfg.base_url)).unwrap_or_default();
+            }
+            palette::model_candidates(&q, &self.models)
+        } else {
+            palette::candidates(&q, &self.skills())
+        };
+        self.palette = (!items.is_empty()).then_some(Palette { query: q, models, items, selected: 0 });
     }
 
     pub(super) fn animating(&self) -> bool {
