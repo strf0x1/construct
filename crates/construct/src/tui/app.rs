@@ -2,9 +2,11 @@
 //! change them.
 
 use super::ask::Prompt;
+use super::palette::{self, Palette};
 use super::theme;
 use crate::agent::Event;
-use crate::config::Config;
+use crate::config::{Config, Paths};
+use crate::skills::{Library, Skill};
 use crate::tools::{Catalog, OutputKind};
 use ratatui::style::Color;
 use ratatui::text::Line;
@@ -76,6 +78,11 @@ pub(super) enum Phase {
 
 pub(super) enum Cmd {
     Prompt(String),
+    /// `/<skill> text`: run a turn with the skill loaded.
+    Skill {
+        name: String,
+        text: String,
+    },
     New,
     Model(String),
     LearnNow,
@@ -112,6 +119,13 @@ pub(super) struct App {
     pub(super) catalog: Option<Arc<Catalog>>,
     /// Questions waiting for a key, oldest first; the front one is on screen.
     pub(super) prompts: VecDeque<Prompt>,
+    /// The slash palette, while the input is a lone `/word`.
+    pub(super) palette: Option<Palette>,
+    /// The input esc closed the palette on; it stays closed until that changes.
+    pub(super) palette_off: Option<String>,
+    /// Project kit, then global library. Found on the first `/`, not at
+    /// startup, so the first frame never waits on it.
+    skill_libs: Option<Vec<Library>>,
 }
 
 /// The argument a tool's display hints name, or the raw arguments.
@@ -156,7 +170,38 @@ impl App {
             stream_chars: 0,
             catalog: None,
             prompts: VecDeque::new(),
+            palette: None,
+            palette_off: None,
+            skill_libs: None,
         }
+    }
+
+    /// Every skill the user can run, read from disk now.
+    pub(super) fn skills(&mut self) -> Vec<Skill> {
+        let libs = self.skill_libs.get_or_insert_with(|| {
+            let Ok(paths) = Paths::resolve() else { return vec![] };
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let kit = crate::project::detect(&paths, &cwd).map(|p| Library::at(p.skills_dir()));
+            kit.into_iter().chain([Library::new(&paths)]).collect()
+        });
+        crate::skills::merged(&libs.iter().collect::<Vec<_>>())
+    }
+
+    /// Open, narrow or close the palette to match the input. The library is
+    /// re-read only when the query changes.
+    pub(super) fn refresh_palette(&mut self) {
+        let q = match palette::query(&self.input) {
+            Some(q) if self.palette_off.as_deref() != Some(self.input.as_str()) => q.to_string(),
+            _ => {
+                self.palette = None;
+                return;
+            }
+        };
+        if self.palette.as_ref().is_some_and(|p| p.query == q) {
+            return;
+        }
+        let items = palette::candidates(&q, &self.skills());
+        self.palette = (!items.is_empty()).then_some(Palette { query: q, items, selected: 0 });
     }
 
     pub(super) fn animating(&self) -> bool {
@@ -196,6 +241,8 @@ impl App {
             | Event::Ask { .. }
             | Event::System { .. }
             | Event::User { .. }
+            // The user's own `/skill` line already says it.
+            | Event::Invoke { .. }
             | Event::Assistant { .. }
             | Event::ToolResult { .. }
             | Event::Request { .. } => {}
@@ -312,6 +359,10 @@ impl App {
                 }
                 self.busy = false;
                 self.phase = Phase::Idle;
+                // The turn may have written a skill: list it if `/` is up.
+                if self.palette.take().is_some() {
+                    self.refresh_palette();
+                }
                 let secs = ms as f32 / 1000.0;
                 if interrupted {
                     self.notice(theme::YELLOW, format!("■ interrupted after {secs:.1}s"));

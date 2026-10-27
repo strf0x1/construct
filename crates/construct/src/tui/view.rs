@@ -147,7 +147,7 @@ impl App {
                     }
                 }
             }
-            Kind::Help => out.extend(help::lines(w)),
+            Kind::Help => out.extend(help::lines(w, &b.text)),
             Kind::Notice(color) => {
                 let st = Style::new().fg(*color);
                 // One wrapped paragraph per line, so multi-line notices (/status, /help) keep their breaks.
@@ -388,11 +388,16 @@ impl App {
         self.prune_prompts();
         let (input, cursor) = self.input_lines(width as usize);
         let input_h = (input.len() as u16).clamp(1, 8);
-        // A question takes the place of the activity line, rule and input.
+        // The slash palette sits between the input and the status line, and
+        // gives way to the transcript on a short terminal.
+        let rows = (area.height.saturating_sub(input_h + 6) / 2) as usize;
+        let palette = self.palette.as_ref().map(|p| p.lines(width as usize, rows)).unwrap_or_default();
+        let palette_h = palette.len() as u16;
+        // A question takes the place of the activity line, rule, input and palette.
         let panel_h = self.prompts.front().map(|p| prompt::height(p, width).min(area.height.saturating_sub(4)));
         let bottom = match panel_h {
-            Some(h) => h + 1,    // panel + status
-            None => input_h + 3, // activity + rule + input + status
+            Some(h) => h + 1,                // panel + status
+            None => input_h + palette_h + 3, // activity + rule + input + palette + status
         };
         let main_h = area.height.saturating_sub(bottom);
         let body = if self.blocks.is_empty() {
@@ -434,7 +439,8 @@ impl App {
                 Paragraph::new(input.clone()).scroll((input_scroll, 0)),
                 Rect::new(0, main_h + 2, width, input_h),
             );
-            f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + 2 + input_h, width, 1));
+            f.render_widget(Paragraph::new(palette.clone()), Rect::new(0, main_h + 2 + input_h, width, palette_h));
+            f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + 2 + input_h + palette_h, width, 1));
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), main_h + 2 + cy));
         })?;

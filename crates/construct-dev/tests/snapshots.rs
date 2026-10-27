@@ -1,8 +1,8 @@
 //! Golden snapshots of what the model sees and what the user sees.
 //!
 //! One test per shape of first request (plain turn, routed skill, routed web,
-//! routed history, routed MCP, a delegated child, learning review) and two screens (first frame,
-//! finished turn). A refactor that changes none of these is behaviour-neutral
+//! routed history, routed MCP, a delegated child, learning review) and the
+//! screens (first frame, finished turn, the `/help` panel, the status line). A refactor that changes none of these is behaviour-neutral
 //! as far as the model and the user can tell; a prompt or schema edit shows up
 //! as a diff.
 //!
@@ -222,6 +222,37 @@ fn screens() {
     insta::assert_snapshot!("first_frame", screen(&env, &d));
     run(&mut d, &mut log, &format!("type run it\nkey enter\nwait \"All good.\" {long}\nsettle 300 {long}\n"));
     insta::assert_snapshot!("finished_turn", screen(&env, &d));
+    d.kill();
+}
+
+/// `/help` with one skill in the library: the commands, skills and keys
+/// boxes, one row per entry.
+#[test]
+fn help_panel() {
+    let env = Env::new("snap-help", json!({ "steps": [ { "text": "unused" } ] }));
+    let skill = env.home.join("skills/release-crate/SKILL.md");
+    std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
+    std::fs::write(
+        &skill,
+        "---\nname: release-crate\ndescription: Publish a release of a Rust crate\n---\n\n1. bump\n",
+    )
+    .unwrap();
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        100,
+        44,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(5000));
+    let script =
+        format!("wait \"ask construct\" {short}\ntype /help\nkey enter\nwait \"╭─ keys\" {short}\nsettle 300 {long}\n");
+    if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    insta::assert_snapshot!("help_panel", screen(&env, &d));
     d.kill();
 }
 

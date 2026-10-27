@@ -9,6 +9,7 @@ mod clip;
 mod help;
 mod input;
 mod markdown;
+mod palette;
 mod prompt;
 mod theme;
 mod view;
@@ -173,6 +174,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                     CEvent::Resize(..) => { app.cache.clear(); }
                     _ => continue,
                 }
+                app.refresh_palette();
                 dirty = true;
             }
             _ = tick.tick(), if animating => { dirty = true; }

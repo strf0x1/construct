@@ -1,0 +1,19 @@
+# The slash palette lists a skill as you type; enter completes it and the
+# next line runs it with its SKILL.md loaded.
+wait "ask construct" 5000
+type /
+wait "/help" 2000
+expect "more (↑↓ to scroll)"
+type cre
+wait "▸ /create-verification" 2000
+expect "skill · Build a verification skill"
+expect-style "/create-verification" fg=#9ece6a bold
+snap --style palette
+image {evidence}/palette.png
+key enter
+gone "▸ /create-verification" 2000
+expect "› /create-verification"
+type do-the-thing
+key enter
+wait "ran-it" 5000
+image {evidence}/invoked.png

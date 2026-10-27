@@ -60,11 +60,18 @@ impl Tool for SkillView {
                 format!("name is required; {} with action=list shows the available skills", SkillManage::NAME).into()
             );
         };
-        let lib = ctx.project_skills.as_ref().filter(|p| p.get(n).is_some()).unwrap_or(&ctx.skills);
-        let body = lib.view(n, a["file"].as_str())?;
-        let head = if a["file"].is_null() { format!("[{}]\n", locate(ctx, lib, n)) } else { String::new() };
-        Ok(Output::plain(format!("{head}{body}")))
+        Ok(Output::plain(load(ctx, n, a["file"].as_str())?))
     }
+}
+
+/// A skill as the model reads it: where it lives, then its SKILL.md and
+/// linked files (or the one `file`). The `skill` tool and a user's
+/// `/<skill>` both load through here, so the model sees the same text.
+pub fn load(ctx: &Ctx, name: &str, file: Option<&str>) -> Result<String, String> {
+    let lib = ctx.skill_lib(name).unwrap_or(&ctx.skills);
+    let body = lib.view(name, file)?;
+    let head = if file.is_none() { format!("[{}]\n", locate(ctx, lib, name)) } else { String::new() };
+    Ok(format!("{head}{body}"))
 }
 
 pub struct SkillManage;

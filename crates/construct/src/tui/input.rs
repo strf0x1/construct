@@ -1,4 +1,5 @@
-//! Key handling, the input line editor, and slash commands.
+//! Key handling, the input line editor, and slash commands. A `/name` that
+//! isn't a built-in runs the skill of that name; built-ins win a clash.
 
 use super::app::{App, Block, Cmd, Kind, Status};
 use super::ask::Choice;
@@ -66,11 +67,43 @@ fn prompt_key(app: &mut App, k: KeyEvent) -> bool {
     false
 }
 
+/// A key while the slash palette is open. Up and down move the selection,
+/// tab completes it, esc closes the palette. Enter completes a skill or a
+/// command that needs an argument, and otherwise lets the command run.
+/// Returns true when the key was used up here.
+fn palette_key(app: &mut App, k: KeyEvent) -> bool {
+    let Some(p) = app.palette.as_mut() else { return false };
+    let plain = !k.modifiers.intersects(KeyModifiers::ALT | KeyModifiers::SHIFT | KeyModifiers::CONTROL);
+    match k.code {
+        KeyCode::Up => p.step(false),
+        KeyCode::Down => p.step(true),
+        KeyCode::Esc => {
+            app.palette_off = Some(app.input.clone());
+            app.palette = None;
+        }
+        KeyCode::Tab | KeyCode::Enter if plain || k.code == KeyCode::Tab => {
+            let Some(item) = p.selected() else { return false };
+            let run = k.code == KeyCode::Enter && !item.takes_input();
+            let name = item.name.clone();
+            let space = if item.takes_input() { " " } else { "" };
+            app.input = format!("{name}{space}");
+            app.cursor = app.input.len();
+            // Enter on a plain command falls through and sends it.
+            return !run;
+        }
+        _ => return false,
+    }
+    true
+}
+
 /// Returns true to quit.
 pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
     app.prune_prompts();
     if !app.prompts.is_empty() {
         return prompt_key(app, k);
+    }
+    if palette_key(app, k) {
+        return false;
     }
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
     let alt = k.modifiers.contains(KeyModifiers::ALT);
@@ -238,12 +271,18 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
                 .unwrap_or_default();
             app.notice(theme::DIM, if block.is_empty() { "memory is empty".to_string() } else { block });
         }
+        "skills" if !arg.is_empty() => {
+            let (skill, text) = arg.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((arg, ""));
+            run_skill(app, skill, text, rest, cmd);
+        }
         "skills" => {
-            let list = Paths::resolve().map(|p| crate::skills::Library::new(&p).list()).unwrap_or_default();
+            let list = app.skills();
             let text = if list.is_empty() {
                 "no skills yet; the learning pass writes them as you work".to_string()
             } else {
-                list.iter().map(|s| format!("• {} — {}", s.name, s.description)).collect::<Vec<_>>().join("\n")
+                let mut lines: Vec<String> = list.iter().map(|s| format!("• {} — {}", s.name, s.description)).collect();
+                lines.push("run one with /<name> <request>".into());
+                lines.join("\n")
             };
             app.notice(theme::DIM, text);
         }
@@ -252,10 +291,23 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             app.notice(theme::DIM, block);
         }
         "copy" => copy(app, arg),
-        "help" | "?" => app.push(Block::new(Kind::Help, "")),
-        other => app.notice(theme::YELLOW, format!("unknown command /{other} — try /help")),
+        "help" | "?" => {
+            let skills = app.skills();
+            app.push(Block::new(Kind::Help, super::help::skill_rows(&skills)));
+        }
+        other => run_skill(app, other, arg, rest, cmd),
     }
     false
+}
+
+/// `/<skill> text` (or `/skills <skill> text`): the line goes in the
+/// transcript as typed, and the agent runs a turn with the skill loaded.
+fn run_skill(app: &mut App, name: &str, text: &str, typed: &str, cmd: &mpsc::UnboundedSender<Cmd>) {
+    if !app.skills().iter().any(|s| s.name == name) {
+        return app.notice(theme::YELLOW, format!("unknown command /{name} — try /help"));
+    }
+    app.push(Block::new(Kind::User, format!("/{typed}")));
+    let _ = cmd.send(Cmd::Skill { name: name.to_string(), text: text.to_string() });
 }
 
 /// `/copy` puts the last assistant message on the clipboard; `/copy error` the
