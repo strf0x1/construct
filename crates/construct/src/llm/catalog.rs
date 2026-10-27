@@ -1,13 +1,15 @@
 //! The endpoint's model list: fetched from `{base_url}/models`, cached on disk,
-//! and used to fill in what the config leaves out (the context window) and to
-//! search by name. OpenRouter publishes context length, prices and supported
-//! parameters there; other endpoints give ids at best. The design choice a
-//! reader must know: the cache holds the whole list, so a `/model` switch
-//! mid-session is a file read, never a request, and a failed fetch falls back
-//! to a stale cache instead of failing anything.
+//! searched by name, and laid under the hand-written model catalog
+//! (`crate::models`) as `Config::discovered`. OpenRouter publishes context
+//! length, prices and supported parameters there; other endpoints give ids at
+//! best. The design choice a reader must know: the list only supplies entries
+//! the user's own catalog lacks, and `select_model` resolves them like any
+//! other, so a switch is a cached lookup, never a request, and a failed fetch
+//! falls back to a stale cache instead of failing anything.
 
 use super::Client;
 use crate::config::{Config, Dialect, Paths, write_atomic};
+use crate::models::{ModelEntry, Pricing};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -200,28 +202,49 @@ fn openrouter(cfg: &Config) -> bool {
     super::Provider::new(&cfg.provider, &cfg.base_url).dialect == Dialect::OpenRouter
 }
 
-/// Set `cfg.context_window` from the cached list when the config does not
-/// pin it; a model the list lacks gets the default again, not the previous
-/// model's window. Reads the cache only, so it is safe on the UI path and on
-/// a model switch. Returns the window the list gave.
-pub fn fit(cfg: &mut Config, paths: &Paths) -> Option<u32> {
-    if cfg.window_pinned || !openrouter(cfg) {
-        return None;
+/// A list entry as a catalog entry. Only what OpenRouter states and the
+/// harness uses: the output cap stays the user's, and a pinned top-level
+/// `context_window` is not replaced.
+fn entry_of(m: &ModelInfo, pinned: bool) -> ModelEntry {
+    let tags = [(m.reasoning, "reasoning"), (m.images, "vision")]
+        .into_iter()
+        .filter(|&(on, _t)| on)
+        .map(|(_on, t)| t.to_string())
+        .collect();
+    ModelEntry {
+        label: if m.name == m.id { String::new() } else { m.name.clone() },
+        tags,
+        context_window: if pinned { None } else { m.context },
+        pricing: m.prompt_per_m.zip(m.completion_per_m).map(|(prompt, completion)| Pricing { prompt, completion }),
+        ..ModelEntry::default()
     }
-    let found = find(&cached(paths, &cfg.base_url), &cfg.model).and_then(|m| m.context);
-    cfg.context_window = found.unwrap_or(Config::default().context_window);
-    found
 }
 
-/// Warm the cache (briefly), then [`fit`]. For startup, before an agent is built.
+/// Lay the cached list under the catalog (OpenRouter only, tool-capable
+/// models only) and re-select the model, so its window is the list's unless
+/// the user's own entry or `context_window` says otherwise. Reads the cache
+/// only, so it is safe on the UI path.
+pub fn overlay(cfg: &mut Config, paths: &Paths) {
+    if !openrouter(cfg) {
+        return;
+    }
+    cfg.discovered = cached(paths, &cfg.base_url)
+        .iter()
+        .filter(|m| m.tools)
+        .map(|m| (m.id.clone(), entry_of(m, cfg.window_pinned)))
+        .collect();
+    cfg.select_model(&cfg.model.clone());
+}
+
+/// Warm the cache (briefly), then [`overlay`]. For startup, before an agent is built.
 pub async fn prepare(cfg: &mut Config, paths: &Paths) {
-    if cfg.window_pinned || !openrouter(cfg) {
+    if !openrouter(cfg) {
         return;
     }
     if let Ok(client) = Client::new(cfg, None) {
         let _ = tokio::time::timeout(STARTUP_WAIT, refresh(&client, paths, false)).await;
     }
-    fit(cfg, paths);
+    overlay(cfg, paths);
 }
 
 #[cfg(test)]
@@ -299,30 +322,48 @@ mod tests {
     }
 
     #[test]
-    fn fit_sets_the_window_unless_pinned_or_not_openrouter() {
-        let dir = std::env::temp_dir().join(format!("construct-catalog-fit-{}", std::process::id()));
+    fn overlay_lays_the_list_under_the_users_catalog() {
+        let dir = std::env::temp_dir().join(format!("construct-catalog-overlay-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let paths = Paths { home: dir.clone() };
-        let mut cfg = Config { model: "b/small".into(), ..Config::default() };
-        assert_eq!(fit(&mut cfg, &paths), None, "no cache yet");
+        let cfg_for = |toml: &str| {
+            let mut c: Config = toml::from_str(toml).unwrap();
+            c.select_model(&c.model.clone());
+            c
+        };
+        let mut cfg = cfg_for("model = \"b/small\"");
+        overlay(&mut cfg, &paths);
+        assert!(cfg.discovered.is_empty(), "no cache yet");
         let cache = Cached { fetched_at: 0, models: parse(&sample()) };
         write_atomic(&paths.models_cache(&cfg.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
 
-        // A stale cache still fits: age only matters to `refresh`.
-        assert_eq!(fit(&mut cfg, &paths), Some(32768));
+        // A stale cache still overlays: age only matters to `refresh`.
+        overlay(&mut cfg, &paths);
         assert_eq!(cfg.context_window, 32768);
-        cfg.model = "z/unlisted".into();
-        assert_eq!(fit(&mut cfg, &paths), None);
-        assert_eq!(cfg.context_window, Config::default().context_window, "not the last model's window");
+        let e = cfg.entry().unwrap();
+        assert_eq!((e.label.as_str(), e.tags.clone()), ("B: Small", vec!["reasoning".to_string(), "vision".into()]));
+        assert!(e.pricing.is_some() && e.max_tokens.is_none());
+        assert!(!cfg.discovered.contains_key("c/chat-only"), "not tool-capable");
+        // A variant id takes its base's window; an unlisted id gets the default back.
+        cfg.select_model("b/small:nitro");
+        assert_eq!(cfg.context_window, 32768);
+        cfg.select_model("z/unlisted");
+        assert_eq!(cfg.context_window, Config::default().context_window);
 
-        let mut pinned = Config { model: "b/small".into(), window_pinned: true, ..Config::default() };
-        assert_eq!(fit(&mut pinned, &paths), None);
-        assert_eq!(pinned.context_window, Config::default().context_window);
+        // The user's own entry wins, and a pinned window is kept.
+        let mut own = cfg_for("model = \"b/small\"\n[models.\"b/small\"]\ncontext_window = 9000");
+        overlay(&mut own, &paths);
+        assert_eq!(own.context_window, 9000);
+        let mut pinned = Config { window_pinned: true, ..cfg_for("model = \"b/small\"\ncontext_window = 50000") };
+        overlay(&mut pinned, &paths);
+        assert_eq!(pinned.context_window, 50_000);
+        assert_eq!(pinned.entry().unwrap().label, "B: Small", "the rest still comes from the list");
 
         let mut local =
             Config { model: "b/small".into(), base_url: "http://127.0.0.1:1/v1".into(), ..Config::default() };
         write_atomic(&paths.models_cache(&local.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
-        assert_eq!(fit(&mut local, &paths), None, "only OpenRouter states windows");
+        overlay(&mut local, &paths);
+        assert!(local.discovered.is_empty(), "only OpenRouter states windows");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -109,10 +109,14 @@ fn the_palette_runs_commands_and_esc_closes_it() {
         &mut log,
         &format!(
             "wait \"ask construct\" {short}\ntype /mem\nwait \"▸ /memory\" {short}\nkey enter\nwait \"memory is empty\" {short}\n\
-             type /mo\nwait \"▸ /model\" {short}\nkey enter\ngone \"▸ /model\" {short}\n"
+             type /mo\nwait \"▸ /model\" {short}\nkey enter\nwait \"no models in the catalog yet\" {short}\n"
         ),
     );
-    assert!(d.text().lines().any(|l| l.trim_end() == "› /model"), "a command with an argument completes\n{}", d.text());
+    assert!(
+        d.text().lines().all(|l| l.trim_end() != "› /model"),
+        "an optional argument runs, not completes\n{}",
+        d.text()
+    );
     run(
         &mut d,
         &mut log,
@@ -148,11 +152,11 @@ fn model_ids_complete_from_the_cached_list() {
         &mut log,
         &format!(
             "wait \"ask construct\" {short}\nsleep 500\ntype /model mock/\nwait \"▸ mock/small\" {short}\n\
-             expect \"32k\"\nexpect \"$0.30/$2.50\"\nkey enter\ngone \"32k\" {short}\n"
+             expect \"32.8k\"\nkey enter\ngone \"32.8k\" {short}\n"
         ),
     );
     assert!(d.text().lines().any(|l| l.trim_end() == "› /model mock/small"), "enter completes the id\n{}", d.text());
-    run(&mut d, &mut log, &format!("key enter\nwait \"model → mock/small (window 32768 tokens)\" {short}\n"));
+    run(&mut d, &mut log, &format!("key enter\nwait \"model → mock/small\" {short}\nexpect \"32.8k ctx\"\n"));
     run(
         &mut d,
         &mut log,

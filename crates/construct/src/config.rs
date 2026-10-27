@@ -21,8 +21,8 @@ pub struct Config {
     /// Tokens the model can take. Compaction plans against this less the
     /// output reserve (`max_tokens`, or an eighth of it up to 8192).
     pub context_window: u32,
-    /// Whether the config file sets `context_window`. When it does not, an
-    /// OpenRouter model's own window replaces the default (`llm::catalog::fit`).
+    /// Whether the config file sets `context_window`. When it does, the
+    /// endpoint's list does not supply a window (`llm::catalog::overlay`).
     #[serde(skip)]
     pub window_pinned: bool,
     pub compaction: CompactionConfig,
@@ -37,10 +37,21 @@ pub struct Config {
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
     pub provider: ProviderConfig,
+    /// The model catalog (`models.rs`): what an id means here. The top-level
+    /// `context_window`, `max_tokens`, endpoint and provider are the defaults
+    /// for an id with no entry.
+    pub models: BTreeMap<String, crate::models::ModelEntry>,
+    /// The top-level values as they were before an entry covered them.
+    #[serde(skip)]
+    pub defaults: Option<Box<crate::models::Defaults>>,
+    /// Entries read from the endpoint's own list (`llm::catalog::overlay`).
+    /// Never written back, and `models` wins an id in both.
+    #[serde(skip)]
+    pub discovered: BTreeMap<String, crate::models::ModelEntry>,
 }
 
 /// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProviderConfig {
     pub dialect: Dialect,
@@ -197,6 +208,9 @@ impl Default for Config {
             agents: BTreeMap::new(),
             headers: BTreeMap::new(),
             provider: ProviderConfig::default(),
+            models: BTreeMap::new(),
+            defaults: None,
+            discovered: BTreeMap::new(),
         }
     }
 }
@@ -363,6 +377,9 @@ impl Paths {
     pub fn spill_dir(&self) -> PathBuf {
         self.home.join("spill")
     }
+    pub fn models(&self) -> PathBuf {
+        self.home.join("models.toml")
+    }
     /// The cached model list for one endpoint (`llm::catalog`).
     pub fn models_cache(&self, base_url: &str) -> PathBuf {
         let key: String = base_url.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
@@ -399,6 +416,10 @@ impl Config {
             cfg.tools.editor = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
+        cfg.load_catalog(&paths.models())?;
+        // The model's entry (limits, endpoint) is laid over the defaults here,
+        // so every consumer sees the resolved values.
+        cfg.select_model(&cfg.model.clone());
         for name in cfg.mcp.keys() {
             crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }

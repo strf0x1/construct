@@ -2,12 +2,14 @@
 //! input, narrowed with each keystroke, best match on top. The skill library
 //! is read from disk whenever the query changes, so a skill written or edited
 //! mid-session is in the list (and runnable) without a restart. After
-//! `/model ` the same list shows models from the cached endpoint list
-//! instead; it is only ever read from disk here, never fetched.
+//! `/model ` and a word the same list shows the models the picker would
+//! (`Config::models`, then the endpoint's list), narrowed the same way.
 
 use super::help;
+use super::picker::Row;
 use super::theme;
-use crate::llm::catalog::{self, ModelInfo};
+use crate::config::Config;
+use crate::models::short_tokens;
 use crate::skills::Skill;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -71,22 +73,42 @@ pub(super) fn query(input: &str) -> Option<Query<'_>> {
     let q = input.strip_prefix('/')?;
     let word = |w: &str| !w.contains(char::is_whitespace);
     match q.strip_prefix("model ") {
-        Some(id) => word(id).then_some(Query::Model(id)),
+        // Bare `/model ` is the picker's: enter there opens it.
+        Some(id) => (!id.is_empty() && word(id)).then_some(Query::Model(id)),
         None => word(q).then_some(Query::Command(q)),
     }
 }
 
-/// Models from the cached list matching `q`, id prefixes first, each with its
-/// window and price. Only tool-capable models are listed, as in `/models`.
-pub(super) fn model_candidates(q: &str, models: &[ModelInfo]) -> Vec<Item> {
-    catalog::search(models, q)
-        .into_iter()
-        .map(|m| Item {
-            name: m.id.clone(),
-            arg: "",
-            about: catalog::row(m).strip_prefix(&m.id).unwrap_or_default().trim().to_string(),
-            skill: false,
-            model: true,
+/// Rows past this are left for a narrower query: each is resolved the way a
+/// switch would resolve it, and a list that long is no help on screen.
+const MODEL_ROWS: usize = 50;
+
+/// Catalog models matching `q` (the user's `[models.*]` first among equals,
+/// then the endpoint's list), best first, each with the window a switch to it
+/// would plan against. Matching is the picker's, so the two agree.
+pub(super) fn model_candidates(q: &str, cfg: &Config) -> Vec<Item> {
+    let q = q.to_lowercase();
+    let ids = cfg.models.keys().chain(cfg.discovered.keys().filter(|id| !cfg.models.contains_key(*id)));
+    let mut hits: Vec<((u8, usize), &String)> = ids
+        .filter_map(|id| {
+            let e = cfg.lookup(id)?;
+            let about = format!("{} {} {}", e.label, e.tags.join(" "), e.description);
+            score(&q, &id.to_lowercase(), &about).map(|s| (s, id))
+        })
+        .collect();
+    hits.sort();
+    hits.into_iter()
+        .take(MODEL_ROWS)
+        .map(|(_, id)| {
+            let r = Row::of(cfg, id);
+            let label = if r.label.is_empty() { String::new() } else { format!("  {}", r.label) };
+            Item {
+                name: id.clone(),
+                arg: "",
+                about: format!("{}{label}", short_tokens(r.window)),
+                skill: false,
+                model: true,
+            }
         })
         .collect()
 }
@@ -117,7 +139,7 @@ pub(super) fn candidates(q: &str, skills: &[Skill]) -> Vec<Item> {
 
 /// Lower is better: (tier, tiebreak). Prefix of the name, then substring,
 /// then the query's letters in order, then a substring of the description.
-fn score(q: &str, name: &str, about: &str) -> Option<(u8, usize)> {
+pub(super) fn score(q: &str, name: &str, about: &str) -> Option<(u8, usize)> {
     if q.is_empty() {
         return Some((0, 0));
     }
@@ -210,6 +232,7 @@ impl Palette {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::ModelEntry;
 
     fn skill(name: &str, description: &str) -> Skill {
         Skill { name: name.into(), description: description.into(), dir: Default::default() }
@@ -253,7 +276,7 @@ mod tests {
 
     #[test]
     fn model_query_is_the_one_word_after_model() {
-        assert_eq!(query("/model "), Some(Query::Model("")));
+        assert_eq!(query("/model "), None);
         assert_eq!(query("/model mock/sm"), Some(Query::Model("mock/sm")));
         assert_eq!(query("/model mock/small now"), None);
         assert_eq!(query("/model  mock"), None);
@@ -261,37 +284,41 @@ mod tests {
         assert_eq!(query("/modelx"), Some(Query::Command("modelx")));
     }
 
-    fn info(id: &str, context: u32, tools: bool) -> ModelInfo {
-        ModelInfo {
-            id: id.into(),
-            name: id.into(),
-            context: Some(context),
-            prompt_per_m: Some(0.3),
-            completion_per_m: Some(2.5),
-            tools,
-            ..Default::default()
+    fn catalog() -> Config {
+        let mut c: Config = toml::from_str(
+            r#"
+            model = "mine/local"
+            [models."mine/local"]
+            label = "My local"
+            context_window = 8000
+            "#,
+        )
+        .unwrap();
+        for (id, window) in [("mock/small", 32768), ("mock/large", 1_000_000), ("other/the-mock/clone", 8000)] {
+            let e = ModelEntry { label: id.into(), context_window: Some(window), ..Default::default() };
+            c.discovered.insert(id.into(), e);
         }
+        c.select_model("mine/local");
+        c
     }
 
     #[test]
-    fn models_narrow_by_id_prefix_first_and_carry_window_and_price() {
-        let list = [
-            info("other/the-mock/clone", 8000, true),
-            info("mock/small", 32768, true),
-            info("mock/vision-only", 8000, false),
-            info("mock/large", 1_000_000, true),
-        ];
-        let got = model_candidates("mock/", &list);
+    fn models_narrow_like_the_picker_and_carry_their_window() {
+        let cfg = catalog();
+        let got = model_candidates("mock/", &cfg);
         let ids: Vec<&str> = got.iter().map(|i| i.name.as_str()).collect();
         assert_eq!(ids, ["mock/large", "mock/small", "other/the-mock/clone"]);
         let small = &got[1];
         assert!(small.model && !small.skill && small.arg.is_empty());
-        assert!(small.about.starts_with("32k") && small.about.contains("$0.30/$2.50"), "{}", small.about);
+        assert!(small.about.starts_with("32.8k"), "{}", small.about);
         assert_eq!(small.completion(), "/model mock/small");
         assert!(small.takes_input());
-        assert_eq!(model_candidates("small", &list).len(), 1);
-        assert!(model_candidates("zzz", &list).is_empty());
-        assert!(model_candidates("", &[]).is_empty());
+        // the user's own entries are in it, with their label
+        let mine = model_candidates("local", &cfg);
+        assert_eq!(mine.len(), 1);
+        assert_eq!((mine[0].name.as_str(), mine[0].about.as_str()), ("mine/local", "8k  My local"));
+        assert!(model_candidates("zzz", &cfg).is_empty());
+        assert!(model_candidates("mock/", &Config::default()).is_empty());
     }
 
     #[test]
@@ -299,7 +326,7 @@ mod tests {
         let got = candidates("", &[skill("deploy", "ship it")]);
         let of = |n: &str| got.iter().find(|i| i.name == n).unwrap().completion();
         assert_eq!(of("/deploy"), "/deploy ");
-        assert_eq!(of("/model"), "/model ");
+        assert_eq!(of("/model"), "/model");
         assert_eq!(of("/help"), "/help");
     }
 

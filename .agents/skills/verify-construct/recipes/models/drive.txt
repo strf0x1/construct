@@ -10,7 +10,7 @@ expect "32k"
 image {evidence}/models.png
 type /model mock/small
 key enter
-wait "window 32768 tokens" 2000
+wait "32.8k ctx" 2000
 type hi
 key enter
 wait "ran-it" 5000
