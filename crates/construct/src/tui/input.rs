@@ -3,6 +3,7 @@
 
 use super::app::{App, Block, Cmd, Kind, Status};
 use super::ask::Choice;
+use super::picker::{Outcome, Picker};
 use super::theme;
 use crate::config::Paths;
 use crate::permission::Verdict;
@@ -67,6 +68,20 @@ fn prompt_key(app: &mut App, k: KeyEvent) -> bool {
     false
 }
 
+/// A key while the model picker is open: it takes every key, so typing
+/// filters the list instead of reaching the input line.
+fn picker_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) {
+    let Some(p) = app.picker.as_mut() else { return };
+    match p.key(k) {
+        Outcome::Stay => {}
+        Outcome::Close => app.picker = None,
+        Outcome::Pick(id) => {
+            app.picker = None;
+            let _ = cmd.send(Cmd::Model(id));
+        }
+    }
+}
+
 /// A key while the slash palette is open. Up and down move the selection,
 /// tab completes it, esc closes the palette. Enter completes a skill or a
 /// command that needs an argument, and otherwise lets the command run.
@@ -101,6 +116,10 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
     app.prune_prompts();
     if !app.prompts.is_empty() {
         return prompt_key(app, k);
+    }
+    if app.picker.is_some() {
+        picker_key(app, k, cmd);
+        return false;
     }
     if palette_key(app, k) {
         return false;
@@ -252,11 +271,24 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             app.groups.clear();
             let _ = cmd.send(Cmd::New);
         }
+        // The notice and the new limits come back as an `Event::Model` once
+        // the agent has switched (or an error if it could not).
         "model" if !arg.is_empty() => {
-            app.cfg.model = arg.to_string();
             let _ = cmd.send(Cmd::Model(arg.to_string()));
-            app.notice(theme::ACCENT, format!("model → {arg}"));
         }
+        "model" => match Picker::open(&app.cfg) {
+            Some(p) => app.picker = Some(p),
+            None => {
+                let file = Paths::resolve().map(|p| p.models().display().to_string()).unwrap_or_default();
+                app.notice(
+                    theme::DIM,
+                    format!(
+                        "no models in the catalog yet: add [models.\"<id>\"] entries (label, context_window, max_tokens) to {file}, or switch by id with /model <id>\nrunning: {}",
+                        app.cfg.model
+                    ),
+                );
+            }
+        },
         "learn" => {
             let _ = cmd.send(Cmd::LearnNow);
         }

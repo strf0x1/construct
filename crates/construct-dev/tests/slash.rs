@@ -109,10 +109,14 @@ fn the_palette_runs_commands_and_esc_closes_it() {
         &mut log,
         &format!(
             "wait \"ask construct\" {short}\ntype /mem\nwait \"▸ /memory\" {short}\nkey enter\nwait \"memory is empty\" {short}\n\
-             type /mo\nwait \"▸ /model\" {short}\nkey enter\ngone \"▸ /model\" {short}\n"
+             type /mo\nwait \"▸ /model\" {short}\nkey enter\nwait \"no models in the catalog yet\" {short}\n"
         ),
     );
-    assert!(d.text().lines().any(|l| l.trim_end() == "› /model"), "a command with an argument completes\n{}", d.text());
+    assert!(
+        d.text().lines().all(|l| l.trim_end() != "› /model"),
+        "an optional argument runs, not completes\n{}",
+        d.text()
+    );
     run(
         &mut d,
         &mut log,

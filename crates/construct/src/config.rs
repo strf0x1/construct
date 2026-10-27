@@ -33,10 +33,17 @@ pub struct Config {
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
     pub provider: ProviderConfig,
+    /// The model catalog (`models.rs`): what an id means here. The top-level
+    /// `context_window`, `max_tokens`, endpoint and provider are the defaults
+    /// for an id with no entry.
+    pub models: BTreeMap<String, crate::models::ModelEntry>,
+    /// The top-level values as they were before an entry covered them.
+    #[serde(skip)]
+    pub defaults: Option<Box<crate::models::Defaults>>,
 }
 
 /// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProviderConfig {
     pub dialect: Dialect,
@@ -192,6 +199,8 @@ impl Default for Config {
             agents: BTreeMap::new(),
             headers: BTreeMap::new(),
             provider: ProviderConfig::default(),
+            models: BTreeMap::new(),
+            defaults: None,
         }
     }
 }
@@ -358,6 +367,9 @@ impl Paths {
     pub fn spill_dir(&self) -> PathBuf {
         self.home.join("spill")
     }
+    pub fn models(&self) -> PathBuf {
+        self.home.join("models.toml")
+    }
 }
 
 impl Config {
@@ -385,6 +397,10 @@ impl Config {
             cfg.tools.editor = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
+        cfg.load_catalog(&paths.models())?;
+        // The model's entry (limits, endpoint) is laid over the defaults here,
+        // so every consumer sees the resolved values.
+        cfg.select_model(&cfg.model.clone());
         for name in cfg.mcp.keys() {
             crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }

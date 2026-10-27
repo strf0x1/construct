@@ -10,6 +10,7 @@ mod help;
 mod input;
 mod markdown;
 mod palette;
+mod picker;
 mod prompt;
 mod theme;
 mod view;
