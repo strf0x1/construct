@@ -255,7 +255,19 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "model" if !arg.is_empty() => {
             app.cfg.model = arg.to_string();
             let _ = cmd.send(Cmd::Model(arg.to_string()));
-            app.notice(theme::ACCENT, format!("model → {arg}"));
+            let window = Paths::resolve().ok().and_then(|p| crate::llm::catalog::fit(&mut app.cfg, &p));
+            let note = window.map(|w| format!(" (window {} tokens)", w)).unwrap_or_default();
+            app.notice(theme::ACCENT, format!("model → {arg}{note}"));
+        }
+        "models" => {
+            let models =
+                Paths::resolve().map(|p| crate::llm::catalog::cached(&p, &app.cfg.base_url)).unwrap_or_default();
+            let text = if models.is_empty() {
+                "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`".into()
+            } else {
+                crate::llm::catalog::listing(&models, arg, 20)
+            };
+            app.notice(theme::DIM, text);
         }
         "learn" => {
             let _ = cmd.send(Cmd::LearnNow);

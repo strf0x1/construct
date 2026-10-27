@@ -258,6 +258,7 @@ impl AgentDef {
             .collect();
         if self.context_window > 0 {
             cfg.context_window = self.context_window;
+            cfg.window_pinned = true;
         }
         cfg.max_steps = self.max_turns;
         cfg.mcp.clear();

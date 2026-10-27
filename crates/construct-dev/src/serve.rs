@@ -136,8 +136,14 @@ async fn models(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::htt
             Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
         };
     }
-    axum::Json(json!({ "object": "list", "data": [{ "id": "mock", "object": "model", "context_length": 131072 }] }))
-        .into_response()
+    axum::Json(json!({ "object": "list", "data": [
+        { "id": "mock", "object": "model", "context_length": 131072 },
+        // OpenRouter's shape: a small window, per-token prices as strings.
+        { "id": "mock/small", "name": "Mock: Small", "context_length": 32768,
+          "pricing": { "prompt": "0.0000003", "completion": "0.0000025" },
+          "supported_parameters": ["tools", "tool_choice"] },
+    ] }))
+    .into_response()
 }
 
 fn auth(s: &Shared, headers: &HeaderMap) -> Option<String> {

@@ -6,7 +6,7 @@ verified_at: ffa04de
 ---
 # Slash commands
 
-Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model <id>` switches the model for the next turn, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
+Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model <id>` switches the model for the next turn, `/models [query]` searches the model list, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
 
 ## Sub-features
 
@@ -15,6 +15,7 @@ Typing a line that starts with `/` at the prompt runs a built-in command instead
 - `slash-palette` typing `/word` lists matching commands (blue) and skills (green, `skill ·` before the description), best match first: name prefix, then substring, then letters in order, then description. ↑↓ move the selection, tab completes it, esc closes the list. Enter runs a command that takes no argument; for a skill or `/model` it completes the name plus a space and waits for the rest. Past 8 rows a faint `… N more` row says how many are hidden.
 - `slash-skill-run` `/<skill> <request>` runs a turn with the skill loaded and journals an `invoke` row (`skill`, `scope`). The library is read from disk each time, so a skill written mid-session can be run at once. A built-in command wins over a skill with the same name; `/skills <name>` still reaches that skill.
 - `slash-model` `/model <id>` switches the model; the notice and the status line show it.
+- `slash-models` `/models [query]` searches the cached model list (tool-capable models whose id or name contains every word) and prints id, window and USD per million tokens in and out, dimmed. On OpenRouter the list is fetched at startup, and `/model <id>` then adds `(window N tokens)` to its notice and compaction plans against that window unless `context_window` is set in `config.toml`. `construct models [query] [--refresh]` prints the same from the shell. Recipe: `.agents/skills/verify-construct/recipes/models`.
 - `slash-memory` `/memory` prints memory or says it is empty.
 - `slash-new` `/new` (or `/clear`) clears the transcript and counters and starts a new session.
 - `slash-quit` `/quit`, `/exit` or `/q` exits.

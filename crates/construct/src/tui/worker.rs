@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, watch};
 pub(super) type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>);
 
 pub(super) async fn agent_task(
-    cfg: Config,
+    mut cfg: Config,
     paths: Paths,
     resume: Option<String>,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
@@ -25,6 +25,8 @@ pub(super) async fn agent_task(
     prompts: mpsc::UnboundedSender<Prompt>,
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
+    // Off the UI path: the first frame is up, and this waits a few seconds at most.
+    crate::llm::catalog::prepare(&mut cfg, &paths).await;
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
     let mut agent = match build(resume, cfg.clone()) {
         Ok(a) => a,
@@ -52,7 +54,10 @@ pub(super) async fn agent_task(
                 maybe_learn(&mut agent, &tx, &mut reviewed, false);
             }
             Cmd::LearnNow => maybe_learn(&mut agent, &tx, &mut reviewed, true),
-            Cmd::Model(m) => agent.cfg.model = m,
+            Cmd::Model(m) => {
+                agent.cfg.model = m;
+                crate::llm::catalog::fit(&mut agent.cfg, &agent.paths);
+            }
             Cmd::New => {
                 finish(&agent, reviewed);
                 let mut c = agent.cfg.clone();
