@@ -69,7 +69,7 @@ impl Agent {
     ) -> Result<Self> {
         let key = match origin {
             Some(_) => crate::secrets::env_key(&cfg.api_key_secret),
-            None => crate::secrets::api_key(&cfg.api_key_secret),
+            None => cfg.endpoint_key(),
         };
         if key.is_none() && !cfg.api_key_secret.is_empty() {
             bail!(crate::secrets::missing_key(&cfg.api_key_secret));
@@ -153,6 +153,38 @@ impl Agent {
     pub fn warm(&self) {
         self.client.warm();
         router::warm(&self.cfg.router, &self.ctx.http);
+    }
+
+    /// Switch to `id` for the next request: its catalog entry's window, cap
+    /// and endpoint replace the last model's, or the defaults if it has no
+    /// entry. A new endpoint or key means a new client; a key that doesn't
+    /// resolve leaves the old model in place.
+    pub fn set_model(&mut self, id: &str, tx: &Events) -> Result<()> {
+        let mut cfg = self.cfg.clone();
+        cfg.select_model(id);
+        let moved = (&cfg.base_url, &cfg.api_key_secret, &cfg.provider, &cfg.headers)
+            != (&self.cfg.base_url, &self.cfg.api_key_secret, &self.cfg.provider, &self.cfg.headers);
+        if moved {
+            let key = cfg.endpoint_key();
+            if key.is_none() && !cfg.api_key_secret.is_empty() {
+                bail!(crate::secrets::missing_key(&cfg.api_key_secret));
+            }
+            self.client = llm::Client::new(&cfg, key)?;
+            self.client.warm();
+        }
+        self.cfg = cfg;
+        // A limit a provider stated about the last model says nothing of this one.
+        self.window_seen = None;
+        self.manifest = Manifest::new(&self.cfg, &self.catalog);
+        self.journal.emit(
+            Event::Model {
+                model: self.cfg.model.clone(),
+                context_window: self.cfg.context_window,
+                max_tokens: self.cfg.max_tokens,
+            },
+            tx,
+        );
+        Ok(())
     }
 
     /// A handle the UI can use to interrupt the running turn.
@@ -320,7 +352,15 @@ impl Agent {
             let body = self.body(&self.messages, &defs);
             let bytes = body.len() as u64;
             let completion = match self.step(body, &defs, tx).await {
-                Ok(Some(c)) => c,
+                Ok(Some(mut c)) => {
+                    // The catalog's price stands in when the provider sends none.
+                    if c.usage.cost.is_none()
+                        && let Some(p) = self.cfg.entry().and_then(|e| e.pricing)
+                    {
+                        c.usage.cost = Some(p.cost(c.usage.prompt_tokens, c.usage.completion_tokens));
+                    }
+                    c
+                }
                 Ok(None) => {
                     interrupted = true;
                     break;

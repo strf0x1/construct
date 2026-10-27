@@ -19,7 +19,7 @@ use std::sync::Arc;
 /// only written when the same problem class has come up in another session
 /// too. A skill that was loaded and turned out wrong can be patched at once.
 pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Message], kind: Kind) -> Result<Outcome> {
-    let key = crate::secrets::api_key(&cfg.api_key_secret);
+    let key = cfg.endpoint_key();
     let client = llm::Client::new(cfg, key)?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);

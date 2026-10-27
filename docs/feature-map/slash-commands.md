@@ -6,15 +6,15 @@ verified_at: ffa04de
 ---
 # Slash commands
 
-Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model <id>` switches the model for the next turn, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
+Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model` opens the model picker (see [Model picker](./model-picker.md)) and `/model <id>` switches the model for the next turn, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
 
 ## Sub-features
 
 - `slash-help` `/help` (or `/?`) draws rounded boxes for commands, skills (only when there are any) and keys: command names bold blue, skill names bold green, arguments yellow, key names bold cyan.
 - `slash-skills` `/skills` lists skills (project kit and global), or says there are none yet. `/skills <name> <request>` runs one.
-- `slash-palette` typing `/word` lists matching commands (blue) and skills (green, `skill ·` before the description), best match first: name prefix, then substring, then letters in order, then description. ↑↓ move the selection, tab completes it, esc closes the list. Enter runs a command that takes no argument; for a skill or `/model` it completes the name plus a space and waits for the rest. Past 8 rows a faint `… N more` row says how many are hidden.
+- `slash-palette` typing `/word` lists matching commands (blue) and skills (green, `skill ·` before the description), best match first: name prefix, then substring, then letters in order, then description. ↑↓ move the selection, tab completes it, esc closes the list. Enter runs a command that takes no required argument (`/model` opens the picker); for a skill it completes the name plus a space and waits for the rest. Past 8 rows a faint `… N more` row says how many are hidden.
 - `slash-skill-run` `/<skill> <request>` runs a turn with the skill loaded and journals an `invoke` row (`skill`, `scope`). The library is read from disk each time, so a skill written mid-session can be run at once. A built-in command wins over a skill with the same name; `/skills <name>` still reaches that skill.
-- `slash-model` `/model <id>` switches the model; the notice and the status line show it.
+- `slash-model` `/model <id>` switches the model; the notice (`model → <id> · <window> ctx`) and the status line show it. With no argument it opens the picker.
 - `slash-memory` `/memory` prints memory or says it is empty.
 - `slash-new` `/new` (or `/clear`) clears the transcript and counters and starts a new session.
 - `slash-quit` `/quit`, `/exit` or `/q` exits.
@@ -26,7 +26,7 @@ Typing a line that starts with `/` at the prompt runs a built-in command instead
 
 ## Done when
 
-- `/help` shows every command; `/skills` shows the library state; `/model x` shows `model → x` in blue and `x` in the status line; an unknown command shows the yellow hint. None of these sends a model request. The palette shows `▸ /create-verification` first for `/cre` when that skill exists, and `/create-verification do X` sends one request whose last user message holds the SKILL.md and `do X`.
+- `/help` shows every command; `/skills` shows the library state; `/model x` shows `model → x · 131k ctx` in blue and `x` in the status line; an unknown command shows the yellow hint. None of these sends a model request. The palette shows `▸ /create-verification` first for `/cre` when that skill exists, and `/create-verification do X` sends one request whose last user message holds the SKILL.md and `do X`.
 
 ## Driving it
 

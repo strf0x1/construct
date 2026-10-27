@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{help, markdown, prompt, theme};
+use super::{help, markdown, picker, prompt, theme};
 use crate::journal::human;
 use crate::tools::OutputKind;
 use anyhow::Result;
@@ -443,6 +443,10 @@ impl App {
             f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + 2 + input_h + palette_h, width, 1));
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), main_h + 2 + cy));
+            if let Some(p) = self.picker.as_mut() {
+                // Everything above the status line: the box needs the room for its details.
+                picker::render(f, Rect::new(0, 0, width, area.height.saturating_sub(1)), p);
+            }
         })?;
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;

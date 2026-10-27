@@ -33,6 +33,9 @@ pub struct Manifest {
     /// arms are told apart. Absent in manifests from before the planner.
     #[serde(default)]
     pub context_window: u32,
+    /// The output cap the model's catalog entry or the config sets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
     #[serde(default)]
     pub compaction: CompactionConfig,
     /// The resolved request dialect (`llm::dialect`), and whether it may
@@ -60,6 +63,7 @@ impl Manifest {
             router_mode: String::new(),
             agents: vec![],
             context_window: 0,
+            max_tokens: None,
             compaction: Default::default(),
             dialect: String::new(),
             cache: Default::default(),
@@ -80,6 +84,7 @@ impl Manifest {
             router_mode: cfg.router.mode.clone(),
             agents: cfg.agents.keys().cloned().collect(),
             context_window: cfg.context_window,
+            max_tokens: cfg.max_tokens,
             compaction: cfg.compaction.clone(),
             dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),
             cache: cfg.provider.cache,
