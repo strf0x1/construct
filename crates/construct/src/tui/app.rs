@@ -2,7 +2,7 @@
 //! change them.
 
 use super::ask::Prompt;
-use super::palette::{self, Palette};
+use super::palette::{self, Palette, Query};
 use super::picker::Picker;
 use super::theme;
 use crate::agent::Event;
@@ -195,21 +195,26 @@ impl App {
         crate::skills::merged(&libs.iter().collect::<Vec<_>>())
     }
 
-    /// Open, narrow or close the palette to match the input. The library is
-    /// re-read only when the query changes.
+    /// Open, narrow or close the palette to match the input. The skill
+    /// library is re-read only when the query changes.
     pub(super) fn refresh_palette(&mut self) {
-        let q = match palette::query(&self.input) {
-            Some(q) if self.palette_off.as_deref() != Some(self.input.as_str()) => q.to_string(),
+        let query = match palette::query(&self.input) {
+            Some(q) if self.palette_off.as_deref() != Some(self.input.as_str()) => q,
             _ => {
                 self.palette = None;
                 return;
             }
         };
-        if self.palette.as_ref().is_some_and(|p| p.query == q) {
+        let (q, models) = match query {
+            Query::Command(q) => (q.to_string(), false),
+            Query::Model(q) => (q.to_string(), true),
+        };
+        if self.palette.as_ref().is_some_and(|p| p.query == q && p.models == models) {
             return;
         }
-        let items = palette::candidates(&q, &self.skills());
-        self.palette = (!items.is_empty()).then_some(Palette { query: q, items, selected: 0 });
+        let items =
+            if models { palette::model_candidates(&q, &self.cfg) } else { palette::candidates(&q, &self.skills()) };
+        self.palette = (!items.is_empty()).then_some(Palette { query: q, models, items, selected: 0 });
     }
 
     /// How full the window is, as the status line says it.

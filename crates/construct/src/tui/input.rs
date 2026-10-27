@@ -83,8 +83,9 @@ fn picker_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) {
 }
 
 /// A key while the slash palette is open. Up and down move the selection,
-/// tab completes it, esc closes the palette. Enter completes a skill or a
-/// command that needs an argument, and otherwise lets the command run.
+/// tab completes it, esc closes the palette. Enter completes a skill, a model
+/// or a command that needs an argument, and otherwise lets the command run;
+/// a model already completed is run by the next enter.
 /// Returns true when the key was used up here.
 fn palette_key(app: &mut App, k: KeyEvent) -> bool {
     let Some(p) = app.palette.as_mut() else { return false };
@@ -98,12 +99,19 @@ fn palette_key(app: &mut App, k: KeyEvent) -> bool {
         }
         KeyCode::Tab | KeyCode::Enter if plain || k.code == KeyCode::Tab => {
             let Some(item) = p.selected() else { return false };
-            let run = k.code == KeyCode::Enter && !item.takes_input();
-            let name = item.name.clone();
-            let space = if item.takes_input() { " " } else { "" };
-            app.input = format!("{name}{space}");
+            let text = item.completion();
+            let model = item.model;
+            let done = model && app.input == text;
+            // Enter on a plain command, or on a model that is already typed
+            // out, falls through and sends it.
+            let run = k.code == KeyCode::Enter && (!item.takes_input() || done);
+            app.input = text;
             app.cursor = app.input.len();
-            // Enter on a plain command falls through and sends it.
+            if model {
+                // Complete means done narrowing: close until the input changes.
+                app.palette_off = Some(app.input.clone());
+                app.palette = None;
+            }
             return !run;
         }
         _ => return false,

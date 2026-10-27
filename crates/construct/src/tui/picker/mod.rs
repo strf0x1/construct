@@ -36,7 +36,7 @@ pub(super) struct Row {
 }
 
 impl Row {
-    fn of(cfg: &Config, id: &str) -> Self {
+    pub(super) fn of(cfg: &Config, id: &str) -> Self {
         let mut c = cfg.clone();
         c.select_model(id);
         let e = c.entry().cloned().unwrap_or_default();
@@ -60,7 +60,7 @@ impl Row {
     }
 
     /// What a search looks in after the id: label, tags and description.
-    fn about(&self) -> String {
+    pub(super) fn about(&self) -> String {
         format!("{} {} {}", self.label, self.tags.join(" "), self.description)
     }
 }

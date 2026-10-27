@@ -50,3 +50,11 @@ first turn. Using `top_provider.max_completion_tokens` as an output cap is open
 
 `crates/construct/src/llm/catalog.rs` unit tests,
 `crates/construct-dev/tests/models.rs`, and the `models` verify recipe.
+
+## Note: model ids in the palette
+
+The slash palette completes model ids inline: after `/model ` and a word it
+lists the catalog (`Config::models`, then `Config::discovered`) with the
+picker's matching and `Row::of` for each window, and enter completes
+`/model <id>`. It reads nothing from disk and fetches nothing; the list is
+whatever `overlay` laid under the catalog. Bare `/model ` still opens the picker.
