@@ -121,6 +121,14 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cost: Option<f64>,
     },
+    /// The model was switched mid-session (`/model`), with the limits its
+    /// catalog entry (or the defaults) gave it. The head row has the first.
+    Model {
+        model: String,
+        context_window: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_tokens: Option<u32>,
+    },
     /// History was cut to fit the window. `before`/`after` count messages;
     /// the token fields are the planner's estimates. `cut` is what the
     /// projector replays on resume (absent in journals from before it).

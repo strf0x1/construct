@@ -55,14 +55,13 @@ pub(super) async fn agent_task(
             }
             Cmd::LearnNow => maybe_learn(&mut agent, &tx, &mut reviewed, true),
             Cmd::Model(m) => {
-                agent.cfg.model = m;
-                crate::llm::catalog::fit(&mut agent.cfg, &agent.paths);
+                if let Err(e) = agent.set_model(&m, &tx) {
+                    let _ = tx.send(Event::Error { message: format!("model {m}: {e:#}") });
+                }
             }
             Cmd::New => {
                 finish(&agent, reviewed);
-                let mut c = agent.cfg.clone();
-                c.model = agent.cfg.model.clone();
-                match build(None, c) {
+                match build(None, agent.cfg.clone()) {
                     Ok(a) => {
                         agent = a;
                         agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));

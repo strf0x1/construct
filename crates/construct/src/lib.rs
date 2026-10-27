@@ -18,6 +18,7 @@ pub mod llm;
 pub mod manifest;
 pub mod mcp;
 pub mod memory;
+pub mod models;
 pub mod permission;
 pub mod project;
 pub mod prompt;

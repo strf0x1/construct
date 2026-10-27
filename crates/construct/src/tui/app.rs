@@ -3,6 +3,7 @@
 
 use super::ask::Prompt;
 use super::palette::{self, Palette};
+use super::picker::Picker;
 use super::theme;
 use crate::agent::Event;
 use crate::config::{Config, Paths};
@@ -123,6 +124,11 @@ pub(super) struct App {
     pub(super) palette: Option<Palette>,
     /// The input esc closed the palette on; it stays closed until that changes.
     pub(super) palette_off: Option<String>,
+    /// The model picker, while `/model` has it open.
+    pub(super) picker: Option<Picker>,
+    /// The newest request's prompt size, for the `ctx` meter: kept so a model
+    /// switch can re-read it against the new window.
+    pub(super) last_prompt: u64,
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
     skill_libs: Option<Vec<Library>>,
@@ -172,6 +178,8 @@ impl App {
             prompts: VecDeque::new(),
             palette: None,
             palette_off: None,
+            picker: None,
+            last_prompt: 0,
             skill_libs: None,
         }
     }
@@ -202,6 +210,11 @@ impl App {
         }
         let items = palette::candidates(&q, &self.skills());
         self.palette = (!items.is_empty()).then_some(Palette { query: q, items, selected: 0 });
+    }
+
+    /// How full the window is, as the status line says it.
+    pub(super) fn context_pct_now(&self) -> u64 {
+        self.last_prompt * 100 / (self.cfg.context_window.max(1) as u64)
     }
 
     pub(super) fn animating(&self) -> bool {
@@ -339,7 +352,15 @@ impl App {
                     cache_write_tokens: cache_write,
                     cost,
                 });
-                self.context_pct = prompt * 100 / (self.cfg.context_window.max(1) as u64);
+                self.last_prompt = prompt;
+                self.context_pct = self.context_pct_now();
+            }
+            Event::Model { model, context_window, .. } => {
+                self.cfg.select_model(&model);
+                self.context_pct = self.context_pct_now();
+                let label = self.cfg.entry().map(|e| e.label.as_str()).filter(|l| !l.is_empty());
+                let what = label.map_or(model.clone(), |l| format!("{model} ({l})"));
+                self.notice(theme::ACCENT, format!("model → {what} · {} ctx", crate::models::short_tokens(context_window as u64)));
             }
             Event::Compacted { before, after, mode, tokens_before, tokens_after, .. } => {
                 let what = if tokens_before > 0 {

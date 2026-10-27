@@ -67,7 +67,7 @@ pub(super) fn candidates(q: &str, skills: &[Skill]) -> Vec<Item> {
 
 /// Lower is better: (tier, tiebreak). Prefix of the name, then substring,
 /// then the query's letters in order, then a substring of the description.
-fn score(q: &str, name: &str, about: &str) -> Option<(u8, usize)> {
+pub(super) fn score(q: &str, name: &str, about: &str) -> Option<(u8, usize)> {
     if q.is_empty() {
         return Some((0, 0));
     }

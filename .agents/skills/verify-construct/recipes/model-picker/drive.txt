@@ -1,0 +1,26 @@
+# /model opens the picker over the transcript: the catalog, the running model
+# ticked and selected, its limits beside the list. Typing narrows; enter
+# switches, and the next request carries the new id.
+wait "ask construct" 5000
+type /model
+key enter
+wait "search models…" 3000
+expect "anthropic/claude-opus-5.5"
+expect "Compacts at"
+expect-style "▸" fg=#bb9af7
+expect-style "✓" fg=#9ece6a
+snap --style picker
+image {evidence}/picker.png
+type opus
+wait "1/4" 2000
+expect "Opus 5.5 — planning"
+gone "mini/tiny-8k" 1000
+image {evidence}/picker-filtered.png
+key enter
+wait "model → anthropic/claude-opus-5.5" 3000
+gone "search models…" 2000
+expect "1M ctx"
+type hello
+key enter
+wait "first-reply" 5000
+image {evidence}/switched.png

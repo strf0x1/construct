@@ -123,7 +123,7 @@ pub fn run() -> Result<()> {
     let paths = Paths::resolve()?;
     let mut cfg = Config::load(&paths)?;
     if let Some(m) = &cli.model {
-        cfg.model = m.clone();
+        cfg.select_model(m);
     }
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(4).build()?;
     match cli.cmd {
