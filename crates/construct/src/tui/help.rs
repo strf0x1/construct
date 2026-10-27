@@ -23,6 +23,7 @@ const fn entry(name: &'static str, arg: &'static str, about: &'static str) -> En
 pub(super) const COMMANDS: &[Entry] = &[
     entry("/new", "", "fresh session (also /clear)"),
     entry("/model", "[id]", "pick from the catalog, or switch to any id"),
+    entry("/models", "[query]", "search the endpoint's model list: window and price"),
     entry("/skills", "[name]", "list the skill library, or run one (also /<name> <request>)"),
     entry("/memory", "", "show what construct remembers"),
     entry("/learn", "", "run the learning pass now"),

@@ -144,9 +144,18 @@ impl Config {
         };
         defaults.restore(self);
         self.model = id.to_string();
-        if let Some(e) = self.models.get(id).cloned() {
+        if let Some(e) = self.lookup(id).cloned() {
             e.apply(self);
         }
+    }
+
+    /// The entry for `id`: the user's catalog, then the endpoint's own list
+    /// (which also knows `vendor/model:variant` by `vendor/model`).
+    pub fn lookup(&self, id: &str) -> Option<&ModelEntry> {
+        self.models.get(id).or_else(|| self.discovered.get(id)).or_else(|| {
+            let (base, _) = id.split_once(':')?;
+            self.discovered.get(base)
+        })
     }
 
     /// The key for the selected model's endpoint. Where an entry moved the
@@ -163,7 +172,7 @@ impl Config {
 
     /// The catalog entry of the selected model.
     pub fn entry(&self) -> Option<&ModelEntry> {
-        self.models.get(&self.model)
+        self.lookup(&self.model)
     }
 
     /// Fold `models.toml` into `[models.*]`; on a clash `config.toml` wins,

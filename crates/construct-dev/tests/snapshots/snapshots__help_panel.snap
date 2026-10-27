@@ -13,10 +13,10 @@ expression: "screen(&env, &d)"
 
 
 
-
   ╭─ commands ─────────────────────────────────────────────────────────────────╮
   │ /new                  fresh session (also /clear)                          │
   │ /model [id]           pick from the catalog, or switch to any id           │
+  │ /models [query]       search the endpoint's model list: window and price   │
   │ /skills [name]        list the skill library, or run one (also /<name>     │
   │                       <request>)                                           │
   │ /memory               show what construct remembers                        │

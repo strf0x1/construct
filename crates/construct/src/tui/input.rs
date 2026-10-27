@@ -276,6 +276,16 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "model" if !arg.is_empty() => {
             let _ = cmd.send(Cmd::Model(arg.to_string()));
         }
+        "models" => {
+            let models =
+                Paths::resolve().map(|p| crate::llm::catalog::cached(&p, &app.cfg.base_url)).unwrap_or_default();
+            let text = if models.is_empty() {
+                "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`".into()
+            } else {
+                crate::llm::catalog::listing(&models, arg, 20)
+            };
+            app.notice(theme::DIM, text);
+        }
         "model" => match Picker::open(&app.cfg) {
             Some(p) => app.picker = Some(p),
             None => {

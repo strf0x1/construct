@@ -4,6 +4,7 @@
 //! Provider quirks never live here: `dialect` shapes the body, `usage` reads
 //! any provider's accounting.
 
+pub mod catalog;
 pub mod dialect;
 mod stream;
 mod usage;

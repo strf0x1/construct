@@ -21,6 +21,10 @@ pub struct Config {
     /// Tokens the model can take. Compaction plans against this less the
     /// output reserve (`max_tokens`, or an eighth of it up to 8192).
     pub context_window: u32,
+    /// Whether the config file sets `context_window`. When it does, the
+    /// endpoint's list does not supply a window (`llm::catalog::overlay`).
+    #[serde(skip)]
+    pub window_pinned: bool,
     pub compaction: CompactionConfig,
     pub memory: MemoryConfig,
     pub learn: LearnConfig,
@@ -40,6 +44,10 @@ pub struct Config {
     /// The top-level values as they were before an entry covered them.
     #[serde(skip)]
     pub defaults: Option<Box<crate::models::Defaults>>,
+    /// Entries read from the endpoint's own list (`llm::catalog::overlay`).
+    /// Never written back, and `models` wins an id in both.
+    #[serde(skip)]
+    pub discovered: BTreeMap<String, crate::models::ModelEntry>,
 }
 
 /// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
@@ -189,6 +197,7 @@ impl Default for Config {
             temperature: None,
             max_steps: 200,
             context_window: 131_072,
+            window_pinned: false,
             compaction: CompactionConfig::default(),
             memory: MemoryConfig::default(),
             learn: LearnConfig::default(),
@@ -201,6 +210,7 @@ impl Default for Config {
             provider: ProviderConfig::default(),
             models: BTreeMap::new(),
             defaults: None,
+            discovered: BTreeMap::new(),
         }
     }
 }
@@ -370,13 +380,22 @@ impl Paths {
     pub fn models(&self) -> PathBuf {
         self.home.join("models.toml")
     }
+    /// The cached model list for one endpoint (`llm::catalog`).
+    pub fn models_cache(&self, base_url: &str) -> PathBuf {
+        let key: String = base_url.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+        self.home.join("models").join(format!("{key}.json"))
+    }
 }
 
 impl Config {
     pub fn load(paths: &Paths) -> Result<Self> {
         let path = paths.config();
         let mut cfg: Config = match std::fs::read_to_string(&path) {
-            Ok(text) => toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?,
+            Ok(text) => {
+                let mut cfg: Config = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+                cfg.window_pinned = text.parse::<toml::Table>().is_ok_and(|t| t.contains_key("context_window"));
+                cfg
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Config::default(),
             Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
         };

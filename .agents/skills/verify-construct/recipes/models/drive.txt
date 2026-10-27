@@ -1,0 +1,16 @@
+# The model list: /models searches the cached list, /model reports the
+# window it gives, and a turn plans against that window.
+wait "ask construct" 5000
+sleep 500
+type /models small
+key enter
+wait "$0.30/$2.50" 3000
+expect "mock/small"
+expect "32k"
+image {evidence}/models.png
+type /model mock/small
+key enter
+wait "32.8k ctx" 2000
+type hi
+key enter
+wait "ran-it" 5000

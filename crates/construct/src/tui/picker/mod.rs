@@ -88,11 +88,13 @@ impl Picker {
     /// The catalog as rows, the running model selected; none when the
     /// catalog is empty, since a list of one is no choice.
     pub(super) fn open(cfg: &Config) -> Option<Self> {
-        if cfg.models.is_empty() {
+        if cfg.models.is_empty() && cfg.discovered.is_empty() {
             return None;
         }
+        // The user's entries first, then the endpoint's list.
         let mut ids: Vec<&str> = cfg.models.keys().map(String::as_str).collect();
-        if !cfg.models.contains_key(&cfg.model) {
+        ids.extend(cfg.discovered.keys().map(String::as_str).filter(|id| !cfg.models.contains_key(*id)));
+        if !ids.contains(&cfg.model.as_str()) {
             ids.insert(0, &cfg.model);
         }
         let rows: Vec<Row> = ids.into_iter().map(|id| Row::of(cfg, id)).collect();

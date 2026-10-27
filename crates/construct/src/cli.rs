@@ -60,6 +60,17 @@ enum Cmd {
         #[command(subcommand)]
         cmd: SessionsCmd,
     },
+    /// Search the endpoint's model list (OpenRouter: windows and prices).
+    Models {
+        /// Words the id or name must contain.
+        query: Vec<String>,
+        /// Fetch again even if the cached list is fresh.
+        #[arg(long)]
+        refresh: bool,
+        /// Most rows to print.
+        #[arg(long, default_value_t = 30)]
+        limit: usize,
+    },
     /// Show memory.
     Memory,
     /// Show the config path and current settings.
@@ -202,6 +213,12 @@ pub fn run() -> Result<()> {
             print!("{}", journal::transcript(&entries));
             Ok(())
         }
+        Some(Cmd::Models { query, refresh, limit }) => rt.block_on(async {
+            let client = llm::Client::new(&cfg, None)?;
+            let models = llm::catalog::refresh(&client, &paths, refresh).await?;
+            println!("{}", llm::catalog::listing(&models, &query.join(" "), limit));
+            Ok(())
+        }),
         Some(Cmd::Memory) => {
             let store = memory::Store::new(&paths, &cfg.memory).with_project(&paths, &std::env::current_dir()?);
             let block = store.prompt_block();
@@ -312,6 +329,8 @@ async fn headless(
     learn: bool,
 ) -> Result<()> {
     let learn = learn && cfg.learn.enabled;
+    let mut cfg = cfg;
+    llm::catalog::prepare(&mut cfg, &paths).await;
     let cwd = std::env::current_dir()?;
     let mut agent = Agent::new(cfg, paths, cwd, resume)?;
     // Overlaps the model's TLS handshake with routing.

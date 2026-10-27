@@ -59,7 +59,8 @@ fn model_picker_lists_the_catalog_and_a_choice_reaches_the_next_request() {
     run(
         &mut d,
         &mut log,
-        &format!("wait \"ask construct\" {short}\ntype /model\nkey enter\nwait \"search models…\" {short}\n"),
+        &// Settle before reading rows: the title can land a frame ahead of the table.
+        format!("wait \"ask construct\" {short}\ntype /model\nkey enter\nwait \"search models…\" {short}\nsettle 200 {long}\n"),
     );
     let screen = d.text();
     for want in ["a/one", "b/two", "tiny/16k", "One — fast", "200k", "1M", "16.4k", "✓"] {
