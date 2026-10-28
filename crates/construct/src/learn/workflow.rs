@@ -51,6 +51,7 @@ pub fn prompt_block(kit: Option<&Path>) -> String {
 const SYSTEM: &str = "You keep a few reusable workflows for one repo: the steps and exact commands that got a task done there. You read a finished session and the current workflows, and reply with JSON only.
 - First decide: did the session end in a verified working state (tests or a run passed after the last change, and the user didn't report a problem afterwards)? If not, reply {\"verified\": false}.
 - If it did, induce the workflow it followed: the steps a future task of the same kind needs, in order, with exact commands. Replace task-specific names and values with {placeholders}. Keep steps the user required (conventions, setup they had to tell you about) and the command that worked where another failed; drop dead ends, exploration and anything a retry fixed.
+- Never write a credential (password, API key, token, a connection string with a password) into a step: say where it comes from instead (\"the DB password from secretspec\"). A value the user gave that isn't a credential (a seed, a port, a path) belongs in the step exactly as given.
 - Merge it into the most similar existing workflow rather than adding a near-duplicate. At most 3 workflows, each at most 10 steps.
 Reply exactly: {\"verified\": true, \"workflows\": [{\"title\": \"Add a CLI command\", \"steps\": [\"...\"]}]} with the full new set.";
 
@@ -60,14 +61,17 @@ pub fn parse(v: &serde_json::Value) -> Option<Vec<Workflow>> {
         return None;
     }
     let mut wfs: Vec<Workflow> = serde_json::from_value(v["workflows"].clone()).ok()?;
-    wfs.retain(|w| !w.title.trim().is_empty() && !w.steps.is_empty());
     for w in &mut wfs {
         w.title = llm::truncate(w.title.trim(), 80);
+        // Workflows enter every prompt in the repo: a step holding a
+        // credential is dropped, like a memory entry would be.
+        w.steps.retain(|s| crate::guard::check(s).is_none());
         w.steps.truncate(MAX_STEPS);
         for s in &mut w.steps {
             *s = llm::truncate(s.trim(), 300);
         }
     }
+    wfs.retain(|w| !w.title.is_empty() && !w.steps.is_empty() && crate::guard::check(&w.title).is_none());
     wfs.truncate(MAX);
     (!wfs.is_empty()).then_some(wfs)
 }
@@ -105,6 +109,16 @@ mod tests {
     fn an_unverified_session_saves_nothing() {
         assert!(parse(&json!({"verified": false})).is_none());
         assert!(parse(&json!({"verified": true, "workflows": []})).is_none());
+    }
+
+    #[test]
+    fn steps_holding_credentials_are_dropped() {
+        let got = parse(&json!({"verified": true, "workflows": [{"title": "Deploy", "steps": [
+            "Run ./tools/test",
+            "Push with GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123",
+        ]}]}))
+        .unwrap();
+        assert_eq!(got[0].steps, ["Run ./tools/test"]);
     }
 
     #[test]

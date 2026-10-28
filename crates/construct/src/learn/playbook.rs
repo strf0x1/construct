@@ -73,6 +73,7 @@ pub fn prompt_block(memory_dir: &Path, kit: Option<&Path>) -> String {
 const SYSTEM: &str = "You maintain an agent's playbook: short, specific lessons that make its next session in this place go better. You read a finished session and the current playbook, and reply with JSON edits only.
 - tag: for each existing bullet that was relevant this session, \"helpful\" if following it (or what it says) worked, \"harmful\" if it was followed and misled the agent. Leave irrelevant bullets out.
 - add: a lesson this session taught that isn't in the playbook. Only: a procedure or fact the user had to supply, a convention the user enforced, or a failed approach and what replaced it. Write it as an instruction with the exact command or rule (\"Run tests with ./tools/test; python -m unittest fails here (src layout)\"). Never task progress, the task itself, or anything a retry fixed. scope \"project\" for how this repo works; \"global\" only for something about the user that holds in every repo.
+- Never record a credential (password, API key, token, a connection string with a password), even one the user pasted: write where it comes from instead (\"the deploy token is in secretspec as DEPLOY_TOKEN\"). A value the user gave that isn't a credential (a seed, a port, a path, a team convention) is exactly the lesson: keep it verbatim.
 - update: rewrite a bullet that was incomplete or partly wrong, by id.
 - remove: ids of bullets that are wrong or duplicated.
 Most sessions add nothing. Reply exactly: {\"tag\": [{\"id\": \"p1\", \"tag\": \"helpful\"}], \"add\": [{\"text\": \"...\", \"scope\": \"project\"}], \"update\": [{\"id\": \"p2\", \"text\": \"...\"}], \"remove\": [\"g1\"]}";
@@ -125,7 +126,7 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
         }
     }
     for u in &d.update {
-        if let Some(why) = crate::memory::scan(&u.text) {
+        if let Some(why) = crate::guard::check(&u.text) {
             log.push(format!("{why} ({})", u.id));
             continue;
         }
@@ -144,8 +145,8 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
     for a in d.add.iter().filter(|a| a.scope == scope) {
         let text = llm::truncate(a.text.trim(), 400);
         // A value the user gave for this project (a seed, a port) is the
-        // lesson; a credential never is. Same refusals as memory.
-        if let Some(why) = crate::memory::scan(&text) {
+        // lesson; a credential never is. Same check as memory (`guard`).
+        if let Some(why) = crate::guard::check(&text) {
             log.push(why);
             continue;
         }

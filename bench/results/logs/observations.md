@@ -288,3 +288,12 @@ Learning curriculum (learn-tally), 5 arms x 6 sessions x 4 rounds, Haiku 5.5 and
 - `bench/results/curriculum-20261027-030303.json`: model anthropic/claude-haiku-5.5; bench 175f870 dirty; corrections 175f870 dirty editor=replace router=auto; control 175f870 dirty editor=replace router=auto; skills 175f870 dirty editor=replace router=auto; playbook 175f870 dirty editor=replace router=auto
 - `bench/results/curriculum-20261027-032945.json`: model deepseek/deepseek-v4.1-flash-1017; bench 175f870 dirty; corrections 175f870 dirty editor=replace router=auto; control 175f870 dirty editor=replace router=auto; skills 175f870 dirty editor=replace router=auto; playbook 175f870 dirty editor=replace router=auto
 - `bench/results/curriculum-20261027-033032.json`: model deepseek/deepseek-v4.1-flash-1017; bench 175f870 dirty; corrections 175f870 dirty editor=replace router=auto; control 175f870 dirty editor=replace router=auto; skills 175f870 dirty editor=replace router=auto; playbook 175f870 dirty editor=replace router=auto
+
+## 2026-10-27 22:32 note
+
+Playbook arm re-run after the credentials rule went into the playbook and workflow prompts (guard.rs): 1 round x 2 processes per model. Later tally sessions, corrections per session: Haiku 0.12, DeepSeek 0.12 (before: 0.06 / 0.31 local, 0.12 / 0.25 Jev), first try 88% on both. The literal team seed is still in the playbook in 4/4 homes: the rule against storing credentials didn't make the learner drop user-supplied project values. No refusals fired; the curriculum plants no credentials.
+
+- `bench/results/curriculum-20261027-223112.json`: model anthropic/claude-haiku-5.5; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
+- `bench/results/curriculum-20261027-223121.json`: model anthropic/claude-haiku-5.5; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
+- `bench/results/curriculum-20261027-223119.json`: model deepseek/deepseek-v4.1-flash-1017; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
+- `bench/results/curriculum-20261027-223148.json`: model deepseek/deepseek-v4.1-flash-1017; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
