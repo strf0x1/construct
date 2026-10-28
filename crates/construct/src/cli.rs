@@ -423,20 +423,26 @@ async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: b
         let reviewed = st["reviewed_seq"][&id].as_i64().unwrap_or(0);
         let fresh = journal::project(db.since(&id, reviewed)?.iter().map(|e| &e.event));
         if reviewed < last && !fresh.is_empty() && learn::kind_for(user_turns, tool_calls).is_some() {
-            if let Some(r) = learn::distill(&cfg, &paths, &fresh).await {
+            // The curator below still runs either way: it tends agent-written
+            // global skills, whatever strategy wrote them.
+            let distilled = learn::distill(&cfg, &paths, &id, &fresh).await;
+            if let Some(r) = &distilled {
                 match r {
                     Ok(o) => {
                         learn::log_line(&paths, &format!("session {id}: {} | {}", o.summary, o.actions.join("; ")))
                     }
                     Err(e) => learn::log_line(&paths, &format!("session {id}: {} failed: {e:#}", cfg.learn.strategy)),
                 }
-                st["reviewed_seq"][&id] = serde_json::json!(last);
-                learn::save_state(&paths, &st);
-                return Ok(());
             }
             // A cheap check first: most sessions hold nothing worth a review.
-            let gate = learn::gate(&cfg, &fresh).await;
-            learn::log_line(&paths, &format!("session {id}: gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
+            let gate = match distilled {
+                Some(_) => learn::Gate { kind: None, source: "", note: String::new() },
+                None => {
+                    let g = learn::gate(&cfg, &fresh).await;
+                    learn::log_line(&paths, &format!("session {id}: gate {} {} -> {:?}", g.source, g.note, g.kind));
+                    g
+                }
+            };
             if let Some(kind) = gate.kind {
                 match learn::review(&cfg, &paths, &id, &fresh, kind).await {
                     Ok(o) => {

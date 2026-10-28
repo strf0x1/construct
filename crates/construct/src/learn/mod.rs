@@ -39,14 +39,23 @@ pub const WORKFLOW: &str = "workflow";
 pub const HYBRID: &str = "hybrid";
 pub const STRATEGIES: &[&str] = &[SKILLS, CORRECTIONS, PLAYBOOK, WORKFLOW, HYBRID];
 
-/// For the strategies that replace the gate and the review (`playbook`,
-/// `workflow`, `hybrid`): learn from `messages` with one call, every time. `None` for
-/// the strategies that go through `gate` and `review`.
-pub async fn distill(cfg: &Config, paths: &Paths, messages: &[Message]) -> Option<Result<Outcome>> {
+/// For the strategies that replace the review (`playbook`, `workflow`,
+/// `hybrid`): learn from `messages` with one call. `hybrid` asks
+/// `gate::evidence` first, so a session with nothing in it costs no call;
+/// the other two reflect every time. `None` for the strategies that go
+/// through `gate` and `review`.
+pub async fn distill(cfg: &Config, paths: &Paths, session: &str, messages: &[Message]) -> Option<Result<Outcome>> {
     match cfg.learn.strategy.as_str() {
         PLAYBOOK => Some(playbook::reflect(cfg, paths, messages).await),
         WORKFLOW => Some(workflow::induce(cfg, paths, messages).await),
-        HYBRID => Some(hybrid::reflect(cfg, paths, messages).await),
+        HYBRID => {
+            let g = gate::evidence(cfg, messages).await;
+            log_line(paths, &format!("session {session}: gate {} {} -> {:?}", g.source, g.note, g.kind));
+            if g.kind.is_none() {
+                return Some(Ok(Outcome { summary: "Nothing to learn.".into(), actions: vec![] }));
+            }
+            Some(hybrid::reflect(cfg, paths, messages).await)
+        }
         _ => None,
     }
 }

@@ -123,7 +123,7 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
         (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
     tokio::spawn(async move {
         let _ = tx.send(Event::Learn { status: "learning from this session".into() });
-        if let Some(r) = learn::distill(&cfg, &paths, &slice).await {
+        if let Some(r) = learn::distill(&cfg, &paths, &id, &slice).await {
             let status = match r {
                 Ok(o) => {
                     learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));

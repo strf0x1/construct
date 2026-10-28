@@ -54,8 +54,10 @@ fn read_call(p: &Path) -> Value {
 }
 
 /// What the model was told about each tool call, in order.
+/// Tool results in the agent's last request. A learner may call the model
+/// after it (no tools: a side call), so that one doesn't count.
 fn results(env: &Env) -> Vec<String> {
-    let last = env.requests().pop().unwrap();
+    let last = env.requests().into_iter().rev().find(|r| r["tools"].as_array().is_some_and(|t| !t.is_empty())).unwrap();
     last["messages"]
         .as_array()
         .unwrap()
