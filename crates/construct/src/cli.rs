@@ -121,6 +121,10 @@ enum SecretsCmd {
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
     let paths = Paths::resolve()?;
+    // Best effort: a home construct can't secure still works, as before.
+    if let Ok(crate::home::Outcome::Tightened { from, to }) = crate::home::make_private(&paths.home) {
+        eprintln!("construct: made {} private ({from:o} -> {to:o}); see docs/adr/0021", paths.home.display());
+    }
     let mut cfg = Config::load(&paths)?;
     if let Some(m) = &cli.model {
         cfg.select_model(m);

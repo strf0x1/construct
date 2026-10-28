@@ -1580,3 +1580,29 @@ fn sessions_show_prints_a_session_from_another_project() {
     let missing = env.run(&["sessions", "show", "no-such-session"]);
     assert!(!missing.status.success());
 }
+
+#[test]
+fn home_is_private_and_an_open_one_is_tightened_once() {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    let env =
+        Env::new("home-private", json!({ "steps": [ { "text": "one" }, { "text": "two" }, { "text": "three" } ] }));
+    // A fresh home is created 0700; everything under it, journals included, is behind it.
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o700);
+    assert!(env.home.join("projects").is_dir());
+    assert!(!text(&out).contains("made"), "a new home needs no notice: {}", text(&out));
+    // A home from before this change (world-readable, no marker) is tightened once, with a notice.
+    std::fs::remove_file(env.home.join(construct::home::MARKER)).unwrap();
+    std::fs::set_permissions(&env.home, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o700);
+    assert!(text(&out).contains("private (755 -> 700)"), "{}", text(&out));
+    // A user who shares it again on purpose is left alone.
+    std::fs::set_permissions(&env.home, std::fs::Permissions::from_mode(0o750)).unwrap();
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o750);
+}
