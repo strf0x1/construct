@@ -167,3 +167,48 @@ fn model_ids_complete_from_the_cached_list() {
     assert!(env.requests().is_empty(), "no model request was made");
     d.kill();
 }
+
+/// The listing commands draw rounded boxes like `/help`: `/models` rows with
+/// the window and price, `/memory` one box per store with its use of the cap,
+/// `/skills` the library, `/status` the session. All of them stay off the model.
+#[test]
+fn listing_commands_draw_boxes() {
+    let env = Env::new("slash-boxes", json!({ "steps": [ { "text": "unused" } ] }));
+    env.config("model = \"mock\"\n[provider]\ndialect = \"openrouter\"\n[learn]\nenabled = false\n");
+    let skill = env.home.join("skills/release-crate/SKILL.md");
+    std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
+    std::fs::write(
+        &skill,
+        "---\nname: release-crate\ndescription: Publish a release of a Rust crate\n---\n\n1. bump\n",
+    )
+    .unwrap();
+    let mem = env.home.join("memory");
+    std::fs::create_dir_all(&mem).unwrap();
+    std::fs::write(mem.join("MEMORY.md"), "the box runs arch linux\n§\nprefers rustfmt defaults").unwrap();
+    let mut d = drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        110,
+        50,
+    )
+    .unwrap();
+    let mut log = Vec::new();
+    let short = budget(3000);
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "wait \"ask construct\" {short}\nsleep 500\ntype /models small\nkey enter\nwait \"mock/small\" {short}\n\
+             expect \"╭─ models\"\nexpect \"$0.30/$2.50\"\ntype /memory\nkey enter\nwait \"prefers rustfmt defaults\" {short}\n"
+        ),
+    );
+    let screen = d.text();
+    assert!(screen.contains("╭─ Your notes on this machine and its tools · "), "{screen}");
+    assert!(screen.contains("│ •  the box runs arch linux"), "{screen}");
+    run(&mut d, &mut log, &format!("type /skills\nkey enter\nwait \"╭─ skills\" {short}\nexpect \"release-crate\"\n"));
+    assert!(d.text().contains("run one with /<name> <request>"), "{}", d.text());
+    run(&mut d, &mut log, &format!("type /status\nkey enter\nwait \"╭─ status\" {short}\nexpect \"requests  0\"\n"));
+    assert!(env.requests().is_empty(), "no slash command reached the model");
+    d.kill();
+}
