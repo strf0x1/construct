@@ -4,7 +4,8 @@
 //! line per gate and a last line of `ok` or `FAILED <gate>`, so an agent never
 //! has to read cargo's output to know whether it is done. A failing gate's
 //! output is printed above that last line. A test failure caused by a golden
-//! snapshot is reported as `FAILED snapshots`.
+//! snapshot is reported as `FAILED snapshots`. `docs` and `map` run in
+//! process, before cargo: they read files and take milliseconds.
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -94,7 +95,7 @@ fn conventions(root: &Path) -> Vec<String> {
 }
 
 /// Every `.rs` file under `crates/*/src`, in path order.
-fn rust_sources(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn rust_sources(dir: &Path) -> Vec<PathBuf> {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries.flatten() {
@@ -119,18 +120,26 @@ fn rust_sources(dir: &Path) -> Vec<PathBuf> {
 pub fn check() -> Result<bool> {
     let root = workspace_root()?;
     enable_hooks(&root);
-    let t = Instant::now();
-    let problems = conventions(&root);
-    let secs = t.elapsed().as_secs_f32();
-    if !problems.is_empty() {
-        println!("docs     FAILED ({secs:.1}s)");
-        for p in &problems {
-            println!("  {p}");
+    let is_commit = |sha: &str| {
+        let rev = format!("{sha}^{{commit}}");
+        Command::new("git").args(["cat-file", "-e", &rev]).current_dir(&root).status().is_ok_and(|s| s.success())
+    };
+    let in_process: [(&str, &dyn Fn() -> Vec<String>); 2] =
+        [("docs", &|| conventions(&root)), ("map", &|| crate::feature_map::problems(&root, &is_commit))];
+    for (name, gate) in in_process {
+        let t = Instant::now();
+        let problems = gate();
+        let secs = t.elapsed().as_secs_f32();
+        if !problems.is_empty() {
+            println!("{name:<8} FAILED ({secs:.1}s)");
+            for p in &problems {
+                println!("  {p}");
+            }
+            println!("FAILED {name}");
+            return Ok(false);
         }
-        println!("FAILED docs");
-        return Ok(false);
+        println!("{name:<8} ok ({secs:.1}s)");
     }
-    println!("docs     ok ({secs:.1}s)");
     for (name, args) in GATES {
         let t = Instant::now();
         let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;

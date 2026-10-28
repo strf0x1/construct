@@ -47,9 +47,10 @@ Palette and skill run: `setup.sh` writes the `create-verification` skill to the 
 
 - **Palette.** Drive: `type /`, `expect "more (↑↓ to scroll)"`, `type cre`, `wait "▸ /create-verification"`, `expect-style "/create-verification" fg=#9ece6a bold`, `image {evidence}/palette.png`. Expect: the skill alone, green, with its description.
 - **Complete and run.** Drive: `key enter`, `expect "› /create-verification"`, `type do-the-thing`, `key enter`, `wait "ran-it"`. Expect: the reply.
-- **Second view.** The recipe's `check.sh`. Expect: `ok: request carried SKILL.md and do-the-thing; invoke row for create-verification` — the last `requests/req-*.json` holds the SKILL.md body and the request, and `journal.txt` has the `invoke` row.
+- **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/slash-palette`. Expect: `ok: request carried SKILL.md and do-the-thing; invoke row for create-verification` — the last `requests/req-*.json` holds the SKILL.md body and the request, and `journal.txt` has the `invoke` row.
 - Contract: `crates/construct-dev/tests/slash.rs` (a skill written by `skill_manage` in turn 1 runs from the palette in turn 2; built-ins from the palette; esc), golden `help_panel` in `snapshots.rs`.
 
 ## Gotchas
 
-- `/model` with no argument does nothing (issue #69).
+- A skill can't take a built-in's name or alias (`/clear`, `/exit`, `/q`, `/?`); the built-in wins, so pick a skill name for the palette step that no command starts with.
+- Built-ins never reach the model: the first recipe's proof is that `requests.jsonl` is empty, so don't add a step that sends a turn to it.
