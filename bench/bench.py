@@ -14,6 +14,7 @@ measured the same way, outside the harnesses.
                      [--script STEPS.json]        ... or a scripted model, to dry-run a task's plumbing
   bench.py routing   [--rounds N] --model M       the router on the release-signing task
   bench.py loop      [--rounds N] --model M       the learning loop on the team-seed task
+  bench.py curriculum [--rounds N] --model M --arm ...   six sessions in one home (learn-tally): what learning saves
   bench.py compare   A.json [B.json] [--a SIDE --b SIDE]   verdict per metric; exit 1 on any `worse`
   bench.py note      "text" [RESULT.json ...]     append a dated entry to results/logs/observations.md
 
@@ -510,15 +511,26 @@ def run(cmd, env, cwd, timeout=900, sample=False, stop_when=None):
     }
 
 
-def wait_for_learners(timeout=300):
+def wait_for_learners(timeout=300, home=None):
     """construct hands its learning pass to a detached process; let it finish
-    so its traffic doesn't overlap the next run."""
+    so its traffic doesn't overlap the next run. With `home`, only learners
+    of that CONSTRUCT_HOME count, so parallel benches don't wait on each other."""
     t0 = time.time()
     while time.time() - t0 < timeout:
-        r = subprocess.run(["pgrep", "-f", f"{CONSTRUCT} learn"], capture_output=True)
-        if r.returncode != 0:
+        r = subprocess.run(["pgrep", "-f", f"{CONSTRUCT} learn"], capture_output=True, text=True)
+        pids = r.stdout.split()
+        if home is not None:
+            pids = [p for p in pids if f"CONSTRUCT_HOME={home}\0" in _environ(p)]
+        if not pids:
             return
         time.sleep(0.5)
+
+
+def _environ(pid):
+    try:
+        return Path(f"/proc/{pid}/environ").read_bytes().decode(errors="replace")
+    except OSError:
+        return ""
 
 
 def du(path):
@@ -1265,6 +1277,158 @@ def suite_loop(args):
     save("loop", {"model": args.model, "rounds": args.rounds, "hint": task.spec["hint"], "tasks": [[s["name"], s["prompt"]] for s in sessions], "raw": results})
 
 
+# ---------------------------------------------------------------- curriculum
+# bench/tasks/learn-tally: one home through six sessions, so a lesson taught in
+# one can pay off in the next. Every arm in a round gets the same seed, and
+# arms differ only in their config overlay (`cfg:learn = { ... }`), so a
+# no-learning control is just another arm. Per session: did the simulated user
+# have to correct a lesson, did a known landmine go off, how many tool calls
+# failed, and what it cost, the agent's turns and the learner's separately.
+
+LANDMINES = {
+    # the fixtures: missing, unseeded or wrongly seeded
+    "seed": re.compile(r"No such file or directory: '[^']*golden\.json'|fixtures were generated with the wrong seed|usage: gen-fixtures"),
+    # CONTRIBUTING.md's test command in a src layout
+    "runner": re.compile(r"No module named 'tally'"),
+}
+# tally lore that has no business in the other repo
+LORE = re.compile(r"gen-fixtures|tools/test|PYTHONPATH=src|CHANGELOG")
+
+
+def curriculum_facts(home: Path, since: float):
+    """What the journal says about the sessions since `since`: tool calls and
+    failures by tool, landmine hits in shell output, skills loaded, lore."""
+    calls, failed, by_tool = 0, 0, {}
+    hits = {k: 0 for k in LANDMINES}
+    loaded, lore = [], 0
+    for session in journal.sessions(home, since):
+        shell_ids = set()
+        for d in session:
+            m = d.get("message") or {}
+            for t in m.get("tool_calls") or []:
+                f = t.get("function", {})
+                if f.get("name") == "shell":
+                    shell_ids.add(t.get("id"))
+                    lore += bool(LORE.search(f.get("arguments") or ""))
+                if f.get("name") == "skill":
+                    try:
+                        loaded.append(json.loads(f.get("arguments") or "{}").get("name"))
+                    except ValueError:
+                        pass
+            if m.get("role") == "tool" and m.get("tool_call_id") in shell_ids:
+                for k, rx in LANDMINES.items():
+                    hits[k] += bool(rx.search(str(m.get("content") or "")))
+            if d.get("type") == "tool":
+                calls += 1
+                if not d["data"].get("ok", True):
+                    failed += 1
+                    name = d["data"].get("name") or "?"
+                    by_tool[name] = by_tool.get(name, 0) + 1
+    return {"tool_calls": calls, "tool_errors": failed, "errors_by_tool": by_tool, "landmines": hits, "skills_loaded": loaded, "lore_calls": lore}
+
+
+def learned_state(home: Path):
+    """Everything a learner may have written, as text, for the result file."""
+    out = {}
+    for p in sorted(home.rglob("*")):
+        rel = p.relative_to(home)
+        if not p.is_file() or rel.parts[0] in ("bin", "node_modules") or p.suffix in (".sqlite", ".sqlite-wal", ".sqlite-shm", ".log"):
+            continue
+        if rel.name in ("config.toml", "state.json", "usage.json") or rel.parts[0] == "sessions":
+            continue
+        try:
+            out[str(rel)] = p.read_text()[:4000]
+        except (OSError, UnicodeDecodeError):
+            pass
+    return out
+
+
+def suite_curriculum(args):
+    names = args.harness
+    task = tasklib.load(args.tasks[0] if args.tasks != ["stats-median"] else "learn-tally")
+    sessions = task.spec["sessions"]
+    if args.sessions:
+        sessions = sessions[: args.sessions]
+    corrections = task.spec.get("corrections", {})
+    results = {n: [] for n in names}
+    timeout = args.timeout or task.timeout_s
+    script = scripted_steps(args.script)
+
+    def session(h, ep, base, i, vars, remotes):
+        s = sessions[i]
+        repo = s.get("repo", "fixture")
+        work = base / f"s{i}-{s['name']}"
+        tasklib.materialize(task, work, vars, remote=remotes[repo], src=task.dir / repo)
+        env = h.full_env()
+        # Long enough that a learner started after turn 1 sees turn 2 begin and leaves it to the next one.
+        env["CONSTRUCT_LEARN_DEBOUNCE_MS"] = "8000"
+        check_env = {"BENCH_SESSION": s["name"]}
+        t0 = time.time()
+        n0 = len(ep.records())
+        res = run(h.headless(s["prompt"]), env, work, timeout=timeout, stop_when=tasklib.Budget(task, ep, n0))
+        fixed = []
+        if not res["stopped"] and repo == "fixture":
+            pre = tasklib.check(task, work, check_env)
+            fixed = [k for k in corrections if pre.get(k) is False]
+            if fixed:
+                say = " ".join(tasklib.fill(corrections[k], vars) for k in fixed)
+                res = run(h.headless(say, cont=True), env, work, timeout=timeout, stop_when=tasklib.Budget(task, ep, n0))
+        n1 = len(ep.records())
+        t_learn = time.time()
+        wait_for_learners(home=h.home)
+        learn_s = time.time() - t_learn
+        recs = ep.records()
+        agent, learner = recs[n0:n1], recs[n1:]
+        checks = tasklib.check(task, work, check_env)
+        facts = curriculum_facts(h.home, t0)
+        first = agent[0] if agent else {}
+        return {
+            "task": s["name"],
+            "repo": repo,
+            "checks": checks,
+            "pass": bool(checks) and all(checks.values()),
+            "corrections": fixed,
+            "over_budget": bool(res["stopped"]),
+            "requests": len(agent),
+            "prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in agent),
+            "completion_tokens": sum(usage_of(x, "completion_tokens") for x in agent),
+            "cost_usd": cache_metrics(agent)["cost_usd"],
+            "learn_requests": len(learner),
+            "learn_prompt_tokens": sum(usage_of(x, "prompt_tokens") for x in learner),
+            "learn_cost_usd": cache_metrics(learner)["cost_usd"],
+            "learn_s": learn_s,
+            "system_chars": first.get("system_chars"),
+            **facts,
+        }
+
+    for r in range(args.rounds):
+        vars = tasklib.make_vars(task)
+        for n in order(names, r):
+            base = WORK / "curriculum" / n / f"r{r}"
+            if base.exists():
+                shutil.rmtree(base)
+            h = make_harness(n, base / "home")
+            SEEN[n] = h
+            ep = Endpoint(base / "ep", script=script, upstream=None if script else args.upstream)
+            h.configure(ep.url, args.model, upstream=None if script else args.upstream)
+            # Every session of a repo shares a remote, so they share a project kit.
+            remotes = {repo: f"git@example.com:team/{repo}-{n}-r{r}.git" for repo in ("fixture", "other")}
+            out = []
+            for i in range(len(sessions)):
+                out.append(session(h, ep, base, i, vars, remotes))
+                x = out[-1]
+                print(
+                    f"round {r} {n:12} s{i} {x['task']:9} pass={int(x['pass'])} corr={','.join(x['corrections']) or '-':28} "
+                    f"mines={x['landmines']} err={x['tool_errors']}/{x['tool_calls']} req={x['requests']} "
+                    f"learn={x['learn_requests']} sys={x['system_chars']} loaded={x['skills_loaded']} lore={x['lore_calls']}",
+                    flush=True,
+                )
+            ep.close()
+            assert_no_keys(base)
+            results[n].append({"sessions": out, "learned": learned_state(h.home)})
+    save("curriculum", {"model": args.model, "rounds": args.rounds, "task": task.name, "sessions": [[s["name"], s.get("repo", "fixture")] for s in sessions], "arms": ARMS, "raw": results})
+
+
 def preflight(names):
     """Stop early, with an install hint, if a requested competitor harness or
     its sandbox isn't available — rather than failing deep inside a round."""
@@ -1354,7 +1518,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] in ("compare", "note"):
         sys.exit({"compare": cmd_compare, "note": cmd_note}[sys.argv[1]](sys.argv[2:]))
     ap = argparse.ArgumentParser()
-    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop"])
+    ap.add_argument("suite", choices=["size", "frame", "tools", "memory", "task", "routing", "loop", "curriculum"])
     ap.add_argument("--rounds", type=int, default=5)
     ap.add_argument("--calls", type=int, default=15)
     ap.add_argument("--steps", type=int, default=120)
@@ -1368,6 +1532,7 @@ def main():
     ap.add_argument("--harness", nargs="+", default=None, help="default: all three, or none when --arm is given")
     ap.add_argument("--arm", action="append", default=[], metavar="NAME[@BIN]:OVERLAY",
                     help="a construct arm: a [tools] overlay, e.g. hashline:'editor=\"hashline\"', or cfg:TOML for top-level config; @BIN runs another build; repeat for each arm")
+    ap.add_argument("--sessions", type=int, default=None, help="curriculum: run only the first N sessions")
     ap.add_argument("--no-learn", action="store_true", help="[learn] enabled = false in every construct home")
     ap.add_argument("--invalid-retries", type=int, default=2, help="re-run a task run the provider failed under (task suite) up to N times")
     ap.add_argument("--window", type=int, default=None, help="override every task's context window; 0 = none (a control run)")
@@ -1395,7 +1560,7 @@ def main():
         if not b.exists():
             sys.exit(f"missing {b}: cargo build -p construct-dev && cargo build --release -p construct")
     preflight(competitors)
-    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop}[args.suite](args)
+    {"size": suite_size, "frame": suite_frame, "tools": suite_tools, "memory": suite_memory, "task": suite_task, "routing": suite_routing, "loop": suite_loop, "curriculum": suite_curriculum}[args.suite](args)
 
 
 if __name__ == "__main__":

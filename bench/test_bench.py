@@ -146,6 +146,35 @@ class Tasks(unittest.TestCase):
                 self.assertTrue(after and all(after.values()), f"solution must pass: {after}")
                 self.assertEqual(tasklib.unintended(task, work), [], "a solution changes only expected paths")
 
+    def test_the_curriculum_scorer_fails_each_session_untouched_and_passes_a_solution(self):
+        task = tasklib.load("learn-tally")
+        sol = task.dir / "solution"
+        for s in task.spec["sessions"]:
+            repo = s.get("repo", "fixture")
+            with self.subTest(s["name"]):
+                vars = tasklib.make_vars(task, random.Random(7))
+                work = self.tmp / f"tally-{s['name']}"
+                tasklib.materialize(task, work, vars, src=task.dir / repo)
+                env = {"BENCH_SESSION": s["name"]}
+                before = tasklib.check(task, work, env)
+                self.assertFalse(before["feature_ok"], before)
+                if repo == "fixture":
+                    self.assertFalse(before["fixtures_ok"] or before["changelog_ok"], before)
+                    (work / "src/tally/cli.py").write_text((work / "src/tally/cli.py").read_text() + (sol / "cli_extra.py").read_text())
+                    (work / "src/tally/money.py").write_text((work / "src/tally/money.py").read_text() + (sol / "split_extra.py").read_text())
+                    log = work / "CHANGELOG.md"
+                    log.write_text(log.read_text().replace("## Unreleased\n", "## Unreleased\n\n- a change.\n"))
+                    (work / "tests/test_cli.py").write_text((work / "tests/test_cli.py").read_text() + "# more\n")
+                    sh(f"./tools/gen-fixtures --seed {vars['seed']}", work)
+                else:
+                    (work / "units.py").write_text((work / "units.py").read_text() + (sol / "temp_extra.py").read_text())
+                    (work / "test_units.py").write_text((work / "test_units.py").read_text() + "# more\n")
+                after = tasklib.check(task, work, env)
+                self.assertTrue(all(after.values()), after)
+                if repo == "fixture":
+                    (work / "src/tally/report.py").write_text((work / "src/tally/report.py").read_text() + "\nX = float(1)\n")
+                    self.assertFalse(tasklib.check(task, work, env)["decimal_ok"])
+
     def test_unintended_changes(self):
         task, _, work = self.materialize("stats-median")
         (work / "stats.py").write_text("changed\n")  # expected

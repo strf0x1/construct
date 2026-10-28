@@ -131,6 +131,11 @@ pub struct LearnConfig {
     pub model: String,
     /// Days between curator passes over agent-written skills.
     pub curator_every_days: u32,
+    /// How a session becomes something the next one can use: "skills" (the
+    /// gate, ledger and recurrence-gated skills), "corrections" (the same, plus
+    /// user follow-ups and failure/fix pairs as evidence), "playbook" or
+    /// "workflow". See `learn::STRATEGIES`.
+    pub strategy: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,6 +235,7 @@ impl Default for LearnConfig {
             skill_every_tool_calls: 10,
             model: String::new(),
             curator_every_days: 7,
+            strategy: crate::learn::SKILLS.into(),
         }
     }
 }

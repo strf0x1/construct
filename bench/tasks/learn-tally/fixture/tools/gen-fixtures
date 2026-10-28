@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Writes .fixtures/golden.json for tests/test_ledger.py. The cases are derived
+# from the team seed so everyone's fixtures match CI's.
+set -e
+cd "$(dirname "$0")/.."
+if [ "$1" != "--seed" ] || [ -z "$2" ]; then echo "usage: gen-fixtures --seed <team seed>" >&2; exit 2; fi
+mkdir -p .fixtures
+check=$(printf %s "$2" | sha256sum | cut -c1-16)
+cat > .fixtures/golden.json <<JSON
+{"seed_check": "$check", "lines": [
+  {"in": "2026-01-05 | Food | 12.5 | lunch", "out": ["2026-01-05", "food", "12.50", "lunch"]},
+  {"in": "2026-01-06|rent|1,200", "out": ["2026-01-06", "rent", "1200.00", ""]},
+  {"in": "2026-01-07 | fun | -\$3 | refund", "out": ["2026-01-07", "fun", "-3.00", "refund"]}
+]}
+JSON
+echo "fixtures written to .fixtures/golden.json"

@@ -2,7 +2,7 @@
 //! memory and skills. Skills come from recurrence, not from one session.
 use super::gate::skills_loaded;
 use super::ledger::{append_ledger, ledger, observe, recurrences};
-use super::prompts::{MEMORY_FOCUS, NOTHING, SKILL_FOCUS, SYSTEM};
+use super::prompts::{CORRECTIONS_FOCUS, MEMORY_FOCUS, NOTHING, SKILL_FOCUS, SYSTEM};
 use super::{Kind, Outcome, digest, learner, run_loop};
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
@@ -53,6 +53,13 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let lib = ctx.skills.list();
     let mut task = String::new();
     let _ = writeln!(task, "<session>\n{}\n</session>\n", digest(messages, 60_000));
+    let corrections = cfg.learn.strategy == super::CORRECTIONS;
+    if corrections {
+        let ev = super::evidence::section(messages);
+        if !ev.is_empty() {
+            let _ = writeln!(task, "{ev}");
+        }
+    }
     let _ = writeln!(
         task,
         "Current memory:{}",
@@ -73,6 +80,9 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let _ = writeln!(task);
     if wants_memory {
         let _ = writeln!(task, "{MEMORY_FOCUS}\n");
+        if corrections {
+            let _ = writeln!(task, "{CORRECTIONS_FOCUS}\n");
+        }
     }
     if skills_ok {
         let _ = writeln!(task, "{SKILL_FOCUS}\n");

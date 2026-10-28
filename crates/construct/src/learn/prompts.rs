@@ -38,3 +38,5 @@ pub(super) const CURATOR: &str = "You maintain an agent-written skill library. B
 - archive skills that are stale (unused for a long time) and narrow, with delete and absorbed_into \"\";
 - tighten descriptions so it is obvious when each skill applies. A skill suggested far more often than it is viewed has a description that attracts the wrong requests: rewrite it to say plainly what it is for and what it isn't.
 Never touch pinned skills. Deleting only archives, but be conservative: when unsure, leave a skill alone. Reply with one line summarizing what you changed.";
+
+pub(super) const CORRECTIONS_FOCUS: &str = "USER FOLLOW-UPS and FAILED CALLS above are the strongest evidence in the session. When a follow-up states how this repo works or a convention the user enforces, or a failed command was replaced by one that works for a reason specific to this repo, save it now as a 'project' note with the exact command or rule: it doesn't need to come up again first. A follow-up that only asks for more of this task is not a lesson.";

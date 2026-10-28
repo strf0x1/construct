@@ -123,6 +123,20 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
         (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
     tokio::spawn(async move {
         let _ = tx.send(Event::Learn { status: "learning from this session".into() });
+        if let Some(r) = learn::distill(&cfg, &paths, &slice).await {
+            let status = match r {
+                Ok(o) => {
+                    learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));
+                    if o.actions.is_empty() { "learned nothing new".to_string() } else { o.summary }
+                }
+                Err(e) => format!("learning failed: {e}"),
+            };
+            let mut st = learn::state(&paths);
+            st["reviewed_seq"][&id] = serde_json::json!(upto);
+            learn::save_state(&paths, &st);
+            let _ = tx.send(Event::Learn { status });
+            return;
+        }
         let gate = learn::gate(&cfg, &slice).await;
         learn::log_line(&paths, &format!("session {id} (live): gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
         // The counters said "time to look"; the gate says whether there's anything to see.

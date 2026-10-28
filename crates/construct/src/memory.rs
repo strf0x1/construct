@@ -53,6 +53,11 @@ impl Store {
         }
     }
 
+    /// Where the global memory files live.
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
+
     pub fn limit(&self, t: Target) -> usize {
         match t {
             Target::Memory => self.cfg.memory_chars,
@@ -92,7 +97,7 @@ impl Store {
                     if c.is_empty() {
                         return Err("add needs content".into());
                     }
-                    if let Some(why) = scan(c) {
+                    if let Some(why) = crate::guard::check(c) {
                         return Err(why);
                     }
                     if work.iter().any(|e| e == c) {
@@ -119,7 +124,7 @@ impl Store {
                         if c.is_empty() {
                             return Err("replace needs content".into());
                         }
-                        if let Some(why) = scan(c) {
+                        if let Some(why) = crate::guard::check(c) {
                             return Err(why);
                         }
                         work[i] = c.to_string();
@@ -176,30 +181,4 @@ fn label(t: Target) -> &'static str {
         Target::Memory => "Your notes on this machine and its tools",
         Target::Project => "Notes on this project",
     }
-}
-
-/// Memory enters every future prompt, so refuse content that tries to steer
-/// the agent or smuggle secrets out.
-fn scan(content: &str) -> Option<String> {
-    let lower = content.to_lowercase();
-    const BAD: &[&str] = &[
-        "ignore previous instructions",
-        "ignore all previous",
-        "disregard the system prompt",
-        "you are now",
-        "<system",
-        "begin private key",
-    ];
-    for b in BAD {
-        if lower.contains(b) {
-            return Some(format!("refused: memory entries can't contain {b:?}"));
-        }
-    }
-    let looks_like_key = content
-        .split_whitespace()
-        .any(|w| (w.starts_with("sk-") || w.starts_with("ghp_") || w.starts_with("xoxb-")) && w.len() > 20);
-    if looks_like_key {
-        return Some("refused: that looks like a credential; secrets belong in secretspec".into());
-    }
-    None
 }
