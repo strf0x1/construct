@@ -70,7 +70,7 @@ pub fn prompt_block(memory_dir: &Path, kit: Option<&Path>) -> String {
     s
 }
 
-const SYSTEM: &str = "You maintain an agent's playbook: short, specific lessons that make its next session in this place go better. You read a finished session and the current playbook, and reply with JSON edits only.
+pub(super) const SYSTEM: &str = "You maintain an agent's playbook: short, specific lessons that make its next session in this place go better. You read a finished session and the current playbook, and reply with JSON edits only.
 - tag: for each existing bullet that was relevant this session, \"helpful\" if following it (or what it says) worked, \"harmful\" if it was followed and misled the agent. Leave irrelevant bullets out.
 - add: a lesson this session taught that isn't in the playbook. Only: a procedure or fact the user had to supply, a convention the user enforced, or a failed approach and what replaced it. Write it as an instruction with the exact command or rule (\"Run tests with ./tools/test; python -m unittest fails here (src layout)\"). Never task progress, the task itself, or anything a retry fixed. scope \"project\" for how this repo works; \"global\" only for something about the user that holds in every repo.
 - Never record a credential (password, API key, token, a connection string with a password), even one the user pasted: write where it comes from instead (\"the deploy token is in secretspec as DEPLOY_TOKEN\"). A value the user gave that isn't a credential (a seed, a port, a path, a team convention) is exactly the lesson: keep it verbatim.
@@ -166,45 +166,88 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
     log
 }
 
-pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result<Outcome> {
-    let client = llm::Client::new(cfg, cfg.endpoint_key())?;
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let kit = crate::project::detect(paths, &cwd);
-    let gpath = global_path(&paths.memory_dir());
-    let ppath = kit.as_ref().map(|p| project_path(&p.dir));
-    let mut global = load(&gpath);
-    let mut project = ppath.as_deref().map(load).unwrap_or_default();
+/// The two playbooks a reflection in `cwd` reads and edits: this repo's and the
+/// global one. Shared with `hybrid`, which edits the same playbooks.
+pub(super) struct Books {
+    pub kit: Option<crate::project::Project>,
+    gpath: PathBuf,
+    global: Vec<Bullet>,
+    project: Vec<Bullet>,
+}
 
+impl Books {
+    pub fn load(paths: &Paths) -> Self {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let kit = crate::project::detect(paths, &cwd);
+        let gpath = global_path(&paths.memory_dir());
+        let project = kit.as_ref().map(|p| load(&project_path(&p.dir))).unwrap_or_default();
+        Self { kit, global: load(&gpath), gpath, project }
+    }
+
+    /// The playbook as the reflection sees it, with each bullet's record.
+    pub fn listing(&self) -> String {
+        let mut s = String::from("\nCURRENT PLAYBOOK:\n");
+        for b in self.project.iter().chain(&self.global) {
+            let _ = writeln!(s, "- [{}] (helpful {}, harmful {}) {}", b.id, b.helpful, b.harmful, b.text);
+        }
+        if self.project.is_empty() && self.global.is_empty() {
+            s.push_str("(empty)\n");
+        }
+        if self.kit.is_none() {
+            s.push_str("\nThis session wasn't in a repo: only global bullets can be added.\n");
+        }
+        s
+    }
+
+    #[cfg(test)]
+    pub fn empty() -> Self {
+        Self::with_project(vec![])
+    }
+
+    #[cfg(test)]
+    pub fn with_project(project: Vec<Bullet>) -> Self {
+        Self { kit: None, gpath: PathBuf::new(), global: vec![], project }
+    }
+
+    /// Whether a bullet already mentions `needle` (e.g. a skill's name).
+    pub fn mentions(&self, needle: &str) -> bool {
+        self.project.iter().chain(&self.global).any(|b| b.text.contains(needle))
+    }
+
+    /// Apply `d` to both playbooks and save what changed; returns the log.
+    pub fn apply(&mut self, d: &Delta) -> Vec<String> {
+        let mut actions = Vec::new();
+        if let Some(k) = &self.kit {
+            let log = apply(&mut self.project, d, "p", "project", MAX_PROJECT);
+            if !log.is_empty() {
+                k.touch();
+                save(&project_path(&k.dir), &self.project);
+                actions.push(format!("playbook project: {}", log.join(", ")));
+            }
+        }
+        let log = apply(&mut self.global, d, "g", "global", MAX_GLOBAL);
+        if !log.is_empty() {
+            save(&self.gpath, &self.global);
+            actions.push(format!("playbook global: {}", log.join(", ")));
+        }
+        actions
+    }
+}
+
+/// The session as every reflection sees it: the digest and its evidence.
+pub(super) fn session_text(messages: &[Message]) -> String {
     let mut task = format!("<session>\n{}\n</session>\n\n", digest(messages, 40_000));
     task.push_str(&evidence::section(messages));
-    let _ = writeln!(task, "\nCURRENT PLAYBOOK:");
-    for b in project.iter().chain(&global) {
-        let _ = writeln!(task, "- [{}] (helpful {}, harmful {}) {}", b.id, b.helpful, b.harmful, b.text);
-    }
-    if project.is_empty() && global.is_empty() {
-        let _ = writeln!(task, "(empty)");
-    }
-    if kit.is_none() {
-        let _ = writeln!(task, "\nThis session wasn't in a repo: only global bullets can be added.");
-    }
+    task
+}
+
+pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result<Outcome> {
+    let client = llm::Client::new(cfg, cfg.endpoint_key())?;
+    let mut books = Books::load(paths);
+    let task = format!("{}{}", session_text(messages), books.listing());
     let v: Value = ask_json(&client, cfg.learn_model(), SYSTEM, &task, 1500).await?;
     let d: Delta = serde_json::from_value(v).unwrap_or_default();
-    let mut actions = Vec::new();
-    if let Some(p) = &ppath {
-        let log = apply(&mut project, &d, "p", "project", MAX_PROJECT);
-        if !log.is_empty() {
-            if let Some(k) = &kit {
-                k.touch();
-            }
-            save(p, &project);
-            actions.push(format!("playbook project: {}", log.join(", ")));
-        }
-    }
-    let log = apply(&mut global, &d, "g", "global", MAX_GLOBAL);
-    if !log.is_empty() {
-        save(&gpath, &global);
-        actions.push(format!("playbook global: {}", log.join(", ")));
-    }
+    let actions = books.apply(&d);
     let summary = if actions.is_empty() { "Nothing to save.".into() } else { "Playbook updated.".into() };
     Ok(Outcome { summary, actions })
 }

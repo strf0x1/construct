@@ -786,6 +786,20 @@ fn project_kit_follows_the_repo_not_the_session() {
         "{sys}"
     );
     assert!(sys.contains("run-tests-here: Running this repo's tests"), "{sys}");
+    let tools = |r: &Value| -> Vec<String> {
+        r["tools"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|t| t["function"]["name"].as_str().map(String::from))
+            .collect()
+    };
+    // The prompt says to load project skills with the skill tool, so it's there,
+    // whatever the router made of "hi".
+    assert!(
+        tools(env.requests().last().unwrap()).iter().any(|t| t == "skill"),
+        "skill tool missing in a repo with skills"
+    );
     // A second clone of the same remote, in a differently named directory, shares the kit.
     let clone = env.work.join("a-clone");
     std::fs::create_dir_all(clone.join(".git")).unwrap();
@@ -800,6 +814,7 @@ fn project_kit_follows_the_repo_not_the_session() {
     assert!(out.status.success(), "{}", text(&out));
     let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
     assert!(!sys.contains("gen-fixtures") && !sys.contains("run-tests-here"), "{sys}");
+    assert!(!tools(env.requests().last().unwrap()).iter().any(|t| t == "skill"), "no project skills, no skill tool");
     // Outside any repo there is no project to write to.
     let out = in_dir(&env.work, &["run", "--no-learn", "note this"]);
     assert!(out.status.success(), "{}", text(&out));

@@ -133,8 +133,9 @@ pub struct LearnConfig {
     pub curator_every_days: u32,
     /// How a session becomes something the next one can use: "skills" (the
     /// gate, ledger and recurrence-gated skills), "corrections" (the same, plus
-    /// user follow-ups and failure/fix pairs as evidence), "playbook" or
-    /// "workflow". See `learn::STRATEGIES`.
+    /// user follow-ups and failure/fix pairs as evidence), "playbook",
+    /// "workflow" or "hybrid" (playbook bullets for facts, skills for
+    /// procedures). See `learn::STRATEGIES`.
     pub strategy: String,
 }
 
