@@ -19,10 +19,12 @@ use std::sync::Mutex;
 mod export;
 mod read;
 mod show;
+mod totals;
 
 pub use export::export;
 pub use read::{Entry, project};
-pub use show::{Totals, find, human, rows_text, status_rows, transcript};
+pub use show::{find, human, rows_text, share, status_rows, transcript};
+pub use totals::Totals;
 
 /// The table shape this build writes. Bump it with a new arm in `migrate`.
 const VERSION: i64 = 1;

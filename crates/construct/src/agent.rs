@@ -362,12 +362,7 @@ impl Agent {
             let bytes = body.len() as u64;
             let completion = match self.step(body, &defs, tx).await {
                 Ok(Some(mut c)) => {
-                    // The catalog's price stands in when the provider sends none.
-                    if c.usage.cost.is_none()
-                        && let Some(p) = self.cfg.entry().and_then(|e| e.pricing)
-                    {
-                        c.usage.cost = Some(p.cost(c.usage.prompt_tokens, c.usage.completion_tokens));
-                    }
+                    self.price(&self.cfg.model, &mut c.usage);
                     c
                 }
                 Ok(None) => {
@@ -620,7 +615,8 @@ impl Agent {
         };
         let (mut summary, mut fallback, mut usage) = (None, None, Usage::default());
         if let Some(upto) = plan.upto {
-            let (r, u) = self.summarize(upto, budget).await;
+            let (r, mut u) = self.summarize(upto, budget).await;
+            self.price(self.summarizer(), &mut u);
             usage = u;
             match r {
                 Ok(text) => summary = Some(text),
@@ -650,6 +646,8 @@ impl Agent {
                 ms: started.elapsed().as_millis() as u64,
                 summary_prompt: usage.prompt_tokens,
                 summary_completion: usage.completion_tokens,
+                summary_cached: usage.cached_tokens,
+                summary_cost: usage.cost,
                 fallback,
                 cut: Some(cut),
             },
@@ -670,7 +668,7 @@ impl Agent {
             Message::system(format!("{}\nKeep it under {words} words.", compact::SUMMARY_SYSTEM)),
             Message::user(compact::summary_request(&self.messages[1..upto], max_chars)),
         ];
-        let model = if self.cfg.compaction.model.is_empty() { &self.cfg.model } else { &self.cfg.compaction.model };
+        let model = self.summarizer();
         let mut usage = Usage::default();
         // An empty answer is the model's flake (reasoning, then no text): one
         // more try is cheaper than losing the summary to a coarser cut.
@@ -699,6 +697,20 @@ impl Agent {
             }
         }
         (Err("the summarizer returned nothing, twice".into()), usage)
+    }
+
+    /// The model that writes compaction summaries.
+    fn summarizer(&self) -> &str {
+        if self.cfg.compaction.model.is_empty() { &self.cfg.model } else { &self.cfg.compaction.model }
+    }
+
+    /// The catalog's price for `model` stands in when the provider sent none.
+    fn price(&self, model: &str, u: &mut Usage) {
+        if u.cost.is_none()
+            && let Some(p) = self.cfg.lookup(model).and_then(|e| e.pricing)
+        {
+            u.cost = Some(p.cost(u.prompt_tokens, u.completion_tokens));
+        }
     }
 
     fn cfg_context_window(&self) -> u64 {

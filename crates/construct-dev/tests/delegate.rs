@@ -73,6 +73,16 @@ fn a_delegated_task_runs_in_a_child_and_only_its_summary_returns() {
         (end.payload["id"].as_str(), end.payload["data"]["session"].as_str()),
         (Some(call_id.as_str()), Some(child.as_str()))
     );
+    // The parent's totals bill the child's requests as well as its own.
+    let db = construct::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
+    let totals = construct::journal::Totals::session(&db, &db.since(parent, 0).unwrap()).unwrap();
+    let usage = |s: &String| rows_of(&env, s).into_iter().filter(|r| r.ty == "usage").collect::<Vec<_>>();
+    let (own, theirs) = (usage(parent), usage(child));
+    assert_eq!(totals.requests, (own.len() + theirs.len()) as u64);
+    let prompt = |rows: &[Row]| rows.iter().map(|r| r.payload["prompt"].as_u64().unwrap()).sum::<u64>();
+    assert_eq!(totals.side.prompt_tokens, prompt(&theirs));
+    assert_eq!(totals.usage.prompt_tokens, prompt(&own) + prompt(&theirs));
+    assert_eq!(totals.last_prompt, own.last().unwrap().payload["prompt"].as_u64().unwrap());
     // A child writes no journal of its own into the parent's project, and the
     // wrapper events are wire only.
     assert!(env.journal().iter().all(|r| r.ty != "child"));

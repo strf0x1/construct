@@ -1613,7 +1613,7 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     assert!(row("output").contains(&format!("output    {}", human(sum("completion")))), "{}", row("output"));
     // The status line carries the same cumulative counters and the id.
     let last = screen.lines().rfind(|l| !l.trim().is_empty()).unwrap().to_string();
-    assert!(last.contains(&format!("{} in", human(sum("prompt")))), "{last}");
+    assert!(last.contains(&format!("billed ↑{} ↓{}", human(sum("prompt")), human(sum("completion")))), "{last}");
     let tail = head.session.split_once('-').unwrap().1;
     assert!(last.contains(tail), "{last}");
     // /copy status writes the block as OSC 52.

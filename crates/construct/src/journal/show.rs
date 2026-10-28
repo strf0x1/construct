@@ -4,10 +4,10 @@
 //! is what a coding agent reading the file would add up. The one design
 //! choice: nothing is kept in memory by the UI for this; the journal is asked.
 
-use super::{Entry, Journal};
+use super::{Entry, Journal, Totals};
 use crate::config::Paths;
 use crate::event::Event;
-use crate::llm::{Usage, truncate};
+use crate::llm::truncate;
 use anyhow::{Result, bail};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -22,35 +22,6 @@ pub fn human(n: u64) -> String {
     }
 }
 
-/// What a session has spent: the sum of its `usage` rows.
-#[derive(Debug, Default, Clone)]
-pub struct Totals {
-    pub requests: u64,
-    pub usage: Usage,
-    /// The newest request's prompt size: how full the window is now.
-    pub last_prompt: u64,
-}
-
-impl Totals {
-    pub fn of(entries: &[Entry]) -> Self {
-        let mut t = Self::default();
-        for e in entries {
-            if let Event::Usage { prompt, completion, cached, cache_write, cost } = &e.event {
-                t.requests += 1;
-                t.last_prompt = *prompt;
-                t.usage.add(&Usage {
-                    prompt_tokens: *prompt,
-                    completion_tokens: *completion,
-                    cached_tokens: *cached,
-                    cache_write_tokens: *cache_write,
-                    cost: *cost,
-                });
-            }
-        }
-        t
-    }
-}
-
 /// `~`-shortened path for display.
 fn tilde(p: &Path) -> String {
     match std::env::var_os("HOME").map(PathBuf::from).and_then(|h| p.strip_prefix(h).ok().map(|r| r.to_path_buf())) {
@@ -62,12 +33,12 @@ fn tilde(p: &Path) -> String {
 /// The `/status` rows: a label and its value.
 pub fn status_rows(session: &str, journal: &Path, model: &str, window: u32, t: &Totals) -> Vec<(&'static str, String)> {
     let u = &t.usage;
-    let used = t.last_prompt * 100 / window.max(1) as u64;
-    vec![
+    let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, crate::models::is_router(model));
+    let mut rows = vec![
         ("session", session.to_string()),
         ("journal", tilde(journal)),
         ("model", model.to_string()),
-        ("context", format!("{} ({used}% used)", human(window as u64))),
+        ("context", format!("{} ({used} used)", human(window as u64))),
         ("requests", t.requests.to_string()),
         (
             "input",
@@ -75,13 +46,37 @@ pub fn status_rows(session: &str, journal: &Path, model: &str, window: u32, t: &
         ),
         ("output", human(u.completion_tokens)),
         ("cost", u.cost.map_or("n/a".to_string(), |c| format!("${c:.3}"))),
-    ]
+    ];
+    let side = &t.side;
+    if side.prompt_tokens + side.completion_tokens > 0 {
+        let cost = side.cost.map_or(String::new(), |c| format!(", ${c:.3}"));
+        rows.push((
+            "side calls",
+            format!(
+                "input {}, output {}{cost} (summaries, sub-agents; in the totals above)",
+                human(side.prompt_tokens),
+                human(side.completion_tokens)
+            ),
+        ));
+    }
+    rows
 }
 
 /// `rows` as text, one `label  value` line each, the values lined up.
 pub fn rows_text(rows: &[(&str, String)]) -> String {
     let w = rows.iter().map(|r| r.0.len()).max().unwrap_or(0);
     rows.iter().map(|(k, v)| format!("{k:<w$}  {v}")).collect::<Vec<_>>().join("\n")
+}
+
+/// How full the window is, as people read it: `37%`, `<1%` once anything
+/// was sent, and `~37%` for a router, whose window is the router's rather
+/// than that of whichever model answered.
+pub fn share(pct: u64, last_prompt: u64, router: bool) -> String {
+    match (pct, router) {
+        (0, _) if last_prompt > 0 => "<1%".into(),
+        (p, true) => format!("~{p}%"),
+        (p, false) => format!("{p}%"),
+    }
 }
 
 /// Where a session lives: the first project journal under `paths.home`

@@ -14,6 +14,7 @@ mod markdown;
 mod palette;
 mod picker;
 mod prompt;
+mod status;
 mod theme;
 mod view;
 mod worker;
@@ -136,8 +137,9 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let animating = app.animating();
         tokio::select! {
             Some(ready) = ready_rx.recv() => {
-                let (session, canceller, groups, history, catalog) = ready;
+                let (session, canceller, groups, history, catalog, spent) = ready;
                 app.ready = true;
+                app.totals = spent;
                 app.session = session;
                 app.canceller = Some(canceller);
                 app.groups = groups;
