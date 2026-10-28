@@ -112,20 +112,29 @@ fn words(text: &str, w: usize) -> Vec<String> {
 }
 
 /// `line` cut into pieces of at most `w` columns, for a word (a path) that
-/// has no space to wrap at.
+/// has no space to wrap at: after a `/` when one falls in the second half of
+/// a piece, else wherever the columns run out.
 fn chunks(line: String, w: usize) -> Vec<String> {
-    if line.width() <= w {
-        return vec![line];
-    }
-    let mut out = vec![String::new()];
-    for c in line.chars() {
-        let last = out.last_mut().unwrap_or_else(|| unreachable!("seeded with one"));
-        if last.width() + c.width().unwrap_or(0) > w {
-            out.push(c.to_string());
-        } else {
-            last.push(c);
+    let mut out = Vec::new();
+    let mut rest = line.as_str();
+    while rest.width() > w {
+        let (mut end, mut cols) = (0, 0);
+        for (i, c) in rest.char_indices() {
+            let cw = c.width().unwrap_or(0);
+            if cols + cw > w {
+                break;
+            }
+            cols += cw;
+            end = i + c.len_utf8();
         }
+        if end == 0 {
+            end = rest.chars().next().map_or(0, char::len_utf8); // one char wider than the box
+        }
+        let cut = rest[..end].rfind('/').map(|i| i + 1).filter(|&i| i * 2 >= end).unwrap_or(end);
+        out.push(rest[..cut].to_string());
+        rest = &rest[cut..];
     }
+    out.push(rest.to_string());
     out
 }
 
@@ -182,6 +191,17 @@ mod tests {
         for l in lines(60, NARROW, &[s], "") {
             assert_eq!(width_of(&l), 60 - 2 + 2, "{l:?}");
         }
+    }
+
+    #[test]
+    fn a_long_path_breaks_after_a_slash() {
+        let path = format!("/tmp/{}/work/journal.sqlite", "d".repeat(40));
+        let s = Section::new("t", theme::ACCENT, vec![("journal".into(), "", path)]);
+        let rows: Vec<String> = lines(60, NARROW, &[s], "")
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect())
+            .collect();
+        assert!(rows.iter().any(|r| r.contains("journal.sqlite")), "{rows:?}");
     }
 
     #[test]
