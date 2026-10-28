@@ -1,0 +1,8 @@
+description = "Find all real callers of a deprecated function, ignoring comments, docs, a v2 sibling and gitignored build output."
+turns = ["List every source file (.py or .js) in this repo that calls `legacy_charge(`. Count only real calls in tracked source: not the definition, not comments, strings or docs, not the similarly named `legacy_charge_v2`, and not generated output (build/, dist/). Write one repo-relative path per line, sorted, to callers.txt, and nothing else."]
+timeout_s = 600
+changes = ["callers.txt"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 800000

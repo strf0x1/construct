@@ -1,0 +1,8 @@
+description = "Several files set one key; the loader's merge order and an environment-only override decide which wins."
+turns = ["In production (APP_ENV=production), what is the effective value of `max_retry_delay_ms`, and which config file does that value come from? Read how the loader in this repo layers its files before you answer. Write `path value` (repo-relative path, then the number) to answer.txt, and nothing else."]
+timeout_s = 600
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 800000

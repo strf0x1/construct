@@ -17,16 +17,29 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 const GREP_MAX: usize = 200;
 
-pub struct Grep;
+pub struct Grep {
+    name: String,
+}
 
 impl Grep {
     pub const NAME: &str = "grep";
+
+    /// The tool under another wire name (`[tools] search_name`).
+    pub fn named(name: &str) -> Self {
+        Self { name: name.into() }
+    }
+}
+
+impl Default for Grep {
+    fn default() -> Self {
+        Self::named(Self::NAME)
+    }
 }
 
 #[async_trait::async_trait]
 impl Tool for Grep {
-    fn name(&self) -> &'static str {
-        Self::NAME
+    fn name(&self) -> &str {
+        &self.name
     }
     fn kind(&self) -> ToolKind {
         ToolKind::Search
@@ -36,7 +49,7 @@ impl Tool for Grep {
     }
     fn definition(&self) -> Value {
         def(
-            Self::NAME,
+            &self.name,
             "Search file contents with a regex (ripgrep engine, respects .gitignore). Returns path:line: text.",
             obj(
                 json!({
@@ -56,7 +69,7 @@ impl Tool for Grep {
         Display { primary_arg: "pattern", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        let policy = ctx.can_read(Self::NAME, &a, "path").await?;
+        let policy = ctx.can_read(&self.name, &a, "path").await?;
         blocking(ctx, || run(ctx, &policy, &a))
     }
 }

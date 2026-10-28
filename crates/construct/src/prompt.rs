@@ -2,6 +2,7 @@
 //! at most three suggestions on the user turn instead) and no tool essays.
 
 use crate::memory;
+use crate::tools::grep::Grep;
 use std::path::Path;
 
 const BASE: &str = "You are construct, a coding agent working in the user's terminal. Use your tools to do what the user asks, then stop.
@@ -15,10 +16,22 @@ const BASE: &str = "You are construct, a coding agent working in the user's term
 - Tools see only the workspace, system paths and toolchains. Search the workspace, not the whole filesystem; if something isn't there, ask the user where it is.
 - <system-reminder> blocks come from the harness, not the user.";
 
+/// The fixed part of the prompt, naming the content-search tool as it is called.
+fn base(search: Option<&str>) -> String {
+    let named = format!("/{}/", Grep::NAME);
+    match search {
+        Some(n) if n == Grep::NAME => BASE.into(),
+        Some(n) => BASE.replace(&named, &format!("/{n}/")),
+        None => BASE.replace(&named, "/"),
+    }
+}
+
 /// `strategy` is `[learn] strategy`: a learner that keeps its own store
-/// (`learn::prompt_block`) adds it here.
-pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str) -> String {
-    let mut s = String::from(BASE);
+/// (`learn::prompt_block`) adds it here. `search` is what the content-search
+/// tool is called this session (`ToolsConfig::search_tool`), or `None` when
+/// it does not exist: the prompt never names a tool the model does not have.
+pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str, search: Option<&str>) -> String {
+    let mut s = base(search);
     s.push_str("\n\n# Environment\n");
     s.push_str(&format!("- cwd: {}\n", cwd.display()));
     s.push_str(&format!("- os: {} {}\n", std::env::consts::OS, std::env::consts::ARCH));
@@ -92,4 +105,22 @@ pub fn skill_reminder(skills: &[(String, f32)], all: &[crate::skills::Skill]) ->
         "<system-reminder>\nSkills that may fit this request (load with the skill tool if one does; ignore if not):\n{}\n</system-reminder>",
         lines.join("\n")
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tools_line(search: Option<&str>) -> String {
+        base(search).lines().find(|l| l.contains("over shell for files")).unwrap().to_string()
+    }
+
+    #[test]
+    fn the_prompt_names_the_search_tool_as_it_is_called() {
+        assert_eq!(base(Some("grep")), BASE, "the default prompt must not change");
+        assert!(tools_line(Some("grep")).contains("read/grep/glob/edit"));
+        assert!(tools_line(Some("search")).contains("read/search/glob/edit"));
+        // No search tool: the prompt must not offer one.
+        assert!(tools_line(None).contains("read/glob/edit") && !tools_line(None).contains("grep"));
+    }
 }

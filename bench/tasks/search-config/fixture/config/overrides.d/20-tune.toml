@@ -1,0 +1,2 @@
+max_retry_delay_ms = 15000
+request_timeout_ms = 4500

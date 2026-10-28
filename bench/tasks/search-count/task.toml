@@ -1,0 +1,8 @@
+description = "Count one exact tag across languages while excluding near-miss tags and gitignored copies."
+turns = ["How many `TODO(sam)` comments are there in this repo's tracked files (exactly that tag: not `TODO(samantha)`, not lowercase, not `FIXME(sam)`; skip generated output in build/ and dist/), and which single file has the most? Write `count path` (the total, then the repo-relative path of that file) to answer.txt, and nothing else."]
+timeout_s = 600
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 800000

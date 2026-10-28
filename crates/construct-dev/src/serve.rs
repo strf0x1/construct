@@ -400,7 +400,7 @@ fn adapt(req: &Value, call: &str, args: &Value) -> (String, Value) {
         "shell" => &["shell", "bash", "terminal", "Bash", "run_shell_command"],
         "write" => &["write", "write_file", "Write"],
         "edit" => &["edit", "patch", "Edit", "replace"],
-        "grep" => &["grep", "search_files", "Grep"],
+        "grep" => &["grep", "search", "search_files", "Grep"],
         other => return (other.to_string(), args.clone()),
     };
     let found =

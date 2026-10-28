@@ -1043,6 +1043,7 @@ def suite_task(args):
             + (f" cache={m['cache_hit_rate']:.0%}" if m["cache_hit_rate"] is not None else "")
             + (f" ${m['cost_usd']:.3f}" if m["cost_usd"] is not None else "")
             + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
+            + (f" search tool={m['search']['tool']} shell={m['search']['shell']} find={m['search']['find']} failed={m['tool_failures']['failed']}/{m['tool_failures']['calls']}" if "search" in m else "")
             + (f" {compaction.line(m['compaction'])}" if "compaction" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
             + (" OVER BUDGET" if m["over_budget"] else "")
@@ -1082,6 +1083,10 @@ def suite_task(args):
             **cache_stats(v),
             "tool_gap_ms": stats([g for x in v for g in x["tool_gaps_ms"]]),
             "peak_mb": stats([x["peak_mb"] for x in v]),
+            "search_tool_calls": stats([x["search"]["tool"] for x in v if "search" in x]),
+            "search_shell_calls": stats([x["search"]["shell"] for x in v if "search" in x]),
+            "search_adoption": stats([x["search"]["adoption"] for x in v if "adoption" in x.get("search", {})]),
+            "tool_failure_rate": stats([x["tool_failures"]["rate"] for x in v if "tool_failures" in x]),
             "edit_calls": stats([x["edit"]["calls"] for x in v if "edit" in x]),
             "edit_rejected": stats([x["edit"]["rejected"] for x in v if "edit" in x]),
             "edit_unrecovered": stats([x["edit"]["unrecovered"] for x in v if "edit" in x]),

@@ -1,0 +1,63 @@
+"""Helpers for accounts tenant handling."""
+from __future__ import annotations
+
+
+def rank_quote(a, b, tolerance=64):
+    """Rank two quote amounts within ``tolerance`` and say how they differ."""
+    delta = a - b
+    if abs(delta) <= tolerance:
+        return 0
+    return 1 if delta > 0 else -1
+
+
+def merge_schedule(value, limit=32):
+    """Merge a schedule value and return the cleaned result.
+
+    Values longer than ``limit`` are clipped; None gives an empty string.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip()
+    return text[:limit] if len(text) > limit else text
+
+
+def filter_window(items, key=None):
+    """Filter a list of window items, keeping the first of each key.
+
+    ``key`` picks what makes two items the same; by default the item itself.
+    """
+    seen = set()
+    out = []
+    for item in items:
+        k = key(item) if key else item
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(item)
+    return out
+
+
+def hash_warehouse(record, defaults=None):
+    """Hash a warehouse record against its defaults.
+
+    Missing fields come from ``defaults``; unknown fields are dropped.
+    """
+    defaults = defaults or {}
+    result = dict(defaults)
+    for field, value in record.items():
+        if field in defaults:
+            result[field] = value
+    return result
+
+
+def resolve_region(record, defaults=None):
+    """Resolve a region record against its defaults.
+
+    Missing fields come from ``defaults``; unknown fields are dropped.
+    """
+    defaults = defaults or {}
+    result = dict(defaults)
+    for field, value in record.items():
+        if field in defaults:
+            result[field] = value
+    return result

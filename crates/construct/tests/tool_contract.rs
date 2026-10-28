@@ -200,3 +200,32 @@ fn disabled_tools_are_not_in_the_catalog() {
     let bad = ToolsConfig { editor: "nope".into(), ..Default::default() };
     assert!(Catalog::build(&bad, None).is_err());
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_search_tool_can_be_renamed_and_nothing_else_changes() {
+    let f = Fixture::new("rename");
+    std::fs::write(f.ctx.cwd.join("a.txt"), "needle\n").unwrap();
+    let cfg = ToolsConfig { search_name: "search".into(), ..Default::default() };
+    let renamed = Catalog::build(&cfg, None).unwrap();
+    let names = renamed.names();
+    assert!(names.contains(&"search".to_string()) && !names.contains(&"grep".to_string()), "{names:?}");
+    // Same schema and description under the new name: only the name differs.
+    let def = |c: &Catalog, n: &str| {
+        let mut d = c.definitions(&[Group::Core]).into_iter().find(|d| d["function"]["name"] == n).unwrap();
+        d["function"]["name"] = json!("-");
+        d
+    };
+    assert_eq!(def(&renamed, "search"), def(&f.catalog, "grep"));
+    let out = renamed.call(&f.ctx, "search", &json!({ "pattern": "needle" }).to_string()).await.unwrap();
+    assert_eq!(out.text, "a.txt:1: needle");
+    assert!(renamed.call(&f.ctx, "grep", &json!({ "pattern": "needle" }).to_string()).await.is_err());
+    // A name that is another tool, or not a name at all, is refused.
+    for bad in ["read", "", "has space"] {
+        let cfg = ToolsConfig { search_name: bad.into(), ..Default::default() };
+        assert!(Catalog::build(&cfg, None).is_err(), "{bad:?} was accepted");
+    }
+    // Without the search tool, the prompt does not name it.
+    let off = ToolsConfig { disabled: vec!["grep".into()], ..Default::default() };
+    assert_eq!(off.search_tool(), None);
+    assert_eq!(cfg.search_tool(), Some("search"));
+}

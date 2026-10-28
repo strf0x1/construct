@@ -1,0 +1,8 @@
+description = "A rename across ~30 sites where substring-style replacement also rewrites two different functions."
+turns = ["Rename the function `fetch_user_record` to `load_user_record` everywhere it is used: its definition, every import and call, and the docs. Do not touch `fetch_user_records` or `prefetch_user_record` (they are different functions), do not edit CHANGELOG.md (it is history), and ignore generated output in build/. Run the tests (`python3 -m unittest discover -s tests -t .`) when you are done."]
+timeout_s = 600
+changes = ["pkg/*", "tests/*", "docs/*"]
+
+[budget]
+max_requests = 50
+max_prompt_tokens = 1000000

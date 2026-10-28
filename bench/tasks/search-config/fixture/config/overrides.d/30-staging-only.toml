@@ -1,0 +1,2 @@
+only_env = "staging"
+max_retry_delay_ms = 60000
