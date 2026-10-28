@@ -1,11 +1,14 @@
-# After a turn the bottom row shows the model, cumulative in/out/cache and the session id.
+# After a turn the bottom row shows the model, the ctx meter, billed in/out, cache and the session id.
 wait "ask construct" 5000
 type say hi
 key enter
 wait "hello from the mock" 5000
 settle 300 5000
-expect " in · "
+expect "billed ↑"
 expect-style "◆" fg=#bb9af7
+expect-style "billed" fg=#464c66
+expect-style "<1%" fg=#7694d9
+expect-style "▱" fg=#5a617e
 type /status
 key enter
 wait "requests" 3000
@@ -16,4 +19,4 @@ key enter
 wait "copied status" 3000
 type /new
 key enter
-wait "0 in" 2000
+wait "billed ↑0 ↓0" 2000

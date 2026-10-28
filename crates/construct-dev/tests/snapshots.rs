@@ -282,15 +282,18 @@ fn status_line_keeps_counters_beside_a_toast() {
     let masked = last
         .split(' ')
         .map(|w| {
-            if w.chars().next().is_some_and(|c| c.is_ascii_digit()) && w.len() < 6 && !w.contains('%') {
-                "[N]"
+            // Counts read `998` or `↑998`; the arrow stays.
+            let (arrow, n) = w.strip_prefix(['↑', '↓']).map_or(("", w), |n| (&w[..w.len() - n.len()], n));
+            if n.chars().next().is_some_and(|c| c.is_ascii_digit()) && n.len() < 6 && !n.contains('%') {
+                format!("{arrow}[N]")
             } else {
-                w
+                w.to_string()
             }
         })
         .collect::<Vec<_>>()
         .join(" ");
     insta::assert_snapshot!("status_line_with_toast", masked);
-    assert!(last.contains(" in · ") && last.contains("cache"), "{last}");
+    // At 80 columns the counters are compact: no meter, no `billed` label.
+    assert!(last.contains(" · ↑") && last.contains("cache"), "{last}");
     d.kill();
 }

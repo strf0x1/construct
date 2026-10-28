@@ -13,7 +13,8 @@ use tokio::sync::{mpsc, watch};
 
 /// What the agent task hands the UI once it is built: session id, turn
 /// canceller, enabled groups, resumed history, and the session's tools.
-pub(super) type Ready = (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>);
+pub(super) type Ready =
+    (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>, crate::journal::Totals);
 
 pub(super) async fn agent_task(
     mut cfg: Config,
@@ -39,7 +40,10 @@ pub(super) async fn agent_task(
     agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
     agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
-    let _ = ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone()));
+    // A resumed session's status line starts from what it has already spent.
+    let spent = if history.is_empty() { Default::default() } else { spent(&paths, &cwd, &agent.journal.session) };
+    let _ =
+        ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone(), spent));
     // How far learning has seen: an index into the live conversation, and
     // the journal seq the detached learner resumes from.
     let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
@@ -72,6 +76,7 @@ pub(super) async fn agent_task(
                             vec![],
                             vec![],
                             agent.catalog.clone(),
+                            Default::default(),
                         ));
                     }
                     Err(e) => {
@@ -170,4 +175,13 @@ fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &
         learn::save_state(&paths, &st);
         let _ = tx.send(Event::Learn { status });
     });
+}
+
+/// What `session` has spent so far, summed from the journal as `/status` does.
+fn spent(paths: &Paths, cwd: &std::path::Path, session: &str) -> crate::journal::Totals {
+    let read = || -> anyhow::Result<_> {
+        let db = crate::journal::Journal::open(&crate::journal::path(paths, cwd))?;
+        crate::journal::Totals::session(&db, &db.since(session, 0)?)
+    };
+    read().unwrap_or_default()
 }

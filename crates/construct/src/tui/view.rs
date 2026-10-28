@@ -3,7 +3,6 @@
 
 use super::app::{App, Kind, Phase, Status};
 use super::{help, markdown, picker, prompt, theme};
-use crate::journal::human;
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -302,27 +301,13 @@ impl App {
 
     /// The bottom line. The counters and the session id are never dropped:
     /// the toast and then the group labels give way first, then the model
-    /// name is cut. Totals are cumulative over the session's requests.
+    /// name is cut. The counters are `status::counters`.
     pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
-        let u = &self.usage;
-        let mut counters = format!(
-            "{} in · {} out · cache {:.0}%",
-            human(u.prompt_tokens),
-            human(u.completion_tokens),
-            u.hit_rate() * 100.0
-        );
-        if let Some(c) = u.cost {
-            counters.push_str(&format!(" · ${c:.3}"));
-        }
-        let mut must = vec![Span::styled(counters, theme::faint())];
-        if self.context_pct > 0 {
-            must.push(Span::styled(
-                format!(" · ctx {}%", self.context_pct),
-                if self.context_pct > 70 { Style::new().fg(theme::YELLOW) } else { theme::faint() },
-            ));
-        }
+        let router = crate::models::is_router(&self.cfg.model);
+        let compact = width < super::status::COMPACT_BELOW;
+        let mut must = super::status::counters(&self.totals, self.context_pct, router, compact);
         if self.scroll > 0 {
-            must.push(Span::styled(format!(" · ↑{}", self.scroll), Style::new().fg(theme::CYAN)));
+            must.push(Span::styled(format!(" · scrolled {}", self.scroll), Style::new().fg(theme::CYAN)));
         }
         if !self.session.is_empty() {
             must.push(Span::styled(format!(" · {}", short_session(&self.session)), theme::faint()));

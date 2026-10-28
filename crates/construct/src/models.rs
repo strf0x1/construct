@@ -202,6 +202,13 @@ fn read_file(path: &Path) -> Result<BTreeMap<String, ModelEntry>> {
     }
 }
 
+/// Whether `id` is one of OpenRouter's own routers (`openrouter/auto`,
+/// `openrouter/free`): each request may be served by a different model, so
+/// token counts, cache hits and the window are that model's, not the id's.
+pub fn is_router(id: &str) -> bool {
+    id.starts_with("openrouter/")
+}
+
 /// A window as a list shows it: `32.8k`, `200k`, `1M`, `1.1M`.
 pub fn short_tokens(n: u64) -> String {
     match n {

@@ -105,8 +105,9 @@ pub(super) struct App {
     pub(super) last_activity: Instant,
     pub(super) started: Instant,
     pub(super) expand: bool,
-    /// The session's accounting, for the status line.
-    pub(super) usage: crate::llm::Usage,
+    /// The session's accounting, for the status line: summaries and
+    /// sub-agents included, the same sums `/status` reads from the journal.
+    pub(super) totals: crate::journal::Totals,
     pub(super) context_pct: u64,
     pub(super) groups: Vec<String>,
     pub(super) learning: Option<(String, Instant)>,
@@ -126,9 +127,6 @@ pub(super) struct App {
     pub(super) palette_off: Option<String>,
     /// The model picker, while `/model` has it open.
     pub(super) picker: Option<Picker>,
-    /// The newest request's prompt size, for the `ctx` meter: kept so a model
-    /// switch can re-read it against the new window.
-    pub(super) last_prompt: u64,
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
     skill_libs: Option<Vec<Library>>,
@@ -164,7 +162,7 @@ impl App {
             last_activity: Instant::now(),
             started: Instant::now(),
             expand: false,
-            usage: Default::default(),
+            totals: Default::default(),
             context_pct: 0,
             groups: vec![],
             learning: None,
@@ -179,7 +177,6 @@ impl App {
             palette: None,
             palette_off: None,
             picker: None,
-            last_prompt: 0,
             skill_libs: None,
         }
     }
@@ -219,7 +216,7 @@ impl App {
 
     /// How full the window is, as the status line says it.
     pub(super) fn context_pct_now(&self) -> u64 {
-        self.last_prompt * 100 / (self.cfg.context_window.max(1) as u64)
+        self.totals.last_prompt * 100 / (self.cfg.context_window.max(1) as u64)
     }
 
     pub(super) fn animating(&self) -> bool {
@@ -247,6 +244,8 @@ impl App {
 
     pub(super) fn on_event(&mut self, ev: Event) {
         self.last_activity = Instant::now();
+        // Anything billed counts, a summary's or a child's included.
+        self.totals.add(&ev);
         match ev {
             // The record, not the screen: the UI already shows what these carry.
             Event::Manifest(_)
@@ -349,17 +348,7 @@ impl App {
                     self.phase = Phase::Waiting;
                 }
             }
-            Event::Usage { prompt, completion, cached, cache_write, cost } => {
-                self.usage.add(&crate::llm::Usage {
-                    prompt_tokens: prompt,
-                    completion_tokens: completion,
-                    cached_tokens: cached,
-                    cache_write_tokens: cache_write,
-                    cost,
-                });
-                self.last_prompt = prompt;
-                self.context_pct = self.context_pct_now();
-            }
+            Event::Usage { .. } => self.context_pct = self.context_pct_now(),
             Event::Model { model, context_window, .. } => {
                 self.cfg.select_model(&model);
                 self.context_pct = self.context_pct_now();

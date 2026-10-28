@@ -274,7 +274,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "new" | "clear" => {
             app.blocks.clear();
             app.cache.clear();
-            app.usage = Default::default();
+            app.totals = Default::default();
             app.context_pct = 0;
             app.groups.clear();
             let _ = cmd.send(Cmd::New);
@@ -387,8 +387,9 @@ fn status(app: &App) -> String {
     let read = || -> anyhow::Result<String> {
         let paths = Paths::resolve()?;
         let file = crate::journal::path(&paths, &std::env::current_dir()?);
-        let entries = crate::journal::Journal::open(&file)?.since(&app.session, 0)?;
-        let totals = crate::journal::Totals::of(&entries);
+        let db = crate::journal::Journal::open(&file)?;
+        let entries = db.since(&app.session, 0)?;
+        let totals = crate::journal::Totals::session(&db, &entries)?;
         Ok(crate::journal::status_block(&app.session, &file, &app.cfg.model, app.cfg.context_window, &totals))
     };
     if app.session.is_empty() {

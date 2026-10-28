@@ -2,4 +2,4 @@
 source: crates/construct-dev/tests/snapshots.rs
 expression: masked
 ---
- ◆ openro… ◇ press ctrl+c again to q…  [N] in · [N] out · cache 0% · [SESSION0]
+ ◆ openro… ◇ press ctrl+c again t…  ctx <1% · ↑[N] ↓[N] · cache 0% · [SESSION0]

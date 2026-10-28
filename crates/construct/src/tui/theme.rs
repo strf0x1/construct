@@ -10,6 +10,7 @@ pub const RED: Color = Color::Rgb(247, 118, 142);
 pub const YELLOW: Color = Color::Rgb(224, 175, 104);
 pub const CYAN: Color = Color::Rgb(125, 207, 255);
 pub const ORANGE: Color = Color::Rgb(255, 158, 100);
+pub const SOFT: Color = Color::Rgb(150, 158, 192); // a number among faint labels
 pub const DIM: Color = Color::Rgb(110, 118, 150);
 pub const FAINT: Color = Color::Rgb(70, 76, 102);
 
