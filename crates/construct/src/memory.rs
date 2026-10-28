@@ -28,6 +28,15 @@ pub struct Op {
     pub old_text: Option<String>,
 }
 
+/// One store's entries, titled as the prompt titles them.
+pub struct Section {
+    pub target: Target,
+    pub title: String,
+    pub used: usize,
+    pub limit: usize,
+    pub entries: Vec<String>,
+}
+
 pub struct Store {
     dir: PathBuf,
     cfg: MemoryConfig,
@@ -151,20 +160,28 @@ impl Store {
     /// The block that goes into the system prompt, or nothing when empty.
     pub fn prompt_block(&self) -> String {
         let mut out = String::new();
+        for s in self.sections() {
+            out.push_str(&format!("\n# {} [{}/{} chars]\n", s.title, s.used, s.limit));
+            for e in s.entries {
+                out.push_str(&format!("- {}\n", e.replace('\n', "\n  ")));
+            }
+        }
+        out
+    }
+
+    /// The non-empty stores in prompt order, with their usage against the cap.
+    pub fn sections(&self) -> Vec<Section> {
+        let mut out = Vec::new();
         for t in [Target::User, Target::Memory, Target::Project] {
             let entries = self.entries(t);
             if entries.is_empty() {
                 continue;
             }
-            let used = Self::size(&entries);
             let title = match (t, &self.project) {
                 (Target::Project, Some(p)) => format!("Notes on this project ({})", p.name),
                 _ => label(t).to_string(),
             };
-            out.push_str(&format!("\n# {title} [{used}/{} chars]\n", self.limit(t)));
-            for e in entries {
-                out.push_str(&format!("- {}\n", e.replace('\n', "\n  ")));
-            }
+            out.push(Section { target: t, title, used: Self::size(&entries), limit: self.limit(t), entries });
         }
         out
     }

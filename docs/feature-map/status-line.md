@@ -6,7 +6,7 @@ verified_at: ffa04de
 ---
 # Status line
 
-The bottom row of the TUI shows, left to right: a lavender `◆` and the current model, then on the right any toast or learning notice, the enabled tool groups, the cumulative counters (`N in · N out · cache N%`, summed over every request this session), the cost when the provider reports one, context use (`ctx N%`, yellow above 70%), a scroll marker when scrolled up, and the short session id. The counters and id are never trimmed: at narrow widths the toast is cut first, then the groups, then the model name. `/status` prints the full block (session id, journal path, model, requests, input/cached/output/cost, summed from the journal) and `/copy status` copies it.
+The bottom row of the TUI shows, left to right: a lavender `◆` and the current model, then on the right any toast or learning notice, the enabled tool groups, the cumulative counters (`N in · N out · cache N%`, summed over every request this session), the cost when the provider reports one, context use (`ctx N%`, yellow above 70%), a scroll marker when scrolled up, and the short session id. The counters and id are never trimmed: at narrow widths the toast is cut first, then the groups, then the model name. `/status` draws a rounded `status` box (session id, journal path, model, context, requests, input/cached/output/cost, summed from the journal) and `/copy status` copies it.
 
 ## Sub-features
 

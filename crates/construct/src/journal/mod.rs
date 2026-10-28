@@ -22,7 +22,7 @@ mod show;
 
 pub use export::export;
 pub use read::{Entry, project};
-pub use show::{Totals, find, human, status_block, transcript};
+pub use show::{Totals, find, human, rows_text, status_rows, transcript};
 
 /// The table shape this build writes. Bump it with a new arm in `migrate`.
 const VERSION: i64 = 1;
