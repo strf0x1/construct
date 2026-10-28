@@ -28,6 +28,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - Capture the user action and the resulting state, not only the final screen: a styled snap or image of the state the user acts on, and of the state after.
 - Prove effects from a second view: the tool result in the next request body, `access` rows in `journal.txt`, files in the work dir or `config.toml`.
 - Record the feature ID, recipe and run id with every result.
+- A `verified` entry lists in `depends:` the source paths its behavior lives in. When one of them, or a recipe it names, changes after `verified_at`, the `map` gate in `cargo xtask check` fails: re-drive the recipe at the commit that changed it and bump `verified_at` in a commit of its own, or set `status: built` (ADR 0023).
 - Report an unreachable path with the attempted command and the unmet precondition.
 - Do not report a skipped entry point as verified through a different path.
 
