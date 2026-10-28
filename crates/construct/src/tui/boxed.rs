@@ -172,8 +172,8 @@ mod tests {
             .iter()
             .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect())
             .collect();
-        assert!(text[1].contains("id      32k  $1/$2"), "{text:?}");
-        assert!(text[2].contains("│ z  a") && text[3].contains("│    b"), "{text:?}");
+        assert!(text[1].contains("id    32k  $1/$2"), "{text:?}");
+        assert!(text[2].contains("│ z   a") && text[3].contains("│     b"), "{text:?}");
     }
 
     #[test]
