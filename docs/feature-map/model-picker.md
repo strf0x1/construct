@@ -32,3 +32,7 @@ Preconditions:
 - **Filter and switch.** Drive: `type opus`, `wait "1/4"`, `gone "mini/tiny-8k"`, `key enter`, `wait "model → anthropic/claude-opus-5.5"`, `expect "1M ctx"`. Expect: the box closed and the notice.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/model-picker`. Expect: `ok: request model opus; model row 1M/32000; head row manifest 200000` — the last request's `model`, the `model` journal row and the `head` row's manifest agree with what the screen said.
 - Contract: `crates/construct-dev/tests/catalog.rs`.
+
+## Gotchas
+
+- With no catalog `/model` prints how to start one instead of opening the box; the recipe's `setup.sh` writes `models.toml` into the scratch home for that reason.
