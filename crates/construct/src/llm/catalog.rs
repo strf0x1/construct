@@ -121,27 +121,52 @@ fn money(p: Option<f64>) -> String {
     p.map_or("?".into(), |p| if p < 0.01 { "0".into() } else { format!("{p:.2}") })
 }
 
-/// One line per model: id, window, then USD per million tokens in and out.
-pub fn row(m: &ModelInfo) -> String {
+/// A model's window, then USD per million tokens in and out.
+fn figures(m: &ModelInfo) -> (String, String) {
     let ctx = m.context.map_or("?".into(), tokens);
     let price = match (m.prompt_per_m, m.completion_per_m) {
         (Some(a), Some(b)) if a == 0.0 && b == 0.0 => "free".into(),
         (a, b) => format!("${}/${}", money(a), money(b)),
     };
-    format!("{:<46} {:>6}  {}{}", m.id, ctx, price, if m.reasoning { "  reasoning" } else { "" })
+    (ctx, format!("{price}{}", if m.reasoning { "  reasoning" } else { "" }))
+}
+
+/// One line per model: id, window, then USD per million tokens in and out.
+pub fn row(m: &ModelInfo) -> String {
+    let (ctx, rest) = figures(m);
+    format!("{:<46} {:>6}  {}", m.id, ctx, rest)
+}
+
+/// A model as two cells for a table: its id, and the rest of `row`.
+pub fn cells(m: &ModelInfo) -> (String, String) {
+    let (ctx, rest) = figures(m);
+    (m.id.clone(), format!("{ctx:>5}  {rest}"))
+}
+
+/// The first `limit` models matching `query` and how many more there were;
+/// the error is the sentence for no match.
+pub fn page<'a>(models: &'a [ModelInfo], query: &str, limit: usize) -> Result<(Vec<&'a ModelInfo>, usize), String> {
+    let mut hits = search(models, query);
+    if hits.is_empty() {
+        return Err(format!("no model matches \"{query}\" ({} known)", models.len()));
+    }
+    let more = hits.len().saturating_sub(limit);
+    hits.truncate(limit);
+    Ok((hits, more))
 }
 
 /// `models` matching `query` as at most `limit` rows, with a count of the rest.
 pub fn listing(models: &[ModelInfo], query: &str, limit: usize) -> String {
-    let hits = search(models, query);
-    if hits.is_empty() {
-        return format!("no model matches \"{query}\" ({} known)", models.len());
+    match page(models, query, limit) {
+        Err(none) => none,
+        Ok((hits, more)) => {
+            let mut lines: Vec<String> = hits.iter().map(|m| row(m)).collect();
+            if more > 0 {
+                lines.push(format!("… and {more} more; narrow the query"));
+            }
+            lines.join("\n")
+        }
     }
-    let mut lines: Vec<String> = hits.iter().take(limit).map(|m| row(m)).collect();
-    if hits.len() > limit {
-        lines.push(format!("… and {} more; narrow the query", hits.len() - limit));
-    }
-    lines.join("\n")
 }
 
 fn now() -> u64 {

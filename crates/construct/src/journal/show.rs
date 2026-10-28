@@ -30,33 +30,42 @@ fn tilde(p: &Path) -> String {
     }
 }
 
-/// The `/status` block.
-pub fn status_block(session: &str, journal: &Path, model: &str, window: u32, t: &Totals) -> String {
+/// The `/status` rows: a label and its value.
+pub fn status_rows(session: &str, journal: &Path, model: &str, window: u32, t: &Totals) -> Vec<(&'static str, String)> {
     let u = &t.usage;
     let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, crate::models::is_router(model));
-    let mut s = format!("session   {session}\njournal   {}\n", tilde(journal));
-    let _ = writeln!(s, "model     {model}   ctx {} ({used} used)", human(window as u64));
-    let _ = write!(
-        s,
-        "requests  {}   input {} (cached {}, {:.0}%)   output {}   cost {}",
-        t.requests,
-        human(u.prompt_tokens),
-        human(u.cached_tokens),
-        u.hit_rate() * 100.0,
-        human(u.completion_tokens),
-        u.cost.map_or("n/a".to_string(), |c| format!("${c:.3}")),
-    );
+    let mut rows = vec![
+        ("session", session.to_string()),
+        ("journal", tilde(journal)),
+        ("model", model.to_string()),
+        ("context", format!("{} ({used} used)", human(window as u64))),
+        ("requests", t.requests.to_string()),
+        (
+            "input",
+            format!("{} (cached {}, {:.0}%)", human(u.prompt_tokens), human(u.cached_tokens), u.hit_rate() * 100.0),
+        ),
+        ("output", human(u.completion_tokens)),
+        ("cost", u.cost.map_or("n/a".to_string(), |c| format!("${c:.3}"))),
+    ];
     let side = &t.side;
     if side.prompt_tokens + side.completion_tokens > 0 {
         let cost = side.cost.map_or(String::new(), |c| format!(", ${c:.3}"));
-        let _ = write!(
-            s,
-            "\n          of which summaries and sub-agents: input {}, output {}{cost}",
-            human(side.prompt_tokens),
-            human(side.completion_tokens),
-        );
+        rows.push((
+            "side calls",
+            format!(
+                "input {}, output {}{cost} (summaries, sub-agents; in the totals above)",
+                human(side.prompt_tokens),
+                human(side.completion_tokens)
+            ),
+        ));
     }
-    s
+    rows
+}
+
+/// `rows` as text, one `label  value` line each, the values lined up.
+pub fn rows_text(rows: &[(&str, String)]) -> String {
+    let w = rows.iter().map(|r| r.0.len()).max().unwrap_or(0);
+    rows.iter().map(|(k, v)| format!("{k:<w$}  {v}")).collect::<Vec<_>>().join("\n")
 }
 
 /// How full the window is, as people read it: `37%`, `<1%` once anything

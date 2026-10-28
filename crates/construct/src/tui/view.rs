@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{help, markdown, picker, prompt, theme};
+use super::{boxed, help, markdown, picker, prompt, theme};
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -147,6 +147,7 @@ impl App {
                 }
             }
             Kind::Help => out.extend(help::lines(w, &b.text)),
+            Kind::Boxes(max) => out.extend(boxed::lines(w, *max, &b.boxes, &b.text)),
             Kind::Notice(color) => {
                 let st = Style::new().fg(*color);
                 // One wrapped paragraph per line, so multi-line notices (/status, /help) keep their breaks.

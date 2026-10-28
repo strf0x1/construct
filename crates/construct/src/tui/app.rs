@@ -32,6 +32,9 @@ pub(super) enum Kind {
     Notice(Color),
     /// The `/help` panel; drawn by `help.rs`, so the block carries no text.
     Help,
+    /// Rounded boxes (`boxed.rs`) up to this wide, from `Block::boxes`, with
+    /// `Block::text` as a dim note underneath.
+    Boxes(usize),
 }
 
 pub(super) struct Block {
@@ -47,6 +50,8 @@ pub(super) struct Block {
     /// For tool blocks: lines of output to preview, and how to render it.
     pub(super) preview: usize,
     pub(super) out: OutputKind,
+    /// For `Kind::Boxes`: what to draw.
+    pub(super) boxes: Vec<super::boxed::Section>,
 }
 
 impl Block {
@@ -63,7 +68,13 @@ impl Block {
             version: 0,
             preview: 0,
             out: OutputKind::Plain,
+            boxes: Vec::new(),
         }
+    }
+
+    /// Boxes at most `max` wide, then `note` in dim text.
+    pub(super) fn boxes(max: usize, boxes: Vec<super::boxed::Section>, note: impl Into<String>) -> Self {
+        Self { boxes, ..Self::new(Kind::Boxes(max), note) }
     }
 }
 

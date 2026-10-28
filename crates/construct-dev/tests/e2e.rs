@@ -1527,10 +1527,18 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
     // Totals on screen are the journal's own sums, formatted the same way.
     let human = construct::journal::human;
-    let line = screen.lines().find(|l| l.contains("requests")).expect("requests line").to_string();
-    assert!(line.contains("requests  2"), "{line}");
-    assert!(line.contains(&format!("input {}", human(sum("prompt")))), "{line} vs prompt {}", sum("prompt"));
-    assert!(line.contains(&format!("output {}", human(sum("completion")))), "{line}");
+    let row = |label: &str| {
+        screen.lines().find(|l| l.contains(label)).unwrap_or_else(|| panic!("{label} row\n{screen}")).to_string()
+    };
+    assert!(screen.contains("╭─ status"), "drawn as a box\n{screen}");
+    assert!(row("requests").contains("requests  2"), "{}", row("requests"));
+    assert!(
+        row("input").contains(&format!("input     {}", human(sum("prompt")))),
+        "{} vs prompt {}",
+        row("input"),
+        sum("prompt")
+    );
+    assert!(row("output").contains(&format!("output    {}", human(sum("completion")))), "{}", row("output"));
     // The status line carries the same cumulative counters and the id.
     let last = screen.lines().rfind(|l| !l.trim().is_empty()).unwrap().to_string();
     assert!(last.contains(&format!("billed ↑{} ↓{}", human(sum("prompt")), human(sum("completion")))), "{last}");
