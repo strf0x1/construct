@@ -290,6 +290,12 @@ impl Agent {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         let mut route = self.route(text).await;
+        // Project skills are listed in the system prompt, so the tool that
+        // loads them is on wherever they are: being in the repo is the trigger.
+        let has_kit_skills = self.ctx.project_skills.as_ref().is_some_and(|p| !p.list().is_empty());
+        if has_kit_skills && !route.groups.contains(&Group::Skills) {
+            route.groups.push(Group::Skills);
+        }
         if let Some((name, _)) = &invoked {
             route.skills.retain(|(n, _)| n != name);
             // Its linked files are read with the skill tool.

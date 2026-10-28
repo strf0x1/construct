@@ -14,6 +14,8 @@ def build_parser():
     e = sub.add_parser("export"); e.add_argument("--csv", action="store_true")
     s = sub.add_parser("summary"); s.add_argument("--month", required=True)
     b = sub.add_parser("budget"); b.add_argument("--limit", action="append", default=[])
+    sub.add_parser("sync")
+    t = sub.add_parser("top"); t.add_argument("--n", type=int, default=5)
     return p
 
 def main(argv=None):
@@ -47,6 +49,17 @@ def main(argv=None):
         for k, lim in limits.items():
             if tot.get(k, _D(0)) > lim: print(f"OVER {k} {tot[k]} > {lim}"); over = True
         return 1 if over else 0
+    elif args.cmd == "sync":
+        import json as _json, os as _os, urllib.request as _ur
+        url, tok = _os.environ.get("TALLY_URL"), _os.environ.get("TALLY_TOKEN")
+        if not url or not tok: return 2
+        body = [{"date": x.day.isoformat(), "category": x.category, "amount": f"{x.amount:.2f}", "memo": x.memo} for x in entries]
+        req = _ur.Request(f"{url}/ledger", data=_json.dumps(body).encode(), method="POST", headers={"Authorization": f"Bearer {tok}"})
+        with _ur.urlopen(req) as r: return 0 if 200 <= r.status < 300 else 1
+    elif args.cmd == "top":
+        if args.n < 1: return 2
+        picked = sorted(entries, key=lambda x: (-x.amount, x.day))[: args.n]
+        lines = [f"{x.day} {x.category} {_money.fmt(x.amount)} {x.memo}" for x in picked]
     elif args.cmd == "report": lines = report.report(entries)
     elif args.cmd == "balance": lines = report.balance(entries, args.start, args.end)
     else: lines = ledger.categories(entries)

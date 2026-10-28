@@ -11,6 +11,7 @@
 mod curator;
 mod evidence;
 mod gate;
+mod hybrid;
 mod ledger;
 pub mod playbook;
 mod prompts;
@@ -35,26 +36,29 @@ pub const SKILLS: &str = "skills";
 pub const CORRECTIONS: &str = "corrections";
 pub const PLAYBOOK: &str = "playbook";
 pub const WORKFLOW: &str = "workflow";
-pub const STRATEGIES: &[&str] = &[SKILLS, CORRECTIONS, PLAYBOOK, WORKFLOW];
+pub const HYBRID: &str = "hybrid";
+pub const STRATEGIES: &[&str] = &[SKILLS, CORRECTIONS, PLAYBOOK, WORKFLOW, HYBRID];
 
 /// For the strategies that replace the gate and the review (`playbook`,
-/// `workflow`): learn from `messages` with one call, every time. `None` for
+/// `workflow`, `hybrid`): learn from `messages` with one call, every time. `None` for
 /// the strategies that go through `gate` and `review`.
 pub async fn distill(cfg: &Config, paths: &Paths, messages: &[Message]) -> Option<Result<Outcome>> {
     match cfg.learn.strategy.as_str() {
         PLAYBOOK => Some(playbook::reflect(cfg, paths, messages).await),
         WORKFLOW => Some(workflow::induce(cfg, paths, messages).await),
+        HYBRID => Some(hybrid::reflect(cfg, paths, messages).await),
         _ => None,
     }
 }
 
-/// What the configured strategy adds to the system prompt. Only `playbook`
+/// What the configured strategy adds to the system prompt. Only `playbook`,
+/// `hybrid` (the same playbook; its skills are in the project skill index)
 /// and `workflow` keep a store of their own; the others add nothing and
 /// touch no files.
 pub fn prompt_block(strategy: &str, memory: &Store) -> String {
     let kit = memory.project.as_ref().map(|p| p.dir.as_path());
     match strategy {
-        PLAYBOOK => playbook::prompt_block(memory.dir(), kit),
+        PLAYBOOK | HYBRID => playbook::prompt_block(memory.dir(), kit),
         WORKFLOW => workflow::prompt_block(kit),
         _ => String::new(),
     }

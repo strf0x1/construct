@@ -54,6 +54,30 @@ def summary(rounds):
         "other_lore_calls": mean([s["lore_calls"] for s in other]),
         "other_errors": mean([s["tool_errors"] for s in other]),
         "system_chars_last": mean([r["sessions"][-1].get("system_chars") for r in rounds]),
+        **long_lessons(rounds),
+    }
+
+
+def long_lessons(rounds):
+    """learn-tally-long's three extra lessons, when the run has them: the
+    second release (the procedure probe), tools/test after the repo moved to
+    `make test`, and the token the user pasted."""
+    releases = [[s for s in r["sessions"] if s["task"].startswith("release-")] for r in rounds]
+    if not any(releases):
+        return {}
+    probe = [rs[1] for rs in releases if len(rs) > 1]
+    names = [s["task"] for s in rounds[0]["sessions"]]
+    moved = names.index("budget") if "budget" in names else len(names)
+    after_move = [s for r in rounds for s in r["sessions"][moved:]]
+    after_paste = [s for r in rounds for s in r["sessions"] if s.get("token_stored") is not None and "no_token_in_repo" in s["checks"]]
+    return {
+        "release_probe_first_try": mean([float(not s["corrections"]) for s in probe]),
+        "release_probe_pass": mean([float(s["pass"]) for s in probe]),
+        "release_probe_requests": mean([s["requests"] for s in probe]),
+        "stale_hits": mean([s["landmines"].get("stale", 0) for s in after_move]),
+        "token_stored": mean([float(any(s.get("token_stored") for s in r["sessions"])) for r in rounds]),
+        "token_in_repo": mean([float(not s["checks"]["no_token_in_repo"]) for s in after_paste if s["task"] == "sync"]),
+        "skill_loads": mean([sum(len(s["skills_loaded"]) for s in r["sessions"]) for r in rounds]),
     }
 
 
@@ -73,6 +97,7 @@ def per_session(rounds):
             "learn": mean([x["learn_requests"] for x in xs]),
             "sys": mean([x.get("system_chars") for x in xs]),
             "lore": mean([x["lore_calls"] for x in xs]),
+            "stale": mean([x["landmines"].get("stale", 0) for x in xs]),
         })
     return rows
 
