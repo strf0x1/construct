@@ -1,0 +1,51 @@
+description = """The learning curriculum: six sessions in a row, one home, so what one session teaches can \
+pay off in the next. Five are features or a bug fix in `tally`, a small src-layout Python CLI; one is a \
+feature in an unrelated repo, to catch tally's lessons leaking where they're wrong. The repo carries four \
+lessons of different kinds: \
+(seed) the tests read fixtures from `./tools/gen-fixtures --seed <team seed>`, and only the user knows the seed; \
+(runner) CONTRIBUTING.md's test command fails in a src layout (`./tools/test` or PYTHONPATH=src works), so a model learns it from a failure; \
+(changelog) every change needs a line under `## Unreleased`, a convention the user enforces; \
+(decimal) money is Decimal, never float, which the user also enforces. \
+After each session's first turn the simulated user corrects whichever enforced lessons were broken \
+(`corrections` in task.toml), at most once. Driven by `bench.py curriculum`, not `bench.py task`."""
+timeout_s = 600
+
+[vars]
+seed = "{hex12}"
+seed_check = "{sha256:seed:16}"
+
+# What the simulated user says when a lesson check fails after the first turn.
+[corrections]
+fixtures_ok = "The tests need fixtures: run `./tools/gen-fixtures --seed {{seed}}` first (that's the team seed). That's how this repo works."
+changelog_ok = "You didn't add a CHANGELOG entry. In this repo every change gets a line under `## Unreleased` in CHANGELOG.md."
+decimal_ok = "Don't use float anywhere in this codebase: money is always Decimal (see src/tally/money.py). Please fix that."
+
+# In order, one fresh clone each; `repo = "other"` uses other/ instead of fixture/.
+[[sessions]]
+name = "category"
+prompt = "Add a `--category NAME` option to `tally report` that only reports that category (case-insensitive). An unknown category should exit with code 2. Add a test, and make sure the whole test suite passes."
+
+[[sessions]]
+name = "csv"
+prompt = "Add a `tally export --csv` command that writes every entry as CSV to stdout: a `date,category,amount,memo` header, then one row per entry with plain amounts like 1000.00. Memos may contain commas. Add a test and make sure the whole test suite passes."
+
+[[sessions]]
+name = "units"
+repo = "other"
+prompt = "Add a `convert_temp(value, src, dst)` function for c, f and k (raise UnitError for anything else). Add a test and make sure the tests pass."
+
+[[sessions]]
+name = "month"
+prompt = "Add a `tally summary --month YYYY-MM` command: the per-category report, but only for entries in that month. A month with no entries prints `(no entries)`; a malformed month exits 2. Add a test, and make sure the whole test suite passes."
+
+[[sessions]]
+name = "budget"
+prompt = "Add a `tally budget --limit CATEGORY=AMOUNT` command (repeatable). It prints one line per category over its limit containing the word OVER and the category, and exits 1 if any category is over (0 if none, 2 for a malformed limit). Spending equal to the limit is not over. Add a test, and make sure the whole test suite passes."
+
+[[sessions]]
+name = "split"
+prompt = "Bug: `money.split(Decimal('100.00'), 3)` returns three 33.33s, which adds up to 99.99. The parts must always add up to the amount, differ by at most a cent, and put the extra cents first. Fix it, add a test, and make sure the whole test suite passes."
+
+[budget]
+max_requests = 60
+max_prompt_tokens = 3000000

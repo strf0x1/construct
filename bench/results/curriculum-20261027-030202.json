@@ -1,0 +1,1953 @@
+{
+ "manifest": {
+  "harnesses": {
+   "corrections": {
+    "version": "0.1.0",
+    "git_sha": "175f870dc0fe9ef0b821e4117408c849650040e8",
+    "git_dirty": true,
+    "binary_sha256": "7425b010e5ab33e91ad1f9f627c8948b6493935e6452e8a16287800b767608fe",
+    "config_sha256": "749145d0839a4041f5e2d1d6148e2ece3565212e6d4401d4719b7657d5ac25f8",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "anthropic/claude-haiku-5.5",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   },
+   "control": {
+    "version": "0.1.0",
+    "git_sha": "175f870dc0fe9ef0b821e4117408c849650040e8",
+    "git_dirty": true,
+    "binary_sha256": "7425b010e5ab33e91ad1f9f627c8948b6493935e6452e8a16287800b767608fe",
+    "config_sha256": "3ad625b5408187d88868f13f9278aa361fe7460e64d986322879e1fdeedf03e6",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "anthropic/claude-haiku-5.5",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   },
+   "skills": {
+    "version": "0.1.0",
+    "git_sha": "175f870dc0fe9ef0b821e4117408c849650040e8",
+    "git_dirty": true,
+    "binary_sha256": "7425b010e5ab33e91ad1f9f627c8948b6493935e6452e8a16287800b767608fe",
+    "config_sha256": "530bd6818027361d14720d563314924d082d5bb2f2cf6fab46bc6bb740ebb4c9",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "anthropic/claude-haiku-5.5",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   },
+   "playbook": {
+    "version": "0.1.0",
+    "git_sha": "175f870dc0fe9ef0b821e4117408c849650040e8",
+    "git_dirty": true,
+    "binary_sha256": "7425b010e5ab33e91ad1f9f627c8948b6493935e6452e8a16287800b767608fe",
+    "config_sha256": "aaa473b4ea5054cd6c5f63b48f152a02061099b9af05b464efdb6cdefc00f5b1",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "anthropic/claude-haiku-5.5",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   }
+  },
+  "dev_git_sha": "175f870dc0fe9ef0b821e4117408c849650040e8",
+  "dev_dirty": true,
+  "model": "anthropic/claude-haiku-5.5",
+  "bench_py_sha256": "068cd2cf9805904fbd49d3858f586108bf2964fde3159e5fab7a727d8dc5dd67",
+  "host": "echo",
+  "started": "2026-10-27T08:35:57Z"
+ },
+ "model": "anthropic/claude-haiku-5.5",
+ "rounds": 2,
+ "task": "learn-tally",
+ "sessions": [
+  [
+   "category",
+   "fixture"
+  ],
+  [
+   "csv",
+   "fixture"
+  ],
+  [
+   "units",
+   "other"
+  ],
+  [
+   "month",
+   "fixture"
+  ],
+  [
+   "budget",
+   "fixture"
+  ],
+  [
+   "split",
+   "fixture"
+  ]
+ ],
+ "arms": {
+  "control": {
+   "tools": "",
+   "cfg": "learn = { enabled = false }",
+   "bin": ""
+  },
+  "skills": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"skills\" }",
+   "bin": ""
+  },
+  "corrections": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"corrections\" }",
+   "bin": ""
+  },
+  "playbook": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"playbook\" }",
+   "bin": ""
+  }
+ },
+ "raw": {
+  "control": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 77584,
+      "completion_tokens": 3605,
+      "cost_usd": 0.003898515,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.029204607009887695,
+      "system_chars": 1070,
+      "tool_calls": 16,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 97932,
+      "completion_tokens": 5328,
+      "cost_usd": 0.005113355,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.03403902053833008,
+      "system_chars": 1065,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 11396,
+      "completion_tokens": 1782,
+      "cost_usd": 0.001573845,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.029848337173461914,
+      "system_chars": 1067,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 118357,
+      "completion_tokens": 5982,
+      "cost_usd": 0.0059518850000000005,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.028255462646484375,
+      "system_chars": 1067,
+      "tool_calls": 20,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 112387,
+      "completion_tokens": 7615,
+      "cost_usd": 0.0066760249999999995,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.02570366859436035,
+      "system_chars": 1068,
+      "tool_calls": 17,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 15,
+      "prompt_tokens": 105782,
+      "completion_tokens": 5768,
+      "cost_usd": 0.005330745,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.030528783798217773,
+      "system_chars": 1067,
+      "tool_calls": 19,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 1
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     }
+    ],
+    "learned": {
+     "models/http___127_0_0_1_37551_v1.json": "{\"fetched_at\":1793090327,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 85588,
+      "completion_tokens": 3998,
+      "cost_usd": 0.004221005,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.025893688201904297,
+      "system_chars": 1070,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 88570,
+      "completion_tokens": 4908,
+      "cost_usd": 0.00474021,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.02814960479736328,
+      "system_chars": 1065,
+      "tool_calls": 9,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 11707,
+      "completion_tokens": 1662,
+      "cost_usd": 0.00155226,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.028419017791748047,
+      "system_chars": 1067,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 13,
+      "prompt_tokens": 109981,
+      "completion_tokens": 5797,
+      "cost_usd": 0.005562365,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.025703907012939453,
+      "system_chars": 1067,
+      "tool_calls": 17,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 8
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 15,
+      "prompt_tokens": 205332,
+      "completion_tokens": 8132,
+      "cost_usd": 0.008804065,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.02718329429626465,
+      "system_chars": 1068,
+      "tool_calls": 21,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 4,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 9
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 73331,
+      "completion_tokens": 3967,
+      "cost_usd": 0.003922855,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 0.025716304779052734,
+      "system_chars": 1067,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 3,
+       "runner": 1
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     }
+    ],
+    "learned": {
+     "models/http___127_0_0_1_37005_v1.json": "{\"fetched_at\":1793091117,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag"
+    }
+   }
+  ],
+  "skills": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 87062,
+      "completion_tokens": 4809,
+      "cost_usd": 0.004702425,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 20614,
+      "learn_cost_usd": 0.00260974,
+      "learn_s": 18.49416184425354,
+      "system_chars": 1069,
+      "tool_calls": 17,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 65099,
+      "completion_tokens": 3840,
+      "cost_usd": 0.0039523299999999996,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 20434,
+      "learn_cost_usd": 0.0028001049999999998,
+      "learn_s": 21.139166593551636,
+      "system_chars": 1490,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 3,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 11694,
+      "completion_tokens": 1549,
+      "cost_usd": 0.00149425,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.46505069732666,
+      "system_chars": 1066,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 126786,
+      "completion_tokens": 5605,
+      "cost_usd": 0.00692649,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 16223,
+      "learn_cost_usd": 0.002814675,
+      "learn_s": 18.009918212890625,
+      "system_chars": 1733,
+      "tool_calls": 18,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [
+       "generate-test-fixtures"
+      ],
+      "lore_calls": 7
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 15,
+      "prompt_tokens": 169276,
+      "completion_tokens": 7270,
+      "cost_usd": 0.00835141,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 17384,
+      "learn_cost_usd": 0.0029243000000000003,
+      "learn_s": 18.559776306152344,
+      "system_chars": 1734,
+      "tool_calls": 18,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [
+       "generate-test-fixtures"
+      ],
+      "lore_calls": 7
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 56433,
+      "completion_tokens": 4122,
+      "cost_usd": 0.00417493,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 12000,
+      "learn_cost_usd": 0.0021408,
+      "learn_s": 16.407237768173218,
+      "system_chars": 1733,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [
+       "generate-test-fixtures"
+      ],
+      "lore_calls": 5
+     }
+    ],
+    "learned": {
+     "learn/ledger.jsonl": "{\"ts\":1793090530,\"session\":\"20261027-084133-9b68\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s0-category\",\"problem_class\":\"repo test fixtures need a user-supplied seed\",\"summary\":\"tests/test_ledger.py fails to import until .fixtures/golden.json exists, and that file can only be generated with a team seed that is not in the repo and must come from the user.\",\"fix\":\"Get the team seed from the user, then run `./tools/gen-fixtures --seed <team seed>` from the repo root, then run `tools/test`. The generated .fixtures/golden.json is gitignored, so it does not appear in git status.\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger; gen-fixtures: usage: gen-fixtures --seed <team seed>\"}\n{\"ts\":1793090530,\"session\":\"20261027-084133-9b68\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s0-category\",\"problem_class\":\"repo changelog convention\",\"summary\":\"Every change in this repo needs a line under the `## Unreleased` heading in CHANGELOG.md, which the assistant did not know until the user said so.\",\"fix\":\"Add a one-line bullet under `## Unreleased` in CHANGELOG.md for each change, above the most recent released version heading.\",\"evidence\":\"User: \\\"You didn't add a CHANGELOG entry. In this repo every change gets a line under `## Unreleased` in CHANGELOG.md.\\\"\"}\n{\"ts\":1793090569,\"session\":\"20261027-084216-5b01\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s1-csv\",\"problem_class\":\"missing generated fixtures before test suite\",\"summary\":\"The full test suite fails at import with a missing `.fixtures/golden.json`, and the team seed needed to generate it was supplied by the user, not discoverable in the repo.\",\"fix\":\"Run `./tools/gen-fixtures --seed d8d3f5fa02ac` (the team seed, provided by the user) before `./tools/test`. The generated `.fixtures/golden.json` is gitignored, and the `seed_check` assertion in `tests/test_ledger.py` confirms the seed matched.\",\"evidence\":\"FileNotFoundError: [Errno 2] No such file or directory: '.../.fixtures/golden.json' (from tests/test_ledger.py loading GOLDEN at import time); after gen-fixtures: 'fixtures written to .fixtures/golden.json' and 'Ran 18 tests ... OK'\"}\n{\"ts\":1793090638,\"session\":\"20261027-084316-a55b\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s3-month\",\"problem_class\":\"gitignored test fixture needs user-supplied seed\",\"summary\":\"`./tools/test` fails at import of `tests/test_ledger.py` when `.fixtures/golden.json` is missing; the fixture is generated with a team seed that only the user can supply, and the `generate-test-fixtures` skill documents this procedure.\",\"fix\":\"Ask the user for the team seed (do not guess it). Then run `./tools/gen-fixtures --seed <team seed>` and rerun `./tools/test`. The skill is available via `enable_tools` with group `skills`, then `skill` with name `generate-test-fixtures`.\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger ... missing .fixtures/golden.json; after `./tools/gen-fixtures --seed ...`: \\\"fixtures written to .fixtures/golden.json\\\" and \\\"Ran 19 tests ... OK\\\"\"}\n{\"ts\":1793090693,\"session\":\"20261027-084403-65f7\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s4-budget\",\"problem_class\":\"test fixture generated with user-supplied seed\",\"summary\":\"tests/test_ledger.py fails at import when the gitignored .fixtures/golden.json is missing; it must be generated with the team seed, which only the user can supply, before ./tools/test can pass.\",\"fix\":\"Ask the user for the team seed, then run `./tools/gen-fixtures --seed <team seed>` (the generate-test-fixtures skill covers this), then rerun `./tools/test`. Do not guess the seed or change the test loader.\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger ... missing .fixtures/golden.json; after `./tools/gen-fixtures --seed ...` the output was \\\"fixtures written to .fixtures/golden.json\\\" and the suite ran 19 tests OK\"}\n{\"ts\":1793090738,\"session\":\"20261027-",
+     "models/http___127_0_0_1_36101_v1.json": "{\"fetched_at\":1793090493,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-skills-r0-7b3ad972/NOTES.md": "The team seed is not stored in the repo; the user supplies it in the conversation. Ask for it if it wasn't given, and run the fixture setup before concluding tests are blocked (see skill generate-test-fixtures).\n\u00a7\nEvery change gets a bullet under '## Unreleased' in CHANGELOG.md.",
+     "projects/fixture-skills-r0-7b3ad972/project.json": "{\"name\":\"fixture-skills-r0\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r0/s0-category\",\"remote\":\"example.com/team/fixture-skills-r0\"}",
+     "projects/fixture-skills-r0-7b3ad972/skills/.usage.json": "{\n  \"generate-test-fixtures\": {\n    \"views\": 3,\n    \"patches\": 0,\n    \"created_at\": 1793090577,\n    \"last_used\": 1793090709,\n    \"author\": \"agent\",\n    \"pinned\": false,\n    \"suggested\": 3\n  }\n}",
+     "projects/fixture-skills-r0-7b3ad972/skills/generate-test-fixtures/SKILL.md": "---\nname: generate-test-fixtures\ndescription: Use in the tally repo before running the full test suite (./tools/test) when tests/test_ledger.py fails at import with a missing .fixtures/golden.json. Covers generating the gitignored fixture file with the team seed, which the user must supply.\n---\n\n# Generate test fixtures (tally repo)\n\n## When\n`./tools/test` fails at import: `FileNotFoundError: ... .fixtures/golden.json` (raised by `tests/test_ledger.py` when it loads GOLDEN at import time). This is not a code bug.\n\n## Steps\n1. Get the team seed from the user. It is not in the repo. If the user has not given it, ask for it. Do not guess it.\n2. From the repo root: `./tools/gen-fixtures --seed <team seed>`. Expected output: `fixtures written to .fixtures/golden.json`.\n3. Run `./tools/test`. Expect all tests to pass (18 at last run). The `seed_check` assertion in `tests/test_ledger.py` confirms the seed matched.\n\n## Pitfalls\n- `.fixtures/` is gitignored, so the file never shows in `git status`. Don't commit it.\n- Without the seed, `gen-fixtures` fails with a usage error. Don't work around it by editing the test or the loader.\n- Run `tests.test_cli` alone (`PYTHONPATH=src python3 -m unittest tests.test_cli`) if you only need the CLI tests. It does not need the fixtures.\n"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 103270,
+      "completion_tokens": 5089,
+      "cost_usd": 0.00509933,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 22184,
+      "learn_cost_usd": 0.00283753,
+      "learn_s": 18.500409841537476,
+      "system_chars": 1069,
+      "tool_calls": 18,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 65699,
+      "completion_tokens": 4400,
+      "cost_usd": 0.00426202,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 21039,
+      "learn_cost_usd": 0.002639585,
+      "learn_s": 18.518823862075806,
+      "system_chars": 1596,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 3,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 12201,
+      "completion_tokens": 1615,
+      "cost_usd": 0.001544855,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.459124326705933,
+      "system_chars": 1066,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 130098,
+      "completion_tokens": 6397,
+      "cost_usd": 0.008090575,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 18378,
+      "learn_cost_usd": 0.00307705,
+      "learn_s": 17.436425924301147,
+      "system_chars": 1921,
+      "tool_calls": 19,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 9
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 12,
+      "prompt_tokens": 108851,
+      "completion_tokens": 5765,
+      "cost_usd": 0.006950075,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 15255,
+      "learn_cost_usd": 0.0024966750000000003,
+      "learn_s": 15.322811126708984,
+      "system_chars": 1922,
+      "tool_calls": 14,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 71731,
+      "completion_tokens": 3384,
+      "cost_usd": 0.004499755,
+      "learn_requests": 2,
+      "learn_prompt_tokens": 12626,
+      "learn_cost_usd": 0.00223605,
+      "learn_s": 16.922882795333862,
+      "system_chars": 1921,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [
+       "generate-test-fixtures"
+      ],
+      "lore_calls": 5
+     }
+    ],
+    "learned": {
+     "learn/ledger.jsonl": "{\"ts\":1793091515,\"session\":\"20261027-085754-9a3b\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s0-category\",\"problem_class\":\"generated test fixtures need a user-supplied secret\",\"summary\":\"tests/test_ledger.py fails until .fixtures/golden.json exists, and that file is only produced by tools/gen-fixtures, which requires a team seed that is not in the repo and must come from the user.\",\"fix\":\"Ask the user for the team seed rather than fabricating the fixture or skipping the test, then run `./tools/gen-fixtures --seed <team seed>` and rerun `tools/test`. The output is gitignored (.fixtures/).\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger; usage: gen-fixtures --seed <team seed>\"}\n{\"ts\":1793091515,\"session\":\"20261027-085754-9a3b\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s0-category\",\"problem_class\":\"changelog convention in this repo\",\"summary\":\"Every change in this repo needs a bullet under the `## Unreleased` heading in CHANGELOG.md, which was not discoverable from the code and was only stated by the user.\",\"fix\":\"Add a one-line bullet under `## Unreleased` in CHANGELOG.md for each change, following the existing bullet style.\",\"evidence\":\"User: \\\"In this repo every change gets a line under `## Unreleased` in CHANGELOG.md.\\\"\"}\n{\"ts\":1793091515,\"session\":\"20261027-085754-9a3b\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s0-category\",\"problem_class\":\"tools/test takes no module selector\",\"summary\":\"tools/test forwards its arguments as unittest discover's start directory, so passing a module name fails; run specific modules with python -m unittest instead.\",\"fix\":\"Use `PYTHONPATH=src python3 -m unittest tests.test_cli -v` for a single module, and `tools/test` for the full suite.\",\"evidence\":\"ImportError: Start directory is not importable: 'test_cli'\"}\n{\"ts\":1793091515,\"session\":\"20261027-085754-9a3b\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s0-category\",\"problem_class\":\"running the CLI as a module needs src on path\",\"summary\":\"`python3 -m tally` only works from the repo root with src/ on PYTHONPATH because the package lives under src/ (src layout).\",\"fix\":\"Run `PYTHONPATH=src python3 -m tally report --category Food`.\",\"evidence\":\"The package is under src/ per the comment in tools/test: \\\"src layout: the package is under src/\\\"\"}\n{\"ts\":1793091556,\"session\":\"20261027-085841-88bf\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s1-csv\",\"problem_class\":\"test fixtures need a user-supplied seed\",\"summary\":\"The full test suite fails with a missing `.fixtures/golden.json` because fixtures are generated from a team seed that is not stored in the repo, so the assistant could not complete verification until the user supplied it.\",\"fix\":\"Ask the user for the team seed, then run `./tools/gen-fixtures --seed <team seed>` before `tools/test`. The seed is not in README, CONTRIBUTING, or the gen-fixtures script. `.fixtures/` is gitignored.\",\"evidence\":\"FileNotFoundError: [Errno 2] No such file or directory: '.../.fixtures/golden.json' (from tests/test_ledger.py); after `./tools/gen-fixtures --seed e7b45c105a94`: \\\"fixtures written to .fixtures/golden.json\\\", then \\\"Ran 18 tests ... OK\\\"\"}\n{\"ts\":1793091626,\"session\":\"20261027-085939-d50f\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s3-month\",\"problem_class\":\"test suite needs generated fixtures from user-supplied seed\",\"summary\":\"tools/test fails with a missing .fixtures/golden.json because fixtures must be generated with the team seed, which the assistant cannot find in the repo and must ask the user for.\",\"fix\":\"Ask the user for the team seed, then run `./tools/gen-fixtures --seed <team seed>` before `tools/test`. The fixture file is gitignored. tests/test_ledger.py checks a seed hash, so the seed must be the correct one, not a guess.\",\"evidence\":\"AssertionError from tests/test_ledger.py: \\\"fixtures were generated wi...\\\" and `ls .fixtures` -> \\\"No such fi",
+     "models/http___127_0_0_1_34473_v1.json": "{\"fetched_at\":1793091474,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-skills-r1-7b3adb25/NOTES.md": "Every change needs a one-line entry under `## Unreleased` in CHANGELOG.md.\n\u00a7\nTests need generated fixtures: run `./tools/gen-fixtures --seed <team seed>` before `tools/test`, or tests/test_ledger.py errors on a missing .fixtures/golden.json. Get the team seed from the user; don't invent it. .fixtures/ is gitignored.\n\u00a7\n`tools/test` runs the whole suite only and takes no module argument. To run one module, use `PYTHONPATH=src python3 -m unittest tests.test_cli -v`.",
+     "projects/fixture-skills-r1-7b3adb25/project.json": "{\"name\":\"fixture-skills-r1\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/skills/r1/s0-category\",\"remote\":\"example.com/team/fixture-skills-r1\"}",
+     "projects/fixture-skills-r1-7b3adb25/skills/.usage.json": "{\n  \"generate-test-fixtures\": {\n    \"views\": 1,\n    \"patches\": 0,\n    \"created_at\": 1793091561,\n    \"last_used\": 1793091697,\n    \"author\": \"agent\",\n    \"pinned\": false,\n    \"suggested\": 3\n  }\n}",
+     "projects/fixture-skills-r1-7b3adb25/skills/generate-test-fixtures/SKILL.md": "---\nname: generate-test-fixtures\ndescription: Use when the tally repo's test suite (tools/test) fails with a missing .fixtures/golden.json or an ImportError for tests.test_ledger. The fixtures come from tools/gen-fixtures, which needs the team seed from the user. Not for failures in the test code itself.\n---\n\n# Generate test fixtures for tally\n\n1. Confirm the failure is the fixtures one: `tools/test 2>&1 | tail -15` shows\n   `FileNotFoundError: ... .fixtures/golden.json` or\n   `ImportError: Failed to import test module: tests.test_ledger`.\n2. Get the team seed from the user. It is not in README.md, CONTRIBUTING.md,\n   or the gen-fixtures script. Do not invent one, and do not skip the test.\n3. Run `./tools/gen-fixtures --seed <team seed>`. Expected output:\n   `fixtures written to .fixtures/golden.json`.\n4. Run `tools/test`. Expected: `Ran 18 tests ... OK`.\n5. `.fixtures/` is gitignored, so the fixtures never appear in `git status`.\n\nPitfall: `tools/test` runs the whole suite and takes no module argument. To run\na single module, use `PYTHONPATH=src python3 -m unittest tests.test_cli -v`.\n"
+    }
+   }
+  ],
+  "corrections": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 94377,
+      "completion_tokens": 4183,
+      "cost_usd": 0.00458482,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 21455,
+      "learn_cost_usd": 0.00254726,
+      "learn_s": 17.43328046798706,
+      "system_chars": 1074,
+      "tool_calls": 17,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 3,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 5,
+      "prompt_tokens": 28026,
+      "completion_tokens": 3326,
+      "cost_usd": 0.0032053150000000002,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.491989612579346,
+      "system_chars": 1527,
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 3,
+      "prompt_tokens": 6415,
+      "completion_tokens": 1379,
+      "cost_usd": 0.001066365,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4929,
+      "learn_cost_usd": 0.00042108,
+      "learn_s": 8.453843116760254,
+      "system_chars": 1071,
+      "tool_calls": 6,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 59460,
+      "completion_tokens": 4973,
+      "cost_usd": 0.004444205,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.462472200393677,
+      "system_chars": 1529,
+      "tool_calls": 18,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 51487,
+      "completion_tokens": 5027,
+      "cost_usd": 0.004523315,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.46729850769043,
+      "system_chars": 1530,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 5,
+      "prompt_tokens": 19965,
+      "completion_tokens": 2239,
+      "cost_usd": 0.002007125,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.478540658950806,
+      "system_chars": 1529,
+      "tool_calls": 9,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     }
+    ],
+    "learned": {
+     "learn/ledger.jsonl": "{\"ts\":1793090196,\"session\":\"20261027-083558-9609\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/corrections/r0/s0-category\",\"problem_class\":\"test fixtures generated from an external team seed\",\"summary\":\"tests/test_ledger.py fails with a missing .fixtures/golden.json because tools/gen-fixtures needs a team seed that is not in the repo, so the suite cannot pass until the fixture is generated with that seed.\",\"fix\":\"Get the team seed from the user, then run `./tools/gen-fixtures --seed <team seed>` before `./tools/test`. Do not hand-write .fixtures/golden.json or guess the seed. The file is gitignored.\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger; gen-fixtures usage: \\\"usage: gen-fixtures --seed <team seed>\\\"; after the user supplied the seed: \\\"fixtures written to .fixtures/golden.json ... Ran 18 tests ... OK\\\"\"}\n",
+     "models/http___127_0_0_1_46721_v1.json": "{\"fetched_at\":1793090158,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-corrections-r0-095ecac9/NOTES.md": "Tests need generated fixtures before the suite runs: `./tools/gen-fixtures --seed d8d3f5fa02ac` (team seed; writes gitignored .fixtures/golden.json). Without it tests/test_ledger.py errors. Run `./tools/test` afterward; it must pass fully.\n\u00a7\nEvery change gets a bullet under `## Unreleased` in CHANGELOG.md (above the newest version heading). Add it in the same change as the feature/fix.",
+     "projects/fixture-corrections-r0-095ecac9/project.json": "{\"name\":\"fixture-corrections-r0\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/corrections/r0/s0-category\",\"remote\":\"example.com/team/fixture-corrections-r0\"}"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 13,
+      "prompt_tokens": 111503,
+      "completion_tokens": 4370,
+      "cost_usd": 0.0047722,
+      "learn_requests": 3,
+      "learn_prompt_tokens": 21902,
+      "learn_cost_usd": 0.00260211,
+      "learn_s": 17.431812524795532,
+      "system_chars": 1074,
+      "tool_calls": 18,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 52343,
+      "completion_tokens": 5255,
+      "cost_usd": 0.0045499649999999996,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.479017972946167,
+      "system_chars": 1510,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 12182,
+      "completion_tokens": 1486,
+      "cost_usd": 0.0014546350000000001,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.4671049118042,
+      "system_chars": 1071,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 59104,
+      "completion_tokens": 4309,
+      "cost_usd": 0.0040941549999999995,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.463796138763428,
+      "system_chars": 1512,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 92790,
+      "completion_tokens": 7791,
+      "cost_usd": 0.006528415,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.458452701568604,
+      "system_chars": 1513,
+      "tool_calls": 18,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 33891,
+      "completion_tokens": 3792,
+      "cost_usd": 0.00313128,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.478373765945435,
+      "system_chars": 1512,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     }
+    ],
+    "learned": {
+     "learn/ledger.jsonl": "{\"ts\":1793091315,\"session\":\"20261027-085438-5bba\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/corrections/r1/s0-category\",\"problem_class\":\"test fixtures need a user-supplied seed\",\"summary\":\"tests/test_ledger.py fails to import because .fixtures/golden.json is missing, and it can only be generated with a team seed that is not in the repo and must come from the user.\",\"fix\":\"Ask the user for the team seed, then run `./tools/gen-fixtures --seed <seed>` from the repo root before `./tools/test`. Do not hand-write golden.json or guess the seed.\",\"evidence\":\"ImportError: Failed to import test module: tests.test_ledger ... usage: gen-fixtures --seed <team seed>; after the user's seed: \\\"fixtures written to .fixtures/golden.json\\\" and \\\"Ran 18 tests ... OK\\\"\"}\n{\"ts\":1793091315,\"session\":\"20261027-085438-5bba\",\"cwd\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/corrections/r1/s0-category\",\"problem_class\":\"undocumented changelog convention\",\"summary\":\"Every change in this repo needs a one-line entry under `## Unreleased` in CHANGELOG.md, and this was not written in the repo docs the assistant read.\",\"fix\":\"After making a change, add a bullet under the `## Unreleased` heading in CHANGELOG.md, above the first versioned heading, before reporting done.\",\"evidence\":\"User: \\\"You didn't add a CHANGELOG entry. In this repo every change gets a line under `## Unreleased` in CHANGELOG.md.\\\"\"}\n",
+     "models/http___127_0_0_1_38165_v1.json": "{\"fetched_at\":1793091278,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-corrections-r1-095ec916/NOTES.md": "Tests need generated fixtures first. Run `./tools/gen-fixtures --seed e7b45c105a94` (team seed) before `./tools/test`; without it tests/test_ledger.py fails importing .fixtures/golden.json. .fixtures/ is gitignored.\n\u00a7\nEvery change gets a one-line entry under `## Unreleased` in CHANGELOG.md (above the newest version heading). Add it with the feature, not as a follow-up.",
+     "projects/fixture-corrections-r1-095ec916/project.json": "{\"name\":\"fixture-corrections-r1\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/corrections/r1/s0-category\",\"remote\":\"example.com/team/fixture-corrections-r1\"}"
+    }
+   }
+  ],
+  "playbook": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 74490,
+      "completion_tokens": 4152,
+      "cost_usd": 0.00414004,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5939,
+      "learn_cost_usd": 0.000901775,
+      "learn_s": 10.57083535194397,
+      "system_chars": 1071,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 6,
+      "prompt_tokens": 39054,
+      "completion_tokens": 3896,
+      "cost_usd": 0.0035610999999999998,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4296,
+      "learn_cost_usd": 0.0006644,
+      "learn_s": 10.075763702392578,
+      "system_chars": 1390,
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 12187,
+      "completion_tokens": 1579,
+      "cost_usd": 0.00152476,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 2779,
+      "learn_cost_usd": 0.000435275,
+      "learn_s": 10.069896221160889,
+      "system_chars": 1068,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 41741,
+      "completion_tokens": 3547,
+      "cost_usd": 0.00323885,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4476,
+      "learn_cost_usd": 0.0007014,
+      "learn_s": 10.598312616348267,
+      "system_chars": 1392,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 87950,
+      "completion_tokens": 6451,
+      "cost_usd": 0.005734,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5539,
+      "learn_cost_usd": 0.000819275,
+      "learn_s": 10.096863508224487,
+      "system_chars": 1393,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 43499,
+      "completion_tokens": 2576,
+      "cost_usd": 0.00257349,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4010,
+      "learn_cost_usd": 0.00068865,
+      "learn_s": 10.595340251922607,
+      "system_chars": 1392,
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 1
+     }
+    ],
+    "learned": {
+     "models/http___127_0_0_1_41139_v1.json": "{\"fetched_at\":1793090742,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-playbook-r0-f66f6ec5/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Before running the test suite in this repo, generate the fixtures: `./tools/gen-fixtures --seed d8d3f5fa02ac`, then run `tools/test`. Without `.fixtures/golden.json`, tests/test_ledger.py fails at import. The output is gitignored, so don't commit it.\",\n    \"helpful\": 4,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p2\",\n    \"text\": \"Every change gets a one-line entry under `## Unreleased` at the top of CHANGELOG.md, added in the same change as the code. Doing the code alone is incomplete.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  }\n]",
+     "projects/fixture-playbook-r0-f66f6ec5/project.json": "{\"name\":\"fixture-playbook-r0\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/playbook/r0/s0-category\",\"remote\":\"example.com/team/fixture-playbook-r0\"}"
+    }
+   },
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok",
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 77295,
+      "completion_tokens": 3159,
+      "cost_usd": 0.00356758,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5388,
+      "learn_cost_usd": 0.0008679,
+      "learn_s": 10.596226215362549,
+      "system_chars": 1071,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 46507,
+      "completion_tokens": 4446,
+      "cost_usd": 0.003948415,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4680,
+      "learn_cost_usd": 0.0007664,
+      "learn_s": 10.607788562774658,
+      "system_chars": 1458,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 12042,
+      "completion_tokens": 1715,
+      "cost_usd": 0.001574635,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 2805,
+      "learn_cost_usd": 0.000503025,
+      "learn_s": 10.592796802520752,
+      "system_chars": 1068,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 48902,
+      "completion_tokens": 5436,
+      "cost_usd": 0.00459605,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5731,
+      "learn_cost_usd": 0.001151775,
+      "learn_s": 13.252065896987915,
+      "system_chars": 1460,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 92972,
+      "completion_tokens": 6656,
+      "cost_usd": 0.005998615,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 7090,
+      "learn_cost_usd": 0.00116265,
+      "learn_s": 11.630510807037354,
+      "system_chars": 1739,
+      "tool_calls": 16,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 6,
+      "prompt_tokens": 32232,
+      "completion_tokens": 3680,
+      "cost_usd": 0.003160515,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5010,
+      "learn_cost_usd": 0.00079665,
+      "learn_s": 10.606741428375244,
+      "system_chars": 1738,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     }
+    ],
+    "learned": {
+     "models/http___127_0_0_1_37233_v1.json": "{\"fetched_at\":1793090921,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-playbook-r1-f66f6d12/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Before running `tools/test`, generate the fixtures with `./tools/gen-fixtures --seed e7b45c105a94` (the team seed). Without `.fixtures/golden.json`, `tests/test_ledger.py` fails to import.\",\n    \"helpful\": 4,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p2\",\n    \"text\": \"Every change needs a one-line entry under `## Unreleased` at the top of CHANGELOG.md, in the form `- <what changed>; ...`.\",\n    \"helpful\": 4,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p3\",\n    \"text\": \"Validate CLI arguments with an argparse `type=` function (as `--from`/`--to` and `--month` do). A bad value exits 2 through `SystemExit` from argparse, so tests for bad input should use `assertRaises(SystemExit)` and check `.code == 2`, not a return value from `main()`.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  }\n]",
+     "projects/fixture-playbook-r1-f66f6d12/project.json": "{\"name\":\"fixture-playbook-r1\",\"root\":\"/tmp/cb-jev-haiku-a/construct-bench/curriculum/playbook/r1/s0-category\",\"remote\":\"example.com/team/fixture-playbook-r1\"}"
+    }
+   }
+  ]
+ }
+}

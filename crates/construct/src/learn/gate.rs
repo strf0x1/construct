@@ -86,7 +86,18 @@ pub async fn gate(cfg: &Config, messages: &[Message]) -> Gate {
     }
     let errors = tool_errors(messages);
     let loaded = skills_loaded(messages);
-    let g = gate_parts(cfg, &users, &errors, &loaded).await;
+    let mut g = gate_parts(cfg, &users, &errors, &loaded).await;
+    if cfg.learn.strategy == super::CORRECTIONS {
+        // A follow-up is the user correcting or adding to the first request,
+        // and a failure the agent then got past is a workaround: both are
+        // lessons, whatever words they use (#5).
+        let followups = super::evidence::followups(messages).len();
+        let recovered = super::evidence::contrasts(messages).iter().filter(|c| c.fixed.is_some()).count();
+        if followups + recovered > 0 {
+            g.kind = Some(Kind::Both);
+            g.note = format!("{} followups={followups} recovered={recovered}", g.note);
+        }
+    }
     if g.kind.is_some() {
         return g;
     }

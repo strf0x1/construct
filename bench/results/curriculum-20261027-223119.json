@@ -1,0 +1,305 @@
+{
+ "manifest": {
+  "harnesses": {
+   "playbook": {
+    "version": "0.1.0",
+    "git_sha": "1f2004a45bb860b57069714375cf338f3f4b3a30",
+    "git_dirty": true,
+    "binary_sha256": "7e4e0637074343b08507ac1cf0b47d892271fb510fd9b04d152175ed6524c179",
+    "config_sha256": "14d03b8dd9d699bbc14675c3027cfd1ee763c10f45e001eb525be7b823cb0d8b",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   }
+  },
+  "dev_git_sha": "1f2004a45bb860b57069714375cf338f3f4b3a30",
+  "dev_dirty": true,
+  "model": "deepseek/deepseek-v4.1-flash-1017",
+  "bench_py_sha256": "068cd2cf9805904fbd49d3858f586108bf2964fde3159e5fab7a727d8dc5dd67",
+  "host": "echo",
+  "started": "2026-10-28T04:28:04Z"
+ },
+ "model": "deepseek/deepseek-v4.1-flash-1017",
+ "rounds": 1,
+ "task": "learn-tally",
+ "sessions": [
+  [
+   "category",
+   "fixture"
+  ],
+  [
+   "csv",
+   "fixture"
+  ],
+  [
+   "units",
+   "other"
+  ],
+  [
+   "month",
+   "fixture"
+  ],
+  [
+   "budget",
+   "fixture"
+  ],
+  [
+   "split",
+   "fixture"
+  ]
+ ],
+ "arms": {
+  "playbook": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"playbook\" }",
+   "bin": ""
+  }
+ },
+ "raw": {
+  "playbook": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 23,
+      "prompt_tokens": 186431,
+      "completion_tokens": 7079,
+      "cost_usd": 0.0057102204,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 7402,
+      "learn_cost_usd": 0.00074464,
+      "learn_s": 10.254225730895996,
+      "system_chars": 1070,
+      "tool_calls": 30,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 13,
+      "prompt_tokens": 85372,
+      "completion_tokens": 4005,
+      "cost_usd": 0.0040119259,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 3917,
+      "learn_cost_usd": 0.00041369,
+      "learn_s": 9.456400871276855,
+      "system_chars": 1594,
+      "tool_calls": 16,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 5,
+      "prompt_tokens": 12637,
+      "completion_tokens": 1988,
+      "cost_usd": 0.002236068,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 2426,
+      "learn_cost_usd": 0.00033268,
+      "learn_s": 11.404774188995361,
+      "system_chars": 1067,
+      "tool_calls": 8,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 18,
+      "prompt_tokens": 154294,
+      "completion_tokens": 9055,
+      "cost_usd": 0.0119178864,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 7285,
+      "learn_cost_usd": 0.00074145,
+      "learn_s": 11.20140266418457,
+      "system_chars": 1769,
+      "tool_calls": 32,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 21,
+      "prompt_tokens": 185630,
+      "completion_tokens": 6440,
+      "cost_usd": 0.0055608008,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6801,
+      "learn_cost_usd": 0.000851798,
+      "learn_s": 13.291376113891602,
+      "system_chars": 2302,
+      "tool_calls": 29,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "edit": 1
+      },
+      "landmines": {
+       "seed": 3,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 9
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 32734,
+      "completion_tokens": 2216,
+      "cost_usd": 0.001824404,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 3115,
+      "learn_cost_usd": 0.00046555,
+      "learn_s": 11.159032583236694,
+      "system_chars": 2301,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     }
+    ],
+    "learned": {
+     "models/http___127_0_0_1_33337_v1.json": "{\"fetched_at\":1793161684,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-playbook-r0-f66f6ec5/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Run `./tools/gen-fixtures --seed 1c03426f6420` (the team seed) before `./tools/test`; it writes the gitignored `.fixtures/golden.json` that `tests/test_ledger.py` imports, so on a fresh checkout the suite fails at import until you do.\",\n    \"helpful\": 4,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p2\",\n    \"text\": \"Don't try to recover or brute-force the team seed, and don't hand-write `.fixtures/golden.json` even to prove a change is unrelated to the failure \u2014 ask for the seed and run `./tools/gen-fixtures --seed <seed>`.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p3\",\n    \"text\": \"Every change gets a line under `## Unreleased` in CHANGELOG.md (one-line entry describing the change); the user expects this alongside the code, not only when asked.\",\n    \"helpful\": 3,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p4\",\n    \"text\": \"`cli.main(argv)` must return an exit code for tests to assert on, but `build_parser().parse_args` raises `SystemExit` on bad input; wrap it (`except SystemExit as e: return e.code if isinstance(e.code, int) else 2`) so malformed args exit 2 and `--help` returns 0 instead of propagating out of main.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p5\",\n    \"text\": \"CLI input validation follows CONTRIBUTING: bad input exits 2 \u2014 validate in an argparse `type=` helper that raises `argparse.ArgumentTypeError`, and keep new commands' tests in `tests/test_cli.py` calling `cli.main`.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p6\",\n    \"text\": \"`money.split(amount, parts)` must return shares that sum exactly to the (quantized) amount and differ by at most one cent, with leftover cents on the leading shares (largest magnitude first for negative amounts). Implement it in integer cents (abs cents // parts base, remainder distributed to the first shares, then reapply sign); dividing the Decimal and quantizing each share loses the remainder.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  }\n]",
+     "projects/fixture-playbook-r0-f66f6ec5/project.json": "{\"name\":\"fixture-playbook-r0\",\"root\":\"/tmp/cb-guard-ds-a/construct-bench/curriculum/playbook/r0/s0-category\",\"remote\":\"example.com/team/fixture-playbook-r0\"}",
+     "projects/other-playbook-r0-b1d36f8e/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Run tests with `python3 -m unittest` from the repo root (README documents this; no pytest setup).\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  }\n]",
+     "projects/other-playbook-r0-b1d36f8e/project.json": "{\"name\":\"other-playbook-r0\",\"root\":\"/tmp/cb-guard-ds-a/construct-bench/curriculum/playbook/r0/s2-units\",\"remote\":\"example.com/team/other-playbook-r0\"}"
+    }
+   }
+  ]
+ }
+}

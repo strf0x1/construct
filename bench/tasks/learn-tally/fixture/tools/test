@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Runs the whole suite the way CI does (src layout: the package is under src/).
+set -e
+cd "$(dirname "$0")/.."
+PYTHONPATH=src exec python3 -m unittest discover -s tests -t . "$@"
