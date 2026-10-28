@@ -111,7 +111,10 @@ impl Agent {
             // The child's boundary was decided by its parent; `parent` is the
             // pid the helper watches, and that is this process now.
             Some(o) => (o.system, crate::sandbox::Policy { parent: std::process::id(), ..o.policy }),
-            None => (crate::prompt::build(&cwd, &memory), crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths)),
+            None => (
+                crate::prompt::build(&cwd, &memory, &cfg.learn.strategy),
+                crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
+            ),
         };
         match messages.first() {
             Some(m) if m.role == "system" => messages[0] = Message::system(system),

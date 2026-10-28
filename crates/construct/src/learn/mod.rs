@@ -9,10 +9,13 @@
 //! transient environment failures as rules.
 
 mod curator;
+mod evidence;
 mod gate;
 mod ledger;
+pub mod playbook;
 mod prompts;
 mod review;
+pub mod workflow;
 
 pub use curator::curate;
 pub use gate::{Gate, gate, gate_parts};
@@ -26,6 +29,48 @@ use crate::tools::{Catalog, Ctx, ToolError};
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
+
+/// `[learn] strategy` values.
+pub const SKILLS: &str = "skills";
+pub const CORRECTIONS: &str = "corrections";
+pub const PLAYBOOK: &str = "playbook";
+pub const WORKFLOW: &str = "workflow";
+pub const STRATEGIES: &[&str] = &[SKILLS, CORRECTIONS, PLAYBOOK, WORKFLOW];
+
+/// For the strategies that replace the gate and the review (`playbook`,
+/// `workflow`): learn from `messages` with one call, every time. `None` for
+/// the strategies that go through `gate` and `review`.
+pub async fn distill(cfg: &Config, paths: &Paths, messages: &[Message]) -> Option<Result<Outcome>> {
+    match cfg.learn.strategy.as_str() {
+        PLAYBOOK => Some(playbook::reflect(cfg, paths, messages).await),
+        WORKFLOW => Some(workflow::induce(cfg, paths, messages).await),
+        _ => None,
+    }
+}
+
+/// What the configured strategy adds to the system prompt. Only `playbook`
+/// and `workflow` keep a store of their own; the others add nothing and
+/// touch no files.
+pub fn prompt_block(strategy: &str, memory: &Store) -> String {
+    let kit = memory.project.as_ref().map(|p| p.dir.as_path());
+    match strategy {
+        PLAYBOOK => playbook::prompt_block(memory.dir(), kit),
+        WORKFLOW => workflow::prompt_block(kit),
+        _ => String::new(),
+    }
+}
+
+/// One completion that must answer with a JSON object; anything around the
+/// object is ignored, and no object at all reads as `{}`.
+async fn ask_json(client: &llm::Client, model: &str, system: &str, user: &str, max_tokens: u32) -> Result<Value> {
+    let msgs = vec![Message::system(system), Message::user(user)];
+    let c = client
+        .complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(max_tokens), temperature: None })
+        .await?;
+    let text = c.message.content.unwrap_or_default();
+    let body = text.find('{').and_then(|a| text.rfind('}').map(|b| &text[a..=b])).unwrap_or("{}");
+    Ok(serde_json::from_str(body).unwrap_or(json!({})))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -182,5 +227,25 @@ pub fn kind_for(user_turns: u32, tool_calls: u32) -> Option<Kind> {
 fn log_line_quiet(line: &str) {
     if let Ok(p) = Paths::resolve() {
         log_line(&p, line);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_playbook_strategy_reads_a_playbook() {
+        let dir = std::env::temp_dir().join(format!("construct-learn-prompt-{}", std::process::id()));
+        let paths = Paths { home: dir.clone() };
+        let memory = Store::new(&paths, &crate::config::MemoryConfig::default());
+        let bullets = vec![playbook::Bullet { id: "g1".into(), text: "Run ./tools/test".into(), ..Default::default() }];
+        std::fs::create_dir_all(memory.dir()).unwrap();
+        std::fs::write(playbook::global_path(memory.dir()), serde_json::to_string(&bullets).unwrap()).unwrap();
+        assert!(prompt_block(PLAYBOOK, &memory).contains("[g1] Run ./tools/test"));
+        for other in [SKILLS, CORRECTIONS, WORKFLOW] {
+            assert_eq!(prompt_block(other, &memory), "", "{other} must not show a playbook");
+        }
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

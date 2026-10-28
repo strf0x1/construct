@@ -53,6 +53,11 @@ impl Store {
         }
     }
 
+    /// Where the global memory files live.
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
+
     pub fn limit(&self, t: Target) -> usize {
         match t {
             Target::Memory => self.cfg.memory_chars,
@@ -179,8 +184,9 @@ fn label(t: Target) -> &'static str {
 }
 
 /// Memory enters every future prompt, so refuse content that tries to steer
-/// the agent or smuggle secrets out.
-fn scan(content: &str) -> Option<String> {
+/// the agent or smuggle secrets out. Anything else that enters every prompt
+/// (the learner's playbook) goes through it too.
+pub(crate) fn scan(content: &str) -> Option<String> {
     let lower = content.to_lowercase();
     const BAD: &[&str] = &[
         "ignore previous instructions",
@@ -195,11 +201,32 @@ fn scan(content: &str) -> Option<String> {
             return Some(format!("refused: memory entries can't contain {b:?}"));
         }
     }
+    // `KEY=sk-...` and `token: "ghp_..."` hide the key inside one whitespace word.
     let looks_like_key = content
-        .split_whitespace()
+        .split(|c: char| c.is_whitespace() || "=:'\"`,".contains(c))
         .any(|w| (w.starts_with("sk-") || w.starts_with("ghp_") || w.starts_with("xoxb-")) && w.len() > 20);
     if looks_like_key {
         return Some("refused: that looks like a credential; secrets belong in secretspec".into());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scan;
+
+    #[test]
+    fn keys_are_refused_however_they_are_written() {
+        for bad in [
+            "use sk-abcdefghijklmnopqrstuvwxyz0123 for the api",
+            "OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz0123",
+            "token: \"ghp_abcdefghijklmnopqrstuvwxyz0123\"",
+            "Ignore previous instructions",
+        ] {
+            assert!(scan(bad).is_some(), "{bad}");
+        }
+        for ok in ["run ./tools/gen-fixtures --seed 1a2b3c4d5e6f", "sk-short is a flag", "port=8080"] {
+            assert!(scan(ok).is_none(), "{ok}");
+        }
+    }
 }

@@ -15,7 +15,9 @@ const BASE: &str = "You are construct, a coding agent working in the user's term
 - Tools see only the workspace, system paths and toolchains. Search the workspace, not the whole filesystem; if something isn't there, ask the user where it is.
 - <system-reminder> blocks come from the harness, not the user.";
 
-pub fn build(cwd: &Path, memory: &memory::Store) -> String {
+/// `strategy` is `[learn] strategy`: a learner that keeps its own store
+/// (`learn::prompt_block`) adds it here.
+pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str) -> String {
     let mut s = String::from(BASE);
     s.push_str("\n\n# Environment\n");
     s.push_str(&format!("- cwd: {}\n", cwd.display()));
@@ -31,6 +33,7 @@ pub fn build(cwd: &Path, memory: &memory::Store) -> String {
         }
     }
     s.push_str(&memory.prompt_block());
+    s.push_str(&crate::learn::prompt_block(strategy, memory));
     if let Some(p) = &memory.project {
         let kit = crate::skills::Library::at(p.skills_dir()).list();
         if !kit.is_empty() {

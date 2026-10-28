@@ -148,14 +148,14 @@ def _copy_filled(src: Path, dest: Path, vars: dict):
                 p.write_text(fill(t, vars))
 
 
-def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True):
-    """A fresh work dir: the fixture, filled, committed to a new git repo."""
+def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=None):
+    """A fresh work dir: the fixture (or `src`), filled, committed to a new git repo."""
     if dest.exists():
         shutil.rmtree(dest)
     if task.git:
         export_tree(task.git, dest)
     else:
-        _copy_filled(task.dir / "fixture", dest, vars)
+        _copy_filled(src or task.dir / "fixture", dest, vars)
     git = lambda *a: subprocess.run(["git", *a], cwd=dest, check=True)
     git("init", "-q")
     if remote:
