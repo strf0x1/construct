@@ -142,6 +142,9 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                 app.catalog = Some(catalog);
                 // The worker warmed the list before building the agent; this is a file read.
                 crate::llm::catalog::overlay(&mut app.cfg, &paths);
+                // A `/model …` typed before now was matched without the catalog.
+                app.palette = None;
+                app.refresh_palette();
                 for m in history {
                     match m.role.as_str() {
                         "user" => app.push(Block::new(Kind::User, m.content.unwrap_or_default().split("\n\n<system-reminder>").next().unwrap_or("").to_string())),

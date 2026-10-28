@@ -146,12 +146,12 @@ fn model_ids_complete_from_the_cached_list() {
     .unwrap();
     let mut log = Vec::new();
     let short = budget(3000);
-    // The list is fetched at startup; give the agent task a moment to cache it.
+    // The list is fetched at startup; typed before it lands, the palette catches up.
     run(
         &mut d,
         &mut log,
         &format!(
-            "wait \"ask construct\" {short}\nsleep 500\ntype /model mock/\nwait \"▸ mock/small\" {short}\n\
+            "wait \"ask construct\" {short}\ntype /model mock/\nwait \"▸ mock/small\" {short}\n\
              expect \"32.8k\"\nkey enter\ngone \"32.8k\" {short}\n"
         ),
     );
