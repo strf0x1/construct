@@ -1,0 +1,493 @@
+{
+ "manifest": {
+  "harnesses": {
+   "hybrid-gated2": {
+    "version": "0.1.0",
+    "git_sha": "8ca2b2d9c130eb9c5b401064b38f2b85c7a44975",
+    "git_dirty": true,
+    "binary_sha256": "7948b993fb3ecad10476823dade4c458e874e41b90f2e1c8446d2243f3d00f0e",
+    "config_sha256": "648fc78eba7c8d4f2dbdecb26dbde6ea0faf7a0efd7ed890c22d814f83c6038e",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   }
+  },
+  "dev_git_sha": "8ca2b2d9c130eb9c5b401064b38f2b85c7a44975",
+  "dev_dirty": true,
+  "model": "deepseek/deepseek-v4.1-flash-1017",
+  "bench_py_sha256": "068306cb72035efedd158ce77c544d02a29eb86398d7b9acc906c9a620c16bf9",
+  "host": "echo",
+  "started": "2026-10-28T14:11:12Z"
+ },
+ "model": "deepseek/deepseek-v4.1-flash-1017",
+ "rounds": 1,
+ "task": "learn-tally-long",
+ "sessions": [
+  [
+   "category",
+   "fixture"
+  ],
+  [
+   "csv",
+   "fixture"
+  ],
+  [
+   "units",
+   "other"
+  ],
+  [
+   "release-0.4.0",
+   "fixture"
+  ],
+  [
+   "month",
+   "fixture"
+  ],
+  [
+   "release-0.5.0",
+   "fixture"
+  ],
+  [
+   "budget",
+   "fixture"
+  ],
+  [
+   "split",
+   "fixture"
+  ],
+  [
+   "sync",
+   "fixture"
+  ],
+  [
+   "top",
+   "fixture"
+  ]
+ ],
+ "arms": {
+  "hybrid-gated2": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"hybrid\" }",
+   "bin": ""
+  }
+ },
+ "raw": {
+  "hybrid-gated2": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 22,
+      "prompt_tokens": 212074,
+      "completion_tokens": 8482,
+      "cost_usd": 0.0068726759999999994,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 8962,
+      "learn_cost_usd": 0.000807956,
+      "learn_s": 12.992156744003296,
+      "system_chars": 1076,
+      "token_stored": false,
+      "tool_calls": 39,
+      "tool_errors": 2,
+      "errors_by_tool": {
+       "shell": 2
+      },
+      "landmines": {
+       "seed": 5,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 8
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 13,
+      "prompt_tokens": 97467,
+      "completion_tokens": 4849,
+      "cost_usd": 0.00424351,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6046,
+      "learn_cost_usd": 0.000500336,
+      "learn_s": 10.118787050247192,
+      "system_chars": 1700,
+      "token_stored": false,
+      "tool_calls": 22,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 24630,
+      "completion_tokens": 2161,
+      "cost_usd": 0.001748902,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 3032,
+      "learn_cost_usd": 0.000265356,
+      "learn_s": 10.124100685119629,
+      "system_chars": 1073,
+      "token_stored": false,
+      "tool_calls": 10,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "edit": 1
+      },
+      "landmines": {
+       "seed": 0,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "release-0.4.0",
+      "repo": "fixture",
+      "checks": {
+       "tagged": true,
+       "bumped": true,
+       "changelog_moved": true,
+       "checksum_ok": true,
+       "release_ok": true
+      },
+      "pass": true,
+      "corrections": [
+       "release_ok"
+      ],
+      "over_budget": false,
+      "requests": 26,
+      "prompt_tokens": 414395,
+      "completion_tokens": 19944,
+      "cost_usd": 0.020850786,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 9957,
+      "learn_cost_usd": 0.00143681,
+      "learn_s": 18.12520146369934,
+      "system_chars": 1710,
+      "token_stored": false,
+      "tool_calls": 42,
+      "tool_errors": 2,
+      "errors_by_tool": {
+       "skill": 1,
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 2,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [
+       "release"
+      ],
+      "lore_calls": 6
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 66829,
+      "completion_tokens": 6129,
+      "cost_usd": 0.0045885019999999995,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.545201063156128,
+      "system_chars": 2897,
+      "token_stored": false,
+      "tool_calls": 14,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "release-0.5.0",
+      "repo": "fixture",
+      "checks": {
+       "tagged": true,
+       "bumped": true,
+       "changelog_moved": true,
+       "checksum_ok": true,
+       "release_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 39597,
+      "completion_tokens": 1989,
+      "cost_usd": 0.001837902,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 3712,
+      "learn_cost_usd": 0.001746144,
+      "learn_s": 23.95878267288208,
+      "system_chars": 2905,
+      "token_stored": false,
+      "tool_calls": 9,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [
+       "tally-release"
+      ],
+      "lore_calls": 6
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 17,
+      "prompt_tokens": 159466,
+      "completion_tokens": 6222,
+      "cost_usd": 0.005710004,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 8593,
+      "learn_cost_usd": 0.00299538,
+      "learn_s": 17.06908369064331,
+      "system_chars": 2898,
+      "token_stored": false,
+      "tool_calls": 29,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 1
+      },
+      "skills_loaded": [
+       "tally-release"
+      ],
+      "lore_calls": 4
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 11,
+      "prompt_tokens": 49414,
+      "completion_tokens": 3606,
+      "cost_usd": 0.003944627,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4200,
+      "learn_cost_usd": 0.000254325,
+      "learn_s": 11.176641941070557,
+      "system_chars": 3197,
+      "token_stored": false,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 1
+     },
+     {
+      "task": "sync",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 14,
+      "prompt_tokens": 118176,
+      "completion_tokens": 6838,
+      "cost_usd": 0.006846984,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6629,
+      "learn_cost_usd": 0.00325025,
+      "learn_s": 14.918637037277222,
+      "system_chars": 3398,
+      "token_stored": false,
+      "tool_calls": 23,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     },
+     {
+      "task": "top",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 70716,
+      "completion_tokens": 4391,
+      "cost_usd": 0.00460836,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6241,
+      "learn_cost_usd": 0.00223722,
+      "learn_s": 15.435357570648193,
+      "system_chars": 4198,
+      "token_stored": false,
+      "tool_calls": 25,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 2
+     }
+    ],
+    "learned": {
+     ".private": "construct made this directory private; it will not change its mode again.\n",
+     "models/http___127_0_0_1_38443_v1.json": "{\"fetched_at\":1793196672,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/NOTES.md": "Release convention: tools/checksum hashes every tracked file under src/ and the result goes in release/<version>.sha256; version lives in pyproject.toml and src/tally/__init__.py.\n\u00a7\nAs of the 0.4.0 attempt, CHANGELOG's Unreleased section (report --category, export --csv, summary --month) does NOT match src/: the code is still at 0.3.0 and none of those commands exist. Don't cut a release off the changelog alone - verify the features exist.",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Run the whole test suite with `make test` (it runs `PYTHONPATH=src python3 -m unittest discover -s tests -t .`); there is no `./tools/test` in this checkout \u2014 that path fails with \\\"No such file or directory\\\".\",\n    \"helpful\": 6,\n    \"harmful\": 1\n  },\n  {\n    \"id\": \"p2\",\n    \"text\": \"Before running the suite, generate test fixtures with ./tools/gen-fixtures --seed d79294caae5c (the team seed); tests/test_ledger.py reads .fixtures/golden.json, which is gitignored and absent on a fresh checkout, so collection fails without it.\",\n    \"helpful\": 7,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p3\",\n    \"text\": \"Run the CLI as `PYTHONPATH=src python3 -m tally ...` from the repo root; from src/ the default ledger path data/sample.ledger doesn't resolve.\",\n    \"helpful\": 6,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p4\",\n    \"text\": \"The sandbox only reads the workspace: ls/cat of sibling or parent directories (e.g. ../.., /tmp/... cousins) fails with \\\"outside the sandbox\\\" \u2014 that is a permission limit, not proof the files are missing.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p5\",\n    \"text\": \"For cut a tally version release (bump, changelog, checksum, commit, annotated tag): load the `tally-release` skill first and follow its steps.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p6\",\n    \"text\": \"cli.main(argv) must return an exit code instead of raising: wrap `build_parser().parse_args(argv)` in try/except SystemExit and return e.code (2 for malformed input), because tests call main() directly and assert on the returned code. Validate option values with a `type=` function that raises argparse.ArgumentTypeError (e.g. `--n 0`) so they fall out as exit 2 the same way.\",\n    \"helpful\": 2,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p7\",\n    \"text\": \"Every change gets a bullet under `## Unreleased` in CHANGELOG.md in this repo \u2014 write it in the same pass as the code fix, not only when asked, and leave the existing Unreleased bullets alone.\",\n    \"helpful\": 2,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p8\",\n    \"text\": \"Exit codes follow CONTRIBUTING's convention: 0 success, 1 a check/upload that failed, 2 bad usage or missing config (e.g. `sync` with TALLY_URL/TALLY_TOKEN unset).\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p9\",\n    \"text\": \"Tests must never hit the network: mock `urllib.request.urlopen` with `unittest.mock.patch`, and set env vars with `mock.patch.dict(os.environ, {...}, clear=True)` so a developer's real TALLY_TOKEN can't leak into assertions.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p10\",\n    \"text\": \"Sync/upload code is exercised by hand against staging at https://staging.tally.example; the token lives in the user's shell as TALLY_TOKEN and is never written into the repo, tests, or README.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p11\",\n    \"text\": \"`money.fmt` produces human output with thousands commas; for machine-readable amounts (JSON payloads like the `sync` body) format the Decimal directly, e.g. `f\\\"{amount:.2f}\\\"` -> \\\"1000.00\\\".\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p12\",\n    \"text\": \"Keep the module split from CONTRIBUTING: new command output goes in report.py as a function returning a list of text lines (format amounts with money.fmt), cli.py only adds the subparser and prints \u2014 parsing stays in ledger.py, arithmetic in money.py.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p13\",\n    \"text\": \"New CLI commands get a test in tests/test_cli.py using the module's run(*argv) helper, which captures stdout/stderr and returns (code, lines); assert on the exact line list.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  }\n]",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/project.json": "{\"name\":\"fixture-hybrid-gated2-r0\",\"root\":\"/tmp/cb-gated2-ds-d/construct-bench/curriculum/hybrid-gated2/r0/s0-category\",\"remote\":\"example.com/team/fixture-hybrid-gated2-r0\"}",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/skills/.usage.json": "{\n  \"tally-release\": {\n    \"views\": 2,\n    \"patches\": 2,\n    \"created_at\": 1793196959,\n    \"last_used\": 1793197059,\n    \"author\": \"agent\",\n    \"pinned\": false,\n    \"suggested\": 2\n  }\n}",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/skills/tally-release/SKILL.md": "---\nname: tally-release\ndescription: Cut a tally version release (bump, changelog, checksum, commit, annotated tag). Use whenever asked to release version X; not for deciding whether a release is warranted \u2014 the user already decided.\n---\n\nRun every step from the repo root, in this order.\n\n1. Bump the version in both places:\n   - `pyproject.toml`: `version = \"X.Y.Z\"`\n   - `src/tally/__init__.py`: `__version__ = \"X.Y.Z\"`\n2. `CHANGELOG.md`: insert a new `## X.Y.Z` section immediately below `## Unreleased`, moving every bullet from Unreleased under it. Leave `## Unreleased` present but empty.\n3. Before tagging, check each moved bullet against the code (`grep -rn \"<flag or function>\" src/tally`, then exercise it with `PYTHONPATH=src python3 -c ...`). A bullet that was never implemented or behaves differently is not a release blocker: ship anyway and put the discrepancy, with file:line and actual output, as a caveat in the final summary. Do not delete bullets, edit code, or re-tag on your own.\n4. Generate the checksum **after** the bump (it hashes every tracked file under src/, so bumping first is what makes the value correct):\n   `mkdir -p release && ./tools/checksum > release/X.Y.Z.sha256`\n   (release/ usually already holds the previous versions' checksums; `mkdir -p` keeps it safe on a fresh checkout.)\n5. Verify: `make test` passes (generate fixtures first with `./tools/gen-fixtures --seed d79294caae5c`; `make test` is the suite target \u2014 `./tools/test` does not exist in this checkout) and `./tools/checksum | diff - release/X.Y.Z.sha256` is silent.\n6. Commit and tag: `git add -A && git commit -m \"Release X.Y.Z\"`, then `git tag -a vX.Y.Z -m \"Release X.Y.Z\"`.\n"
+    }
+   }
+  ]
+ }
+}

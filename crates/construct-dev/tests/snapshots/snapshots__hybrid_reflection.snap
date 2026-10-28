@@ -1,0 +1,26 @@
+---
+source: crates/construct-dev/tests/snapshots.rs
+expression: "shaped(&env, &reflection)"
+---
+{
+  "bytes": 3405,
+  "n_tools": 0,
+  "request": {
+    "model": "openrouter/free",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You maintain an agent's playbook: short, specific lessons that make its next session in this place go better. You read a finished session and the current playbook, and reply with JSON edits only.\n- tag: for each existing bullet that was relevant this session, \"helpful\" if following it (or what it says) worked, \"harmful\" if it was followed and misled the agent. Leave irrelevant bullets out.\n- add: a lesson this session taught that isn't in the playbook. Only: a procedure or fact the user had to supply, a convention the user enforced, or a failed approach and what replaced it. Write it as an instruction with the exact command or rule (\"Run tests with ./tools/test; python -m unittest fails here (src layout)\"). Never task progress, the task itself, or anything a retry fixed. scope \"project\" for how this repo works; \"global\" only for something about the user that holds in every repo.\n- Never record a credential (password, API key, token, a connection string with a password), even one the user pasted: write where it comes from instead (\"the deploy token is in secretspec as DEPLOY_TOKEN\"). A value the user gave that isn't a credential (a seed, a port, a path, a team convention) is exactly the lesson: keep it verbatim.\n- update: rewrite a bullet that was incomplete or partly wrong, by id.\n- remove: ids of bullets that are wrong or duplicated.\nEach lesson has a shape; pick it before writing it down.\n- A rule, fact, value, convention or pitfall that applies to any task here is a playbook bullet: one instruction, one line.\n- A procedure for one kind of task, with several ordered steps (cutting a release, a migration, a deploy), is a skill: `name` (lowercase-dashed, for the kind of task, e.g. \"tally-release\"), `description` (when to use it and what it isn't for, under 250 chars), `body` (markdown: numbered steps with exact commands, in order, then pitfalls actually hit). A pointer bullet to each skill is added for you; don't write one.\n- To fix or extend a skill, return it again under the same name with the full new body. Don't split a procedure's steps into bullets, and don't make a skill for a single rule.\nThe same credential rule applies to skills: never a credential, say where it comes from.\nMost sessions add nothing. Reply exactly: {\"tag\": [{\"id\": \"p1\", \"tag\": \"helpful\"}], \"add\": [{\"text\": \"...\", \"scope\": \"project\"}], \"update\": [{\"id\": \"p2\", \"text\": \"...\"}], \"remove\": [\"g1\"], \"skills\": [{\"name\": \"...\", \"description\": \"...\", \"body\": \"...\"}]}"
+      },
+      {
+        "role": "user",
+        "content": "<session>\nUSER: release the crate. I always do this on Fridays.\n\n\nTOOL CALL shell: {\"command\":\"ls /nonexistent-release-dir\"}\n\nTOOL RESULT: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n\nASSISTANT: released\n</session>\n\nFAILED CALLS, each with the next call of the same tool that worked:\n- failed: shell {\"command\":\"ls /nonexistent-release-dir\"}\n  error: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n  (no later call of that tool worked)\n\nCURRENT PLAYBOOK:\n(empty)\n\nThis session wasn't in a repo: only global bullets can be added.\n\nNot in a repo: write no skills.\n"
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    },
+    "max_tokens": 3000
+  }
+}

@@ -246,7 +246,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
         ], "side": [obs] }),
     );
     env.config(
-        "[router]\nmode = \"local\"\n\n[tools]\ndisabled = [\"write\", \"memory\", \"web_search\", \"web_fetch\"]\n",
+        "[router]\nmode = \"local\"\n\n[learn]\nstrategy = \"skills\"\n\n[tools]\ndisabled = [\"write\", \"memory\", \"web_search\", \"web_fetch\"]\n",
     );
     let out = env.run(&["run", "--json", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
@@ -314,7 +314,8 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
             { "text": "Wrote a release skill." }
         ], "side": [obs("release dir was missing"), obs("release dir missing again")] }),
     );
-    env.config("[memory]\nuser_chars = 1000\n");
+    // The ledger and recurrence are the `skills` strategy's.
+    env.config("[memory]\nuser_chars = 1000\n[learn]\nstrategy = \"skills\"\n");
     let session = |n: usize| env.sessions()[n].clone();
 
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
@@ -539,6 +540,62 @@ fn tui_wheel_scrolls_without_mouse_capture_and_copy_writes_osc52() {
     std::thread::sleep(Duration::from_millis(500));
     d.pump(Duration::from_millis(budget(500)));
     assert!(has(&d.raw, b"\x1b[?1007l"), "alternate scroll reset on exit");
+}
+
+#[test]
+fn hybrid_keeps_a_fact_as_a_bullet_and_a_procedure_as_a_skill_it_points_to() {
+    let reflection = json!({
+        "add": [ { "text": "Run the tests with make test", "scope": "project" } ],
+        "skills": [ {
+            "name": "repo-release",
+            "description": "Use when cutting a release of this repo. Not for ordinary changes.",
+            "body": "1. Bump the version.\n2. Tag it."
+        } ]
+    });
+    let env = Env::new(
+        "hybrid",
+        // The reflection has no tools, so it's a side call.
+        json!({ "steps": [
+            { "text": "Done; tests pass." },
+            { "text": "Fixed it." },
+            { "text": "hi" }
+        ], "side": [reflection.to_string()] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    let repo = env.work.join("r");
+    std::fs::create_dir_all(repo.join(".git")).unwrap();
+    std::fs::write(repo.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    let in_repo = |args: &[&str]| {
+        let mut c = Command::new(construct());
+        c.args(args).current_dir(&repo).env_remove("TYPESAFE_API_KEY");
+        for (k, v) in env.env() {
+            if !v.is_empty() {
+                c.env(k, v);
+            }
+        }
+        c.output().unwrap()
+    };
+    assert!(in_repo(&["run", "--no-learn", "add a feature"]).status.success());
+    // A follow-up is evidence: this session is worth a reflection.
+    assert!(in_repo(&["run", "--no-learn", "-c", "no, the tests run with make test here"]).status.success());
+    let session = env.journal_in(&repo).into_iter().find(|r| r.ty == "head").unwrap().session;
+    let out = in_repo(&["learn", "--session", &session]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 3, "two turns and one reflection");
+    assert!(reqs[2]["messages"][0]["content"].as_str().unwrap().contains("Each lesson has a shape"));
+    let log = std::fs::read_to_string(env.home.join("learn.log")).unwrap();
+    assert!(log.contains("followups=1") && log.contains("-> Some"), "{log}");
+    let kit = std::fs::read_dir(env.home.join("projects")).unwrap().flatten().next().unwrap().path();
+    assert!(kit.join("skills/repo-release/SKILL.md").exists(), "{log}");
+    let playbook = std::fs::read_to_string(kit.join("PLAYBOOK.json")).unwrap();
+    assert!(playbook.contains("Run the tests with make test"), "{playbook}");
+    assert!(playbook.contains("For cutting a release of this repo: load the `repo-release` skill"), "{playbook}");
+    // The next session there sees both: the bullets, and the skill in the index.
+    assert!(in_repo(&["run", "--no-learn", "hi"]).status.success());
+    let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(sys.contains("Playbook for this project") && sys.contains("make test"), "{sys}");
+    assert!(sys.contains("repo-release: Use when cutting a release"), "{sys}");
 }
 
 #[test]

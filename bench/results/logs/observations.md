@@ -310,3 +310,24 @@ learn-tally-long (10 sessions: adds a release procedure taught once and probed o
 - `bench/results/curriculum-20261028-003532.json`: model deepseek/deepseek-v4.1-flash-1017; bench d558e1c dirty; playbook d558e1c dirty editor=replace router=auto; control d558e1c dirty editor=replace router=auto; skills d558e1c dirty editor=replace router=auto; hybrid d558e1c dirty editor=replace router=auto
 - `bench/results/curriculum-20261028-003927.json`: model deepseek/deepseek-v4.1-flash-1017; bench d558e1c dirty; playbook d558e1c dirty editor=replace router=auto; control d558e1c dirty editor=replace router=auto; skills d558e1c dirty editor=replace router=auto; hybrid d558e1c dirty editor=replace router=auto
 - `bench/results/curriculum-20261028-004126.json`: model deepseek/deepseek-v4.1-flash-1017; bench d558e1c dirty; playbook d558e1c dirty editor=replace router=auto; control d558e1c dirty editor=replace router=auto; skills d558e1c dirty editor=replace router=auto; hybrid d558e1c dirty editor=replace router=auto
+
+## 2026-10-28 08:23 note
+
+Hybrid's evidence gate (ADR 0022), learn-tally-long, --jev, 4 rounds per model; Haiku/DeepSeek vs #102's ungated hybrid. Gate v1 (failed calls only): corrections 0.16/0.31 (ungated 0.06/0.22), release probe 3/4 / 3/4 (4/4 / 4/4), stale hits 0.69/0.38 (0.06/0.25), learner calls 0.40/0.57 per session. v1 missed the stale lesson because Haiku pipes ./tools/test through tail: exit 0, no failed call, no reflection; 3 of 4 rounds hit the stale command every session 6-9 with zero failed calls. Gate v2 also counts env-failure markers (No such file or directory, command not found, No module named, Permission denied, cannot access) in output that exited 0, not failing tests: corrections 0.16/0.25, release probe 4/4 / 4/4, stale 0.31/0.25, learner calls 0.72/0.88, learner share 20%/16% (ungated 22%/22%). v2 is the default.
+
+- `bench/results/curriculum-20261028-080107.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080122.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080124.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080132.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080455.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080537.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080718.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-080719.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-081609.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-081616.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-081623.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-081635.json`: model anthropic/claude-haiku-5.5; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-082043.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-082055.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-082138.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
+- `bench/results/curriculum-20261028-082219.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto

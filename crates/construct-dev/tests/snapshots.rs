@@ -163,6 +163,8 @@ fn learning_review() {
             { "text": "Nothing to save." }
         ], "side": [obs] }),
     );
+    // The review is the `skills` strategy's; the default's reflection is `hybrid_reflection`.
+    env.config("[learn]\nstrategy = \"skills\"\n");
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
     let out = env.run(&["learn", "--session", &env.sessions()[0]]);
@@ -173,6 +175,27 @@ fn learning_review() {
         .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("learning pass"))
         .expect("review request");
     insta::assert_json_snapshot!(shaped(&env, &review));
+}
+
+#[test]
+fn hybrid_reflection() {
+    let env = Env::new(
+        "snap-hybrid",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "text": "released" }
+        ], "side": ["{}"] }),
+    );
+    let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
+    assert!(out.status.success(), "{}", text(&out));
+    let out = env.run(&["learn", "--session", &env.sessions()[0]]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reflection = env
+        .requests()
+        .into_iter()
+        .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("Each lesson has a shape"))
+        .expect("the default strategy's reflection");
+    insta::assert_json_snapshot!(shaped(&env, &reflection));
 }
 
 /// Screen text with trailing spaces trimmed, durations masked and the env's

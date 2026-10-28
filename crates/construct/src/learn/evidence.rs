@@ -62,14 +62,26 @@ pub fn contrasts(messages: &[Message]) -> Vec<Contrast> {
     };
     let mut out = Vec::new();
     for (i, (id, name, args)) in calls.iter().enumerate() {
-        let Some(err) = result(id).filter(|t| t.starts_with("Error:")) else { continue };
+        let Some(err) = result(id).filter(|t| failed(t)) else { continue };
         let fixed = calls[i + 1..]
             .iter()
-            .find(|(id2, name2, _)| name2 == name && result(id2).is_some_and(|t| !t.starts_with("Error:")))
+            .find(|(id2, name2, _)| name2 == name && result(id2).is_some_and(|t| !failed(t)))
             .map(|(_, n, a)| format!("{n} {a}"));
         out.push(Contrast { failed: format!("{name} {args}"), error: llm::truncate(tail(err, 240), 240), fixed });
     }
     out
+}
+
+/// What says the environment, not the work, went wrong. A test that fails
+/// is the task in progress; a missing command or file is a lesson.
+const ENV_FAILURES: &[&str] =
+    &["No such file or directory", "command not found", "No module named", "Permission denied", "cannot access"];
+
+/// A failed call: an error result, or output that shows an environment
+/// failure although the command exited 0 (`cmd 2>&1 | tail` hides the exit
+/// status, and that is how a stale command goes unnoticed).
+pub fn failed(result: &str) -> bool {
+    result.starts_with("Error:") || ENV_FAILURES.iter().any(|m| result.contains(m))
 }
 
 /// The end of an error: a traceback's last lines say what went wrong.
@@ -148,6 +160,22 @@ mod tests {
         assert_eq!(f.len(), 1);
         assert_eq!(f[0].after, "done");
         assert!(section(&msgs).contains("then worked: shell ./tools/test"));
+    }
+
+    #[test]
+    fn a_failure_hidden_by_a_pipe_still_counts_but_a_red_test_does_not() {
+        let msgs = vec![
+            Message::user("add median"),
+            call("a", "./tools/test 2>&1 | tail -3"),
+            Message::tool("a", "bash: ./tools/test: No such file or directory"),
+            call("b", "make test 2>&1 | tail -3"),
+            Message::tool("b", "FAILED (failures=1)"),
+            call("c", "make test"),
+            Message::tool("c", "OK"),
+        ];
+        let c = contrasts(&msgs);
+        assert_eq!(c.len(), 1, "only the missing command is a failure");
+        assert_eq!(c[0].fixed.as_deref(), Some("shell make test 2>&1 | tail -3"));
     }
 
     #[test]

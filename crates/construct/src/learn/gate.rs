@@ -261,3 +261,19 @@ async fn jev_gate(
         note: format!("preference={pref_p:.2} workaround={:.2} skill_gap={:.2}", p("workaround"), p("skill_gap")),
     })
 }
+
+/// The gate for a strategy that reflects without a review (`hybrid`): the
+/// usual gate, or any evidence in the session itself. A user follow-up, a
+/// failed call or a skill that was loaded is worth a look whatever words
+/// were used; a session with none of them costs no call.
+pub async fn evidence(cfg: &Config, messages: &[Message]) -> Gate {
+    let mut g = gate(cfg, messages).await;
+    let followups = super::evidence::followups(messages).len();
+    let failed = super::evidence::contrasts(messages).len();
+    let loaded = skills_loaded(messages).len();
+    if g.kind.is_none() && followups + failed + loaded > 0 {
+        g.kind = Some(Kind::Both);
+    }
+    g.note = format!("{} followups={followups} failed={failed} loaded={loaded}", g.note);
+    g
+}
