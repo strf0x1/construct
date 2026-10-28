@@ -2,12 +2,12 @@
 id: permission-prompt
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/permission, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/ask.rs]
+depends: [crates/construct/src/permission, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/ask.rs, crates/construct-dev/tests/permission.rs]
 verified_at: b85be8e
 ---
 # Permission prompt
 
-When the model's tool call needs a path outside the sandbox, the TUI stops and shows a bordered PERMISSION panel naming who asks (the main agent), the tool and the paths, and four choices colored by consequence: allow once and allow for this session in green, always allow (saved to `config.toml`) in amber, deny in red. The selected choice is a filled bar that moves with the arrow keys; letter keys pick directly. The answer is shown as a notice and the tool call goes ahead or fails accordingly.
+When the model's tool call needs a path outside the sandbox, the TUI stops and shows a bordered PERMISSION panel naming who asks (the main agent), the tool and the paths, and four choices colored by consequence: allow once and allow for this session in green, always allow (saved to `config.toml`) in amber, deny in red. The selected choice is a filled bar that moves with the arrow keys; letter keys pick directly. When the path's folder could be allowed instead, a `scope` row offers `this path` or `its whole folder` (the chosen one cyan and filled), `tab` switches it, and the hint line adds `tab scope`; a grant for the folder covers its other files without asking again. The answer is shown as a notice and the tool call goes ahead or fails accordingly.
 
 ## Sub-features
 
@@ -30,6 +30,7 @@ When the model's tool call needs a path outside the sandbox, the TUI stops and s
 - Moving the selection moves the fill; confirming "Allow for this session" shows `allowed for this session` and the model's next request carries the file's contents as the tool result.
 - The journal has one `access` row with the chosen decision.
 - "Always allow" leaves the path in `config.toml`; "Deny" gives the model an error result.
+- With the scope switched to `its whole folder`, a later read of a sibling file goes ahead without a second panel, and the one `access` row names the folder.
 
 ## Driving it
 
