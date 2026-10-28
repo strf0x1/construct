@@ -162,7 +162,7 @@ class SearchTasks(unittest.TestCase):
         out = Path(self.tmp.name) / "regen"
         real, search_fixtures.TASKS = search_fixtures.TASKS, out
         try:
-            for f in (search_fixtures.definition, search_fixtures.callers, search_fixtures.config, search_fixtures.rename, search_fixtures.count, search_fixtures.signature):
+            for f in (search_fixtures.definition, search_fixtures.callers, search_fixtures.config, search_fixtures.rename, search_fixtures.count, search_fixtures.signature, *__import__('search_fixtures_hard').ALL):
                 f()
         finally:
             search_fixtures.TASKS = real
@@ -173,6 +173,109 @@ class SearchTasks(unittest.TestCase):
             theirs = {str(p.relative_to(tasklib.TASKS / name)): p.read_bytes() for p in (tasklib.TASKS / name).rglob("*") if p.is_file()}
             self.assertEqual(sorted(mine), sorted(theirs), name)
             self.assertEqual([k for k in mine if mine[k] != theirs[k]], [], f"{name}: run python3 bench/search_fixtures.py")
+
+
+class HardTasks(SearchTasks):
+    """The same checks for the tier whose trees are built per run."""
+
+    def test_definition(self):  # inherited tests belong to the first tier
+        self.skipTest("first tier")
+
+    test_callers = test_config = test_count = test_signature = test_rename = test_the_committed_fixtures_are_what_the_generator_makes = test_definition
+
+    def lines(self, name, key="routes"):
+        return lambda t: expected(t)[key]
+
+    def put(self, lines):
+        return lambda t, d: (d / "answer.txt").write_text("\n".join(lines) + "\n")
+
+    def test_trace(self):
+        want = self.lines("search-hard-trace")
+        self.passes(
+            "search-hard-trace",
+            lambda t, d: self.put(want(t))(t, d),
+            [
+                lambda t, d: self.put(want(t)[:1])(t, d),  # misses the route that reaches it through cancel
+                lambda t, d: self.put(want(t) + ["POST /v1/refunds"])(t, d),  # the v1 action is a different one
+                lambda t, d: self.put(want(t) + ["POST /v2/refunds/preview"])(t, d),  # the dry run writes nothing
+            ],
+        )
+
+    def test_unused(self):
+        want = self.lines("search-hard-unused", "unused")
+        self.passes(
+            "search-hard-unused",
+            lambda t, d: self.put(want(t))(t, d),
+            [
+                lambda t, d: self.put(want(t)[1:])(t, d),
+                lambda t, d: self.put(want(t) + ["legacy_swap_keys"])(t, d),  # used by other unused code, which counts
+                lambda t, d: self.put(want(t) + ["legacy_strip_bom"])(t, d),  # named in a comment, which counts
+            ],
+        )
+
+    def test_env(self):
+        want = self.lines("search-hard-env", "vars")
+        self.passes(
+            "search-hard-env",
+            lambda t, d: self.put(want(t))(t, d),
+            [
+                lambda t, d: self.put([v for v in want(t) if v != "SENTRY_DSN"])(t, d),  # the multi-line call
+                lambda t, d: self.put([v for v in want(t) if v != "WORKER_COUNT"])(t, d),  # behind a helper
+                lambda t, d: self.put(want(t) + ["NOT_OS_VAR"])(t, d),  # not the process environment
+                lambda t, d: self.put(want(t) + ["PYTHONHASHSEED"])(t, d),  # a write
+            ],
+        )
+
+    def test_errorcode(self):
+        right = lambda t: expected(t)["answer"]
+        put = lambda text: lambda t, d: (d / "answer.txt").write_text(text)
+        self.passes(
+            "search-hard-errorcode",
+            lambda t, d: put(right(t))(t, d),
+            [put("pkg/sync/limits.py:check_sync_quota"), put("pkg/exports/limits.py:check_export_quota"), put("pkg/errors/codes.py:ERR_QUOTA_EXCEEDED")],
+        )
+
+    def test_rename(self):
+        def solve(t, d):
+            rewrite(d, r"\bcompute_rate\b", "quote_rate")
+            for p in ("config/handlers.json",):
+                f = d / p
+                f.write_text(re.sub(r"\bcompute_rate\b", "quote_rate", f.read_text()))
+
+        def sed_everything(t, d):  # also renames compute_rate_card
+            rewrite(d, r"compute_rate", "quote_rate")
+            f = d / "config/handlers.json"
+            f.write_text(f.read_text().replace("compute_rate", "quote_rate"))
+
+        def forgets_config(t, d):
+            rewrite(d, r"\bcompute_rate\b", "quote_rate")
+
+        def forgets_strings(t, d):  # identifiers only: leaves "module:compute_rate", getattr(..., "compute_rate")
+            rewrite(d, r"(?<![\"':.])\bcompute_rate\b(?![\"'])", "quote_rate")
+
+        def only_definition(t, d):
+            f = d / "pkg/pricing/rates.py"
+            f.write_text(f.read_text().replace("def compute_rate(", "def quote_rate("))
+
+        task, work = self.work("search-hard-rename")
+        self.assertFalse(all(self.check(task, work).values()))
+        solve(task, work)
+        right = self.check(task, work)
+        self.assertTrue(all(right.values()), right)
+        for wrong in (sed_everything, forgets_config, forgets_strings, only_definition):
+            task, work = self.work("search-hard-rename")
+            wrong(task, work)
+            got = self.check(task, work)
+            self.assertFalse(all(got.values()), f"{wrong.__name__} passed: {got}")
+
+    def test_trees_are_deterministic_and_big(self):
+        import search_fixtures_hard as h
+
+        for make in (h.trace_tree, h.unused_tree, h.env_tree, h.rename_tree, h.errorcode_tree):
+            a, b = make(), make()
+            self.assertEqual(a[0].files, b[0].files, make.__name__)
+            self.assertEqual(a[1], b[1])
+            self.assertGreater(len(a[0].files), 1400, make.__name__)
 
 
 class SearchMetrics(unittest.TestCase):

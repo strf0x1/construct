@@ -97,12 +97,14 @@ class Tree:
         return {p: t for p, t in self.files.items() if not p.startswith(ignored)}
 
 
-def filler(rng, tree, n_files, root="pkg", keep_free=()):
-    """Plausible modules that mention none of the planted names."""
+def filler(rng, tree, n_files, root="pkg", keep_free=(), noise=()):
+    """Plausible modules that mention none of the planted names. `noise` words are
+    sprinkled into some docstrings, so a search for one finds hundreds of lines."""
     for i in range(n_files):
         area = AREAS[i % len(AREAS)]
         mod = f"{root}/{area}/{rng.choice(NOUNS)}_{rng.choice(VERBS)}{i}.py"
-        parts = [f'"""Helpers for {area} {rng.choice(NOUNS)} handling."""\nfrom __future__ import annotations\n']
+        said = f" Part of the {rng.choice(noise)} flow." if noise and rng.random() < 0.35 else ""
+        parts = [f'"""Helpers for {area} {rng.choice(NOUNS)} handling.{said}"""\nfrom __future__ import annotations\n']
         for name in rng.sample([f"{v}_{n}" for v in VERBS for n in NOUNS], rng.randint(4, 6)):
             parts.append(
                 "\n\n"
@@ -145,6 +147,24 @@ def emit(name, tree, prompt, expected, body, description, changes, budget=(40, 8
         f'description = {json.dumps(description)}\n'
         f"turns = [{json.dumps(prompt)}]\n"
         "timeout_s = 600\n"
+        f"changes = {json.dumps(changes)}\n\n"
+        f"[budget]\nmax_requests = {budget[0]}\nmax_prompt_tokens = {budget[1]}\n"
+    )
+
+
+def emit_generated(name, make, prompt, expected, body, description, changes, budget=(80, 2_500_000), timeout=900):
+    """Like emit, but the fixture is built per run by `make` (see tasklib `generate`)."""
+    d = TASKS / name
+    if d.exists():
+        shutil.rmtree(d)
+    d.mkdir(parents=True)
+    (d / "check.sh").write_text(CHECK.format(expected=json.dumps(expected), body=body))
+    (d / "check.sh").chmod(0o755)
+    (d / "task.toml").write_text(
+        f'description = {json.dumps(description)}\n'
+        f'generate = "search_fixtures_hard:{make}"\n'
+        f"turns = [{json.dumps(prompt)}]\n"
+        f"timeout_s = {timeout}\n"
         f"changes = {json.dumps(changes)}\n\n"
         f"[budget]\nmax_requests = {budget[0]}\nmax_prompt_tokens = {budget[1]}\n"
     )
@@ -572,6 +592,8 @@ print(json.dumps({"answered": bool(got), "complete": hit == len(want), "no_extra
 
 
 if __name__ == "__main__":
-    for f in (definition, callers, config, rename, count, signature):
+    import search_fixtures_hard
+
+    for f in (definition, callers, config, rename, count, signature, *search_fixtures_hard.ALL):
         f()
     print("wrote", ", ".join(sorted(p.name for p in TASKS.glob("search-*"))))

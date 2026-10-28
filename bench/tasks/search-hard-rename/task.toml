@@ -1,0 +1,9 @@
+description = "A rename where aliased imports, string and dotted-path references, and a look-alike function defeat a plain search-and-replace."
+generate = "search_fixtures_hard:rename_tree"
+turns = ["Rename the function `compute_rate` to `quote_rate` everywhere it is referenced: its definition, imports (including aliased ones), calls, `__all__`, and every place that refers to it by name as a string or a dotted path (the registry, config files, getattr). Docs too. Do not touch `compute_rate_card` (a different function), CHANGELOG.md (history), or generated output in build/. Run the tests (`python3 -m unittest discover -s tests -t .`) when you are done."]
+timeout_s = 900
+changes = ["pkg/*", "tests/*", "docs/*", "config/*"]
+
+[budget]
+max_requests = 100
+max_prompt_tokens = 3000000
