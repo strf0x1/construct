@@ -261,7 +261,9 @@ impl App {
                 lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
                 if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
                     let before = self.input.get(*s..self.cursor).unwrap_or("");
-                    cur = (row, (prompt_w + before.width()) as u16);
+                    // As drawn: ratatui skips a control character (a pasted tab), width() counts it.
+                    let shown: String = before.chars().filter(|c| !c.is_control()).collect();
+                    cur = (row, (prompt_w + shown.width()) as u16);
                 }
                 row += 1;
             }
