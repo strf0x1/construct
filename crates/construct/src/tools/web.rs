@@ -4,8 +4,12 @@
 //! at all. `http.rs` is the one place a search API's failures become prose.
 
 mod ddg;
+mod filter;
 mod http;
 mod search;
+mod select;
+
+pub use select::{Backend, Choice};
 
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
 use serde_json::{Value, json};
@@ -13,10 +17,17 @@ use std::time::Duration;
 
 const FETCH_MAX_BYTES: usize = 5 * 1024 * 1024;
 
-pub struct WebSearch;
+pub struct WebSearch {
+    choice: Choice,
+}
 
 impl WebSearch {
     pub const NAME: &str = "web_search";
+
+    /// Errors on a backend name nothing implements, at startup, not mid-turn.
+    pub fn new(cfg: &crate::config::WebConfig) -> anyhow::Result<Self> {
+        Ok(Self { choice: Choice::parse(&cfg.search).map_err(anyhow::Error::msg)? })
+    }
 }
 
 #[async_trait::async_trait]
@@ -33,8 +44,16 @@ impl Tool for WebSearch {
     fn definition(&self) -> Value {
         def(
             Self::NAME,
-            "Search the web. Returns titles, URLs and snippets.",
-            obj(json!({ "query": { "type": "string" }, "limit": { "type": "integer" } }), &["query"]),
+            "Search the web. Returns titles, URLs, dates when known, and snippets.",
+            obj(
+                json!({
+                    "query": { "type": "string" },
+                    "limit": { "type": "integer" },
+                    "recency": { "type": "string", "enum": filter::Recency::NAMES, "description": "Only results from the last day, week, month or year" },
+                    "domains": { "type": "array", "items": { "type": "string" }, "description": "Only these sites, e.g. docs.rs" }
+                }),
+                &["query"],
+            ),
         )
     }
     fn readonly(&self) -> bool {
@@ -44,7 +63,7 @@ impl Tool for WebSearch {
         Display { primary_arg: "query", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        search::run(ctx, &a).await.map(Output::plain).map_err(ToolError::from)
+        search::run(ctx, &a, self.choice).await.map(Output::plain).map_err(ToolError::from)
     }
 }
 

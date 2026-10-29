@@ -2,7 +2,10 @@
 //! Every backend goes through `send_json`, so a bad key, a spent quota or a
 //! rate limit reads as itself instead of as "no results". The design choice:
 //! a 429 is retried once, and only when the server asks for a short wait;
-//! anything longer is reported with the wait so the model can decide.
+//! anything longer is reported with the wait so the model can decide. An
+//! `ApiError` also says whether the failure is about the service (network,
+//! 5xx, rate limit) or about us (key, quota, request); only the first kind
+//! may be answered by another backend.
 
 use reqwest::{RequestBuilder, header::RETRY_AFTER};
 use serde_json::Value;
@@ -11,25 +14,42 @@ use std::time::Duration;
 /// The longest `Retry-After` worth sleeping through inside one tool call.
 const MAX_RETRY_WAIT: u64 = 5;
 
+#[derive(Debug)]
+pub(super) struct ApiError {
+    pub message: String,
+    /// The service could not answer now; a different backend may.
+    pub transient: bool,
+}
+
+impl ApiError {
+    fn transient(message: String) -> Self {
+        Self { message, transient: true }
+    }
+}
+
 /// Send `req` and parse the JSON body. `name` is the vendor as the model
 /// should read it, `key` the secret to point the user at on a rejected key.
-pub(super) async fn send_json(name: &str, key: &str, req: RequestBuilder) -> Result<Value, String> {
+pub(super) async fn send_json(name: &str, key: &str, req: RequestBuilder) -> Result<Value, ApiError> {
     let retry = req.try_clone();
-    let mut resp = req.send().await.map_err(|e| format!("{name} request failed: {e}"))?;
+    let mut resp = req.send().await.map_err(|e| ApiError::transient(format!("{name} request failed: {e}")))?;
     if resp.status().as_u16() == 429
         && let Some(retry) = retry
         && let Some(wait) = retry_after(&resp).filter(|w| *w <= MAX_RETRY_WAIT)
     {
         tokio::time::sleep(Duration::from_secs(wait.max(1))).await;
-        resp = retry.send().await.map_err(|e| format!("{name} request failed: {e}"))?;
+        resp = retry.send().await.map_err(|e| ApiError::transient(format!("{name} request failed: {e}")))?;
     }
     let status = resp.status().as_u16();
     let wait = retry_after(&resp);
-    let body = resp.text().await.map_err(|e| format!("{name} response unreadable: {e}"))?;
+    let body = resp.text().await.map_err(|e| ApiError::transient(format!("{name} response unreadable: {e}")))?;
     if !(200..300).contains(&status) {
-        return Err(http_error(name, key, status, wait, &body));
+        return Err(ApiError {
+            message: http_error(name, key, status, wait, &body),
+            transient: status == 429 || status >= 500,
+        });
     }
-    serde_json::from_str(&body).map_err(|e| format!("{name} returned something that is not JSON: {e}"))
+    serde_json::from_str(&body)
+        .map_err(|e| ApiError::transient(format!("{name} returned something that is not JSON: {e}")))
 }
 
 fn retry_after(resp: &reqwest::Response) -> Option<u64> {
@@ -121,7 +141,7 @@ mod tests {
     async fn a_bad_key_is_an_error_not_an_empty_answer() {
         let url = serve(vec![reply("401 Unauthorized", "", r#"{"error":"nope"}"#)]).await;
         let err = send_json("Exa", "EXA_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
-        assert!(err.contains("rejected the key"), "{err}");
+        assert!(err.message.contains("rejected the key") && !err.transient, "{}", err.message);
     }
 
     #[tokio::test]
@@ -139,6 +159,27 @@ mod tests {
     async fn a_long_rate_limit_is_reported_without_waiting() {
         let url = serve(vec![reply("429 Too Many Requests", "retry-after: 60\r\n", "")]).await;
         let err = send_json("Brave", "BRAVE_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
-        assert!(err.contains("retry in 60s"), "{err}");
+        assert!(err.message.contains("retry in 60s") && err.transient, "{}", err.message);
+    }
+
+    #[tokio::test]
+    async fn an_outage_may_be_answered_elsewhere_but_a_bad_request_may_not() {
+        let url = serve(vec![
+            reply("503 Service Unavailable", "", ""),
+            reply("422 Unprocessable", "", r#"{"detail":"bad"}"#),
+        ])
+        .await;
+        let client = reqwest::Client::new();
+        assert!(send_json("Exa", "EXA_API_KEY", client.get(&url)).await.unwrap_err().transient);
+        assert!(!send_json("Exa", "EXA_API_KEY", client.get(&url)).await.unwrap_err().transient);
+    }
+
+    #[tokio::test]
+    async fn a_refused_connection_is_transient() {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", l.local_addr().unwrap());
+        drop(l);
+        let err = send_json("Exa", "EXA_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
+        assert!(err.transient && err.message.starts_with("Exa request failed"), "{}", err.message);
     }
 }

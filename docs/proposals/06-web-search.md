@@ -1,6 +1,7 @@
 # Proposal 6 — Web search that says what went wrong and does more per call
 
-Status: step 1 in progress (this branch); steps 2–5 not started. Written
+Status: step 1 in #107; steps 2 and 3 done on `claude/web-search-results`;
+step 4 moved to a GitHub issue; step 5: first run (2026-10-28) found no difference, a harder task is needed. Written
 2026-10-28 against `aa49457`. Evidence and sources:
 [`docs/research/web-search-tooling.md`](../research/web-search-tooling.md).
 
@@ -30,22 +31,61 @@ so "Google for free" is not on the table.
    the rest, name the backend that answered in the output, and add two
    optional arguments: `recency` (`day|week|month|year`) and `domains` (host
    list), each mapped to the backend's native filter and ignored with a note
-   where it cannot be. The routed-web snapshot changes by design (about
-   150–250 bytes of schema); accept it with `cargo xtask snapshots`.
-3. **Explicit selection.** `[web] search = "auto" | "exa" | "brave" |
-   "tavily" | "ddg"` and `CONSTRUCT_WEB_SEARCH` for one run. `auto` keeps the
-   step 1 order. Fall through to the next backend only on errors that say
-   nothing about the query (network, 5xx, a 429 that outlasted the retry),
-   never on 401/402/403/432/433, so a bad key or spent quota is shown instead
-   of silently sending the query to a vendor with a different retention policy.
-4. **A better `web_fetch`.** Today it is a plain GET with no JS rendering,
+   where it cannot be. The routed-web snapshot changes by design (+252
+   bytes of schema); accept it with `cargo xtask snapshots`. Landed with
+   one deviation: a backend with no multi-domain filter (Brave, DuckDuckGo)
+   searches the first domain via `site:` and says so in a note, and
+   DuckDuckGo ignores `recency` (its `df` parameter was not verifiable, the
+   endpoint rate-limited the probe).
+3. **Explicit selection.** `[tools.web] search = "auto" | "exa" | "brave" |
+   "tavily" | "ddg"` (under `[tools]`, beside `[tools.hashline]`, so bench
+   arms can overlay it) and `CONSTRUCT_TOOLS_WEB_SEARCH` for one run; the
+   manifest records it. An unknown name fails at startup, and a named backend
+   without a key says which `construct secrets set` to run. `auto` is the
+   keyed backends in the step 1 order, and DuckDuckGo only when no key
+   resolves at all, so a query never reaches the keyless scrape because a
+   keyed vendor was down. Within `auto`, the next keyed backend answers only
+   after an error that says nothing about the query or the account (network,
+   5xx, a 429 that outlasted the retry), never on 401/402/403/432/433 or a
+   rejected request, so a bad key or spent quota is shown instead of silently
+   sending the query to a vendor with a different retention policy. When a
+   backend does hand over, the output says so (`note: Exa returned HTTP 503;
+   used Brave instead`). Done when: the plan, the fall-through rule, the
+   config check and the manifest field are tested without a network.
+4. **A better `web_fetch`.** Moved to its own GitHub issue: there are many
+   ways to try this and prior work to read first. What we know: today it is a plain GET with no JS rendering,
    bot handling or PDF support. Try, in order of cost: content negotiation
    (already sends `Accept: text/markdown`), a keyed provider's extract endpoint
    (Tavily `/extract`, Exa contents) when the plain fetch fails or comes back
    thin. No readability crate until a bench task shows the need.
-5. **Pick defaults with a real model.** `bench.py task --arm` over search
-   backends and snippet sizes on tasks that need a current fact, scored by
-   `check.sh` on the work dir. Only this step may reorder `auto`.
+5. **Pick defaults with a real model.** The task is `bench/tasks/web-facts`:
+   seven numbers to look up in vendor and kernel documentation, one boolean
+   per question from `answers.txt`, so a backend that cannot find a page
+   shows up as a failed question. Arms overlay `[tools.web]`:
+
+   ```sh
+   python3 bench/bench.py task --model <id> --no-learn --no-warmup \
+     --tasks web-facts --rounds 5 \
+     --arm exa:'web={search="exa"}' --arm brave:'web={search="brave"}' \
+     --arm tavily:'web={search="tavily"}' --arm ddg:'web={search="ddg"}'
+   ```
+
+   Then `bench.py compare result.json --a exa --b tavily`. Caveats to carry
+   into the ADR: seven questions is a small sample; four of them are about
+   search vendors' own docs, which may favour a vendor that indexes them well;
+   and the model may answer some from memory, which the `ddg` arm shows. Only
+   this step may reorder `auto`.
+
+   **First run (2026-10-28, deepseek-v4.1-flash-1017, 2 rounds, arms exa,
+   tavily, ddg; `bench/results/task-20261028-234323.json`): no result.** All
+   seven questions passed in all six runs and every other metric is
+   inconclusive at n=2. The task cannot rank backends: the model fetched the
+   vendors' docs URLs directly (2-10 `web_fetch` calls a run, `curl` in three),
+   and in one ddg run all seven `web_search` calls were rate limited and it
+   still scored 7/7. A task that ranks search needs facts on pages the model
+   cannot guess a URL for (recent, or buried), and more than two rounds.
+   Brave was not run (it needs prepaid credits). `auto` keeps the step 1
+   order, which was always a preference, not a ranking.
 
 ## Not doing
 

@@ -183,7 +183,9 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
   `OutputKind`, policy uses `Group` and `readonly()`. A tool not in the
   `Catalog` does not exist; `[tools] disabled` removes one, `editor` swaps the
   read/edit family (`"replace"`, or `"hashline"` with knobs under
-  `[tools.hashline]`; `CONSTRUCT_TOOLS_EDITOR` for one run). `construct
+  `[tools.hashline]`; `CONSTRUCT_TOOLS_EDITOR` for one run);
+  `[tools.web] search` picks the `web_search` backend
+  (`CONSTRUCT_TOOLS_WEB_SEARCH` for one run). `construct
   manifest` prints what a build and config run.
 - A provider quirk (cache breakpoints, renamed parameters, extra fields) is a
   field on `llm::dialect::Provider` and a few lines in `shape`, never a branch

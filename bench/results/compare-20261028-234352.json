@@ -1,0 +1,724 @@
+{
+ "a": "bench/results/task-20261028-234323.json",
+ "b": "bench/results/task-20261028-234323.json",
+ "comparisons": [
+  {
+   "a": "task-20261028-234323:exa",
+   "b": "task-20261028-234323:tavily",
+   "rows": [
+    {
+     "metric": "web-facts/agent_requests",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 4.5,
+     "b": 8.0,
+     "delta": 3.5,
+     "a_spread": [
+      3.0,
+      6.0
+     ],
+     "b_spread": [
+      7.0,
+      9.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/cache_hit_rate",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.639842246851269,
+     "b": 0.8010585720104495,
+     "delta": 0.1612163251591805,
+     "a_spread": [
+      0.5288106110023918,
+      0.7508738827001463
+     ],
+     "b_spread": [
+      0.7750049042218723,
+      0.8271122397990266
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/cache_write_tokens",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/cached_tokens",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 38336.0,
+     "b": 133504.0,
+     "delta": 95168.0,
+     "a_spread": [
+      14592.0,
+      62080.0
+     ],
+     "b_spread": [
+      120832.0,
+      146176.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/checks.q1",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q2",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q3",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q4",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q5",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q6",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/checks.q7",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/completion_tokens",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 956.0,
+     "b": 1479.5,
+     "delta": 523.5,
+     "a_spread": [
+      670.0,
+      1242.0
+     ],
+     "b_spread": [
+      1451.0,
+      1508.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/cost_usd",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.00313108,
+     "b": 0.010379755,
+     "delta": 0.0072486749999999996,
+     "a_spread": [
+      0.00128798,
+      0.00497418
+     ],
+     "b_spread": [
+      0.005589404,
+      0.015170106
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.applied",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.calls",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.echo_stripped",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.recoveries",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.rejected",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.rereads_after_rejection",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.rewrites",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/edit.unrecovered",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/first_request.bytes",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 5658.0,
+     "b": 5661.0,
+     "delta": 3.0,
+     "a_spread": [
+      5658.0,
+      5658.0
+     ],
+     "b_spread": [
+      5661.0,
+      5661.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/first_request.n_tools",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 9.0,
+     "b": 9.0,
+     "delta": 0.0,
+     "a_spread": [
+      9.0,
+      9.0
+     ],
+     "b_spread": [
+      9.0,
+      9.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/first_request.prompt_tokens",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 1672.5,
+     "b": 1651.0,
+     "delta": -21.5,
+     "a_spread": [
+      1650.0,
+      1695.0
+     ],
+     "b_spread": [
+      1651.0,
+      1651.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/first_request.system_chars",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 1048.0,
+     "b": 1051.0,
+     "delta": 3.0,
+     "a_spread": [
+      1048.0,
+      1048.0
+     ],
+     "b_spread": [
+      1051.0,
+      1051.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/first_request.tools_chars",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 3461.0,
+     "b": 3461.0,
+     "delta": 0.0,
+     "a_spread": [
+      3461.0,
+      3461.0
+     ],
+     "b_spread": [
+      3461.0,
+      3461.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/invalid",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/learn_wait_s",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.031169891357421875,
+     "b": 0.03129541873931885,
+     "delta": 0.00012552738189697266,
+     "a_spread": [
+      0.030739545822143555,
+      0.031600236892700195
+     ],
+     "b_spread": [
+      0.030810117721557617,
+      0.03178071975708008
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/over_budget",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/peak_mb",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 41.294921875,
+     "b": 53.4140625,
+     "delta": 12.119140625,
+     "a_spread": [
+      25.484375,
+      57.10546875
+     ],
+     "b_spread": [
+      26.015625,
+      80.8125
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/prompt_tokens",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 55135.5,
+     "b": 167351.0,
+     "delta": 112215.5,
+     "a_spread": [
+      27594.0,
+      82677.0
+     ],
+     "b_spread": [
+      146089.0,
+      188613.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/provider_failures",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/reads",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.5,
+     "b": 0.5,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/requests",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 4.5,
+     "b": 8.0,
+     "delta": 3.5,
+     "a_spread": [
+      3.0,
+      6.0
+     ],
+     "b_spread": [
+      7.0,
+      9.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/shell.blocked",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/shell.broad",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/shell.calls",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.5,
+     "b": 1.5,
+     "delta": 1.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      3.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/shell.refused",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/shell.stops",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/side_requests_before_first_agent",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/success",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "web-facts/tool_calls",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 9.0,
+     "b": 14.0,
+     "delta": 5.0,
+     "a_spread": [
+      8.0,
+      10.0
+     ],
+     "b_spread": [
+      13.0,
+      15.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/unintended_changes",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "web-facts/wall_s",
+     "n_a": 2,
+     "n_b": 2,
+     "binary": false,
+     "a": 7.9630471309938,
+     "b": 17.071146817994304,
+     "delta": 9.108099687000504,
+     "a_spread": [
+      5.110280736989807,
+      10.815813524997793
+     ],
+     "b_spread": [
+      13.263333487993805,
+      20.878960147994803
+     ],
+     "verdict": "inconclusive"
+    }
+   ]
+  }
+ ]
+}

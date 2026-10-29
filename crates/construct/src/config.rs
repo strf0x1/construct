@@ -276,6 +276,7 @@ pub struct ToolsConfig {
     /// reach for a tool by that name (docs/adr, issue #10).
     pub search_name: String,
     pub hashline: HashlineConfig,
+    pub web: WebConfig,
 }
 
 impl ToolsConfig {
@@ -293,7 +294,24 @@ impl Default for ToolsConfig {
             disabled: vec![],
             search_name: crate::tools::grep::Grep::NAME.into(),
             hashline: HashlineConfig::default(),
+            web: WebConfig::default(),
         }
+    }
+}
+
+/// Knobs for the web tools.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WebConfig {
+    /// Which backend answers `web_search`: "auto" (the keyed backends in
+    /// order Exa, Brave, Tavily, else DuckDuckGo) or one of "exa", "brave",
+    /// "tavily", "ddg". A named backend is the only one tried.
+    pub search: String,
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self { search: "auto".into() }
     }
 }
 
@@ -438,6 +456,9 @@ impl Config {
         }
         if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_EDITOR") {
             cfg.tools.editor = v;
+        }
+        if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_WEB_SEARCH") {
+            cfg.tools.web.search = v;
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         cfg.load_catalog(&paths.models())?;

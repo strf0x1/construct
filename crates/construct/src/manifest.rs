@@ -24,6 +24,9 @@ pub struct Manifest {
     /// in them (`anchor`, `window_radius`) are told apart.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hashline: Option<HashlineConfig>,
+    /// `[tools.web] search`, so arms that differ only in the backend are told apart.
+    #[serde(default)]
+    pub web_search: String,
     pub model: String,
     pub router_mode: String,
     /// Configured agent definitions a model can delegate to (`[agents.*]`).
@@ -59,6 +62,7 @@ impl Manifest {
             tools: vec![],
             editor: String::new(),
             hashline: None,
+            web_search: String::new(),
             model: String::new(),
             router_mode: String::new(),
             agents: vec![],
@@ -80,6 +84,7 @@ impl Manifest {
             tools: catalog.names(),
             editor: cfg.tools.editor.clone(),
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
+            web_search: cfg.tools.web.search.clone(),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),
             agents: cfg.agents.keys().cloned().collect(),

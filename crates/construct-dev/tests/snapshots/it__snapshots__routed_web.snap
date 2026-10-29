@@ -3,7 +3,7 @@ source: crates/construct-dev/tests/snapshots.rs
 expression: "shaped(&env, &req)"
 ---
 {
-  "bytes": 4405,
+  "bytes": 4657,
   "n_tools": 9,
   "request": {
     "model": "openrouter/free",
@@ -178,7 +178,7 @@ expression: "shaped(&env, &req)"
         "type": "function",
         "function": {
           "name": "web_search",
-          "description": "Search the web. Returns titles, URLs and snippets.",
+          "description": "Search the web. Returns titles, URLs, dates when known, and snippets.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -187,6 +187,23 @@ expression: "shaped(&env, &req)"
               },
               "limit": {
                 "type": "integer"
+              },
+              "recency": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "week",
+                  "month",
+                  "year"
+                ],
+                "description": "Only results from the last day, week, month or year"
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Only these sites, e.g. docs.rs"
               }
             },
             "required": [

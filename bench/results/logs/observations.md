@@ -332,6 +332,12 @@ Hybrid's evidence gate (ADR 0022), learn-tally-long, --jev, 4 rounds per model; 
 - `bench/results/curriculum-20261028-082138.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
 - `bench/results/curriculum-20261028-082219.json`: model deepseek/deepseek-v4.1-flash-1017; bench 8ca2b2d dirty; hybrid-gated2 8ca2b2d dirty editor=replace router=auto
 
+## 2026-10-28 23:44 note
+
+web-facts, exa vs tavily vs ddg backends (2026-10-28), 2 rounds each, deepseek-v4.1-flash-1017: NO DISCRIMINATION. 7/7 questions in all 6 runs; every other metric inconclusive at n=2 (requests exa 3-6, tavily 7-9, ddg 5-8; cost $0.001-0.015 a run). The backend named in the output answered in every keyed run. Why it cannot rank backends: the model fetched the vendor docs URLs directly (web_fetch 2-10 a run, curl in shell in 3 runs), and in one ddg run all 7 web_search calls were rate limited by DuckDuckGo yet it still scored 7/7. A task that ranks search needs facts whose pages the model cannot guess. No change to the auto order; no ADR.
+
+- `bench/results/task-20261028-234323.json`: model deepseek/deepseek-v4.1-flash-1017; bench 0fa9dba dirty; exa ad4bfd4 editor=replace router=local; tavily ad4bfd4 editor=replace router=local; ddg ad4bfd4 editor=replace router=local
+
 ## 2026-10-29 00:00 note
 
 Search suite, 10 rounds x 3 arms (grep, search, none) x 11 tasks on three models, 990 runs, $1.65. No consistent effect of the tool's name on adoption; no measurable difference between having the search tool and not. See docs/adr/0024-search-tool-stays-grep.md and bench/results/search-report-20261029.md. The construct binary was built from d501de0 plus the search_name change committed as 4ea4ac4 (hence dirty).
