@@ -8,6 +8,8 @@
 mod acp_kinds;
 #[path = "edit_contract.rs"]
 mod edit_contract;
+#[path = "grep_search.rs"]
+mod grep_search;
 #[path = "hashline_contract.rs"]
 mod hashline_contract;
 #[path = "skill_patch.rs"]
