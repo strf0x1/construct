@@ -8,9 +8,19 @@ model read, so it is the same for every editor.
 """
 
 import json
+import re
 from pathlib import Path
 
 import journal
+
+# The content-search tool under either wire name (`[tools] search_name`).
+SEARCH_TOOLS = {"grep", "search"}
+# A shell command that searches file contents / finds files. A search program
+# only counts at the start of a command (after ;, &&, ||, $(, a backtick or a
+# line break, or behind xargs), never as a pipe filter (`pytest | grep FAIL`).
+_START = r"(?:^|&&|\|\||;|\n|\$\(|`|\bxargs\s+|\bexec\s+)\s*(?:sudo\s+)?"
+CONTENT_SEARCH = re.compile(_START + r"(?:rg|grep|egrep|fgrep|ag|ack|ugrep|git\s+grep)(?=\s|$)")
+FILE_SEARCH = re.compile(_START + r"(?:find|fd|fdfind|locate)(?=\s|$)")
 
 
 def tool_events(home: Path, since: float) -> list:
@@ -92,6 +102,7 @@ def metrics(events: list) -> dict:
     boxed = [(e.get("data") or {}).get("sandbox") for e in shells]
     boxed = [b for b in boxed if b]
     return {
+        **search_metrics(events),
         "tool_calls": len(events),
         "reads": sum(1 for e in events if e["name"] == "read"),
         # What the sandbox kept from shell calls (#64), from the tool's data.
@@ -116,4 +127,34 @@ def metrics(events: list) -> dict:
         # Informational: a run that never saw a code has no entry, so these
         # are left out of compare (see compare.SKIP).
         "rejection_codes": codes,
+    }
+
+
+def search_metrics(events: list) -> dict:
+    """How the run searched, and how often its tools failed.
+
+    search.tool       calls to the content-search tool, whatever it was named
+    search.shell      shell commands that run a content-search program
+    search.find       shell commands that look for files by name
+    search.adoption   tool / (tool + shell); absent when the run never searched
+    tool_failures     over every tool: calls, failed (ok = false) and the rate.
+                      "no matches" is a result, not a failure; a refused
+                      path, a bad regex or a timeout is.
+    """
+    tool = sum(1 for e in events if e["name"] in SEARCH_TOOLS)
+    commands = [str(e["args"].get("command") or "") for e in events if e["name"] == "shell"]
+    shell = sum(1 for c in commands if CONTENT_SEARCH.search(c))
+    find = sum(1 for c in commands if FILE_SEARCH.search(c) and not CONTENT_SEARCH.search(c))
+    failed = [e for e in events if not e["ok"]]
+    codes = {}
+    for e in failed:
+        key = f"{e['name']}:{e.get('code') or 'error'}"
+        codes[key] = codes.get(key, 0) + 1
+    search = {"tool": tool, "shell": shell, "find": find, "tool_failed": sum(1 for e in failed if e["name"] in SEARCH_TOOLS)}
+    if tool + shell:
+        search["adoption"] = tool / (tool + shell)
+    return {
+        "search": search,
+        "tool_failures": {"calls": len(events), "failed": len(failed), "rate": len(failed) / len(events) if events else 0.0},
+        "failure_codes": codes,
     }

@@ -1,0 +1,9 @@
+description = "Follow a write back through a helper, a wrapper and two layers to the routes that reach it, among 1,500 files and look-alike names."
+generate = "search_fixtures_hard:trace_tree"
+turns = ["Audit rows with action `refund.issued` are showing up in the `audit_events` table. List every HTTP route in this repo that can cause one to be written, directly or through other code (a scheduled job is not a route; the `refund.issued.v1` action is a different one). Write one `METHOD /path` per line, sorted, exactly as the route is registered, to answer.txt, and nothing else."]
+timeout_s = 900
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000

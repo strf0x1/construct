@@ -2,6 +2,7 @@
 id: delegation
 status: built
 surfaces: [tui, cli]
+depends: [crates/construct/src/tools/delegate.rs, crates/construct/src/agents.rs, crates/construct/src/child, crates/construct/src/tui/prompt.rs]
 ---
 # Delegation
 

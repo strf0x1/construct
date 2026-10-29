@@ -31,6 +31,8 @@ task.toml keys:
     window      the model's context window in tokens: the endpoint rejects a
                 longer prompt as a provider would, and construct is told the
                 same window (the compaction suite, bench/compaction.py)
+    generate    "module:function" in bench/: returns (Tree, expected) and the
+                tree is the fixture, built per run (a repo too big to commit)
     git         a revision of this repo: the fixture is its tree (`git
                 archive`), with no history, so the agent can't read ahead.
                 A warm cargo target for it, if `bench/replay.py warm` made
@@ -42,6 +44,7 @@ task.toml keys:
 
 import fnmatch
 import hashlib
+import importlib
 import json
 import os
 import random
@@ -160,7 +163,9 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
     it and the `remove` paths deleted, filled, committed to a new git repo."""
     if dest.exists():
         shutil.rmtree(dest)
-    if task.git:
+    if task.spec.get("generate"):
+        generate(task.spec["generate"], dest)
+    elif task.git:
         export_tree(task.git, dest)
     else:
         _copy_filled(src or task.src / "fixture", dest, vars)
@@ -176,6 +181,15 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
     git("-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init")
     if task.git and warm:
         seed_target(task, dest)
+
+
+def generate(spec: str, dest: Path):
+    """The fixture a task builds instead of committing: `module:function` in bench/."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    module, _, fn = spec.partition(":")
+    getattr(importlib.import_module(module), fn)()[0].write(dest)
 
 
 def has_rev(rev: str) -> bool:

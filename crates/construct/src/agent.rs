@@ -112,7 +112,7 @@ impl Agent {
             // pid the helper watches, and that is this process now.
             Some(o) => (o.system, crate::sandbox::Policy { parent: std::process::id(), ..o.policy }),
             None => (
-                crate::prompt::build(&cwd, &memory, &cfg.learn.strategy),
+                crate::prompt::build(&cwd, &memory, &cfg.learn.strategy, cfg.tools.search_tool()),
                 crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
             ),
         };

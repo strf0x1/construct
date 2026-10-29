@@ -1,0 +1,9 @@
+description = "Code to constant to raise sites, one reached through an aliased import, with a transposed-digits code (E4471) as a decoy."
+generate = "search_fixtures_hard:errorcode_tree"
+turns = ["Customers who upload a file that would take them over their plan's storage limit are shown error code E4417. Which function raises it for that case? Write `path:function_name` (repo-relative path) to answer.txt, and nothing else."]
+timeout_s = 900
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000

@@ -1,0 +1,9 @@
+description = "Union of six access patterns (including wrappers, aliases and multi-line calls) against decoys that look alike."
+generate = "search_fixtures_hard:env_tree"
+turns = ["Which environment variables does the service read? List the name of every variable that source code under pkg/ reads from the process environment: `os.environ[...]`, `os.environ.get(...)`, `os.getenv(...)`, `environ` imported from os, and the typed helpers `env_str`, `env_int` and `env_flag` in pkg/config/envutil.py. Writes such as `os.environ[X] = ...` or `setdefault`, tests, docs, comments, strings, generated output (build/) and objects that merely have an attribute called `environ` do not count. Write one variable name per line, sorted, to answer.txt, and nothing else."]
+timeout_s = 900
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000

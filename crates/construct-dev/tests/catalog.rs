@@ -2,9 +2,7 @@
 //! entries and switching changes the next request and the status line, and a
 //! catalog entry's window is the one compaction plans against.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 

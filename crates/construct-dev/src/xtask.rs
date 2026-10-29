@@ -4,9 +4,18 @@
 //! line per gate and a last line of `ok` or `FAILED <gate>`, so an agent never
 //! has to read cargo's output to know whether it is done. A failing gate's
 //! output is printed above that last line. A test failure caused by a golden
-//! snapshot is reported as `FAILED snapshots`.
+//! snapshot is reported as `FAILED snapshots`. `docs` and `map` run in
+//! process, before cargo: they read files and take milliseconds.
+//!
+//! One run at a time per repository, however many worktrees and agents ask
+//! (`exclusive`): a build links every test binary at once and a second one
+//! on top of it is what freezes the desktop. Cargo and the tests run niced
+//! and capped to a third of the cores unless the caller set the limits.
+//! `check --quick` is the inner loop: the static gates plus only the tests
+//! the diff can reach, with the end-to-end tests left to CI.
 
 use anyhow::{Context, Result};
+use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
@@ -19,12 +28,47 @@ const GATES: &[(&str, &[&str])] = &[
     ("bench", &["@python3", "-m", "unittest", "discover", "-s", "bench", "-p", "test_*.py"]),
 ];
 
+/// Cargo, niced, with its jobs and the test threads capped at a third of the
+/// cores (at most 8) unless the caller already set them.
 fn cargo() -> Command {
-    Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
+    let mut c = Command::new("nice");
+    c.args(["-n", "10", &std::env::var("CARGO").unwrap_or_else(|_| "cargo".into())]);
+    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let share = (cores / 3).clamp(2, 8).to_string();
+    for key in ["CARGO_BUILD_JOBS", "RUST_TEST_THREADS"] {
+        if std::env::var_os(key).is_none() {
+            c.env(key, &share);
+        }
+    }
+    c
+}
+
+/// Hold the repository's xtask lock until the returned file is dropped (or the
+/// process dies). The lock lives in the git common dir, so every worktree of
+/// the repository shares it. Waits, and says so, if another run has it.
+fn exclusive(root: &Path) -> Result<File> {
+    let common = Command::new("git")
+        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| PathBuf::from(String::from_utf8_lossy(&o.stdout).trim()))
+        .unwrap_or_else(std::env::temp_dir);
+    let file = OpenOptions::new().create(true).append(true).open(common.join("xtask.lock"))?;
+    match file.try_lock() {
+        Ok(()) => {}
+        Err(TryLockError::WouldBlock) => {
+            println!("waiting for another cargo xtask run in this repository to finish");
+            file.lock()?;
+        }
+        Err(TryLockError::Error(e)) => return Err(e.into()),
+    }
+    Ok(file)
 }
 
 /// A gate's command: cargo with these args, or a program named by a leading `@`.
-fn gate(args: &[&str]) -> Command {
+fn gate(args: &[String]) -> Command {
     match args.split_first() {
         Some((first, rest)) if first.starts_with('@') => {
             let mut c = Command::new(&first[1..]);
@@ -81,6 +125,22 @@ fn conventions(root: &Path) -> Vec<String> {
         bad.push(format!("docs/adr: expected {:04} where {n:04} is (ADR {} of {})", i + 1, i + 1, numbers.len()));
     }
 
+    // `autotests = false`: a test file nobody lists in `tests/it.rs` never runs.
+    for it in
+        std::fs::read_dir(root.join("crates")).into_iter().flatten().flatten().map(|c| c.path().join("tests/it.rs"))
+    {
+        let (Some(dir), Ok(listed)) = (it.parent(), std::fs::read_to_string(&it)) else { continue };
+        let mut files: Vec<_> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).collect();
+        files.sort();
+        for f in files.iter().filter(|f| f.extension().is_some_and(|x| x == "rs")) {
+            let stem = f.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            if stem != "it" && !listed.contains(&format!("mod {stem};")) {
+                let rel = f.strip_prefix(root).unwrap_or(f).display();
+                bad.push(format!("{rel}: not listed in tests/it.rs, so it would never run"));
+            }
+        }
+    }
+
     for file in rust_sources(&root.join("crates")) {
         let opens_with_doc = std::fs::read_to_string(&file).is_ok_and(|s| s.starts_with("//!"));
         if !opens_with_doc {
@@ -94,7 +154,7 @@ fn conventions(root: &Path) -> Vec<String> {
 }
 
 /// Every `.rs` file under `crates/*/src`, in path order.
-fn rust_sources(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn rust_sources(dir: &Path) -> Vec<PathBuf> {
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries.flatten() {
@@ -115,29 +175,119 @@ fn rust_sources(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Returns true if every gate passed.
-pub fn check() -> Result<bool> {
-    let root = workspace_root()?;
-    enable_hooks(&root);
-    let t = Instant::now();
-    let problems = conventions(&root);
-    let secs = t.elapsed().as_secs_f32();
-    if !problems.is_empty() {
-        println!("docs     FAILED ({secs:.1}s)");
-        for p in &problems {
-            println!("  {p}");
+/// What a diff can reach, from the paths it touches.
+#[derive(Default, Debug, PartialEq)]
+struct Touched {
+    construct: bool,
+    dev: bool,
+    bench: bool,
+    /// Manifests, lockfile, cargo config: anything can have changed.
+    workspace: bool,
+}
+
+fn touched(paths: &[String]) -> Touched {
+    let mut t = Touched::default();
+    for p in paths {
+        match p.as_str() {
+            p if p.starts_with("crates/construct/") => t.construct = true,
+            p if p.starts_with("crates/construct-dev/") => t.dev = true,
+            p if p.starts_with("bench/") => t.bench = true,
+            p if p.starts_with(".cargo/") => t.workspace = true,
+            "Cargo.toml" | "Cargo.lock" | "rust-toolchain.toml" => t.workspace = true,
+            _ => {}
         }
-        println!("FAILED docs");
-        return Ok(false);
     }
-    println!("docs     ok ({secs:.1}s)");
-    for (name, args) in GATES {
+    t
+}
+
+/// Paths changed since the branch left main, committed or not, or `None` when
+/// git cannot say (then `--quick` assumes everything changed).
+fn changed_paths(root: &Path) -> Option<Vec<String>> {
+    let git = |args: &[&str]| {
+        let out = Command::new("git").args(args).current_dir(root).output().ok().filter(|o| o.status.success())?;
+        Some(String::from_utf8_lossy(&out.stdout).lines().map(String::from).collect::<Vec<_>>())
+    };
+    let base = ["origin/main", "main"].iter().find_map(|b| git(&["merge-base", "HEAD", b])?.into_iter().next())?;
+    let mut paths = git(&["diff", "--name-only", &base])?;
+    paths.extend(git(&["ls-files", "--others", "--exclude-standard"])?);
+    Some(paths)
+}
+
+fn owned(args: &[&str]) -> Vec<String> {
+    args.iter().map(|a| a.to_string()).collect()
+}
+
+/// The subprocess gates to run, in order. Full: all of `GATES`. Quick: fmt and
+/// clippy, then the unit and contract tests of the crates the diff touches
+/// (the end-to-end tests and golden snapshots are CI's), and the bench's own
+/// tests only if `bench/` changed.
+fn plan(quick: bool, t: &Touched) -> Vec<(String, Vec<String>)> {
+    if !quick {
+        return GATES.iter().map(|(n, a)| (n.to_string(), owned(a))).collect();
+    }
+    let mut gates = vec![];
+    for (name, args) in GATES.iter().take(2) {
+        gates.push((name.to_string(), owned(args)));
+    }
+    if t.workspace || t.construct {
+        gates.push(("test".into(), owned(&["test", "-p", "construct"])));
+    }
+    if t.workspace || t.dev {
+        gates.push(("test-dev".into(), owned(&["test", "-p", "construct-dev", "--lib", "--bins"])));
+    }
+    if t.workspace || t.bench {
+        gates.extend(GATES.iter().filter(|(n, _)| *n == "bench").map(|(n, a)| (n.to_string(), owned(a))));
+    }
+    gates
+}
+
+/// Returns true if every gate passed.
+pub fn check(quick: bool) -> Result<bool> {
+    let root = workspace_root()?;
+    let _lock = exclusive(&root)?;
+    enable_hooks(&root);
+    let is_commit = |sha: &str| {
+        let rev = format!("{sha}^{{commit}}");
+        Command::new("git").args(["cat-file", "-e", &rev]).current_dir(&root).status().is_ok_and(|s| s.success())
+    };
+    let changed_since = |sha: &str, path: &str| {
+        let range = format!("{sha}..HEAD");
+        let out = Command::new("git")
+            .args(["log", "--no-merges", "--format=%H", &range, "--", path])
+            .current_dir(&root)
+            .output();
+        out.map(|o| String::from_utf8_lossy(&o.stdout).lines().map(String::from).collect()).unwrap_or_default()
+    };
+    let git = crate::feature_map::Git { is_commit: &is_commit, changed_since: &changed_since };
+    let in_process: [(&str, &dyn Fn() -> Vec<String>); 2] =
+        [("docs", &|| conventions(&root)), ("map", &|| crate::feature_map::problems(&root, &git))];
+    for (name, gate) in in_process {
+        let t = Instant::now();
+        let problems = gate();
+        let secs = t.elapsed().as_secs_f32();
+        if !problems.is_empty() {
+            println!("{name:<8} FAILED ({secs:.1}s)");
+            for p in &problems {
+                println!("  {p}");
+            }
+            println!("FAILED {name}");
+            return Ok(false);
+        }
+        println!("{name:<8} ok ({secs:.1}s)");
+    }
+    let everything = Touched { construct: true, dev: true, bench: true, workspace: true };
+    let reach = if quick { changed_paths(&root).map_or(everything, |p| touched(&p)) } else { everything };
+    for (name, args) in &plan(quick, &reach) {
         let t = Instant::now();
         let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;
         let secs = t.elapsed().as_secs_f32();
         if !out.status.success() {
             let output = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-            let name = if *name == "test" && output.contains("snapshot assertion for") { "snapshots" } else { name };
+            let name = if name.starts_with("test") && output.contains("snapshot assertion for") {
+                "snapshots"
+            } else {
+                name.as_str()
+            };
             println!("{name:<8} FAILED ({secs:.1}s)");
             print!("{output}");
             if name == "snapshots" {
@@ -150,6 +300,11 @@ pub fn check() -> Result<bool> {
         }
         println!("{name:<8} ok ({secs:.1}s)");
     }
+    if quick {
+        println!(
+            "quick: end-to-end tests and golden snapshots not run; CI runs them (`cargo test -p construct-dev --test it [filter]`)"
+        );
+    }
     println!("ok");
     Ok(true)
 }
@@ -158,8 +313,9 @@ pub fn check() -> Result<bool> {
 /// a `.snap` by hand; this is the way to accept an intended change.
 pub fn snapshots() -> Result<bool> {
     let root = workspace_root()?;
+    let _lock = exclusive(&root)?;
     let ok = cargo()
-        .args(["test", "-q", "-p", "construct-dev", "--test", "snapshots"])
+        .args(["test", "-q", "-p", "construct-dev", "--test", "it", "--", "snapshots::"])
         .env("INSTA_UPDATE", "always")
         .current_dir(&root)
         .status()?
@@ -181,6 +337,7 @@ pub fn snapshots() -> Result<bool> {
 /// Apply what can be applied mechanically: clippy's suggestions, then formatting.
 pub fn fix() -> Result<bool> {
     let root = workspace_root()?;
+    let _lock = exclusive(&root)?;
     let clippy = ["clippy", "--fix", "--allow-dirty", "--allow-staged", "--workspace", "--all-targets"].as_slice();
     for args in [clippy, &["fmt", "--all"]] {
         if !cargo().args(args).current_dir(&root).status()?.success() {
@@ -222,6 +379,33 @@ mod tests {
         assert!(bad.iter().any(|p| p.contains("expected 0002 where 0001 is (ADR 2 of 2)")), "{bad:?}");
         assert!(bad.iter().any(|p| p.contains("crates/a/src/tui/view.rs")), "{bad:?}");
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_test_file_missing_from_it_rs_is_reported() {
+        let root = tree("untested");
+        std::fs::create_dir_all(root.join("crates/a/tests")).unwrap();
+        write(&root, "docs/adr/0001-a.md", "# a\n");
+        write(&root, "crates/a/src/lib.rs", "//! ok\n");
+        write(&root, "crates/a/tests/it.rs", "//! all\n#[path = \"one.rs\"]\nmod one;\n");
+        write(&root, "crates/a/tests/one.rs", "//! one\n");
+        write(&root, "crates/a/tests/two.rs", "//! two\n");
+        let bad = conventions(&root);
+        assert_eq!(bad.len(), 1, "{bad:?}");
+        assert!(bad[0].contains("crates/a/tests/two.rs"), "{bad:?}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn quick_runs_only_the_tests_the_diff_can_reach() {
+        let names = |t: &Touched| plan(true, t).into_iter().map(|(n, _)| n).collect::<Vec<_>>();
+        let paths = |p: &[&str]| touched(&p.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(names(&paths(&["docs/adr/0001-a.md", "AGENTS.md"])), ["fmt", "clippy"]);
+        assert_eq!(names(&paths(&["crates/construct/src/tools/grep.rs"])), ["fmt", "clippy", "test"]);
+        assert_eq!(names(&paths(&["crates/construct-dev/tests/e2e.rs"])), ["fmt", "clippy", "test-dev"]);
+        assert_eq!(names(&paths(&["bench/bench.py"])), ["fmt", "clippy", "bench"]);
+        assert_eq!(names(&paths(&["Cargo.lock"])), ["fmt", "clippy", "test", "test-dev", "bench"]);
+        assert_eq!(plan(false, &Touched::default()).len(), GATES.len(), "a full check never narrows");
     }
 
     #[test]

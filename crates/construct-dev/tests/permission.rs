@@ -3,9 +3,7 @@
 //! what the person sees and presses, what the model gets back, and what the
 //! journal and `config.toml` end up holding.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};

@@ -2,9 +2,7 @@
 //! lists as they type, what Enter leaves in the input, and what the model is
 //! sent when a skill is run by name.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 

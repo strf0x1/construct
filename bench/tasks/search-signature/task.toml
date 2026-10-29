@@ -1,0 +1,8 @@
+description = "Find functions by name prefix and parameter shape, including annotated, async and multi-line signatures."
+turns = ["Find every function or method in this repo's source whose name starts with `parse_` and that takes exactly two named parameters (don't count `self`; a function with `*args` or `**kwargs` or a third named parameter does not qualify; keyword-only parameters count as named). Write one `path:function_name` per line, sorted, to answer.txt, and nothing else."]
+timeout_s = 600
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 800000

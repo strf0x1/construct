@@ -1,0 +1,8 @@
+description = "Locate one function definition among near-identical names (plural, private, vendored and built copies)."
+turns = ["Find where the function `reconcile_ledger_batch` is defined in this repo's own source (not in generated or vendored copies). Write its location as `path:line` (path relative to the repo root, 1-based line number of the `def`) to answer.txt, and nothing else."]
+timeout_s = 600
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 40
+max_prompt_tokens = 800000

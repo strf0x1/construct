@@ -3,9 +3,7 @@
 //! `/models` in OpenRouter's shape, and `dialect = "openrouter"` makes the
 //! harness treat the loopback address as OpenRouter.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use serde_json::{Value, json};
 
 const OPENROUTER: &str = "[provider]\ndialect = \"openrouter\"\n";

@@ -24,17 +24,17 @@ import statistics
 
 MIN_N = 3
 # Raw fields that are logs or series, not metrics.
-SKIP = {"findings", "rejection_codes", "unintended", "turns", "records", "series", "rss", "stdout_tail", "stderr_tail", "errors", "check_error", "learned", "manifest", "tool_gaps_ms"}
+SKIP = {"findings", "rejection_codes", "failure_codes", "unintended", "turns", "records", "series", "rss", "stdout_tail", "stderr_tail", "errors", "check_error", "learned", "manifest", "tool_gaps_ms"}
 # Higher is better for these; everything else (time, tokens, requests, errors,
 # rejections, sizes) is lower-better. Boolean checks are higher-better unless
 # their name is in LOWER_BOOL.
-HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens|cache_hit|cache_hit_after_cut)($|[._])|^checks\.")
+HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens|cache_hit|cache_hit_after_cut|adoption)($|[._])|^checks\.")
 # No better direction: a different editor may rightly take more or fewer calls,
 # a compaction policy may rightly cut more or less often, cache writes are
 # what turning caching on costs (cost_usd judges them), and a change's size
 # is for the judge to weigh against the reference (docs/rust-eval.md).
 # These get `higher`/`lower` instead of `better`/`worse`.
-NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|n_tools|cache_write_tokens|cuts|cuts_elide|cuts_summarize|cuts_legacy|diff_lines|diff_files|test_lines|reference_lines|scope_ratio)$")
+NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|search\.tool|search\.shell|search\.find|n_tools|cache_write_tokens|cuts|cuts_elide|cuts_summarize|cuts_legacy|diff_lines|diff_files|test_lines|reference_lines|scope_ratio)$")
 LOWER_BOOL = re.compile(r"(^|[._/])(ran_make_release|over_budget|timed_out|stopped|wrong_line|invalid)($|[._])")
 
 

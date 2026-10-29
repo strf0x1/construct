@@ -271,8 +271,20 @@ pub struct ToolsConfig {
     pub editor: String,
     /// Tool names that must not exist this session, even if the model asks.
     pub disabled: Vec<String>,
+    /// The wire name of the content-search tool: only the name changes, never
+    /// the schema or the description. A knob for measuring whether models
+    /// reach for a tool by that name (docs/adr, issue #10).
+    pub search_name: String,
     pub hashline: HashlineConfig,
     pub web: WebConfig,
+}
+
+impl ToolsConfig {
+    /// The name the system prompt should call the content-search tool, or
+    /// `None` when the session has no such tool.
+    pub fn search_tool(&self) -> Option<&str> {
+        (!self.disabled.iter().any(|d| d == crate::tools::grep::Grep::NAME)).then_some(self.search_name.as_str())
+    }
 }
 
 impl Default for ToolsConfig {
@@ -280,6 +292,7 @@ impl Default for ToolsConfig {
         Self {
             editor: "replace".into(),
             disabled: vec![],
+            search_name: crate::tools::grep::Grep::NAME.into(),
             hashline: HashlineConfig::default(),
             web: WebConfig::default(),
         }

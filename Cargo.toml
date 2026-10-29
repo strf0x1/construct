@@ -36,6 +36,11 @@ dbg_macro = "warn"
 todo = "warn"
 unwrap_used = "allow" # see AGENTS.md conventions; revisit once tools return structured errors
 
+[profile.dev]
+# Every integration test links the whole lib; full debuginfo made each
+# executable ~360 MB. Backtraces still get file:line.
+debug = "line-tables-only"
+
 [profile.release]
 opt-level = 3
 lto = "fat"

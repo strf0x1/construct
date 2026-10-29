@@ -330,7 +330,12 @@ impl Catalog {
             }
             other => bail!("tools.editor: unknown editor {other:?} (expected \"replace\" or \"hashline\")"),
         }
-        tools.push(Arc::new(grep::Grep));
+        if cfg.search_name.is_empty()
+            || !cfg.search_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
+            bail!("tools.search_name: {:?} is not a usable tool name", cfg.search_name);
+        }
+        tools.push(Arc::new(grep::Grep::named(&cfg.search_name)));
         tools.push(Arc::new(glob::Glob));
         tools.push(Arc::new(web::WebSearch::new(&cfg.web)?));
         tools.push(Arc::new(web::WebFetch));
@@ -339,6 +344,10 @@ impl Catalog {
         tools.push(Arc::new(skill::SkillManage));
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
+        let mut seen = HashSet::new();
+        if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
+            bail!("tools.search_name: {:?} is already a tool", t.name());
+        }
         for d in &cfg.disabled {
             if crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
                 bail!("tools.disabled: unknown tool {d:?}");
