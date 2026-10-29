@@ -49,22 +49,22 @@ may_use = ["config", "journal", "llm"]
 may_use = ["child", "compact", "config", "event", "llm", "models", "project", "skills", "tools"]
 
 [modules.learn]
-may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "tools"]
+may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
 
 [modules.lib]
 may_use = []
 
 [modules.llm]
-may_use = ["config", "journal", "models"]
+may_use = ["config", "journal", "models", "text"]
 
 [modules.main]
-may_use = ["cli", "sandbox", "tui"]
+may_use = ["cli", "sandbox", "trace"]
 
 [modules.manifest]
 may_use = ["config", "llm", "tools"]
 
 [modules.mcp]
-may_use = ["config", "sandbox", "secrets"]
+may_use = ["config", "sandbox", "secrets", "text"]
 
 [modules.memory]
 may_use = ["config", "guard", "project"]
@@ -93,14 +93,20 @@ may_use = []
 [modules.skills]
 may_use = ["config", "guard", "tools"]
 
+[modules.text]
+may_use = []
+
 [modules.tools]
-may_use = ["agents", "child", "config", "event", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills"]
+may_use = ["agents", "child", "config", "event", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+
+[modules.trace]
+may_use = ["config"]
 
 [modules.tui]
-may_use = ["agent", "compact", "config", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "tools"]
+may_use = ["agent", "compact", "config", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
 must_not_use = [
   { module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
   { module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
   { module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
 ]
-used_only_by = { modules = ["cli", "main"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner). main is here only for the startup `tui::trace(\"main\")` milestone; moving `trace` out of tui would drop it" }
+used_only_by = { modules = ["cli"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner); cli is the one place that chooses to start it" }
