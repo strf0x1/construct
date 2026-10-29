@@ -1,0 +1,19 @@
+description = "Look up seven numbers in official documentation with web_search/web_fetch. Scored on the answers, so it compares search backends (`--arm exa:'web={search=\"exa\"}'`)."
+turns = [
+  """Answer these seven questions from the official documentation, using the web. Each answer is a single integer. Write them to answers.txt in this directory, one per line as `N: value`, for example `1: 42`. Do not guess: look each one up, and if you cannot find it, write `N: unknown`.
+
+1. What is the default requests-per-minute rate limit for a Tavily API key in the Development environment?
+2. What is the maximum value of the `offset` parameter on the Brave Search API web search endpoint?
+3. How many entries can the `includeDomains` list of an Exa search request hold at most?
+4. How many domains can the `include_domains` list of a Tavily search request hold at most?
+5. How many URLs can a single Tavily /extract request take at most?
+6. In SQLite, what is the default value of SQLITE_MAX_VARIABLE_NUMBER for versions after 3.32.0?
+7. In the Linux Landlock userspace API, from which ABI version is LANDLOCK_ACCESS_FS_IOCTL_DEV available?
+""",
+]
+timeout_s = 900
+changes = ["answers.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2000000

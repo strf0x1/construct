@@ -1,7 +1,7 @@
 # Proposal 6 — Web search that says what went wrong and does more per call
 
 Status: step 1 in #107; steps 2 and 3 done on `claude/web-search-results`;
-step 4 moved to a GitHub issue; step 5 not started. Written
+step 4 moved to a GitHub issue; step 5: task `web-facts` built, runs not yet done. Written
 2026-10-28 against `aa49457`. Evidence and sources:
 [`docs/research/web-search-tooling.md`](../research/web-search-tooling.md).
 
@@ -58,9 +58,23 @@ so "Google for free" is not on the table.
    (already sends `Accept: text/markdown`), a keyed provider's extract endpoint
    (Tavily `/extract`, Exa contents) when the plain fetch fails or comes back
    thin. No readability crate until a bench task shows the need.
-5. **Pick defaults with a real model.** `bench.py task --arm` over search
-   backends and snippet sizes on tasks that need a current fact, scored by
-   `check.sh` on the work dir. Only this step may reorder `auto`.
+5. **Pick defaults with a real model.** The task is `bench/tasks/web-facts`:
+   seven numbers to look up in vendor and kernel documentation, one boolean
+   per question from `answers.txt`, so a backend that cannot find a page
+   shows up as a failed question. Arms overlay `[tools.web]`:
+
+   ```sh
+   python3 bench/bench.py task --model <id> --no-learn --no-warmup \
+     --tasks web-facts --rounds 5 \
+     --arm exa:'web={search="exa"}' --arm brave:'web={search="brave"}' \
+     --arm tavily:'web={search="tavily"}' --arm ddg:'web={search="ddg"}'
+   ```
+
+   Then `bench.py compare result.json --a exa --b tavily`. Caveats to carry
+   into the ADR: seven questions is a small sample; four of them are about
+   search vendors' own docs, which may favour a vendor that indexes them well;
+   and the model may answer some from memory, which the `ddg` arm shows. Only
+   this step may reorder `auto`.
 
 ## Not doing
 
