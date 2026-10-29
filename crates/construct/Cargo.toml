@@ -48,7 +48,7 @@ serde.workspace = true
 serde_json.workspace = true
 similar = "3"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time", "signal"] }
-toml = "1"
+toml.workspace = true
 toml_edit = "0.25"
 unicode-normalization = "0.1"
 unicode-width = "0.2"

@@ -31,7 +31,7 @@ portable-pty = "0.9"
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-toml = "1"
+toml.workspace = true
 tokio = { workspace = true, features = ["full"] }
 vt100 = "0.18"
 
