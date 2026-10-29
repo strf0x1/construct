@@ -7,6 +7,21 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true
+# One test binary, tests/it.rs (the docs gate checks every sibling file is
+# listed there): each extra integration binary relinks the whole lib.
+autotests = false
+
+[lib]
+doctest = false
+
+[[bin]]
+name = "construct"
+path = "src/main.rs"
+test = false # main.rs only hands off to the lib; it has no tests
+
+[[test]]
+name = "it"
+path = "tests/it.rs"
 
 [lints]
 workspace = true
