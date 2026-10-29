@@ -37,4 +37,5 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Delegation](./delegation.md) — the model hands a task to a configured agent, whose own blocked access asks the user as a subagent
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
+- [Scroll and copy](./scroll-copy.md) — wheel and keys scroll the transcript without mouse capture; `/copy` puts the last reply on the clipboard
 - [Status line](./status-line.md) — the bottom row: model, cumulative in/out/cache, cost, context use, session id

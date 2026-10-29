@@ -80,6 +80,13 @@ in a fresh home and keeps evidence under `.verify/evidence/`:
 .agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/permission-prompt
 ```
 
+The `map` gate in `cargo xtask check` keeps `docs/feature-map/` honest
+without running anything: every recipe directory and every `/command` in
+`tui/help.rs` must be named by an entry, every recipe and `expect-style`
+color an entry names must exist, `verified_at` must be a commit, and each
+entry has the sections its status needs. A new recipe or command fails the
+gate until its entry is written.
+
 `snap --style` shows colors and attributes as `⟦fg=#7aa2f7 bold⟧text⟦/⟧`,
 `expect-style` asserts them, and `image x.png` renders the frame so you can
 open it and look. `docs/feature-map/` says what each feature is, how to reach
@@ -95,7 +102,7 @@ recipe that only checks the screen: the scripted model's reply is fixed, so
 ## Tests
 
 ```sh
-cargo xtask check                 # fmt, clippy -D warnings, all tests, bench tests; ends in `ok` or `FAILED <gate>`
+cargo xtask check                 # docs, feature map, fmt, clippy -D warnings, all tests, bench tests; ends in `ok` or `FAILED <gate>`
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct           # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev       # end-to-end: headless, router, learning, MCP, TUI
