@@ -1,0 +1,3553 @@
+{
+ "manifest": {
+  "harnesses": {
+   "exa": {
+    "version": "0.1.0",
+    "git_sha": "ad4bfd42a5aaea05e4dcd684344c39b5026ff96b",
+    "git_dirty": false,
+    "binary_sha256": "5252cd150cd4ffda495ebad3c58eb1b9633beca61a1713bf371c4c958781bd5c",
+    "config_sha256": "7e589996ff98e125418fd68407282c49c256bf7fb5df49d65ff6e399f6be4279",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "web_search": "exa",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/web-search-tooling-research-7c75a3/target/release/construct"
+   },
+   "tavily": {
+    "version": "0.1.0",
+    "git_sha": "ad4bfd42a5aaea05e4dcd684344c39b5026ff96b",
+    "git_dirty": false,
+    "binary_sha256": "5252cd150cd4ffda495ebad3c58eb1b9633beca61a1713bf371c4c958781bd5c",
+    "config_sha256": "ce3089b535b37df08ce2de287542c0997c475f15a15c125189790ac26f3417e7",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "web_search": "tavily",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/web-search-tooling-research-7c75a3/target/release/construct"
+   },
+   "ddg": {
+    "version": "0.1.0",
+    "git_sha": "ad4bfd42a5aaea05e4dcd684344c39b5026ff96b",
+    "git_dirty": false,
+    "binary_sha256": "5252cd150cd4ffda495ebad3c58eb1b9633beca61a1713bf371c4c958781bd5c",
+    "config_sha256": "96b96a7721848390b5d302288ce66d7bacf4f8cc90bc27600b793618feee4019",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "web_search": "ddg",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/web-search-tooling-research-7c75a3/target/release/construct"
+   }
+  },
+  "dev_git_sha": "0fa9dba4914916e233faf777ab9e7c6234e5175d",
+  "dev_dirty": true,
+  "model": "deepseek/deepseek-v4.1-flash-1017",
+  "bench_py_sha256": "068306cb72035efedd158ce77c544d02a29eb86398d7b9acc906c9a620c16bf9",
+  "host": "echo",
+  "started": "2026-10-29T05:41:47Z"
+ },
+ "model": "deepseek/deepseek-v4.1-flash-1017",
+ "rounds": 2,
+ "tasks": {
+  "web-facts": [
+   "Answer these seven questions from the official documentation, using the web. Each answer is a single integer. Write them to answers.txt in this directory, one per line as `N: value`, for example `1: 42`. Do not guess: look each one up, and if you cannot find it, write `N: unknown`.\n\n1. What is the default requests-per-minute rate limit for a Tavily API key in the Development environment?\n2. What is the maximum value of the `offset` parameter on the Brave Search API web search endpoint?\n3. How many entries can the `includeDomains` list of an Exa search request hold at most?\n4. How many domains can the `include_domains` list of a Tavily search request hold at most?\n5. How many URLs can a single Tavily /extract request take at most?\n6. In SQLite, what is the default value of SQLITE_MAX_VARIABLE_NUMBER for versions after 3.32.0?\n7. In the Linux Landlock userspace API, from which ABI version is LANDLOCK_ACCESS_FS_IOCTL_DEV available?\n"
+  ]
+ },
+ "raw": {
+  "exa": [
+   {
+    "tool_calls": 10,
+    "reads": 1,
+    "shell": {
+     "calls": 1,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 10.815813524997793,
+      "peak_mb": 57.10546875,
+      "stdout_tail": "search) \u2014 `includeDomains` maximum array length 1200.\n4. [Tavily Search API reference](https://docs.tavily.com/documentation/api-reference/endpoint/search) \u2014 `include_domains` max 300 domains.\n5. [Tavily Extract API reference](https://docs.tavily.com/documentation/api-reference/endpoint/extract) \u2014 `urls` maxItems 20.\n6. [SQLite Implementation Limits](https://sqlite.org/limits.html) \u2014 32766 for versions after 3.32.0.\n7. [Landlock userspace API](https://docs.kernel.org/userspace-api/landlock.html) \u2014 guarded by \"ABI < 5\", i.e. available from ABI 5 (matches landlock(7): \"Landlock ABI version 5\").\n",
+      "stderr_tail": "cumentation/api-reference/endpoint/search\"}\n\u00b7 web_fetch {\"url\":\"https://docs.tavily.com/documentation/api-reference/endpoint/extract\"}\n\u00b7 web_search {\"query\":\"LANDLOCK_ACCESS_FS_IOCTL_DEV ABI version landlock userspace API\"}\n\u00b7 shell {\"command\":\"curl -s https://docs.kernel.org/userspace-api/landlock.html | sed -e 's/<[^>]*>//g' | grep -n -i -B3 -A3 \\\"IOCTL_DEV\\\" | head -60\"}\n\u00b7 write {\"path\":\"/tmp/construct-bench/task/exa/web-facts/r0/work/answers.txt\",\"content\":\"1: 100\\n2: 9\\n3: 1200\\n4: 300\\n5: 20\\n6: 32766\\n7: 5\\n\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/exa/web-facts/r0/work/answers.txt\"}\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 10.815813524997793,
+    "requests": 6,
+    "agent_requests": 6,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1650,
+     "bytes": 5658,
+     "n_tools": 9,
+     "system_chars": 1048,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 82677,
+    "completion_tokens": 1242,
+    "cached_tokens": 62080,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.7508738827001463,
+    "cost_usd": 0.00497418,
+    "tool_gaps_ms": [
+     1979.4153280000003,
+     914.9364069999992,
+     136.93241099999977,
+     0.7436849999994593,
+     0.7067949999982375
+    ],
+    "peak_mb": 57.10546875,
+    "learn_wait_s": 0.031600236892700195,
+    "final_message": "Wrote `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nSources:\n1. [Tavily Rate Limits](https://docs.tavily.com/documentation/rate-limits) \u2014 Development = 100 RPM.\n2. [Brave Web Search docs](https://api-dashboard.search.brave.com/documentation/services/web-search) \u2014 `offset` is 0-based with max 9.\n3. [Exa Search reference](https://exa.ai/docs/reference/search) \u2014 `includeDomains` maximum array length 1200.\n4. [Tavily Search API reference](https://docs.tavily.com/documentation/api-reference/endpoint/search) \u2014 `include_domains` max 300 domains.\n5. [Tavily Extract API reference](https://docs.tavily.com/documentation/api-reference/endpoint/extract) \u2014 `urls` maxItems 20.\n6. [SQLite Implementation Limits](https://sqlite.org/limits.html) \u2014 32766 for versions after 3.32.0.\n7. [Landlock userspace API](https://docs.kernel.org/userspace-api/landlock.html) \u2014 guarded by \"ABI < 5\", i.e. available from ABI 5 (matches landlock(7): \"Landlock ABI version 5\").",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 562.214224,
+      "req_bytes": 5658,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1212.388219,
+      "t_end": 1565.119258,
+      "usage": {
+       "prompt_tokens": 1650,
+       "completion_tokens": 186,
+       "total_tokens": 1836,
+       "cost": 0.00043092,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00043092,
+        "upstream_inference_prompt_cost": 0.000297,
+        "upstream_inference_completions_cost": 0.00013392
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 4,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 7,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 3544.534586,
+      "req_bytes": 31515,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4252.753126,
+      "t_end": 4922.339123000001,
+      "usage": {
+       "prompt_tokens": 8409,
+       "completion_tokens": 324,
+       "total_tokens": 8733,
+       "cost": 0.0017469,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.0017469,
+        "upstream_inference_prompt_cost": 0.00151362,
+        "upstream_inference_completions_cost": 0.00023328
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 179,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 11,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 5837.27553,
+      "req_bytes": 81063,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6558.387239,
+      "t_end": 6981.174988000001,
+      "usage": {
+       "prompt_tokens": 17363,
+       "completion_tokens": 198,
+       "total_tokens": 17561,
+       "cost": 0.00182022,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 8320,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00182022,
+        "upstream_inference_prompt_cost": 0.00167766,
+        "upstream_inference_completions_cost": 0.00014256
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 107,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 4,
+      "t_arrive": 7118.107399,
+      "req_bytes": 84217,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 7833.336717,
+      "t_end": 8400.861308,
+      "usage": {
+       "prompt_tokens": 18282,
+       "completion_tokens": 162,
+       "total_tokens": 18444,
+       "cost": 0.00040068,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 17280,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00040068,
+        "upstream_inference_prompt_cost": 0.00028404,
+        "upstream_inference_completions_cost": 0.00011664
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 54,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 15,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 5,
+      "t_arrive": 8401.604992999999,
+      "req_bytes": 84673,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9034.2733,
+      "t_end": 9267.668728,
+      "usage": {
+       "prompt_tokens": 18424,
+       "completion_tokens": 59,
+       "total_tokens": 18483,
+       "cost": 0.000196176,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 18176,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000196176,
+        "upstream_inference_prompt_cost": 0.000153696,
+        "upstream_inference_completions_cost": 4.248e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 3,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 6,
+      "t_arrive": 9268.375522999999,
+      "req_bytes": 85076,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9913.525036,
+      "t_end": 10822.432026,
+      "usage": {
+       "prompt_tokens": 18549,
+       "completion_tokens": 313,
+       "total_tokens": 18862,
+       "cost": 0.000379284,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 18304,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000379284,
+        "upstream_inference_prompt_cost": 0.000153924,
+        "upstream_inference_completions_cost": 0.00022536
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "tool_calls": 8,
+    "reads": 0,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 5.110280736989807,
+      "peak_mb": 25.484375,
+      "stdout_tail": "Wrote `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nSources: Tavily rate-limits docs (Development 100 RPM), Brave web-search docs (offset max 9), Exa search API reference (includeDomains max array length 1200), Tavily search reference (include_domains max 300), Tavily extract docs/FAQ (up to 20 URLs), SQLite limits.html (32766 after 3.32.0), and landlock(7)/kernel docs (IOCTL_DEV since ABI v5).\n",
+      "stderr_tail": "ve Search API web search endpoint offset parameter maximum value\"}\n\u00b7 web_search {\"query\": \"Exa API search request includeDomains maximum number of domains\"}\n\u00b7 web_search {\"query\": \"Tavily search request include_domains maximum number of domains\"}\n\u00b7 web_search {\"query\": \"Tavily extract API maximum number of URLs per request\"}\n\u00b7 web_search {\"query\": \"SQLite SQLITE_MAX_VARIABLE_NUMBER default value versions after 3.32.0\"}\n\u00b7 web_search {\"query\": \"Landlock LANDLOCK_ACCESS_FS_IOCTL_DEV ABI version\"}\n\u00b7 write {\"path\": \"answers.txt\", \"content\": \"1: 100\\n2: 9\\n3: 1200\\n4: 300\\n5: 20\\n6: 32766\\n7: 5\\n\"}\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 5.110280736989807,
+    "requests": 3,
+    "agent_requests": 3,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1695,
+     "bytes": 5658,
+     "n_tools": 9,
+     "system_chars": 1048,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 27594,
+    "completion_tokens": 670,
+    "cached_tokens": 14592,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.5288106110023918,
+    "cost_usd": 0.00128798,
+    "tool_gaps_ms": [
+     2087.392601,
+     1.2514270000001488
+    ],
+    "peak_mb": 25.484375,
+    "learn_wait_s": 0.030739545822143555,
+    "final_message": "Wrote `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nSources: Tavily rate-limits docs (Development 100 RPM), Brave web-search docs (offset max 9), Exa search API reference (includeDomains max array length 1200), Tavily search reference (include_domains max 300), Tavily extract docs/FAQ (up to 20 URLs), SQLite limits.html (32766 after 3.32.0), and landlock(7)/kernel docs (IOCTL_DEV since ABI v5).",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 369.40744199999995,
+      "req_bytes": 5658,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 649.916214,
+      "t_end": 1317.80044,
+      "usage": {
+       "prompt_tokens": 1695,
+       "completion_tokens": 310,
+       "total_tokens": 2005,
+       "cost": 0.000259254,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 128,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000259254,
+        "upstream_inference_prompt_cost": 0.000104254,
+        "upstream_inference_completions_cost": 0.000155
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 310,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 7,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 3405.193041,
+      "req_bytes": 48229,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3792.575437,
+      "t_end": 4117.325978,
+      "usage": {
+       "prompt_tokens": 12887,
+       "completion_tokens": 144,
+       "total_tokens": 13031,
+       "cost": 0.000823534,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 1664,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000823534,
+        "upstream_inference_prompt_cost": 0.000751534,
+        "upstream_inference_completions_cost": 7.2e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 144,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 4118.577405,
+      "req_bytes": 48656,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4409.70235,
+      "t_end": 5125.780604,
+      "usage": {
+       "prompt_tokens": 13012,
+       "completion_tokens": 216,
+       "total_tokens": 13228,
+       "cost": 0.000205192,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 12800,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000205192,
+        "upstream_inference_prompt_cost": 9.7192e-05,
+        "upstream_inference_completions_cost": 0.000108
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 110,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   }
+  ],
+  "tavily": [
+   {
+    "tool_calls": 13,
+    "reads": 0,
+    "shell": {
+     "calls": 3,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 20.878960147994803,
+      "peak_mb": 80.8125,
+      "stdout_tail": "I'll research each question from official documentation.\nWrote `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nVerified against official sources: Tavily docs rate-limits page (Development = 100 RPM), Brave API reference for `GET /res/v1/web/search` (`offset` Min 0 / Max 9), Exa's search OpenAPI spec (`includeDomains` maxItems 1200), Tavily Search endpoint reference (`include_domains` max 300), Tavily Extract reference (1\u201320 URLs per request), sqlite.org limits page (32766 for versions after 3.32.0), and kernel.org Landlock userspace API (ioctl_dev since ABI version 5).\n",
+      "stderr_tail": "web_fetch {\"url\": \"https://docs.tavily.com/documentation/api-reference/endpoint/extract\"}\n\u00b7 shell {\"command\": \"cd /tmp/construct-bench/task/tavily/web-facts/r0/work && cat answers.txt && curl -s https://www.sqlite.org/limits.html | grep -o 'defaults to 999[^\u2026\n\u00b7 shell {\"command\": \"curl -s https://www.sqlite.org/limits.html | grep -o 'SQLITE_MAX_VARIABLE_NUMBER[^.]*\\\\.[^.]*\\\\.' | head -3; curl -s https://docs.kernel.org/usersp\u2026\n\u00b7 shell {\"command\": \"curl -s https://www.sqlite.org/limits.html | tr '\\\\n' ' ' | grep -o 'SQLITE_MAX_VARIABLE_NUMBER.\\\\{0,400\\\\}' | head -2; echo \\\"---\\\"; curl -s https\u2026\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 20.878960147994803,
+    "requests": 9,
+    "agent_requests": 9,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1651,
+     "bytes": 5661,
+     "n_tools": 9,
+     "system_chars": 1051,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 146089,
+    "completion_tokens": 1451,
+    "cached_tokens": 120832,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.8271122397990266,
+    "cost_usd": 0.005589404,
+    "tool_gaps_ms": [
+     1446.8374780000001,
+     1780.0379650000004,
+     2382.6438960000005,
+     1.112504999999146,
+     697.9877460000007,
+     195.97033799999917,
+     354.2507459999979,
+     401.71877099999983
+    ],
+    "peak_mb": 80.8125,
+    "learn_wait_s": 0.03178071975708008,
+    "final_message": "Wrote `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nVerified against official sources: Tavily docs rate-limits page (Development = 100 RPM), Brave API reference for `GET /res/v1/web/search` (`offset` Min 0 / Max 9), Exa's search OpenAPI spec (`includeDomains` maxItems 1200), Tavily Search endpoint reference (`include_domains` max 300), Tavily Extract reference (1\u201320 URLs per request), sqlite.org limits page (32766 for versions after 3.32.0), and kernel.org Landlock userspace API (ioctl_dev since ABI version 5).",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 452.272107,
+      "req_bytes": 5661,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 968.402404,
+      "t_end": 1404.78547,
+      "usage": {
+       "prompt_tokens": 1651,
+       "completion_tokens": 96,
+       "total_tokens": 1747,
+       "cost": 0.00029085,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00029085,
+        "upstream_inference_prompt_cost": 0.00024765,
+        "upstream_inference_completions_cost": 4.32e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 1,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 5,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 2851.622948,
+      "req_bytes": 21341,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3399.528459,
+      "t_end": 4498.617722999999,
+      "usage": {
+       "prompt_tokens": 5431,
+       "completion_tokens": 186,
+       "total_tokens": 5617,
+       "cost": 0.000682542,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 1536,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000682542,
+        "upstream_inference_prompt_cost": 0.000598842,
+        "upstream_inference_completions_cost": 8.37e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 58,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 9,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 6278.655688,
+      "req_bytes": 45392,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6702.398425,
+      "t_end": 7620.46122,
+      "usage": {
+       "prompt_tokens": 11423,
+       "completion_tokens": 153,
+       "total_tokens": 11576,
+       "cost": 0.001026972,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 5376,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.001026972,
+        "upstream_inference_prompt_cost": 0.000958122,
+        "upstream_inference_completions_cost": 6.885e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 43,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 4,
+      "t_arrive": 10003.105116,
+      "req_bytes": 60764,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10496.718409,
+      "t_end": 11578.314898,
+      "usage": {
+       "prompt_tokens": 15528,
+       "completion_tokens": 201,
+       "total_tokens": 15729,
+       "cost": 0.000837058,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 11264,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000837058,
+        "upstream_inference_prompt_cost": 0.000746608,
+        "upstream_inference_completions_cost": 9.045e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 93,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 14,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 5,
+      "t_arrive": 11579.427403,
+      "req_bytes": 61229,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 12040.912694999999,
+      "t_end": 12944.610069,
+      "usage": {
+       "prompt_tokens": 15672,
+       "completion_tokens": 174,
+       "total_tokens": 15846,
+       "cost": 0.00027102,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 15360,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00027102,
+        "upstream_inference_prompt_cost": 0.00019272,
+        "upstream_inference_completions_cost": 7.83e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 83,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 6,
+      "t_arrive": 13642.597815000001,
+      "req_bytes": 105713,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 14405.960143,
+      "t_end": 15373.659006,
+      "usage": {
+       "prompt_tokens": 23812,
+       "completion_tokens": 156,
+       "total_tokens": 23968,
+       "cost": 0.001447952,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 15616,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.001447952,
+        "upstream_inference_prompt_cost": 0.001377752,
+        "upstream_inference_completions_cost": 7.02e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 66,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 7,
+      "t_arrive": 15569.629343999999,
+      "req_bytes": 106240,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 16543.893036,
+      "t_end": 16789.369731000003,
+      "usage": {
+       "prompt_tokens": 23976,
+       "completion_tokens": 128,
+       "total_tokens": 24104,
+       "cost": 0.000308976,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 23808,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000308976,
+        "upstream_inference_prompt_cost": 0.000251376,
+        "upstream_inference_completions_cost": 5.76e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 1,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 8,
+      "t_arrive": 17143.620477,
+      "req_bytes": 106782,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 17825.203681000003,
+      "t_end": 18545.850072,
+      "usage": {
+       "prompt_tokens": 24117,
+       "completion_tokens": 143,
+       "total_tokens": 24260,
+       "cost": 0.000336876,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 23808,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000336876,
+        "upstream_inference_prompt_cost": 0.000272526,
+        "upstream_inference_completions_cost": 6.435e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 15,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 23,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 9,
+      "t_arrive": 18947.568843,
+      "req_bytes": 108011,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 19394.963467,
+      "t_end": 20894.277364,
+      "usage": {
+       "prompt_tokens": 24479,
+       "completion_tokens": 214,
+       "total_tokens": 24693,
+       "cost": 0.000387158,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 24064,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000387158,
+        "upstream_inference_prompt_cost": 0.000290858,
+        "upstream_inference_completions_cost": 9.63e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 42,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "tool_calls": 15,
+    "reads": 1,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 13.263333487993805,
+      "peak_mb": 26.015625,
+      "stdout_tail": "\n\nWrote `answers.txt`:\n\n| # | Answer | Source |\n|---|--------|--------|\n| 1 | 100 | docs.tavily.com/documentation/rate-limits |\n| 2 | 9 | api-dashboard.search.brave.com/api-reference/web/search |\n| 3 | 1200 | exa.ai/docs/reference/search (`maxItems: 1200`) |\n| 4 | 300 | docs.tavily.com Search API (`Maximum 300 domains`) |\n| 5 | 20 | docs.tavily.com Extract API (`maxItems: 20`) |\n| 6 | 32766 | sqlite.org/limits.html |\n| 7 | 5 | docs.kernel.org/userspace-api/landlock.html |\n",
+      "stderr_tail": "ndpoint/search\"}\n\u00b7 web_fetch {\"url\":\"https://docs.tavily.com/documentation/rate-limits\"}\n\u00b7 web_fetch {\"url\":\"https://docs.tavily.com/documentation/api-reference/endpoint/extract\"}\n\u00b7 web_fetch {\"url\":\"https://exa.ai/docs/reference/search\"}\n\u00b7 web_fetch {\"url\":\"https://www.sqlite.org/limits.html\"}\n\u00b7 web_fetch {\"url\":\"https://docs.kernel.org/userspace-api/landlock.html\"}\n\u00b7 write {\"path\":\"/tmp/construct-bench/task/tavily/web-facts/r1/work/answers.txt\",\"content\":\"1: 100\\n2: 9\\n3: 1200\\n4: 300\\n5: 20\\n6: 32766\\n7: 5\\n\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/tavily/web-facts/r1/work/answers.txt\"}\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 13.263333487993805,
+    "requests": 7,
+    "agent_requests": 7,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1651,
+     "bytes": 5661,
+     "n_tools": 9,
+     "system_chars": 1051,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 188613,
+    "completion_tokens": 1508,
+    "cached_tokens": 146176,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.7750049042218723,
+    "cost_usd": 0.015170106,
+    "tool_gaps_ms": [
+     1585.8123120000002,
+     472.258186,
+     501.00591899999927,
+     316.25976900000023,
+     1.6214469999995345,
+     2.507986999999048
+    ],
+    "peak_mb": 26.015625,
+    "learn_wait_s": 0.030810117721557617,
+    "final_message": "Wrote `answers.txt`:\n\n| # | Answer | Source |\n|---|--------|--------|\n| 1 | 100 | docs.tavily.com/documentation/rate-limits |\n| 2 | 9 | api-dashboard.search.brave.com/api-reference/web/search |\n| 3 | 1200 | exa.ai/docs/reference/search (`maxItems: 1200`) |\n| 4 | 300 | docs.tavily.com Search API (`Maximum 300 domains`) |\n| 5 | 20 | docs.tavily.com Extract API (`maxItems: 20`) |\n| 6 | 32766 | sqlite.org/limits.html |\n| 7 | 5 | docs.kernel.org/userspace-api/landlock.html |",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 455.14127199999996,
+      "req_bytes": 5661,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 968.4830420000001,
+      "t_end": 1616.630903,
+      "usage": {
+       "prompt_tokens": 1651,
+       "completion_tokens": 303,
+       "total_tokens": 1954,
+       "cost": 0.00061125,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00061125,
+        "upstream_inference_prompt_cost": 0.00024765,
+        "upstream_inference_completions_cost": 0.0003636
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 19,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 7,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 3202.4432150000002,
+      "req_bytes": 61671,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4201.278423,
+      "t_end": 4601.041684,
+      "usage": {
+       "prompt_tokens": 15722,
+       "completion_tokens": 183,
+       "total_tokens": 15905,
+       "cost": 0.0049362,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.0049362,
+        "upstream_inference_prompt_cost": 0.0047166,
+        "upstream_inference_completions_cost": 0.0002196
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 88,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 5073.29987,
+      "req_bytes": 91257,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5743.294058,
+      "t_end": 7073.486474,
+      "usage": {
+       "prompt_tokens": 21016,
+       "completion_tokens": 413,
+       "total_tokens": 21429,
+       "cost": 0.002209296,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 15616,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.002209296,
+        "upstream_inference_prompt_cost": 0.001713696,
+        "upstream_inference_completions_cost": 0.0004956
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 326,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 16,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 4,
+      "t_arrive": 7574.4923929999995,
+      "req_bytes": 135787,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 8395.463361999999,
+      "t_end": 9162.790475,
+      "usage": {
+       "prompt_tokens": 29156,
+       "completion_tokens": 127,
+       "total_tokens": 29283,
+       "cost": 0.002727552,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 20992,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.002727552,
+        "upstream_inference_prompt_cost": 0.002575152,
+        "upstream_inference_completions_cost": 0.0001524
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 39,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 5,
+      "t_arrive": 9479.050244,
+      "req_bytes": 179816,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10400.119496000001,
+      "t_end": 11251.166763000001,
+      "usage": {
+       "prompt_tokens": 40218,
+       "completion_tokens": 233,
+       "total_tokens": 40451,
+       "cost": 0.003802536,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 29056,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.003802536,
+        "upstream_inference_prompt_cost": 0.003522936,
+        "upstream_inference_completions_cost": 0.0002796
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 126,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 6,
+      "t_arrive": 11252.78821,
+      "req_bytes": 180302,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 11909.237006,
+      "t_end": 12017.11441,
+      "usage": {
+       "prompt_tokens": 40362,
+       "completion_tokens": 57,
+       "total_tokens": 40419,
+       "cost": 0.000360552,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 40192,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000360552,
+        "upstream_inference_prompt_cost": 0.000292152,
+        "upstream_inference_completions_cost": 6.84e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 23,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1051,
+      "tools_chars": 3461,
+      "i": 7,
+      "t_arrive": 12019.622397,
+      "req_bytes": 180734,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 12834.222321000001,
+      "t_end": 13279.35746,
+      "usage": {
+       "prompt_tokens": 40488,
+       "completion_tokens": 192,
+       "total_tokens": 40680,
+       "cost": 0.00052272,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 40320,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00052272,
+        "upstream_inference_prompt_cost": 0.00029232,
+        "upstream_inference_completions_cost": 0.0002304
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 30,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   }
+  ],
+  "ddg": [
+   {
+    "tool_calls": 18,
+    "reads": 0,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 16.107867568003712,
+      "peak_mb": 24.38671875,
+      "stdout_tail": "et is 0-based, max 9\n3: 1200       # Exa OpenAPI SearchRequest.includeDomains maxItems\n4: 300        # Tavily search include_domains: \"Maximum 300 domains\"\n5: 20         # Tavily /extract: 1\u201320 URLs per request\n6: 32766      # SQLite limits: LIMIT #9, versions after 3.32.0\n7: 5          # Landlock: LANDLOCK_ACCESS_FS_IOCTL_DEV since ABI v5\n```\n\nSources: docs.tavily.com rate-limits + search/extract API references, api-dashboard.search.brave.com web-search query docs (Pagination section), exa.ai/docs search spec (`maxItems: 1200`), sqlite.org/limits.html, docs.kernel.org Landlock userspace API.\n",
+      "stderr_tail": " web_fetch {\"url\":\"https://www.sqlite.org/limits.html\"}\n\u00b7 web_fetch {\"url\":\"https://docs.kernel.org/userspace-api/landlock.html\"}\n  \u2717 Error: HTTP 403 Forbidden \n\u00b7 web_fetch {\"url\":\"https://api.search.brave.com/app/documentation/web-search/query#webSearch-request-offset\"}\n\u00b7 web_fetch {\"url\":\"https://api-dashboard.search.brave.com/app/documentation/web-search/query\"}\n\u00b7 web_fetch {\"url\":\"https://brave.com/search/api/\"}\n  \u2717 Error: HTTP 403 Forbidden \n\u00b7 write {\"path\": \"/tmp/construct-bench/task/ddg/web-facts/r0/work/answers.txt\", \"content\": \"1: 100\\n2: 9\\n3: 1200\\n4: 300\\n5: 20\\n6: 32766\\n7: 5\\n\"}\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 16.107867568003712,
+    "requests": 5,
+    "agent_requests": 5,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1650,
+     "bytes": 5658,
+     "n_tools": 9,
+     "system_chars": 1048,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 106591,
+    "completion_tokens": 1507,
+    "cached_tokens": 3584,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.03362385191995572,
+    "cost_usd": 0.011201086,
+    "tool_gaps_ms": [
+     258.48275300000023,
+     842.4102890000004,
+     196.58436099999926,
+     0.9815829999988637
+    ],
+    "peak_mb": 24.38671875,
+    "learn_wait_s": 0.033879995346069336,
+    "final_message": "Wrote `answers.txt`:\n\n```\n1: 100        # Tavily docs > Rate Limits (Development RPM)\n2: 9          # Brave web search: offset is 0-based, max 9\n3: 1200       # Exa OpenAPI SearchRequest.includeDomains maxItems\n4: 300        # Tavily search include_domains: \"Maximum 300 domains\"\n5: 20         # Tavily /extract: 1\u201320 URLs per request\n6: 32766      # SQLite limits: LIMIT #9, versions after 3.32.0\n7: 5          # Landlock: LANDLOCK_ACCESS_FS_IOCTL_DEV since ABI v5\n```\n\nSources: docs.tavily.com rate-limits + search/extract API references, api-dashboard.search.brave.com web-search query docs (Pagination section), exa.ai/docs search spec (`maxItems: 1200`), sqlite.org/limits.html, docs.kernel.org Landlock userspace API.",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 496.351989,
+      "req_bytes": 5658,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1232.6443060000001,
+      "t_end": 2558.9867489999997,
+      "usage": {
+       "prompt_tokens": 1650,
+       "completion_tokens": 465,
+       "total_tokens": 2115,
+       "cost": 0.000250695,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000250695,
+        "upstream_inference_prompt_cost": 7.26e-05,
+        "upstream_inference_completions_cost": 0.000178095
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 26,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 7,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 2817.469502,
+      "req_bytes": 8717,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3574.7835659999996,
+      "t_end": 4714.129002,
+      "usage": {
+       "prompt_tokens": 2387,
+       "completion_tokens": 415,
+       "total_tokens": 2802,
+       "cost": 0.000202533,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 1536,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000202533,
+        "upstream_inference_prompt_cost": 4.3588e-05,
+        "upstream_inference_completions_cost": 0.000158945
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 125,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 7,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 18,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 5556.539291,
+      "req_bytes": 127059,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 8399.543829,
+      "t_end": 9401.659252,
+      "usage": {
+       "prompt_tokens": 26911,
+       "completion_tokens": 232,
+       "total_tokens": 27143,
+       "cost": 0.00119102,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2048,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00119102,
+        "upstream_inference_prompt_cost": 0.001102164,
+        "upstream_inference_completions_cost": 8.8856e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 99,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 22,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 4,
+      "t_arrive": 9598.243612999999,
+      "req_bytes": 170130,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10335.342458,
+      "t_end": 10756.628891,
+      "usage": {
+       "prompt_tokens": 37773,
+       "completion_tokens": 169,
+       "total_tokens": 37942,
+       "cost": 0.002577518,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.002577518,
+        "upstream_inference_prompt_cost": 0.002493018,
+        "upstream_inference_completions_cost": 8.45e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 169,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 24,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 5,
+      "t_arrive": 10757.610474,
+      "req_bytes": 170605,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 15583.192116,
+      "t_end": 16124.400104999999,
+      "usage": {
+       "prompt_tokens": 37870,
+       "completion_tokens": 226,
+       "total_tokens": 38096,
+       "cost": 0.00697932,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00697932,
+        "upstream_inference_prompt_cost": 0.0068166,
+        "upstream_inference_completions_cost": 0.00016272
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "tool_calls": 19,
+    "reads": 0,
+    "shell": {
+     "calls": 1,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "web-facts",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 16.548295991990017,
+      "peak_mb": 24.08984375,
+      "stdout_tail": "`answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nSources:\n1. Tavily Rate Limits \u2014 Development = 100 RPM.\n2. Brave Web Search `/v1/web/search` API reference \u2014 `offset` range `0`\u2013`9`.\n3. Exa `/search` OpenAPI spec \u2014 `includeDomains` `maxItems: 1200`.\n4. Tavily `/search` spec \u2014 `include_domains` \"Maximum 300 domains\".\n5. Tavily `/extract` spec \u2014 `urls` array `maxItems: 20` (\"Max 20 URLs are allowed\").\n6. SQLite limits \u2014 `SQLITE_MAX_VARIABLE_NUMBER` defaults to 32766 for versions after 3.32.0.\n7. kernel.org Landlock docs \u2014 `LANDLOCK_ACCESS_FS_IOCTL_DEV` since ABI version 5.\n",
+      "stderr_tail": "url\": \"https://sqlite.org/limits.html\"}\n\u00b7 web_fetch {\"url\": \"https://docs.kernel.org/userspace-api/landlock.html\"}\n  \u2717 Error: HTTP 404 Not Found Brave Search - API  [![Brave](https://cdn.search.brave.com/search-api/web/v1/client/_app/immutable/assets/brave-logo.BytqdRrN.svg) ![Brave](https://cdn.search.brave.com/searc\u2026\n\u00b7 web_fetch {\"url\": \"https://api-dashboard.search.brave.com/api-reference/web/search/get\"}\n\u00b7 write {\"path\": \"/tmp/construct-bench/task/ddg/web-facts/r1/work/answers.txt\", \"content\": \"1: 100\\n2: 9\\n3: 1200\\n4: 300\\n5: 20\\n6: 32766\\n7: 5\\n\"}\n\u00b7 shell {\"command\": \"cat answers.txt\"}\n"
+     }
+    ],
+    "checks": {
+     "q1": true,
+     "q2": true,
+     "q3": true,
+     "q4": true,
+     "q5": true,
+     "q6": true,
+     "q7": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 16.548295991990017,
+    "requests": 8,
+    "agent_requests": 8,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1625,
+     "bytes": 5658,
+     "n_tools": 9,
+     "system_chars": 1048,
+     "tools_chars": 3461
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 229058,
+    "completion_tokens": 1557,
+    "cached_tokens": 183040,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.7990989181779288,
+    "cost_usd": 0.00600211,
+    "tool_gaps_ms": [
+     850.6854269999999,
+     649.9784990000007,
+     269.2682079999995,
+     321.4706130000013,
+     85.43153800000073,
+     1.2046790000003966,
+     5.099052999998094
+    ],
+    "peak_mb": 24.08984375,
+    "learn_wait_s": 0.030904769897460938,
+    "final_message": "Written to `answers.txt`:\n\n```\n1: 100\n2: 9\n3: 1200\n4: 300\n5: 20\n6: 32766\n7: 5\n```\n\nSources:\n1. Tavily Rate Limits \u2014 Development = 100 RPM.\n2. Brave Web Search `/v1/web/search` API reference \u2014 `offset` range `0`\u2013`9`.\n3. Exa `/search` OpenAPI spec \u2014 `includeDomains` `maxItems: 1200`.\n4. Tavily `/search` spec \u2014 `include_domains` \"Maximum 300 domains\".\n5. Tavily `/extract` spec \u2014 `urls` array `maxItems: 20` (\"Max 20 URLs are allowed\").\n6. SQLite limits \u2014 `SQLITE_MAX_VARIABLE_NUMBER` defaults to 32766 for versions after 3.32.0.\n7. kernel.org Landlock docs \u2014 `LANDLOCK_ACCESS_FS_IOCTL_DEV` since ABI version 5.",
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 1,
+      "t_arrive": 462.052974,
+      "req_bytes": 5658,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 903.141961,
+      "t_end": 2207.516219,
+      "usage": {
+       "prompt_tokens": 1625,
+       "completion_tokens": 305,
+       "total_tokens": 1930,
+       "cost": 0.00029775,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00029775,
+        "upstream_inference_prompt_cost": 0.00013,
+        "upstream_inference_completions_cost": 0.00016775
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 7,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 2,
+      "t_arrive": 3058.201646,
+      "req_bytes": 24331,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3471.2700879999998,
+      "t_end": 4294.943050999999,
+      "usage": {
+       "prompt_tokens": 6167,
+       "completion_tokens": 211,
+       "total_tokens": 6378,
+       "cost": 0.000498818,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 1536,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000498818,
+        "upstream_inference_prompt_cost": 0.000382768,
+        "upstream_inference_completions_cost": 0.00011605
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 34,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 4,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 15,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 3,
+      "t_arrive": 4944.92155,
+      "req_bytes": 95403,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5830.2132679999995,
+      "t_end": 7717.43206,
+      "usage": {
+       "prompt_tokens": 20093,
+       "completion_tokens": 239,
+       "total_tokens": 20332,
+       "cost": 0.001296522,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 6144,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.001296522,
+        "upstream_inference_prompt_cost": 0.001165072,
+        "upstream_inference_completions_cost": 0.00013145
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 138,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 18,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 4,
+      "t_arrive": 7986.700268,
+      "req_bytes": 129279,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 8631.898282,
+      "t_end": 9936.207427,
+      "usage": {
+       "prompt_tokens": 26860,
+       "completion_tokens": 221,
+       "total_tokens": 27081,
+       "cost": 0.000832654,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 19968,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000832654,
+        "upstream_inference_prompt_cost": 0.000711104,
+        "upstream_inference_completions_cost": 0.00012155
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 86,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 22,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 5,
+      "t_arrive": 10257.67804,
+      "req_bytes": 173913,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10985.849339999999,
+      "t_end": 12330.729825,
+      "usage": {
+       "prompt_tokens": 38089,
+       "completion_tokens": 168,
+       "total_tokens": 38257,
+       "cost": 0.001213376,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 26752,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.001213376,
+        "upstream_inference_prompt_cost": 0.001120976,
+        "upstream_inference_completions_cost": 9.24e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 114,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 24,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 6,
+      "t_arrive": 12416.161363000001,
+      "req_bytes": 199662,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 13021.154685000001,
+      "t_end": 13608.503441,
+      "usage": {
+       "prompt_tokens": 45284,
+       "completion_tokens": 149,
+       "total_tokens": 45433,
+       "cost": 0.000967518,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 38016,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000967518,
+        "upstream_inference_prompt_cost": 0.000885568,
+        "upstream_inference_completions_cost": 8.195e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 41,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 26,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 7,
+      "t_arrive": 13609.708120000001,
+      "req_bytes": 200123,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 14390.903864,
+      "t_end": 14546.693337,
+      "usage": {
+       "prompt_tokens": 45426,
+       "completion_tokens": 40,
+       "total_tokens": 45466,
+       "cost": 0.000402832,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 45184,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.000402832,
+        "upstream_inference_prompt_cost": 0.000380832,
+        "upstream_inference_completions_cost": 2.2e-05
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 28,
+      "last_role": "tool",
+      "n_tools": 9,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "web_search",
+       "web_fetch",
+       "enable_tools"
+      ],
+      "system_chars": 1048,
+      "tools_chars": 3461,
+      "i": 8,
+      "t_arrive": 14551.792389999999,
+      "req_bytes": 200440,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 15395.550924000001,
+      "t_end": 16555.302382,
+      "usage": {
+       "prompt_tokens": 45514,
+       "completion_tokens": 224,
+       "total_tokens": 45738,
+       "cost": 0.00049264,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 45440,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0.00049264,
+        "upstream_inference_prompt_cost": 0.00036944,
+        "upstream_inference_completions_cost": 0.0001232
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   }
+  ]
+ },
+ "summary": {
+  "exa": {
+   "success_rate": 1.0,
+   "checks_passed": {
+    "n": 2,
+    "median": 7.0,
+    "p10": 7,
+    "p90": 7,
+    "min": 7,
+    "max": 7,
+    "mean": 7
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 2,
+    "median": 7.9630471309938,
+    "p10": 5.110280736989807,
+    "p90": 10.815813524997793,
+    "min": 5.110280736989807,
+    "max": 10.815813524997793,
+    "mean": 7.9630471309938
+   },
+   "requests": {
+    "n": 2,
+    "median": 4.5,
+    "p10": 3,
+    "p90": 6,
+    "min": 3,
+    "max": 6,
+    "mean": 4.5
+   },
+   "prompt_tokens": {
+    "n": 2,
+    "median": 55135.5,
+    "p10": 27594,
+    "p90": 82677,
+    "min": 27594,
+    "max": 82677,
+    "mean": 55135.5
+   },
+   "completion_tokens": {
+    "n": 2,
+    "median": 956.0,
+    "p10": 670,
+    "p90": 1242,
+    "min": 670,
+    "max": 1242,
+    "mean": 956
+   },
+   "first_request_tokens": {
+    "n": 2,
+    "median": 1672.5,
+    "p10": 1650,
+    "p90": 1695,
+    "min": 1650,
+    "max": 1695,
+    "mean": 1672.5
+   },
+   "cached_tokens": {
+    "n": 2,
+    "median": 38336.0,
+    "p10": 14592,
+    "p90": 62080,
+    "min": 14592,
+    "max": 62080,
+    "mean": 38336
+   },
+   "cache_write_tokens": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 2,
+    "median": 0.639842246851269,
+    "p10": 0.5288106110023918,
+    "p90": 0.7508738827001463,
+    "min": 0.5288106110023918,
+    "max": 0.7508738827001463,
+    "mean": 0.639842246851269
+   },
+   "cost_usd": {
+    "n": 2,
+    "median": 0.00313108,
+    "p10": 0.00128798,
+    "p90": 0.00497418,
+    "min": 0.00128798,
+    "max": 0.00497418,
+    "mean": 0.00313108
+   },
+   "tool_gap_ms": {
+    "n": 7,
+    "median": 136.93241099999977,
+    "p10": 0.7436849999994593,
+    "p90": 1979.4153280000003,
+    "min": 0.7067949999982375,
+    "max": 2087.392601,
+    "mean": 731.6255219999996
+   },
+   "peak_mb": {
+    "n": 2,
+    "median": 41.294921875,
+    "p10": 25.484375,
+    "p90": 57.10546875,
+    "min": 25.484375,
+    "max": 57.10546875,
+    "mean": 41.294921875
+   },
+   "edit_calls": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  },
+  "tavily": {
+   "success_rate": 1.0,
+   "checks_passed": {
+    "n": 2,
+    "median": 7.0,
+    "p10": 7,
+    "p90": 7,
+    "min": 7,
+    "max": 7,
+    "mean": 7
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 2,
+    "median": 17.071146817994304,
+    "p10": 13.263333487993805,
+    "p90": 20.878960147994803,
+    "min": 13.263333487993805,
+    "max": 20.878960147994803,
+    "mean": 17.071146817994304
+   },
+   "requests": {
+    "n": 2,
+    "median": 8.0,
+    "p10": 7,
+    "p90": 9,
+    "min": 7,
+    "max": 9,
+    "mean": 8
+   },
+   "prompt_tokens": {
+    "n": 2,
+    "median": 167351.0,
+    "p10": 146089,
+    "p90": 188613,
+    "min": 146089,
+    "max": 188613,
+    "mean": 167351
+   },
+   "completion_tokens": {
+    "n": 2,
+    "median": 1479.5,
+    "p10": 1451,
+    "p90": 1508,
+    "min": 1451,
+    "max": 1508,
+    "mean": 1479.5
+   },
+   "first_request_tokens": {
+    "n": 2,
+    "median": 1651.0,
+    "p10": 1651,
+    "p90": 1651,
+    "min": 1651,
+    "max": 1651,
+    "mean": 1651
+   },
+   "cached_tokens": {
+    "n": 2,
+    "median": 133504.0,
+    "p10": 120832,
+    "p90": 146176,
+    "min": 120832,
+    "max": 146176,
+    "mean": 133504
+   },
+   "cache_write_tokens": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 2,
+    "median": 0.8010585720104495,
+    "p10": 0.7750049042218723,
+    "p90": 0.8271122397990266,
+    "min": 0.7750049042218723,
+    "max": 0.8271122397990266,
+    "mean": 0.8010585720104495
+   },
+   "cost_usd": {
+    "n": 2,
+    "median": 0.010379755,
+    "p10": 0.005589404,
+    "p90": 0.015170106,
+    "min": 0.005589404,
+    "max": 0.015170106,
+    "mean": 0.010379755
+   },
+   "tool_gap_ms": {
+    "n": 14,
+    "median": 436.9884784999999,
+    "p10": 1.6214469999995345,
+    "p90": 1780.0379650000004,
+    "min": 1.112504999999146,
+    "max": 2382.6438960000005,
+    "mean": 724.2875046428569
+   },
+   "peak_mb": {
+    "n": 2,
+    "median": 53.4140625,
+    "p10": 26.015625,
+    "p90": 80.8125,
+    "min": 26.015625,
+    "max": 80.8125,
+    "mean": 53.4140625
+   },
+   "edit_calls": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  },
+  "ddg": {
+   "success_rate": 1.0,
+   "checks_passed": {
+    "n": 2,
+    "median": 7.0,
+    "p10": 7,
+    "p90": 7,
+    "min": 7,
+    "max": 7,
+    "mean": 7
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 2,
+    "median": 16.328081779996864,
+    "p10": 16.107867568003712,
+    "p90": 16.548295991990017,
+    "min": 16.107867568003712,
+    "max": 16.548295991990017,
+    "mean": 16.328081779996864
+   },
+   "requests": {
+    "n": 2,
+    "median": 6.5,
+    "p10": 5,
+    "p90": 8,
+    "min": 5,
+    "max": 8,
+    "mean": 6.5
+   },
+   "prompt_tokens": {
+    "n": 2,
+    "median": 167824.5,
+    "p10": 106591,
+    "p90": 229058,
+    "min": 106591,
+    "max": 229058,
+    "mean": 167824.5
+   },
+   "completion_tokens": {
+    "n": 2,
+    "median": 1532.0,
+    "p10": 1507,
+    "p90": 1557,
+    "min": 1507,
+    "max": 1557,
+    "mean": 1532
+   },
+   "first_request_tokens": {
+    "n": 2,
+    "median": 1637.5,
+    "p10": 1625,
+    "p90": 1650,
+    "min": 1625,
+    "max": 1650,
+    "mean": 1637.5
+   },
+   "cached_tokens": {
+    "n": 2,
+    "median": 93312.0,
+    "p10": 3584,
+    "p90": 183040,
+    "min": 3584,
+    "max": 183040,
+    "mean": 93312
+   },
+   "cache_write_tokens": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 2,
+    "median": 0.41636138504894227,
+    "p10": 0.03362385191995572,
+    "p90": 0.7990989181779288,
+    "min": 0.03362385191995572,
+    "max": 0.7990989181779288,
+    "mean": 0.41636138504894227
+   },
+   "cost_usd": {
+    "n": 2,
+    "median": 0.008601598,
+    "p10": 0.00600211,
+    "p90": 0.011201086,
+    "min": 0.00600211,
+    "max": 0.011201086,
+    "mean": 0.008601598
+   },
+   "tool_gap_ms": {
+    "n": 11,
+    "median": 258.48275300000023,
+    "p10": 1.2046790000003966,
+    "p90": 842.4102890000004,
+    "min": 0.9815829999988637,
+    "max": 850.6854269999999,
+    "mean": 316.5088184545454
+   },
+   "peak_mb": {
+    "n": 2,
+    "median": 24.23828125,
+    "p10": 24.08984375,
+    "p90": 24.38671875,
+    "min": 24.08984375,
+    "max": 24.38671875,
+    "mean": 24.23828125
+   },
+   "edit_calls": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 2,
+    "median": 0.0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  }
+ },
+ "by_task": {
+  "web-facts": {
+   "exa": {
+    "success_rate": 1.0,
+    "checks_passed": {
+     "n": 2,
+     "median": 7.0,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 2,
+     "median": 7.9630471309938,
+     "p10": 5.110280736989807,
+     "p90": 10.815813524997793,
+     "min": 5.110280736989807,
+     "max": 10.815813524997793,
+     "mean": 7.9630471309938
+    },
+    "requests": {
+     "n": 2,
+     "median": 4.5,
+     "p10": 3,
+     "p90": 6,
+     "min": 3,
+     "max": 6,
+     "mean": 4.5
+    },
+    "prompt_tokens": {
+     "n": 2,
+     "median": 55135.5,
+     "p10": 27594,
+     "p90": 82677,
+     "min": 27594,
+     "max": 82677,
+     "mean": 55135.5
+    },
+    "completion_tokens": {
+     "n": 2,
+     "median": 956.0,
+     "p10": 670,
+     "p90": 1242,
+     "min": 670,
+     "max": 1242,
+     "mean": 956
+    },
+    "first_request_tokens": {
+     "n": 2,
+     "median": 1672.5,
+     "p10": 1650,
+     "p90": 1695,
+     "min": 1650,
+     "max": 1695,
+     "mean": 1672.5
+    },
+    "cached_tokens": {
+     "n": 2,
+     "median": 38336.0,
+     "p10": 14592,
+     "p90": 62080,
+     "min": 14592,
+     "max": 62080,
+     "mean": 38336
+    },
+    "cache_write_tokens": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 2,
+     "median": 0.639842246851269,
+     "p10": 0.5288106110023918,
+     "p90": 0.7508738827001463,
+     "min": 0.5288106110023918,
+     "max": 0.7508738827001463,
+     "mean": 0.639842246851269
+    },
+    "cost_usd": {
+     "n": 2,
+     "median": 0.00313108,
+     "p10": 0.00128798,
+     "p90": 0.00497418,
+     "min": 0.00128798,
+     "max": 0.00497418,
+     "mean": 0.00313108
+    },
+    "tool_gap_ms": {
+     "n": 7,
+     "median": 136.93241099999977,
+     "p10": 0.7436849999994593,
+     "p90": 1979.4153280000003,
+     "min": 0.7067949999982375,
+     "max": 2087.392601,
+     "mean": 731.6255219999996
+    },
+    "peak_mb": {
+     "n": 2,
+     "median": 41.294921875,
+     "p10": 25.484375,
+     "p90": 57.10546875,
+     "min": 25.484375,
+     "max": 57.10546875,
+     "mean": 41.294921875
+    },
+    "edit_calls": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "tavily": {
+    "success_rate": 1.0,
+    "checks_passed": {
+     "n": 2,
+     "median": 7.0,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 2,
+     "median": 17.071146817994304,
+     "p10": 13.263333487993805,
+     "p90": 20.878960147994803,
+     "min": 13.263333487993805,
+     "max": 20.878960147994803,
+     "mean": 17.071146817994304
+    },
+    "requests": {
+     "n": 2,
+     "median": 8.0,
+     "p10": 7,
+     "p90": 9,
+     "min": 7,
+     "max": 9,
+     "mean": 8
+    },
+    "prompt_tokens": {
+     "n": 2,
+     "median": 167351.0,
+     "p10": 146089,
+     "p90": 188613,
+     "min": 146089,
+     "max": 188613,
+     "mean": 167351
+    },
+    "completion_tokens": {
+     "n": 2,
+     "median": 1479.5,
+     "p10": 1451,
+     "p90": 1508,
+     "min": 1451,
+     "max": 1508,
+     "mean": 1479.5
+    },
+    "first_request_tokens": {
+     "n": 2,
+     "median": 1651.0,
+     "p10": 1651,
+     "p90": 1651,
+     "min": 1651,
+     "max": 1651,
+     "mean": 1651
+    },
+    "cached_tokens": {
+     "n": 2,
+     "median": 133504.0,
+     "p10": 120832,
+     "p90": 146176,
+     "min": 120832,
+     "max": 146176,
+     "mean": 133504
+    },
+    "cache_write_tokens": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 2,
+     "median": 0.8010585720104495,
+     "p10": 0.7750049042218723,
+     "p90": 0.8271122397990266,
+     "min": 0.7750049042218723,
+     "max": 0.8271122397990266,
+     "mean": 0.8010585720104495
+    },
+    "cost_usd": {
+     "n": 2,
+     "median": 0.010379755,
+     "p10": 0.005589404,
+     "p90": 0.015170106,
+     "min": 0.005589404,
+     "max": 0.015170106,
+     "mean": 0.010379755
+    },
+    "tool_gap_ms": {
+     "n": 14,
+     "median": 436.9884784999999,
+     "p10": 1.6214469999995345,
+     "p90": 1780.0379650000004,
+     "min": 1.112504999999146,
+     "max": 2382.6438960000005,
+     "mean": 724.2875046428569
+    },
+    "peak_mb": {
+     "n": 2,
+     "median": 53.4140625,
+     "p10": 26.015625,
+     "p90": 80.8125,
+     "min": 26.015625,
+     "max": 80.8125,
+     "mean": 53.4140625
+    },
+    "edit_calls": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "ddg": {
+    "success_rate": 1.0,
+    "checks_passed": {
+     "n": 2,
+     "median": 7.0,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 2,
+     "median": 16.328081779996864,
+     "p10": 16.107867568003712,
+     "p90": 16.548295991990017,
+     "min": 16.107867568003712,
+     "max": 16.548295991990017,
+     "mean": 16.328081779996864
+    },
+    "requests": {
+     "n": 2,
+     "median": 6.5,
+     "p10": 5,
+     "p90": 8,
+     "min": 5,
+     "max": 8,
+     "mean": 6.5
+    },
+    "prompt_tokens": {
+     "n": 2,
+     "median": 167824.5,
+     "p10": 106591,
+     "p90": 229058,
+     "min": 106591,
+     "max": 229058,
+     "mean": 167824.5
+    },
+    "completion_tokens": {
+     "n": 2,
+     "median": 1532.0,
+     "p10": 1507,
+     "p90": 1557,
+     "min": 1507,
+     "max": 1557,
+     "mean": 1532
+    },
+    "first_request_tokens": {
+     "n": 2,
+     "median": 1637.5,
+     "p10": 1625,
+     "p90": 1650,
+     "min": 1625,
+     "max": 1650,
+     "mean": 1637.5
+    },
+    "cached_tokens": {
+     "n": 2,
+     "median": 93312.0,
+     "p10": 3584,
+     "p90": 183040,
+     "min": 3584,
+     "max": 183040,
+     "mean": 93312
+    },
+    "cache_write_tokens": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 2,
+     "median": 0.41636138504894227,
+     "p10": 0.03362385191995572,
+     "p90": 0.7990989181779288,
+     "min": 0.03362385191995572,
+     "max": 0.7990989181779288,
+     "mean": 0.41636138504894227
+    },
+    "cost_usd": {
+     "n": 2,
+     "median": 0.008601598,
+     "p10": 0.00600211,
+     "p90": 0.011201086,
+     "min": 0.00600211,
+     "max": 0.011201086,
+     "mean": 0.008601598
+    },
+    "tool_gap_ms": {
+     "n": 11,
+     "median": 258.48275300000023,
+     "p10": 1.2046790000003966,
+     "p90": 842.4102890000004,
+     "min": 0.9815829999988637,
+     "max": 850.6854269999999,
+     "mean": 316.5088184545454
+    },
+    "peak_mb": {
+     "n": 2,
+     "median": 24.23828125,
+     "p10": 24.08984375,
+     "p90": 24.38671875,
+     "min": 24.08984375,
+     "max": 24.38671875,
+     "mean": 24.23828125
+    },
+    "edit_calls": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 2,
+     "median": 0.0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  }
+ },
+ "stalls": {},
+ "invalid_reruns": {},
+ "jev": false,
+ "arms": {
+  "exa": {
+   "tools": "web={search=\"exa\"}",
+   "cfg": "",
+   "bin": ""
+  },
+  "tavily": {
+   "tools": "web={search=\"tavily\"}",
+   "cfg": "",
+   "bin": ""
+  },
+  "ddg": {
+   "tools": "web={search=\"ddg\"}",
+   "cfg": "",
+   "bin": ""
+  }
+ },
+ "learn": false,
+ "window": null
+}

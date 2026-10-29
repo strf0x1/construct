@@ -1,7 +1,7 @@
 # Proposal 6 — Web search that says what went wrong and does more per call
 
 Status: step 1 in #107; steps 2 and 3 done on `claude/web-search-results`;
-step 4 moved to a GitHub issue; step 5: task `web-facts` built, runs not yet done. Written
+step 4 moved to a GitHub issue; step 5: first run (2026-10-28) found no difference, a harder task is needed. Written
 2026-10-28 against `aa49457`. Evidence and sources:
 [`docs/research/web-search-tooling.md`](../research/web-search-tooling.md).
 
@@ -75,6 +75,17 @@ so "Google for free" is not on the table.
    search vendors' own docs, which may favour a vendor that indexes them well;
    and the model may answer some from memory, which the `ddg` arm shows. Only
    this step may reorder `auto`.
+
+   **First run (2026-10-28, deepseek-v4.1-flash-1017, 2 rounds, arms exa,
+   tavily, ddg; `bench/results/task-20261028-234323.json`): no result.** All
+   seven questions passed in all six runs and every other metric is
+   inconclusive at n=2. The task cannot rank backends: the model fetched the
+   vendors' docs URLs directly (2-10 `web_fetch` calls a run, `curl` in three),
+   and in one ddg run all seven `web_search` calls were rate limited and it
+   still scored 7/7. A task that ranks search needs facts on pages the model
+   cannot guess a URL for (recent, or buried), and more than two rounds.
+   Brave was not run (it needs prepaid credits). `auto` keeps the step 1
+   order, which was always a preference, not a ranking.
 
 ## Not doing
 
