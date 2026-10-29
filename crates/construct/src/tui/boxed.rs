@@ -64,7 +64,9 @@ fn panel(s: &Section, box_w: usize) -> Vec<Line<'static>> {
         Span::styled(format!(" {}╮", "─".repeat(rest)), edge),
     ])];
     for e in &s.rows {
-        let about = e.2.replace('\t', "  ");
+        // A control character (the `\r` of a CRLF file) is dropped when
+        // drawn but counts a column in width(), which would leave the border ragged.
+        let about: String = e.2.replace('\t', "  ").chars().filter(|c| *c == '\n' || !c.is_control()).collect();
         for (i, text) in about.split('\n').flat_map(|l| words(l, about_w)).enumerate() {
             let mut row = vec![Span::raw("  "), Span::styled("│ ", edge)];
             let used = if i == 0 {
@@ -204,6 +206,39 @@ mod tests {
             .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect())
             .collect();
         assert!(rows.iter().any(|r| r.contains("journal.sqlite")), "{rows:?}");
+    }
+
+    #[test]
+    fn a_carriage_return_keeps_the_border_straight() {
+        // Shrunk from `boxes_stay_rectangles_whatever_the_text` ("\0¡"); a
+        // description read from a CRLF file ends its lines in `\r`.
+        let s = Section::new("t", theme::ACCENT, vec![("a".into(), "", "one\r\ntwo\0".into())]);
+        for l in lines(60, NARROW, &[s], "") {
+            assert_eq!(crate::text::prop::cols(&l), 60, "{l:?}");
+        }
+    }
+
+    proptest::proptest! {
+        #![proptest_config(crate::text::prop::config())]
+
+        /// Whatever a row's description holds, every row of the box is as
+        /// wide as its border. Names and titles are the harness's own short
+        /// words; descriptions come from skills, memory and model lists.
+        #[test]
+        fn boxes_stay_rectangles_whatever_the_text(
+            about in proptest::collection::vec(crate::text::prop::text(), 1..4),
+            name in "[a-z]{1,12}",
+            note in crate::text::prop::text(),
+            w in 0usize..160,
+        ) {
+            let rows = about.into_iter().map(|a| (name.clone(), "[arg]", a)).collect();
+            let s = Section::new("t", theme::ACCENT, rows);
+            let out = lines(w, NARROW, &[s], &note);
+            for l in out.iter().filter(|l| l.spans.len() > 1) {
+                let plain: String = l.spans.iter().map(|s| s.content.as_ref()).collect();
+                proptest::prop_assert_eq!(crate::text::prop::cols(l), box_width(w, NARROW) + 2, "{:?}", plain);
+            }
+        }
     }
 
     #[test]
