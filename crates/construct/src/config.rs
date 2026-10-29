@@ -135,7 +135,7 @@ pub struct LearnConfig {
     /// default, ADR 0022): facts and conventions as playbook bullets,
     /// procedures as project skills with a pointer bullet. The others stay as
     /// bench arms: "skills" (the gate, ledger and recurrence-gated skills),
-    /// "corrections", "playbook", "workflow". See `learn::STRATEGIES`.
+    /// "corrections", "playbook", "workflow". The constants are in `learn`.
     pub strategy: String,
 }
 

@@ -37,7 +37,6 @@ pub const CORRECTIONS: &str = "corrections";
 pub const PLAYBOOK: &str = "playbook";
 pub const WORKFLOW: &str = "workflow";
 pub const HYBRID: &str = "hybrid";
-pub const STRATEGIES: &[&str] = &[SKILLS, CORRECTIONS, PLAYBOOK, WORKFLOW, HYBRID];
 
 /// For the strategies that replace the review (`playbook`, `workflow`,
 /// `hybrid`): learn from `messages` with one call. `hybrid` asks
