@@ -87,12 +87,34 @@ INSTALL_HINTS = {
 }
 KEY_FILE = Path.home() / ".config" / "construct-bench.key"
 JEV_KEY_FILE = Path.home() / ".config" / "construct-bench-jev.key"
+# Keys for the web_search backends, `NAME=value` per line, for the construct
+# process only. The OS keyring is not reachable from every shell an agent
+# drives the bench from; a mode-600 file is, and the tools' sandbox cannot read it.
+SEARCH_KEY_FILE = Path.home() / ".config" / "construct-bench-search.env"
+SEARCH_KEYS = ("EXA_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY")
 
 
 def read_key(path: Path):
     """A key file holds either the bare key or NAME=key (optionally `export`ed)."""
     t = path.read_text().strip()
     return re.sub(r"^(export\s+)?[A-Z][A-Z0-9_]*\s*=\s*", "", t).strip("'\"")
+
+
+def read_search_keys(path: Path = None) -> dict:
+    """The web_search keys in SEARCH_KEY_FILE ({} when it is absent): lines of
+    `NAME=value` (optionally `export`ed or quoted), other names and comments
+    ignored. A file other users can read is refused, as with any key."""
+    path = path or SEARCH_KEY_FILE
+    if not path.exists():
+        return {}
+    if path.stat().st_mode & 0o077:
+        sys.exit(f"{path} is readable by other users; chmod 600 {path}")
+    keys = {}
+    for line in path.read_text().splitlines():
+        m = re.match(r"\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$", line)
+        if m and m.group(1) in SEARCH_KEYS and m.group(2).strip("'\""):
+            keys[m.group(1)] = m.group(2).strip("'\"")
+    return keys
 
 
 WORK = Path(os.environ.get("BENCH_WORK", tempfile.gettempdir())) / "construct-bench"
@@ -268,7 +290,7 @@ class Construct(Harness):
     window = None
 
     def env(self):
-        e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy"}
+        e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy", **read_search_keys()}
         if self.jev and JEV_KEY_FILE.exists():
             e["TYPESAFE_API_KEY"] = read_key(JEV_KEY_FILE)
         else:
@@ -875,7 +897,7 @@ def assert_no_keys(root: Path):
     """Stop the bench if a run's logs contain one of the bench keys: it means
     an agent read a key file or the environment and sent it upstream."""
     keys = [read_key(f) for f in (KEY_FILE, JEV_KEY_FILE) if f.exists()]
-    keys = [k for k in keys if len(k) > 12]
+    keys = [k for k in keys + list(read_search_keys().values()) if len(k) > 12]
     for dp, _, files in os.walk(root):
         for n in files:
             p = Path(dp) / n

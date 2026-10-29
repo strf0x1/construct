@@ -408,6 +408,44 @@ class Process(unittest.TestCase):
         self.assertEqual(process.metrics([plain, plain])["edit"]["rewrites"], 0)
 
 
+class SearchKeys(unittest.TestCase):
+    def file(self, text, mode=0o600):
+        f = Path(tempfile.mkdtemp()) / "search.env"
+        f.write_text(text)
+        f.chmod(mode)
+        return f
+
+    def test_the_search_key_file_is_read_by_name(self):
+        import bench
+
+        f = self.file("# keys\nEXA_API_KEY=exa-1234567890123\nexport TAVILY_API_KEY='tvly-1234567890123'\nOPENAI_API_KEY=nope\nBRAVE_API_KEY=\n")
+        self.assertEqual(bench.read_search_keys(f), {"EXA_API_KEY": "exa-1234567890123", "TAVILY_API_KEY": "tvly-1234567890123"})
+        self.assertEqual(bench.read_search_keys(Path(tempfile.mkdtemp()) / "none"), {})
+
+    def test_a_search_key_file_others_can_read_is_refused(self):
+        import bench
+
+        with self.assertRaises(SystemExit) as r:
+            bench.read_search_keys(self.file("EXA_API_KEY=x\n", 0o644))
+        self.assertIn("chmod 600", str(r.exception))
+
+    def test_construct_gets_the_keys_and_a_leak_stops_the_bench(self):
+        import bench
+
+        f = self.file("EXA_API_KEY=exa-secret-1234567\n")
+        old = bench.SEARCH_KEY_FILE
+        bench.SEARCH_KEY_FILE = f
+        try:
+            home = Path(tempfile.mkdtemp())
+            self.assertEqual(bench.make_harness("construct", home / "h").full_env()["EXA_API_KEY"], "exa-secret-1234567")
+            (home / "log.txt").write_text("tool output: exa-secret-1234567")
+            with self.assertRaises(SystemExit) as r:
+                bench.assert_no_keys(home)
+            self.assertIn("KEY LEAK", str(r.exception))
+        finally:
+            bench.SEARCH_KEY_FILE = old
+
+
 class Arms(unittest.TestCase):
     def test_an_arm_is_construct_with_a_tools_overlay(self):
         import bench
