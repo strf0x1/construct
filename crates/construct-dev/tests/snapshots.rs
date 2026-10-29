@@ -8,12 +8,10 @@
 //!
 //! Never edit a `.snap` file by hand: run the tests, read the diff, and if the
 //! change is intended accept it with `cargo insta accept` (or
-//! `INSTA_UPDATE=always cargo test -p construct-dev --test snapshots`) and say
+//! `cargo xtask snapshots`) and say
 //! so in the PR.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 

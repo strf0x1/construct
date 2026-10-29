@@ -75,8 +75,12 @@ enum Cmd {
         #[arg(trailing_var_arg = true, required = true)]
         cmd: Vec<String>,
     },
-    /// fmt --check, clippy -D warnings, test --workspace. Prints one line per gate, then `ok` or `FAILED <gate>`.
-    Check,
+    /// docs, map, fmt --check, clippy -D warnings, test --workspace, bench tests. Prints one line per gate, then `ok` or `FAILED <gate>`.
+    Check {
+        /// The inner loop: only the unit and contract tests of the crates the diff touches. CI runs the rest.
+        #[arg(long)]
+        quick: bool,
+    },
     /// Apply clippy's fixes, then cargo fmt.
     Fix,
     /// Re-record the golden snapshots (accepting an intended change) and list what changed.
@@ -124,7 +128,7 @@ fn main() -> Result<()> {
         }
         Cmd::McpFake(o) => mcp_fake::run(o),
         Cmd::AcpFake(o) => acp_fake::run(o),
-        Cmd::Check => exit_with(xtask::check()?),
+        Cmd::Check { quick } => exit_with(xtask::check(quick)?),
         Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Snapshots => exit_with(xtask::snapshots()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {

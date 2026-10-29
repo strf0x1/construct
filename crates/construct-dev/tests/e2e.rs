@@ -2,9 +2,7 @@
 //! a scripted model endpoint. Each test checks what a user (or the model)
 //! would observe: files on disk, what the harness sent, what the screen shows.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 use std::path::PathBuf;

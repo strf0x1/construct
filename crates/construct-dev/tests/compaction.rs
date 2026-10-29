@@ -3,9 +3,7 @@
 //! window, keep each tool result after the call that asked for it, and keep
 //! the user's request; resume must see the compacted view, not the original.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use serde_json::{Value, json};
 
 /// `n` rounds that each read a ~8 KB file, then an answer.

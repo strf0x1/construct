@@ -2,9 +2,7 @@
 //! child process, with both on the same scripted endpoint (steps are served
 //! in request order, and delegation blocks, so the order is deterministic).
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use serde_json::{Value, json};
 
 /// A config with one agent that can read, its sandbox granting `allow_read`.

@@ -1,9 +1,7 @@
 //! ACP end to end: the real binary as an agent on a pipe, driven the way an
 //! editor would, with the model on the scripted endpoint.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};

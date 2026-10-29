@@ -2,9 +2,7 @@
 //! stdout exactly as a parent drives it. No parent here, so these pin the wire
 //! and what a child is (its prompt, tools, head row and home).
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use construct::agents::AgentDef;
 use construct::child::wire::{Origin, ToChild};
 use construct::config::Config;
