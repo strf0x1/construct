@@ -7,7 +7,7 @@ use super::theme;
 use crate::text;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 /// One table row: name, argument (or alternate keys), description.
 pub(super) type Row = (String, &'static str, String);
@@ -122,8 +122,9 @@ fn chunks(line: String, w: usize) -> Vec<String> {
     let mut rest = line.as_str();
     while rest.width() > w {
         let (mut end, mut cols) = (0, 0);
+        let mut prev = None;
         for (i, c) in rest.char_indices() {
-            let cw = c.width().unwrap_or(0);
+            let cw = text::cols_after(prev.replace(c), c);
             if cols + cw > w {
                 break;
             }

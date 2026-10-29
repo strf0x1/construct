@@ -5,7 +5,7 @@ use super::theme;
 use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthStr;
 
 /// Word-wrap styled spans to `width`, prefixing every line with `indent`
 /// (first line) / `hang` (continuations).
@@ -60,8 +60,9 @@ pub fn wrap(
             // A single word longer than the line: hard-break it.
             let mut chunk = String::new();
             let mut cw = cur_w - if first { iw } else { hw };
+            let mut prev = None;
             for c in word.chars() {
-                let w = c.width().unwrap_or(0);
+                let w = crate::text::cols_after(prev.replace(c), c);
                 if cw + w > avail {
                     cur.push(Span::styled(std::mem::take(&mut chunk), style));
                     flush(&mut lines, &mut cur);

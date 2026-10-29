@@ -240,8 +240,9 @@ impl App {
             let mut cw = 0;
             let mut chunks: Vec<(String, usize)> = vec![];
             let mut start = offset;
+            let mut prev = None;
             for (bi, c) in para.char_indices() {
-                let w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                let w = crate::text::cols_after(prev.replace(c), c);
                 if cw + w > avail {
                     chunks.push((std::mem::take(&mut chunk), start));
                     start = offset + bi;

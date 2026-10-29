@@ -2,6 +2,23 @@
 //! character as often as not, and slicing there panics (a non-ASCII date did,
 //! once), so every cap rounds to a char boundary here instead of by hand.
 
+/// Columns `c` takes on screen after `prev`, for wrapping one char at a
+/// time. Its own width mostly, but a pair can draw wider than its chars
+/// (`0` and U+FE0F is a two-column emoji), and a control character draws
+/// as nothing.
+pub fn cols_after(prev: Option<char>, c: char) -> usize {
+    use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+    if c.is_control() {
+        return 0;
+    }
+    let Some(p) = prev.filter(|p| !p.is_control()) else { return c.width().unwrap_or(0) };
+    let mut b = [0u8; 8];
+    let pl = p.encode_utf8(&mut b).len();
+    let cl = c.encode_utf8(&mut b[pl..]).len();
+    let pair = std::str::from_utf8(&b[..pl + cl]).map_or(0, UnicodeWidthStr::width);
+    pair.saturating_sub(p.width().unwrap_or(0))
+}
+
 /// The longest prefix of `s` at most `max` bytes long.
 pub fn head(s: &str, max: usize) -> &str {
     s.split_at(s.floor_char_boundary(max)).0
@@ -90,6 +107,14 @@ mod tests {
             // Longest: one more char would go over.
             proptest::prop_assert!(s.get(h.len()..).and_then(|r| r.chars().next()).is_none_or(|c| h.len() + c.len_utf8() > max));
         }
+    }
+
+    #[test]
+    fn a_variation_selector_widens_the_char_before_it() {
+        assert_eq!(cols_after(Some('0'), '\u{fe0f}'), 1);
+        assert_eq!(cols_after(None, '中'), 2);
+        assert_eq!(cols_after(Some('a'), '\t'), 0);
+        assert_eq!(cols_after(Some('\0'), 'a'), 1);
     }
 
     #[test]
