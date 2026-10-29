@@ -1,11 +1,18 @@
 //! `web_search` backends. One `async fn` per vendor turns the query into that
 //! vendor's request and its answer into `Hit`s; a pure `parse_*` beside it does
-//! the mapping so it can be tested without a network. The design choice:
-//! the backend is the first key that resolves (Exa, Brave, Tavily), else the
-//! keyless scrape, and a failing key is reported, never skipped, so a spent
-//! quota is not silently answered by a vendor with a different privacy posture.
+//! the mapping so it can be tested without a network. The design choice: a
+//! backend that cannot answer *now* (network, 5xx, rate limit) hands over to
+//! the next one in the plan and the output says so; a backend that rejects the
+//! key, is out of quota or dislikes the request is reported, never skipped, so
+//! a spent quota is not silently answered by a vendor with a different privacy
+//! posture. Who is in the plan is `select.rs`.
 
-use super::{ddg::strip_tags, filter::Filter, http::send_json};
+use super::{
+    ddg::strip_tags,
+    filter::Filter,
+    http::{ApiError, send_json},
+    select::{Backend, Choice},
+};
 use crate::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
 use crate::tools::Ctx;
 use serde_json::{Value, json};
@@ -39,20 +46,48 @@ pub(super) struct Answer {
     pub notes: Vec<String>,
 }
 
-pub(super) async fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
+pub(super) async fn run(ctx: &Ctx, a: &Value, choice: Choice) -> Result<String, String> {
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
     let n = a.get("limit").and_then(Value::as_u64).unwrap_or(8).clamp(1, 20) as usize;
     let f = Filter::from_args(a);
-    let answer = if let Some(key) = crate::secrets::get(EXA_API_KEY) {
-        exa(ctx, &key, q, n, &f).await?
-    } else if let Some(key) = crate::secrets::get(BRAVE_API_KEY) {
-        brave(ctx, &key, q, n, &f).await?
-    } else if let Some(key) = crate::secrets::get(TAVILY_API_KEY) {
-        tavily(ctx, &key, q, n, &f).await?
-    } else {
-        super::ddg::search(ctx, q, n, &f).await?
-    };
+    let plan = choice.plan(crate::secrets::get)?;
+    let answer = first_answer(&plan, |backend, key| call(ctx, backend, key, q, n, &f)).await?;
     Ok(render(&answer))
+}
+
+async fn call(ctx: &Ctx, backend: Backend, key: String, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
+    match backend {
+        Backend::Exa => exa(ctx, &key, q, n, f).await,
+        Backend::Brave => brave(ctx, &key, q, n, f).await,
+        Backend::Tavily => tavily(ctx, &key, q, n, f).await,
+        Backend::Ddg => {
+            super::ddg::search(ctx, q, n, f).await.map_err(|message| ApiError { message, transient: false })
+        }
+    }
+}
+
+/// Try the plan in order. A transient failure moves on and is recorded in the
+/// answer's notes; any other failure, or running out of backends, is the error.
+async fn first_answer<F, Fut>(plan: &[(Backend, Option<String>)], mut call: F) -> Result<Answer, String>
+where
+    F: FnMut(Backend, String) -> Fut,
+    Fut: std::future::Future<Output = Result<Answer, ApiError>>,
+{
+    let mut skipped: Vec<String> = Vec::new();
+    for (i, (backend, key)) in plan.iter().enumerate() {
+        match call(*backend, key.clone().unwrap_or_default()).await {
+            Ok(mut answer) => {
+                let notes = std::mem::take(&mut answer.notes);
+                answer.notes =
+                    skipped.iter().map(|m| format!("{m}; used {} instead", backend.label())).chain(notes).collect();
+                return Ok(answer);
+            }
+            Err(e) if e.transient && i + 1 < plan.len() => skipped.push(e.message),
+            Err(e) if skipped.is_empty() => return Err(e.message),
+            Err(e) => return Err(skipped.into_iter().chain([e.message]).collect::<Vec<_>>().join("; ")),
+        }
+    }
+    Err("no search backend is available".into())
 }
 
 fn render(a: &Answer) -> String {
@@ -88,7 +123,7 @@ fn text(x: &Value, k: &str) -> String {
     x[k].as_str().unwrap_or("").to_string()
 }
 
-async fn exa(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
+async fn exa(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let mut body = json!({ "query": q, "numResults": n, "contents": { "highlights": { "maxCharacters": TOP_CHARS } } });
     if let Some(r) = f.recency {
         body["startPublishedDate"] = r.since().into();
@@ -118,7 +153,7 @@ fn parse_exa(v: &Value) -> Vec<Hit> {
         .unwrap_or_default()
 }
 
-async fn brave(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
+async fn brave(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let (q, note) = f.site_query(q);
     let mut params = vec![("q", q), ("count", n.to_string()), ("extra_snippets", "true".into())];
     if let Some(r) = f.recency {
@@ -157,7 +192,7 @@ fn parse_brave(v: &Value) -> Vec<Hit> {
         .unwrap_or_default()
 }
 
-async fn tavily(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
+async fn tavily(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let mut body = json!({ "query": q, "max_results": n, "search_depth": "basic" });
     if let Some(r) = f.recency {
         body["time_range"] = r.name().into();
@@ -260,5 +295,74 @@ mod tests {
         assert_eq!(day("2026-10-21T14:03:00Z").as_deref(), Some("2026-10-21"));
         assert_eq!(day("2 days ago").as_deref(), Some("2 days ago"));
         assert_eq!(day("  "), None);
+    }
+
+    fn plan(backends: &[Backend]) -> Vec<(Backend, Option<String>)> {
+        backends.iter().map(|b| (*b, Some("k".into()))).collect()
+    }
+
+    fn fail(message: &str, transient: bool) -> ApiError {
+        ApiError { message: message.into(), transient }
+    }
+
+    /// Run `first_answer` where each backend's reply is scripted; returns the
+    /// result and which backends were called.
+    async fn run_plan(
+        backends: &[Backend],
+        reply: impl Fn(Backend) -> Result<Answer, ApiError>,
+    ) -> (Result<Answer, String>, Vec<Backend>) {
+        let called = std::cell::RefCell::new(vec![]);
+        let r = first_answer(&plan(backends), |b, _| {
+            called.borrow_mut().push(b);
+            std::future::ready(reply(b))
+        })
+        .await;
+        (r, called.into_inner())
+    }
+
+    fn ok(b: Backend) -> Result<Answer, ApiError> {
+        Ok(Answer { backend: b.label(), hits: vec![hit("s", None)], notes: vec!["kept".into()] })
+    }
+
+    #[tokio::test]
+    async fn an_outage_hands_over_and_the_answer_says_so() {
+        let (r, called) = run_plan(&[Backend::Exa, Backend::Brave], |b| match b {
+            Backend::Exa => Err(fail("Exa returned HTTP 503", true)),
+            b => ok(b),
+        })
+        .await;
+        let a = r.unwrap();
+        assert_eq!((a.backend, called), ("Brave", vec![Backend::Exa, Backend::Brave]));
+        assert_eq!(a.notes, ["Exa returned HTTP 503; used Brave instead", "kept"]);
+    }
+
+    #[tokio::test]
+    async fn a_bad_key_or_spent_quota_never_hands_over() {
+        let (r, called) = run_plan(&[Backend::Exa, Backend::Brave], |b| match b {
+            Backend::Exa => Err(fail("Exa rejected the key", false)),
+            b => ok(b),
+        })
+        .await;
+        assert_eq!((r.err().as_deref(), called), (Some("Exa rejected the key"), vec![Backend::Exa]));
+    }
+
+    #[tokio::test]
+    async fn running_out_of_backends_reports_every_failure() {
+        let (r, called) =
+            run_plan(&[Backend::Exa, Backend::Tavily], |b| Err(fail(&format!("{} down", b.label()), true))).await;
+        assert_eq!(r.err().as_deref(), Some("Exa down; Tavily down"));
+        assert_eq!(called.len(), 2);
+        let (r, _) = run_plan(&[Backend::Exa], |_| Err(fail("Exa down", true))).await;
+        assert_eq!(r.err().as_deref(), Some("Exa down"));
+    }
+
+    #[tokio::test]
+    async fn a_later_bad_key_is_reported_with_the_earlier_outage() {
+        let (r, _) = run_plan(&[Backend::Exa, Backend::Brave], |b| match b {
+            Backend::Exa => Err(fail("Exa down", true)),
+            _ => Err(fail("Brave rejected the key", false)),
+        })
+        .await;
+        assert_eq!(r.err().as_deref(), Some("Exa down; Brave rejected the key"));
     }
 }

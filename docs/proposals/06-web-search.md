@@ -1,6 +1,7 @@
 # Proposal 6 — Web search that says what went wrong and does more per call
 
-Status: step 1 in #107; step 2 done on `claude/web-search-results`; steps 3–5 not started. Written
+Status: step 1 in #107; steps 2 and 3 done on `claude/web-search-results`;
+step 4 moved to a GitHub issue; step 5 not started. Written
 2026-10-28 against `aa49457`. Evidence and sources:
 [`docs/research/web-search-tooling.md`](../research/web-search-tooling.md).
 
@@ -36,13 +37,23 @@ so "Google for free" is not on the table.
    searches the first domain via `site:` and says so in a note, and
    DuckDuckGo ignores `recency` (its `df` parameter was not verifiable, the
    endpoint rate-limited the probe).
-3. **Explicit selection.** `[web] search = "auto" | "exa" | "brave" |
-   "tavily" | "ddg"` and `CONSTRUCT_WEB_SEARCH` for one run. `auto` keeps the
-   step 1 order. Fall through to the next backend only on errors that say
-   nothing about the query (network, 5xx, a 429 that outlasted the retry),
-   never on 401/402/403/432/433, so a bad key or spent quota is shown instead
-   of silently sending the query to a vendor with a different retention policy.
-4. **A better `web_fetch`.** Today it is a plain GET with no JS rendering,
+3. **Explicit selection.** `[tools.web] search = "auto" | "exa" | "brave" |
+   "tavily" | "ddg"` (under `[tools]`, beside `[tools.hashline]`, so bench
+   arms can overlay it) and `CONSTRUCT_TOOLS_WEB_SEARCH` for one run; the
+   manifest records it. An unknown name fails at startup, and a named backend
+   without a key says which `construct secrets set` to run. `auto` is the
+   keyed backends in the step 1 order, and DuckDuckGo only when no key
+   resolves at all, so a query never reaches the keyless scrape because a
+   keyed vendor was down. Within `auto`, the next keyed backend answers only
+   after an error that says nothing about the query or the account (network,
+   5xx, a 429 that outlasted the retry), never on 401/402/403/432/433 or a
+   rejected request, so a bad key or spent quota is shown instead of silently
+   sending the query to a vendor with a different retention policy. When a
+   backend does hand over, the output says so (`note: Exa returned HTTP 503;
+   used Brave instead`). Done when: the plan, the fall-through rule, the
+   config check and the manifest field are tested without a network.
+4. **A better `web_fetch`.** Moved to its own GitHub issue: there are many
+   ways to try this and prior work to read first. What we know: today it is a plain GET with no JS rendering,
    bot handling or PDF support. Try, in order of cost: content negotiation
    (already sends `Accept: text/markdown`), a keyed provider's extract endpoint
    (Tavily `/extract`, Exa contents) when the plain fetch fails or comes back

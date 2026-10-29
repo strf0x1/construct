@@ -332,7 +332,7 @@ impl Catalog {
         }
         tools.push(Arc::new(grep::Grep));
         tools.push(Arc::new(glob::Glob));
-        tools.push(Arc::new(web::WebSearch));
+        tools.push(Arc::new(web::WebSearch::new(&cfg.web)?));
         tools.push(Arc::new(web::WebFetch));
         tools.push(Arc::new(memory::Memory));
         tools.push(Arc::new(skill::SkillView));

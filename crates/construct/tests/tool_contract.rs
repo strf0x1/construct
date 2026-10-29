@@ -200,3 +200,14 @@ fn disabled_tools_are_not_in_the_catalog() {
     let bad = ToolsConfig { editor: "nope".into(), ..Default::default() };
     assert!(Catalog::build(&bad, None).is_err());
 }
+
+#[test]
+fn the_web_search_backend_is_checked_at_startup() {
+    let toml = |search: &str| -> ToolsConfig { toml::from_str(&format!("[web]\nsearch = \"{search}\"")).unwrap() };
+    for ok in ["auto", "exa", "brave", "tavily", "ddg"] {
+        assert!(Catalog::build(&toml(ok), None).is_ok(), "{ok}");
+    }
+    let err = Catalog::build(&toml("google"), None).err().unwrap().to_string();
+    assert!(err.contains("tools.web.search") && err.contains("\"google\"") && err.contains("tavily"), "{err}");
+    assert_eq!(ToolsConfig::default().web.search, "auto");
+}

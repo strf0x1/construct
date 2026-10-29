@@ -7,6 +7,9 @@ mod ddg;
 mod filter;
 mod http;
 mod search;
+mod select;
+
+pub use select::{Backend, Choice};
 
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
 use serde_json::{Value, json};
@@ -14,10 +17,17 @@ use std::time::Duration;
 
 const FETCH_MAX_BYTES: usize = 5 * 1024 * 1024;
 
-pub struct WebSearch;
+pub struct WebSearch {
+    choice: Choice,
+}
 
 impl WebSearch {
     pub const NAME: &str = "web_search";
+
+    /// Errors on a backend name nothing implements, at startup, not mid-turn.
+    pub fn new(cfg: &crate::config::WebConfig) -> anyhow::Result<Self> {
+        Ok(Self { choice: Choice::parse(&cfg.search).map_err(anyhow::Error::msg)? })
+    }
 }
 
 #[async_trait::async_trait]
@@ -53,7 +63,7 @@ impl Tool for WebSearch {
         Display { primary_arg: "query", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        search::run(ctx, &a).await.map(Output::plain).map_err(ToolError::from)
+        search::run(ctx, &a, self.choice).await.map(Output::plain).map_err(ToolError::from)
     }
 }
 
