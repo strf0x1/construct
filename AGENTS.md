@@ -109,6 +109,7 @@ cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct           # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev --test it delegate::   # end-to-end, one file's tests (drop the filter for all of them)
 cargo xtask snapshots             # re-record golden snapshots after an intended change
+cargo deny check                  # dependency policy in deny.toml (advisories, licenses, duplicates, sources); needs network, so CI runs it as its own job, not in xtask
 ```
 
 Run `cargo xtask check --quick` as you go, plus the end-to-end tests your

@@ -260,7 +260,7 @@ pub fn check(quick: bool) -> Result<bool> {
     };
     let git = crate::feature_map::Git { is_commit: &is_commit, changed_since: &changed_since };
     let in_process: [(&str, &dyn Fn() -> Vec<String>); 3] = [
-        ("docs", &|| conventions(&root)),
+        ("docs", &|| [conventions(&root), crate::deps::unshared(&root)].concat()),
         ("map", &|| crate::feature_map::problems(&root, &git)),
         ("arch", &|| crate::arch::problems(&root)),
     ];

@@ -1,0 +1,64 @@
+# Dependency policy, checked by `cargo deny check` (CI job `deny`; it needs
+# the network for the advisory DB, so it is not part of `cargo xtask check`).
+
+[graph]
+# Only what construct ships on: Linux. Windows- and mac-only crates in the
+# lockfile (keyring stores, winapi, ...) are not checked.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+
+[advisories]
+# A vulnerability advisory always fails. cargo-deny has no warn level for
+# unmaintained advisories, so they fail too but only for crates we depend on
+# directly: those we can replace; a transitive one we can't, and it would
+# block every PR until upstream moves.
+unmaintained = "workspace"
+yanked = "deny"
+ignore = [
+    # rsa and crypto-bigint 0.5 come only from secretspec, unconditionally,
+    # through pgp/ssh-key/rsa. secretspec uses them to generate keys locally
+    # (`generate = "rsa" | "openpgp" | "ssh"`); construct never decrypts or
+    # signs with them where an attacker can time it. rsa has no fixed release;
+    # crypto-bigint's fix is in 0.7, which the RustCrypto 0.13 stack can't use.
+    # Drop these once secretspec moves to fixed versions.
+    { id = "RUSTSEC-2023-0071", reason = "rsa (Marvin): local key generation in secretspec only; no patched release" },
+    { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5 via secretspec's pgp/ssh-key; fix needs 0.7" },
+]
+
+[licenses]
+# Permissive licenses the tree uses today. Copyleft is not on this list: a
+# crate that needs one gets an exception below with the reason.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.8
+exceptions = [
+    # Weak, file-level copyleft: only changes to colored's own files would
+    # have to be shared. Pulled in by secretspec for terminal colors.
+    { allow = ["MPL-2.0"], crate = "colored" },
+]
+
+[bans]
+# Duplicate versions are reported, not denied, until the current ones are
+# gone (see the PR that added this file for the list).
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+# crates.io only: no git dependencies (AGENTS.md convention 8), no other
+# registries.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
