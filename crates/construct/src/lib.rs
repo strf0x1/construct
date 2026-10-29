@@ -12,6 +12,7 @@ pub mod compact;
 pub mod config;
 pub mod event;
 pub mod guard;
+pub mod home;
 pub mod jev;
 pub mod journal;
 pub mod learn;

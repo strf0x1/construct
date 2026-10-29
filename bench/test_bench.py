@@ -6,6 +6,7 @@
 import json
 import os
 import random
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -120,7 +121,7 @@ class Tasks(unittest.TestCase):
                     self.skipTest(f"{name}: a shallow clone has no {tasklib.load(name).git[:8]} (git fetch --unshallow)")
                 task, vars, work = self.materialize(name)
                 self.assertTrue(task.turns or task.spec.get("sessions"), "a task needs turns or sessions")
-                self.assertTrue((task.dir / "check.sh").exists())
+                self.assertTrue((task.src / "check.sh").exists())
                 if not task.git:  # a tree from git has no vars (and Rust's `{{` is an escaped brace)
                     left = [p for p in work.rglob("*") if p.is_file() and ".git" not in p.parts and "{{" in p.read_text(errors="ignore")]
                     self.assertEqual(left, [], "every {{var}} is filled")
@@ -146,34 +147,85 @@ class Tasks(unittest.TestCase):
                 self.assertTrue(after and all(after.values()), f"solution must pass: {after}")
                 self.assertEqual(tasklib.unintended(task, work), [], "a solution changes only expected paths")
 
-    def test_the_curriculum_scorer_fails_each_session_untouched_and_passes_a_solution(self):
-        task = tasklib.load("learn-tally")
-        sol = task.dir / "solution"
+    def curriculum_session(self, task, s, rng_seed=7):
+        """A materialized work dir for one curriculum session, as the suite makes it."""
+        vars = {**tasklib.make_vars(task, random.Random(rng_seed)), **s.get("vars", {})}
+        work = self.tmp / f"{task.name}-{s['name']}"
+        overlays = [task.dir / "overlay" / o for o in s.get("overlay", [])]
+        tasklib.materialize(task, work, vars, src=task.src / s.get("repo", "fixture"), overlays=overlays, remove=s.get("remove", []))
+        sh("git config user.name t && git config user.email t@example.com", work)
+        env = {"BENCH_SESSION": s["name"], **{f"BENCH_VAR_{k}": v for k, v in vars.items()}}
+        return vars, work, env
+
+    def release(self, work, ver, checksum_first=False):
+        """The five-step release procedure, done right (or with the checksum taken before the bump)."""
+        if checksum_first:
+            sh(f"mkdir -p release && ./tools/checksum > release/{ver}.sha256", work)
+        for f, pat in (("pyproject.toml", r'version = "[^"]*"'), ("src/tally/__init__.py", r'__version__ = "[^"]*"')):
+            t = (work / f).read_text()
+            (work / f).write_text(re.sub(pat, pat.split(" = ")[0] + f' = "{ver}"', t, count=1))
+        log = (work / "CHANGELOG.md").read_text()
+        head, rest = log.split("## Unreleased\n", 1)
+        body, tail = rest.split("\n## ", 1)
+        (work / "CHANGELOG.md").write_text(f"{head}## Unreleased\n\n## {ver}\n{body}\n## {tail}")
+        if not checksum_first:
+            sh(f"mkdir -p release && ./tools/checksum > release/{ver}.sha256", work)
+        sh(f"git add -A && git commit -qm 'Release {ver}' && git tag -a v{ver} -m 'tally {ver}'", work)
+
+    def test_the_curriculum_scorers_fail_each_session_untouched_and_pass_a_solution(self):
+        for name in ("learn-tally", "learn-tally-long"):
+            task = tasklib.load(name)
+            sol = task.src / "solution"
+            for s in task.spec["sessions"]:
+                repo = s.get("repo", "fixture")
+                with self.subTest(f"{name}/{s['name']}"):
+                    vars, work, env = self.curriculum_session(task, s)
+                    before = tasklib.check(task, work, env)
+                    if s["name"].startswith("release-"):
+                        self.assertFalse(before["release_ok"], before)
+                        self.release(work, vars["version"])
+                        after = tasklib.check(task, work, env)
+                        self.assertTrue(all(after.values()), after)
+                        continue
+                    self.assertFalse(before["feature_ok"], before)
+                    if repo == "fixture":
+                        self.assertFalse(before["fixtures_ok"] or before["changelog_ok"], before)
+                        (work / "src/tally/cli.py").write_text((work / "src/tally/cli.py").read_text() + (sol / "cli_extra.py").read_text())
+                        (work / "src/tally/money.py").write_text((work / "src/tally/money.py").read_text() + (sol / "split_extra.py").read_text())
+                        log = work / "CHANGELOG.md"
+                        log.write_text(log.read_text().replace("## Unreleased\n", "## Unreleased\n\n- a change.\n"))
+                        (work / "tests/test_cli.py").write_text((work / "tests/test_cli.py").read_text() + "# more\n")
+                        sh(f"./tools/gen-fixtures --seed {vars['seed']}", work)
+                    else:
+                        (work / "units.py").write_text((work / "units.py").read_text() + (sol / "temp_extra.py").read_text())
+                        (work / "test_units.py").write_text((work / "test_units.py").read_text() + "# more\n")
+                    after = tasklib.check(task, work, env)
+                    self.assertTrue(all(after.values()), after)
+                    if repo == "fixture":
+                        (work / "src/tally/report.py").write_text((work / "src/tally/report.py").read_text() + "\nX = float(1)\n")
+                        self.assertFalse(tasklib.check(task, work, env)["decimal_ok"])
+                    if "token" in vars and repo == "fixture":
+                        (work / "tests/test_sync.py").write_text(f"TOKEN = {vars['token']!r}\n")
+                        self.assertFalse(tasklib.check(task, work, env)["no_token_in_repo"])
+
+    def test_a_release_checksummed_before_the_bump_fails(self):
+        task = tasklib.load("learn-tally-long")
+        s = next(x for x in task.spec["sessions"] if x["name"] == "release-0.4.0")
+        vars, work, env = self.curriculum_session(task, s)
+        self.release(work, vars["version"], checksum_first=True)
+        got = tasklib.check(task, work, env)
+        self.assertTrue(got["tagged"] and got["bumped"] and got["changelog_moved"], got)
+        self.assertFalse(got["checksum_ok"] or got["release_ok"], got)
+
+    def test_every_session_var_and_prompt_is_filled(self):
+        task = tasklib.load("learn-tally-long")
+        vars = tasklib.make_vars(task, random.Random(1))
+        self.assertRegex(vars["token"], r"^ghp_[0-9a-f]{36}$")
         for s in task.spec["sessions"]:
-            repo = s.get("repo", "fixture")
-            with self.subTest(s["name"]):
-                vars = tasklib.make_vars(task, random.Random(7))
-                work = self.tmp / f"tally-{s['name']}"
-                tasklib.materialize(task, work, vars, src=task.dir / repo)
-                env = {"BENCH_SESSION": s["name"]}
-                before = tasklib.check(task, work, env)
-                self.assertFalse(before["feature_ok"], before)
-                if repo == "fixture":
-                    self.assertFalse(before["fixtures_ok"] or before["changelog_ok"], before)
-                    (work / "src/tally/cli.py").write_text((work / "src/tally/cli.py").read_text() + (sol / "cli_extra.py").read_text())
-                    (work / "src/tally/money.py").write_text((work / "src/tally/money.py").read_text() + (sol / "split_extra.py").read_text())
-                    log = work / "CHANGELOG.md"
-                    log.write_text(log.read_text().replace("## Unreleased\n", "## Unreleased\n\n- a change.\n"))
-                    (work / "tests/test_cli.py").write_text((work / "tests/test_cli.py").read_text() + "# more\n")
-                    sh(f"./tools/gen-fixtures --seed {vars['seed']}", work)
-                else:
-                    (work / "units.py").write_text((work / "units.py").read_text() + (sol / "temp_extra.py").read_text())
-                    (work / "test_units.py").write_text((work / "test_units.py").read_text() + "# more\n")
-                after = tasklib.check(task, work, env)
-                self.assertTrue(all(after.values()), after)
-                if repo == "fixture":
-                    (work / "src/tally/report.py").write_text((work / "src/tally/report.py").read_text() + "\nX = float(1)\n")
-                    self.assertFalse(tasklib.check(task, work, env)["decimal_ok"])
+            v = {**vars, **s.get("vars", {})}
+            self.assertNotIn("{{", tasklib.fill(s["prompt"], v), s["name"])
+        for k, text in task.spec["corrections"].items():
+            self.assertNotIn("{{", tasklib.fill(text, {**vars, "version": "0.4.0"}), k)
 
     def test_unintended_changes(self):
         task, _, work = self.materialize("stats-median")

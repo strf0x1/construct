@@ -5,13 +5,16 @@
 
 mod app;
 mod ask;
+mod boxed;
 mod clip;
 mod help;
 mod input;
+mod listing;
 mod markdown;
 mod palette;
 mod picker;
 mod prompt;
+mod status;
 mod theme;
 mod view;
 mod worker;
@@ -134,14 +137,18 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let animating = app.animating();
         tokio::select! {
             Some(ready) = ready_rx.recv() => {
-                let (session, canceller, groups, history, catalog) = ready;
+                let (session, canceller, groups, history, catalog, spent) = ready;
                 app.ready = true;
+                app.totals = spent;
                 app.session = session;
                 app.canceller = Some(canceller);
                 app.groups = groups;
                 app.catalog = Some(catalog);
                 // The worker warmed the list before building the agent; this is a file read.
                 crate::llm::catalog::overlay(&mut app.cfg, &paths);
+                // A `/model …` typed before now was matched without the catalog.
+                app.palette = None;
+                app.refresh_palette();
                 for m in history {
                     match m.role.as_str() {
                         "user" => app.push(Block::new(Kind::User, m.content.unwrap_or_default().split("\n\n<system-reminder>").next().unwrap_or("").to_string())),

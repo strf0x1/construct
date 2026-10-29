@@ -1,7 +1,8 @@
 //! Skills the agent writes and improves. One directory per skill holding a
 //! SKILL.md (frontmatter: name, description) plus optional references/,
 //! templates/ and scripts/. Nothing is bundled. Deletes are archives, so the
-//! curator can never lose work.
+//! curator can never lose work. Every write goes through `guard`: a loaded
+//! skill enters the prompt.
 
 use crate::config::{Paths, write_atomic};
 use serde::{Deserialize, Serialize};
@@ -202,6 +203,9 @@ impl Library {
     pub fn patch(&self, name: &str, file: Option<&str>, old: &str, new: &str) -> Result<String, String> {
         let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
         let path = safe_join(&skill.dir, file.unwrap_or("SKILL.md"))?;
+        if let Some(why) = crate::guard::check(new) {
+            return Err(why);
+        }
         let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         let updated = crate::tools::edit::replace::replace_once(&text, old, new, false).map_err(|e| e.message)?;
         write_atomic(&path, updated.as_bytes()).map_err(|e| e.to_string())?;
@@ -215,6 +219,9 @@ impl Library {
             return Err("support files go under references/, templates/ or scripts/".into());
         }
         let path = safe_join(&skill.dir, file)?;
+        if let Some(why) = crate::guard::check(content) {
+            return Err(why);
+        }
         write_atomic(&path, content.as_bytes()).map_err(|e| e.to_string())?;
         self.touch(name, |u| u.patches += 1);
         Ok(format!("wrote {name}/{file}"))
@@ -272,6 +279,10 @@ fn normalize(name: &str, content: &str) -> Result<String, String> {
     }
     if body.trim().is_empty() {
         return Err("SKILL.md body is empty".into());
+    }
+    // A loaded skill enters the prompt like memory does.
+    if let Some(why) = crate::guard::check(content) {
+        return Err(why);
     }
     Ok(format!("---\nname: {name}\ndescription: {description}\n---\n\n{}\n", body.trim_end()))
 }

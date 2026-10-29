@@ -274,7 +274,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "new" | "clear" => {
             app.blocks.clear();
             app.cache.clear();
-            app.usage = Default::default();
+            app.totals = Default::default();
             app.context_pct = 0;
             app.groups.clear();
             let _ = cmd.send(Cmd::New);
@@ -287,12 +287,16 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         "models" => {
             let models =
                 Paths::resolve().map(|p| crate::llm::catalog::cached(&p, &app.cfg.base_url)).unwrap_or_default();
-            let text = if models.is_empty() {
-                "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`".into()
+            if models.is_empty() {
+                let none =
+                    "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`";
+                app.notice(theme::DIM, none);
             } else {
-                crate::llm::catalog::listing(&models, arg, 20)
-            };
-            app.notice(theme::DIM, text);
+                match super::listing::models(&models, arg) {
+                    Ok(block) => app.push(block),
+                    Err(none) => app.notice(theme::DIM, none),
+                }
+            }
         }
         "model" => match Picker::open(&app.cfg) {
             Some(p) => app.picker = Some(p),
@@ -311,15 +315,18 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             let _ = cmd.send(Cmd::LearnNow);
         }
         "memory" => {
-            let paths = Paths::resolve().ok();
-            let block = paths
+            let sections = Paths::resolve()
                 .map(|p| {
                     crate::memory::Store::new(&p, &app.cfg.memory)
                         .with_project(&p, &std::env::current_dir().unwrap_or_default())
-                        .prompt_block()
+                        .sections()
                 })
                 .unwrap_or_default();
-            app.notice(theme::DIM, if block.is_empty() { "memory is empty".to_string() } else { block });
+            if sections.is_empty() {
+                app.notice(theme::DIM, "memory is empty");
+            } else {
+                app.push(super::listing::memory(sections));
+            }
         }
         "skills" if !arg.is_empty() => {
             let (skill, text) = arg.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((arg, ""));
@@ -327,19 +334,16 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
         }
         "skills" => {
             let list = app.skills();
-            let text = if list.is_empty() {
-                "no skills yet; the learning pass writes them as you work".to_string()
+            if list.is_empty() {
+                app.notice(theme::DIM, "no skills yet; the learning pass writes them as you work");
             } else {
-                let mut lines: Vec<String> = list.iter().map(|s| format!("• {} — {}", s.name, s.description)).collect();
-                lines.push("run one with /<name> <request>".into());
-                lines.join("\n")
-            };
-            app.notice(theme::DIM, text);
+                app.push(super::listing::skills(&list));
+            }
         }
-        "status" => {
-            let block = status(app);
-            app.notice(theme::DIM, block);
-        }
+        "status" => match status(app) {
+            Ok(rows) => app.push(super::listing::status(&rows)),
+            Err(why) => app.notice(theme::DIM, why),
+        },
         "copy" => copy(app, arg),
         "help" | "?" => {
             let skills = app.skills();
@@ -369,7 +373,7 @@ fn copy(app: &mut App, arg: &str) {
             "last tool error",
             app.blocks.iter().rev().find(|b| b.kind == Kind::Tool && b.status == Status::Err).map(|b| b.text.clone()),
         ),
-        "status" => ("status", Some(status(app))),
+        "status" => ("status", status(app).map(|rows| crate::journal::rows_text(&rows)).ok()),
         _ => return app.notice(theme::YELLOW, "usage: /copy · /copy error · /copy status".to_string()),
     };
     match text.filter(|t| !t.trim().is_empty()) {
@@ -382,17 +386,19 @@ fn copy(app: &mut App, arg: &str) {
     }
 }
 
-/// The `/status` block, summed from this session's journal rows.
-fn status(app: &App) -> String {
-    let read = || -> anyhow::Result<String> {
+/// The `/status` rows, summed from this session's journal rows; `Err` is the
+/// sentence to show instead.
+fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
+    let read = || -> anyhow::Result<Vec<(&'static str, String)>> {
         let paths = Paths::resolve()?;
         let file = crate::journal::path(&paths, &std::env::current_dir()?);
-        let entries = crate::journal::Journal::open(&file)?.since(&app.session, 0)?;
-        let totals = crate::journal::Totals::of(&entries);
-        Ok(crate::journal::status_block(&app.session, &file, &app.cfg.model, app.cfg.context_window, &totals))
+        let db = crate::journal::Journal::open(&file)?;
+        let entries = db.since(&app.session, 0)?;
+        let totals = crate::journal::Totals::session(&db, &entries)?;
+        Ok(crate::journal::status_rows(&app.session, &file, &app.cfg.model, app.cfg.context_window, &totals))
     };
     if app.session.is_empty() {
-        return "session not started yet".to_string();
+        return Err("session not started yet".to_string());
     }
-    read().unwrap_or_else(|e| format!("status unavailable: {e:#}"))
+    read().map_err(|e| format!("status unavailable: {e:#}"))
 }
