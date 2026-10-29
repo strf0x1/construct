@@ -4,6 +4,7 @@
 //! at all. `http.rs` is the one place a search API's failures become prose.
 
 mod ddg;
+mod filter;
 mod http;
 mod search;
 
@@ -33,8 +34,16 @@ impl Tool for WebSearch {
     fn definition(&self) -> Value {
         def(
             Self::NAME,
-            "Search the web. Returns titles, URLs and snippets.",
-            obj(json!({ "query": { "type": "string" }, "limit": { "type": "integer" } }), &["query"]),
+            "Search the web. Returns titles, URLs, dates when known, and snippets.",
+            obj(
+                json!({
+                    "query": { "type": "string" },
+                    "limit": { "type": "integer" },
+                    "recency": { "type": "string", "enum": filter::Recency::NAMES, "description": "Only results from the last day, week, month or year" },
+                    "domains": { "type": "array", "items": { "type": "string" }, "description": "Only these sites, e.g. docs.rs" }
+                }),
+                &["query"],
+            ),
         )
     }
     fn readonly(&self) -> bool {

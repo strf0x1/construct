@@ -1,6 +1,6 @@
 # Proposal 6 — Web search that says what went wrong and does more per call
 
-Status: step 1 in progress (this branch); steps 2–5 not started. Written
+Status: step 1 in #107; step 2 done on `claude/web-search-results`; steps 3–5 not started. Written
 2026-10-28 against `aa49457`. Evidence and sources:
 [`docs/research/web-search-tooling.md`](../research/web-search-tooling.md).
 
@@ -30,8 +30,12 @@ so "Google for free" is not on the table.
    the rest, name the backend that answered in the output, and add two
    optional arguments: `recency` (`day|week|month|year`) and `domains` (host
    list), each mapped to the backend's native filter and ignored with a note
-   where it cannot be. The routed-web snapshot changes by design (about
-   150–250 bytes of schema); accept it with `cargo xtask snapshots`.
+   where it cannot be. The routed-web snapshot changes by design (+252
+   bytes of schema); accept it with `cargo xtask snapshots`. Landed with
+   one deviation: a backend with no multi-domain filter (Brave, DuckDuckGo)
+   searches the first domain via `site:` and says so in a note, and
+   DuckDuckGo ignores `recency` (its `df` parameter was not verifiable, the
+   endpoint rate-limited the probe).
 3. **Explicit selection.** `[web] search = "auto" | "exa" | "brave" |
    "tavily" | "ddg"` and `CONSTRUCT_WEB_SEARCH` for one run. `auto` keeps the
    step 1 order. Fall through to the next backend only on errors that say

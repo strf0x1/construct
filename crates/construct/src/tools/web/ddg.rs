@@ -2,16 +2,24 @@
 //! account, so `web_search` works on a fresh install, but the endpoint is
 //! undocumented and rate-limits; every keyed backend is preferred to it.
 
-use super::search::Hit;
+use super::{
+    filter::Filter,
+    search::{Answer, Hit},
+};
 use crate::tools::Ctx;
 use std::time::Duration;
 
-pub(super) async fn search(ctx: &Ctx, q: &str, n: usize) -> Result<Vec<Hit>, String> {
+pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
+    let (q, site_note) = f.site_query(q);
+    let mut notes: Vec<String> = site_note.into_iter().collect();
+    if f.recency.is_some() {
+        notes.push("recency is not supported by DuckDuckGo and was ignored".into());
+    }
     let html = ctx
         .http
         .post("https://html.duckduckgo.com/html/")
         .header("user-agent", "Mozilla/5.0 (X11; Linux) construct")
-        .form(&[("q", q)])
+        .form(&[("q", q.as_str())])
         .timeout(Duration::from_secs(20))
         .send()
         .await
@@ -36,7 +44,7 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize) -> Result<Vec<Hit>, Str
         if url.contains("duckduckgo.com/y.js") || title.is_empty() {
             continue; // ads
         }
-        out.push((decode_entities(&title), url, decode_entities(&snippet)));
+        out.push(Hit { title: decode_entities(&title), url, snippet: decode_entities(&snippet), date: None });
         if out.len() >= n {
             break;
         }
@@ -47,7 +55,7 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize) -> Result<Vec<Hit>, Str
             super::search::key_names()
         ));
     }
-    Ok(out)
+    Ok(Answer { backend: "DuckDuckGo", hits: out, notes })
 }
 
 fn between<'a>(s: &'a str, a: &str, b: &str) -> Option<&'a str> {
