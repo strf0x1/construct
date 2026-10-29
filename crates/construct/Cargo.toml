@@ -54,3 +54,6 @@ unicode-normalization = "0.1"
 unicode-width = "0.2"
 pulldown-cmark = { version = "0.13", default-features = false }
 landlock = "0.4"
+
+[dev-dependencies]
+proptest.workspace = true
