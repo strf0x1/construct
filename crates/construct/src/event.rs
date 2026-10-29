@@ -159,6 +159,11 @@ pub enum Event {
         summary_prompt: u64,
         #[serde(default)]
         summary_completion: u64,
+        #[serde(default)]
+        summary_cached: u64,
+        /// What the summary cost, provider-reported or priced from the catalog.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        summary_cost: Option<f64>,
         /// Why a summary was planned but not written (the cut fell back to eliding).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fallback: Option<String>,

@@ -131,10 +131,11 @@ pub struct LearnConfig {
     pub model: String,
     /// Days between curator passes over agent-written skills.
     pub curator_every_days: u32,
-    /// How a session becomes something the next one can use: "skills" (the
-    /// gate, ledger and recurrence-gated skills), "corrections" (the same, plus
-    /// user follow-ups and failure/fix pairs as evidence), "playbook" or
-    /// "workflow". See `learn::STRATEGIES`.
+    /// How a session becomes something the next one can use. "hybrid" (the
+    /// default, ADR 0022): facts and conventions as playbook bullets,
+    /// procedures as project skills with a pointer bullet. The others stay as
+    /// bench arms: "skills" (the gate, ledger and recurrence-gated skills),
+    /// "corrections", "playbook", "workflow". See `learn::STRATEGIES`.
     pub strategy: String,
 }
 
@@ -235,7 +236,7 @@ impl Default for LearnConfig {
             skill_every_tool_calls: 10,
             model: String::new(),
             curator_every_days: 7,
-            strategy: crate::learn::SKILLS.into(),
+            strategy: crate::learn::HYBRID.into(),
         }
     }
 }

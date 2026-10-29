@@ -125,7 +125,10 @@ fn rounds_too_big_to_elide_are_summarized_with_the_request_pinned() {
         json!({ "steps": steps, "side": ["## Goal\nSUMMARY-1", "## Goal\nSUMMARY-2", "## Goal\nSUMMARY-3"] }),
         Some(16_384),
     );
-    env.config("context_window = 16384\n");
+    // A catalog price, so the summaries are priced as the loop's requests are.
+    env.config(
+        "context_window = 16384\nmodel = \"test/priced\"\n[models.\"test/priced\"]\npricing = { prompt = 1.0, completion = 2.0 }\n",
+    );
     let out = env.run(&["run", "--no-learn", "write ten files of w"]);
     assert!(out.status.success(), "{}", text(&out));
     assert!(text(&out).contains("all written"));
@@ -134,6 +137,16 @@ fn rounds_too_big_to_elide_are_summarized_with_the_request_pinned() {
     let cuts = compactions(&env);
     let s = cuts.iter().find(|c| c["mode"] == "summarize").unwrap_or_else(|| panic!("a summary cut: {cuts:?}"));
     assert!(s["summary_prompt"].as_u64().unwrap() > 0, "the summarizer's usage is journaled");
+    assert!(s["summary_cost"].as_f64().unwrap() > 0.0, "and priced");
+    // The session's totals (the status line, `/status`) bill the summaries too.
+    let db = construct::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
+    let id = env.sessions().remove(0);
+    let totals = construct::journal::Totals::session(&db, &db.since(&id, 0).unwrap()).unwrap();
+    let summarized: Vec<&Value> = cuts.iter().filter(|c| c["mode"] == "summarize").collect();
+    let usage_rows = env.journal().into_iter().filter(|r| r.ty == "usage").count() as u64;
+    assert_eq!(totals.requests, usage_rows + summarized.len() as u64);
+    let summary_prompt: u64 = summarized.iter().map(|c| c["summary_prompt"].as_u64().unwrap()).sum();
+    assert_eq!(totals.side.prompt_tokens, summary_prompt);
     // The summarizer was asked with its own prompt and the replaced rounds;
     // a second summary is asked to build on the first.
     let side: Vec<Value> =

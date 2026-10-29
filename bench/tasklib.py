@@ -38,6 +38,8 @@ task.toml keys:
                 A warm cargo target for it, if `bench/replay.py warm` made
                 one, is reflinked into the work dir (rust-replay-*)
     check_timeout_s  how long check.sh may run (default 300)
+    base        another task whose fixture/, check.sh and other files this one
+                uses; its own directory then holds only task.toml and overlays
 """
 
 import fnmatch
@@ -69,6 +71,11 @@ class Task:
     name: str
     dir: Path
     spec: dict = field(repr=False)
+
+    @property
+    def src(self) -> Path:
+        """Where fixture/ and check.sh live: this task, or its `base`."""
+        return TASKS / self.spec["base"] if "base" in self.spec else self.dir
 
     @property
     def turns(self) -> list:
@@ -151,8 +158,9 @@ def _copy_filled(src: Path, dest: Path, vars: dict):
                 p.write_text(fill(t, vars))
 
 
-def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=None):
-    """A fresh work dir: the fixture (or `src`), filled, committed to a new git repo."""
+def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=None, overlays=(), remove=()):
+    """A fresh work dir: the fixture (or `src`), then each overlay copied over
+    it and the `remove` paths deleted, filled, committed to a new git repo."""
     if dest.exists():
         shutil.rmtree(dest)
     if task.spec.get("generate"):
@@ -160,7 +168,11 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
     elif task.git:
         export_tree(task.git, dest)
     else:
-        _copy_filled(src or task.dir / "fixture", dest, vars)
+        _copy_filled(src or task.src / "fixture", dest, vars)
+    for o in overlays:
+        _copy_filled(o, dest, vars)
+    for r in remove:
+        (dest / r).unlink()
     git = lambda *a: subprocess.run(["git", *a], cwd=dest, check=True)
     git("init", "-q")
     if remote:
@@ -242,7 +254,7 @@ def check_report(task: Task, work: Path, env=None):
         report = Path(tmp) / "report.json"
         e = {**os.environ, "BENCH_PYTHON": sys.executable, "BENCH_REPORT": str(report), **(env or {})}
         try:
-            r = subprocess.run(["bash", str(task.dir / "check.sh")], cwd=work, env=e, capture_output=True, text=True, timeout=task.check_timeout_s)
+            r = subprocess.run(["bash", str(task.src / "check.sh")], cwd=work, env=e, capture_output=True, text=True, timeout=task.check_timeout_s)
         except subprocess.TimeoutExpired:
             print(f"  {task.name}: check.sh ran past {task.check_timeout_s}s", file=sys.stderr)
             return {"check_ran": False}, None

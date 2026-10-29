@@ -246,7 +246,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
         ], "side": [obs] }),
     );
     env.config(
-        "[router]\nmode = \"local\"\n\n[tools]\ndisabled = [\"write\", \"memory\", \"web_search\", \"web_fetch\"]\n",
+        "[router]\nmode = \"local\"\n\n[learn]\nstrategy = \"skills\"\n\n[tools]\ndisabled = [\"write\", \"memory\", \"web_search\", \"web_fetch\"]\n",
     );
     let out = env.run(&["run", "--json", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
@@ -314,7 +314,8 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
             { "text": "Wrote a release skill." }
         ], "side": [obs("release dir was missing"), obs("release dir missing again")] }),
     );
-    env.config("[memory]\nuser_chars = 1000\n");
+    // The ledger and recurrence are the `skills` strategy's.
+    env.config("[memory]\nuser_chars = 1000\n[learn]\nstrategy = \"skills\"\n");
     let session = |n: usize| env.sessions()[n].clone();
 
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
@@ -539,6 +540,62 @@ fn tui_wheel_scrolls_without_mouse_capture_and_copy_writes_osc52() {
     std::thread::sleep(Duration::from_millis(500));
     d.pump(Duration::from_millis(budget(500)));
     assert!(has(&d.raw, b"\x1b[?1007l"), "alternate scroll reset on exit");
+}
+
+#[test]
+fn hybrid_keeps_a_fact_as_a_bullet_and_a_procedure_as_a_skill_it_points_to() {
+    let reflection = json!({
+        "add": [ { "text": "Run the tests with make test", "scope": "project" } ],
+        "skills": [ {
+            "name": "repo-release",
+            "description": "Use when cutting a release of this repo. Not for ordinary changes.",
+            "body": "1. Bump the version.\n2. Tag it."
+        } ]
+    });
+    let env = Env::new(
+        "hybrid",
+        // The reflection has no tools, so it's a side call.
+        json!({ "steps": [
+            { "text": "Done; tests pass." },
+            { "text": "Fixed it." },
+            { "text": "hi" }
+        ], "side": [reflection.to_string()] }),
+    );
+    env.config("[router]\nmode = \"local\"\n");
+    let repo = env.work.join("r");
+    std::fs::create_dir_all(repo.join(".git")).unwrap();
+    std::fs::write(repo.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    let in_repo = |args: &[&str]| {
+        let mut c = Command::new(construct());
+        c.args(args).current_dir(&repo).env_remove("TYPESAFE_API_KEY");
+        for (k, v) in env.env() {
+            if !v.is_empty() {
+                c.env(k, v);
+            }
+        }
+        c.output().unwrap()
+    };
+    assert!(in_repo(&["run", "--no-learn", "add a feature"]).status.success());
+    // A follow-up is evidence: this session is worth a reflection.
+    assert!(in_repo(&["run", "--no-learn", "-c", "no, the tests run with make test here"]).status.success());
+    let session = env.journal_in(&repo).into_iter().find(|r| r.ty == "head").unwrap().session;
+    let out = in_repo(&["learn", "--session", &session]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 3, "two turns and one reflection");
+    assert!(reqs[2]["messages"][0]["content"].as_str().unwrap().contains("Each lesson has a shape"));
+    let log = std::fs::read_to_string(env.home.join("learn.log")).unwrap();
+    assert!(log.contains("followups=1") && log.contains("-> Some"), "{log}");
+    let kit = std::fs::read_dir(env.home.join("projects")).unwrap().flatten().next().unwrap().path();
+    assert!(kit.join("skills/repo-release/SKILL.md").exists(), "{log}");
+    let playbook = std::fs::read_to_string(kit.join("PLAYBOOK.json")).unwrap();
+    assert!(playbook.contains("Run the tests with make test"), "{playbook}");
+    assert!(playbook.contains("For cutting a release of this repo: load the `repo-release` skill"), "{playbook}");
+    // The next session there sees both: the bullets, and the skill in the index.
+    assert!(in_repo(&["run", "--no-learn", "hi"]).status.success());
+    let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
+    assert!(sys.contains("Playbook for this project") && sys.contains("make test"), "{sys}");
+    assert!(sys.contains("repo-release: Use when cutting a release"), "{sys}");
 }
 
 #[test]
@@ -786,6 +843,20 @@ fn project_kit_follows_the_repo_not_the_session() {
         "{sys}"
     );
     assert!(sys.contains("run-tests-here: Running this repo's tests"), "{sys}");
+    let tools = |r: &Value| -> Vec<String> {
+        r["tools"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|t| t["function"]["name"].as_str().map(String::from))
+            .collect()
+    };
+    // The prompt says to load project skills with the skill tool, so it's there,
+    // whatever the router made of "hi".
+    assert!(
+        tools(env.requests().last().unwrap()).iter().any(|t| t == "skill"),
+        "skill tool missing in a repo with skills"
+    );
     // A second clone of the same remote, in a differently named directory, shares the kit.
     let clone = env.work.join("a-clone");
     std::fs::create_dir_all(clone.join(".git")).unwrap();
@@ -800,6 +871,7 @@ fn project_kit_follows_the_repo_not_the_session() {
     assert!(out.status.success(), "{}", text(&out));
     let sys = env.requests().last().unwrap()["messages"][0]["content"].as_str().unwrap().to_string();
     assert!(!sys.contains("gen-fixtures") && !sys.contains("run-tests-here"), "{sys}");
+    assert!(!tools(env.requests().last().unwrap()).iter().any(|t| t == "skill"), "no project skills, no skill tool");
     // Outside any repo there is no project to write to.
     let out = in_dir(&env.work, &["run", "--no-learn", "note this"]);
     assert!(out.status.success(), "{}", text(&out));
@@ -1527,13 +1599,21 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
     // Totals on screen are the journal's own sums, formatted the same way.
     let human = construct::journal::human;
-    let line = screen.lines().find(|l| l.contains("requests")).expect("requests line").to_string();
-    assert!(line.contains("requests  2"), "{line}");
-    assert!(line.contains(&format!("input {}", human(sum("prompt")))), "{line} vs prompt {}", sum("prompt"));
-    assert!(line.contains(&format!("output {}", human(sum("completion")))), "{line}");
+    let row = |label: &str| {
+        screen.lines().find(|l| l.contains(label)).unwrap_or_else(|| panic!("{label} row\n{screen}")).to_string()
+    };
+    assert!(screen.contains("╭─ status"), "drawn as a box\n{screen}");
+    assert!(row("requests").contains("requests  2"), "{}", row("requests"));
+    assert!(
+        row("input").contains(&format!("input     {}", human(sum("prompt")))),
+        "{} vs prompt {}",
+        row("input"),
+        sum("prompt")
+    );
+    assert!(row("output").contains(&format!("output    {}", human(sum("completion")))), "{}", row("output"));
     // The status line carries the same cumulative counters and the id.
     let last = screen.lines().rfind(|l| !l.trim().is_empty()).unwrap().to_string();
-    assert!(last.contains(&format!("{} in", human(sum("prompt")))), "{last}");
+    assert!(last.contains(&format!("billed ↑{} ↓{}", human(sum("prompt")), human(sum("completion")))), "{last}");
     let tail = head.session.split_once('-').unwrap().1;
     assert!(last.contains(tail), "{last}");
     // /copy status writes the block as OSC 52.
@@ -1579,4 +1659,30 @@ fn sessions_show_prints_a_session_from_another_project() {
     }
     let missing = env.run(&["sessions", "show", "no-such-session"]);
     assert!(!missing.status.success());
+}
+
+#[test]
+fn home_is_private_and_an_open_one_is_tightened_once() {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    let env =
+        Env::new("home-private", json!({ "steps": [ { "text": "one" }, { "text": "two" }, { "text": "three" } ] }));
+    // A fresh home is created 0700; everything under it, journals included, is behind it.
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o700);
+    assert!(env.home.join("projects").is_dir());
+    assert!(!text(&out).contains("made"), "a new home needs no notice: {}", text(&out));
+    // A home from before this change (world-readable, no marker) is tightened once, with a notice.
+    std::fs::remove_file(env.home.join(construct::home::MARKER)).unwrap();
+    std::fs::set_permissions(&env.home, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o700);
+    assert!(text(&out).contains("private (755 -> 700)"), "{}", text(&out));
+    // A user who shares it again on purpose is left alone.
+    std::fs::set_permissions(&env.home, std::fs::Permissions::from_mode(0o750)).unwrap();
+    let out = env.run(&["run", "--no-learn", "hi"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(mode(&env.home), 0o750);
 }

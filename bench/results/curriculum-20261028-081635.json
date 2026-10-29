@@ -1,0 +1,479 @@
+{
+ "manifest": {
+  "harnesses": {
+   "hybrid-gated2": {
+    "version": "0.1.0",
+    "git_sha": "8ca2b2d9c130eb9c5b401064b38f2b85c7a44975",
+    "git_dirty": true,
+    "binary_sha256": "7948b993fb3ecad10476823dade4c458e874e41b90f2e1c8446d2243f3d00f0e",
+    "config_sha256": "489834ecaf2893807b337a01206254d4e044450aa4be47d1ea3c0af2be9cec15",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query"
+    ],
+    "editor": "replace",
+    "model": "anthropic/claude-haiku-5.5",
+    "router_mode": "auto",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/openrouter-autofill-e9154c/target/release/construct"
+   }
+  },
+  "dev_git_sha": "8ca2b2d9c130eb9c5b401064b38f2b85c7a44975",
+  "dev_dirty": true,
+  "model": "anthropic/claude-haiku-5.5",
+  "bench_py_sha256": "068306cb72035efedd158ce77c544d02a29eb86398d7b9acc906c9a620c16bf9",
+  "host": "echo",
+  "started": "2026-10-28T14:11:04Z"
+ },
+ "model": "anthropic/claude-haiku-5.5",
+ "rounds": 1,
+ "task": "learn-tally-long",
+ "sessions": [
+  [
+   "category",
+   "fixture"
+  ],
+  [
+   "csv",
+   "fixture"
+  ],
+  [
+   "units",
+   "other"
+  ],
+  [
+   "release-0.4.0",
+   "fixture"
+  ],
+  [
+   "month",
+   "fixture"
+  ],
+  [
+   "release-0.5.0",
+   "fixture"
+  ],
+  [
+   "budget",
+   "fixture"
+  ],
+  [
+   "split",
+   "fixture"
+  ],
+  [
+   "sync",
+   "fixture"
+  ],
+  [
+   "top",
+   "fixture"
+  ]
+ ],
+ "arms": {
+  "hybrid-gated2": {
+   "tools": "",
+   "cfg": "learn = { strategy = \"hybrid\" }",
+   "bin": ""
+  }
+ },
+ "raw": {
+  "hybrid-gated2": [
+   {
+    "sessions": [
+     {
+      "task": "category",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [
+       "fixtures_ok"
+      ],
+      "over_budget": false,
+      "requests": 10,
+      "prompt_tokens": 75791,
+      "completion_tokens": 3959,
+      "cost_usd": 0.0041221,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6009,
+      "learn_cost_usd": 0.001027025,
+      "learn_s": 11.221977949142456,
+      "system_chars": 1079,
+      "token_stored": false,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 7
+     },
+     {
+      "task": "csv",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [
+       "changelog_ok"
+      ],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 62093,
+      "completion_tokens": 4052,
+      "cost_usd": 0.003986295,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6028,
+      "learn_cost_usd": 0.0009329,
+      "learn_s": 13.167040586471558,
+      "system_chars": 1417,
+      "token_stored": false,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "units",
+      "repo": "other",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "no_changelog": true,
+       "floats_kept": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 4,
+      "prompt_tokens": 12007,
+      "completion_tokens": 1607,
+      "cost_usd": 0.0015210900000000001,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.38924765586853,
+      "system_chars": 1076,
+      "token_stored": false,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 0
+     },
+     {
+      "task": "release-0.4.0",
+      "repo": "fixture",
+      "checks": {
+       "tagged": true,
+       "bumped": true,
+       "changelog_moved": true,
+       "checksum_ok": true,
+       "release_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 25966,
+      "completion_tokens": 2510,
+      "cost_usd": 0.00209961,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 4013,
+      "learn_cost_usd": 0.001179025,
+      "learn_s": 14.59934139251709,
+      "system_chars": 1635,
+      "token_stored": false,
+      "tool_calls": 7,
+      "tool_errors": 1,
+      "errors_by_tool": {
+       "shell": 1
+      },
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 5
+     },
+     {
+      "task": "month",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 17,
+      "prompt_tokens": 152121,
+      "completion_tokens": 6347,
+      "cost_usd": 0.006224345,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 8805,
+      "learn_cost_usd": 0.001557025,
+      "learn_s": 12.936034202575684,
+      "system_chars": 2060,
+      "token_stored": false,
+      "tool_calls": 16,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 6
+     },
+     {
+      "task": "release-0.5.0",
+      "repo": "fixture",
+      "checks": {
+       "tagged": true,
+       "bumped": true,
+       "changelog_moved": true,
+       "checksum_ok": true,
+       "release_ok": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 31112,
+      "completion_tokens": 2032,
+      "cost_usd": 0.00206824,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 5104,
+      "learn_cost_usd": 0.0008924,
+      "learn_s": 11.768559455871582,
+      "system_chars": 2460,
+      "token_stored": false,
+      "tool_calls": 9,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [
+       "tally-release"
+      ],
+      "lore_calls": 5
+     },
+     {
+      "task": "budget",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 8,
+      "prompt_tokens": 69637,
+      "completion_tokens": 6746,
+      "cost_usd": 0.00565247,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 7750,
+      "learn_cost_usd": 0.00145215,
+      "learn_s": 13.33390188217163,
+      "system_chars": 2453,
+      "token_stored": false,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     },
+     {
+      "task": "split",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 40291,
+      "completion_tokens": 3076,
+      "cost_usd": 0.002900185,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 6675,
+      "learn_cost_usd": 0.001478775,
+      "learn_s": 14.3998384475708,
+      "system_chars": 2674,
+      "token_stored": false,
+      "tool_calls": 11,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 0,
+       "runner": 1,
+       "stale": 1
+      },
+      "skills_loaded": [],
+      "lore_calls": 3
+     },
+     {
+      "task": "sync",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 14,
+      "prompt_tokens": 136378,
+      "completion_tokens": 6065,
+      "cost_usd": 0.005928135,
+      "learn_requests": 0,
+      "learn_prompt_tokens": 0,
+      "learn_cost_usd": null,
+      "learn_s": 8.549126386642456,
+      "system_chars": 2997,
+      "token_stored": false,
+      "tool_calls": 13,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 2,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 2
+     },
+     {
+      "task": "top",
+      "repo": "fixture",
+      "checks": {
+       "feature_ok": true,
+       "suite_ok": true,
+       "tested": true,
+       "fixtures_ok": true,
+       "changelog_ok": true,
+       "decimal_ok": true,
+       "no_token_in_repo": true
+      },
+      "pass": true,
+      "corrections": [],
+      "over_budget": false,
+      "requests": 7,
+      "prompt_tokens": 55731,
+      "completion_tokens": 4367,
+      "cost_usd": 0.004187225,
+      "learn_requests": 1,
+      "learn_prompt_tokens": 7787,
+      "learn_cost_usd": 0.001445775,
+      "learn_s": 13.349223375320435,
+      "system_chars": 2996,
+      "token_stored": false,
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "errors_by_tool": {},
+      "landmines": {
+       "seed": 1,
+       "runner": 0,
+       "stale": 0
+      },
+      "skills_loaded": [],
+      "lore_calls": 4
+     }
+    ],
+    "learned": {
+     ".private": "construct made this directory private; it will not change its mode again.\n",
+     "models/http___127_0_0_1_46497_v1.json": "{\"fetched_at\":1793196664,\"models\":[{\"id\":\"aion-labs/aion-2.0\",\"name\":\"AionLabs: Aion-2.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0\",\"name\":\"AionLabs: Aion-3.0\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.0-mini\",\"name\":\"AionLabs: Aion-3.0-Mini\",\"context\":131072,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5\",\"name\":\"AionLabs: Aion 3.5\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":3.0,\"completion_per_m\":6.0,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-3.5-mini\",\"name\":\"AionLabs: Aion 3.5 Mini\",\"context\":262144,\"max_output\":32768,\"prompt_per_m\":0.7,\"completion_per_m\":1.4,\"tools\":true,\"reasoning\":true,\"images\":false},{\"id\":\"aion-labs/aion-rp-llama-3.1-8b\",\"name\":\"AionLabs: Aion-RP 1.0 (8B)\",\"context\":32768,\"max_output\":29491,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":1.5999999999999999,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-2-lite-v1\",\"name\":\"Amazon: Nova 2 Lite\",\"context\":1000000,\"max_output\":65535,\"prompt_per_m\":0.3,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"amazon/nova-lite-v1\",\"name\":\"Amazon: Nova Lite 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.06,\"completion_per_m\":0.24,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-micro-v1\",\"name\":\"Amazon: Nova Micro 1.0\",\"context\":128000,\"max_output\":5120,\"prompt_per_m\":0.035,\"completion_per_m\":0.14,\"tools\":true,\"reasoning\":false,\"images\":false},{\"id\":\"amazon/nova-premier-v1\",\"name\":\"Amazon: Nova Premier 1.0\",\"context\":1000000,\"max_output\":32000,\"prompt_per_m\":2.5,\"completion_per_m\":12.5,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"amazon/nova-pro-v1\",\"name\":\"Amazon: Nova Pro 1.0\",\"context\":300000,\"max_output\":5120,\"prompt_per_m\":0.7999999999999999,\"completion_per_m\":3.1999999999999997,\"tools\":true,\"reasoning\":false,\"images\":true},{\"id\":\"anthracite-org/magnum-v4-72b\",\"name\":\"Magnum v4 72B\",\"context\":32768,\"max_output\":4096,\"prompt_per_m\":2.5,\"completion_per_m\":5.0,\"tools\":false,\"reasoning\":false,\"images\":false},{\"id\":\"anthropic/claude-fable-5\",\"name\":\"Anthropic: Claude Fable 5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1\",\"name\":\"Anthropic: Claude Fable 5.1\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":10.0,\"completion_per_m\":50.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5.1:batch\",\"name\":\"Anthropic: Claude Fable 5.1 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-fable-5:batch\",\"name\":\"Anthropic: Claude Fable 5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":5.0,\"completion_per_m\":25.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5\",\"name\":\"Anthropic: Claude Haiku 4.5\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":1.0,\"completion_per_m\":5.0,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-4.5:batch\",\"name\":\"Anthropic: Claude Haiku 4.5 (batch)\",\"context\":200000,\"max_output\":64000,\"prompt_per_m\":0.5,\"completion_per_m\":2.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5\",\"name\":\"Anthropic: Claude Haiku 5.5\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.09999999999999999,\"completion_per_m\":0.5,\"tools\":true,\"reasoning\":true,\"images\":true},{\"id\":\"anthropic/claude-haiku-5.5:batch\",\"name\":\"Anthropic: Claude Haiku 5.5 (batch)\",\"context\":1000000,\"max_output\":128000,\"prompt_per_m\":0.049999999999999996,\"completion_per_m\":0.25,\"tools\":true,\"reasoning\":true,\"imag",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/PLAYBOOK.json": "[\n  {\n    \"id\": \"p1\",\n    \"text\": \"Before running the suite in a fresh checkout, run `./tools/gen-fixtures --seed 13ceb44714aa` to create the gitignored `.fixtures/golden.json`. Without it, `tests/test_ledger.py` fails at import. Then run the suite with `make test` (not `./tools/test`, which is missing here). A correct seed gives `seed_check` `608db86d135debf4`.\",\n    \"helpful\": 6,\n    \"harmful\": 1\n  },\n  {\n    \"id\": \"p2\",\n    \"text\": \"Every change gets a one-line entry under `## Unreleased` in CHANGELOG.md (e.g. \\\"- `export --csv` writes every entry as CSV\\\"). Add it in the same change as the code; a feature without it is incomplete.\",\n    \"helpful\": 4,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p3\",\n    \"text\": \"For cut a tally release (version bump, changelog move, checksum, local commit and tag): load the `tally-release` skill first and follow its steps.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p4\",\n    \"text\": \"Bad argparse values (e.g. `--month 2026-3`) make argparse raise `SystemExit(2)` instead of returning 2. In tests, wrap the call in `assertRaises(SystemExit)` and check `.code == 2`; don't expect `run()` to return 2.\",\n    \"helpful\": 2,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p5\",\n    \"text\": \"Validate `YYYY-MM` with `re.fullmatch(r\\\"\\\\d{4}-\\\\d{2}\\\", text)` before `datetime.strptime(text, \\\"%Y-%m\\\")`. `strptime` alone accepts non-padded months like `2026-3`.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p6\",\n    \"text\": \"Amounts are `decimal.Decimal`. Parse user-supplied amounts with `money.parse(text)`, which raises `money.MoneyError` on bad input. Import `Decimal` from the stdlib `decimal` module; don't reference `money.Decimal`.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p7\",\n    \"text\": \"Run the test suite with `make test` from the repo root (it sets PYTHONPATH=src). `./tools/test` does not exist in this checkout, and `python -m unittest discover -s tests -t .` without PYTHONPATH=src fails with ModuleNotFoundError: No module named 'tally'.\",\n    \"helpful\": 1,\n    \"harmful\": 0\n  },\n  {\n    \"id\": \"p8\",\n    \"text\": \"data/sample.ledger has two 1,000.00 rent entries (2026-02-01 and 2026-03-01), so use it to test tie-breaking by date in `top`.\",\n    \"helpful\": 0,\n    \"harmful\": 0\n  }\n]",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/project.json": "{\"name\":\"fixture-hybrid-gated2-r0\",\"root\":\"/tmp/cb-gated2-haiku-d/construct-bench/curriculum/hybrid-gated2/r0/s0-category\",\"remote\":\"example.com/team/fixture-hybrid-gated2-r0\"}",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/skills/.usage.json": "{\n  \"tally-release\": {\n    \"views\": 1,\n    \"patches\": 0,\n    \"created_at\": 1793196777,\n    \"last_used\": 1793196825,\n    \"author\": \"agent\",\n    \"pinned\": false,\n    \"suggested\": 1\n  }\n}",
+     "projects/fixture-hybrid-gated2-r0-af92af1e/skills/tally-release/SKILL.md": "---\nname: tally-release\ndescription: Cut a tally release (version bump, changelog move, checksum, local commit and tag). Use when asked to release a version. Not for ordinary feature or fix commits.\n---\n\n1. Check state: `git status --short; git log --oneline -5; git tag`. Confirm the target version is not already tagged.\n2. Generate fixtures with the team seed: `./tools/gen-fixtures --seed 13ceb44714aa`. The `seed_check` in the output must be `608db86d135debf4`.\n3. Run the suite: `./tools/test`. It must pass before you change anything.\n4. Bump the version in both places: `version = \"X.Y.Z\"` in `pyproject.toml` and `__version__ = \"X.Y.Z\"` in `src/tally/__init__.py`. Then run `grep -rn \"<old version>\" . --exclude-dir=.git --exclude-dir=.fixtures` and confirm only the historical CHANGELOG headings remain.\n5. In `CHANGELOG.md`, insert `## X.Y.Z` directly under `## Unreleased`, leaving the `## Unreleased` heading in place and empty above it. The existing Unreleased bullets move under the new heading.\n6. Write the checksum artifact: `mkdir -p release && ./tools/checksum > release/X.Y.Z.sha256`. `tools/checksum` documents this path.\n7. Re-run `./tools/test` and `python3 -c \"import sys;sys.path.insert(0,'src');import tally;print(tally.__version__)\"` to confirm the version.\n8. Stage explicit paths only: `git add CHANGELOG.md pyproject.toml src/tally/__init__.py release/X.Y.Z.sha256`. Then `git commit -qm \"Release X.Y.Z\"` and `git tag -a vX.Y.Z -m \"tally X.Y.Z\"`.\n9. Do not push. Tell the user to run `git push origin main vX.Y.Z`.\n\nPitfalls hit:\n- `git add -A ':!.fixtures'` fails with \"paths are ignored\" because `.fixtures` is gitignored. Stage explicit files instead (step 8).\n"
+    }
+   }
+  ]
+ }
+}

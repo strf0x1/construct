@@ -163,6 +163,8 @@ fn learning_review() {
             { "text": "Nothing to save." }
         ], "side": [obs] }),
     );
+    // The review is the `skills` strategy's; the default's reflection is `hybrid_reflection`.
+    env.config("[learn]\nstrategy = \"skills\"\n");
     let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
     assert!(out.status.success(), "{}", text(&out));
     let out = env.run(&["learn", "--session", &env.sessions()[0]]);
@@ -173,6 +175,27 @@ fn learning_review() {
         .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("learning pass"))
         .expect("review request");
     insta::assert_json_snapshot!(shaped(&env, &review));
+}
+
+#[test]
+fn hybrid_reflection() {
+    let env = Env::new(
+        "snap-hybrid",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "text": "released" }
+        ], "side": ["{}"] }),
+    );
+    let out = env.run(&["run", "--no-learn", "release the crate. I always do this on Fridays."]);
+    assert!(out.status.success(), "{}", text(&out));
+    let out = env.run(&["learn", "--session", &env.sessions()[0]]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reflection = env
+        .requests()
+        .into_iter()
+        .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("Each lesson has a shape"))
+        .expect("the default strategy's reflection");
+    insta::assert_json_snapshot!(shaped(&env, &reflection));
 }
 
 /// Screen text with trailing spaces trimmed, durations masked and the env's
@@ -282,15 +305,18 @@ fn status_line_keeps_counters_beside_a_toast() {
     let masked = last
         .split(' ')
         .map(|w| {
-            if w.chars().next().is_some_and(|c| c.is_ascii_digit()) && w.len() < 6 && !w.contains('%') {
-                "[N]"
+            // Counts read `998` or `↑998`; the arrow stays.
+            let (arrow, n) = w.strip_prefix(['↑', '↓']).map_or(("", w), |n| (&w[..w.len() - n.len()], n));
+            if n.chars().next().is_some_and(|c| c.is_ascii_digit()) && n.len() < 6 && !n.contains('%') {
+                format!("{arrow}[N]")
             } else {
-                w
+                w.to_string()
             }
         })
         .collect::<Vec<_>>()
         .join(" ");
     insta::assert_snapshot!("status_line_with_toast", masked);
-    assert!(last.contains(" in · ") && last.contains("cache"), "{last}");
+    // At 80 columns the counters are compact: no meter, no `billed` label.
+    assert!(last.contains(" · ↑") && last.contains("cache"), "{last}");
     d.kill();
 }
