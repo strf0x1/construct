@@ -6,6 +6,7 @@ use construct_dev::{acp_fake, drive, mcp_fake, serve};
 use std::io::Read;
 use std::path::PathBuf;
 
+mod arch;
 mod feature_map;
 mod xtask;
 

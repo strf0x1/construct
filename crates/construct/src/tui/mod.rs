@@ -98,7 +98,7 @@ pub async fn run(cfg: Config, paths: Paths, resume: Option<String>) -> Result<()
 }
 
 async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<()> {
-    trace("tui start");
+    crate::trace::mark("tui start");
     terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableBracketedPaste)?;
@@ -119,7 +119,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     let mut term = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
     let mut app = App::new(cfg.clone());
     app.draw(&mut term)?;
-    trace("first frame");
+    crate::trace::mark("first frame");
 
     // Build the agent off the UI path; the first frame is already up.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<Event>();
@@ -205,18 +205,4 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     drop(_guard);
     let _ = tokio::time::timeout(Duration::from_millis(1500), worker).await;
     Ok(())
-}
-
-/// CONSTRUCT_TRACE=1 logs startup milestones to $CONSTRUCT_HOME/trace.log.
-pub fn trace(what: &str) {
-    if std::env::var_os("CONSTRUCT_TRACE").is_none() {
-        return;
-    }
-    static START: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
-    let t = START.get_or_init(Instant::now).elapsed();
-    if let Ok(p) = Paths::resolve()
-        && let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p.home.join("trace.log"))
-    {
-        let _ = writeln!(f, "{:>8.2}ms {what}", t.as_secs_f64() * 1000.0);
-    }
 }

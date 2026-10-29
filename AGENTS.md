@@ -29,6 +29,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
+| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks the module graph against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
@@ -102,7 +103,7 @@ recipe that only checks the screen: the scripted model's reply is fixed, so
 ## Tests
 
 ```sh
-cargo xtask check --quick         # while iterating: docs, feature map, fmt, clippy, unit and contract tests of the crates your diff touches; ends in `ok` or `FAILED <gate>`
+cargo xtask check --quick         # while iterating: docs, feature map, arch, fmt, clippy, unit and contract tests of the crates your diff touches; ends in `ok` or `FAILED <gate>`
 cargo xtask check                 # the full gate, as CI runs it: also every end-to-end test, the golden snapshots and the bench tests
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct           # unit and contract tests (edit tiers, router)
@@ -130,6 +131,12 @@ turn). A refactor must leave them unchanged. When a change is meant to alter
 them, CI's `cargo xtask check` (or a local full one) prints `FAILED snapshots` with a diff: read it, run
 `cargo xtask snapshots` to accept, and say so in the PR. Never edit a `.snap`
 by hand.
+
+The `arch` gate checks every `crate::` path between top-level modules of
+`crates/construct/src` against `docs/architecture.toml`, and the counts in
+`docs/ratchets.toml` (the non-test line count of each file over 300 lines)
+against reality: a count that grows fails, and one that drops fails until
+its baseline is lowered to match.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh
@@ -180,6 +187,10 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 9. Formatting is `cargo fmt`'s opinion, never hand-tuned.
 10. A decision that constrains future work gets an ADR (`docs/adr/`); check
     there before changing a settled behaviour.
+11. Module boundaries live in `docs/architecture.toml`: a new dependency
+    between top-level modules is a one-line `may_use` edit there, so it shows
+    in the diff, and a new module needs an entry. Deny rules (`must_not_use`,
+    `used_only_by`) must give a `reason`; never widen one to get a change in.
 
 ## Rules of thumb
 

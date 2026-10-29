@@ -1,0 +1,112 @@
+# The allowed module graph of crates/construct/src, checked by `cargo xtask
+# check`'s `arch` gate (crates/construct-dev/src/arch/). It must describe the
+# code as it is: an edge not listed here fails, a listed edge that no longer
+# occurs fails, and every top-level module needs an entry.
+#
+# A module may name another top-level module only if it is in `may_use`, so a
+# new dependency is a one-line edit here that shows in the diff. Deny rules
+# carry invariants: `must_not_use` (this module never uses that one) and
+# `used_only_by` (only these modules may use this one). Every deny rule needs
+# a `reason`, which the gate prints when the rule is broken.
+#
+# Test code (`#[cfg(test)]`, tests.rs) and a module's references to itself
+# are not edges. lib.rs declares every module; declarations are not edges.
+
+[modules.acp]
+may_use = ["agent", "agents", "child", "config", "event", "learn", "llm", "manifest", "permission", "tools"]
+
+[modules.agent]
+may_use = ["child", "compact", "config", "event", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "secrets", "tools"]
+
+[modules.agents]
+may_use = ["child", "config", "sandbox", "tools"]
+
+[modules.child]
+may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
+
+[modules.cli]
+may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm", "manifest", "memory", "router", "sandbox", "secrets", "skills", "tools", "tui"]
+
+[modules.compact]
+may_use = ["config", "llm"]
+
+[modules.config]
+may_use = ["agents", "learn", "mcp", "models", "tools"]
+
+[modules.event]
+may_use = ["compact", "llm", "manifest", "permission", "tools"]
+
+[modules.guard]
+may_use = []
+
+[modules.home]
+may_use = []
+
+[modules.jev]
+may_use = ["config", "journal", "llm"]
+
+[modules.journal]
+may_use = ["child", "compact", "config", "event", "llm", "models", "project", "skills", "tools"]
+
+[modules.learn]
+may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
+
+[modules.lib]
+may_use = []
+
+[modules.llm]
+may_use = ["config", "journal", "models", "text"]
+
+[modules.main]
+may_use = ["cli", "sandbox", "trace"]
+
+[modules.manifest]
+may_use = ["config", "llm", "tools"]
+
+[modules.mcp]
+may_use = ["config", "sandbox", "secrets", "text"]
+
+[modules.memory]
+may_use = ["config", "guard", "project"]
+
+[modules.models]
+may_use = ["config", "secrets"]
+
+[modules.permission]
+may_use = ["config", "event", "journal", "sandbox", "tools"]
+
+[modules.project]
+may_use = ["config"]
+
+[modules.prompt]
+may_use = ["journal", "learn", "llm", "memory", "skills", "tools"]
+
+[modules.router]
+may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]
+
+[modules.sandbox]
+may_use = ["agents", "config", "secrets"]
+
+[modules.secrets]
+may_use = []
+
+[modules.skills]
+may_use = ["config", "guard", "tools"]
+
+[modules.text]
+may_use = []
+
+[modules.tools]
+may_use = ["agents", "child", "config", "event", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+
+[modules.trace]
+may_use = ["config"]
+
+[modules.tui]
+may_use = ["agent", "compact", "config", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
+must_not_use = [
+  { module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
+  { module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
+  { module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
+]
+used_only_by = { modules = ["cli"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner); cli is the one place that chooses to start it" }

@@ -3,7 +3,6 @@
 
 use super::Cmd;
 use super::ask::{Prompt, TuiAsk};
-use super::trace;
 use crate::agent::{Agent, Event};
 use crate::config::{Config, Paths};
 use crate::learn;
@@ -36,7 +35,7 @@ pub(super) async fn agent_task(
             return;
         }
     };
-    trace("agent ready");
+    crate::trace::mark("agent ready");
     agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
     agent.warm();
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();

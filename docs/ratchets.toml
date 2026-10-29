@@ -1,0 +1,33 @@
+# Known debt, counted exactly by `cargo xtask check`'s `arch` gate
+# (crates/construct-dev/src/arch/ratchet.rs). A count that grows fails; a
+# count that drops fails too until its baseline is lowered here, so each
+# improvement is locked in by the PR that made it. Test code never counts.
+
+# Non-test lines of each file under crates/*/src over the 300-line soft
+# ceiling (AGENTS.md convention 3). A file that drops under it leaves this
+# list; a new file over it fails until it is split or listed here.
+[lines]
+"crates/construct-dev/src/drive.rs" = 474
+"crates/construct-dev/src/serve.rs" = 635
+"crates/construct-dev/src/style.rs" = 375
+"crates/construct-dev/src/xtask.rs" = 354
+"crates/construct/src/acp/client.rs" = 399
+"crates/construct/src/agent.rs" = 739
+"crates/construct/src/child/run.rs" = 324
+"crates/construct/src/cli.rs" = 475
+"crates/construct/src/compact/mod.rs" = 347
+"crates/construct/src/config.rs" = 491
+"crates/construct/src/llm/mod.rs" = 317
+"crates/construct/src/mcp/conn.rs" = 334
+"crates/construct/src/router.rs" = 304
+"crates/construct/src/sandbox/mod.rs" = 379
+"crates/construct/src/sandbox/open.rs" = 302
+"crates/construct/src/skills.rs" = 313
+"crates/construct/src/tools/edit/hashline/mod.rs" = 368
+"crates/construct/src/tools/edit/hashline/ops.rs" = 312
+"crates/construct/src/tools/mod.rs" = 542
+"crates/construct/src/tools/shell.rs" = 307
+"crates/construct/src/tui/app.rs" = 435
+"crates/construct/src/tui/input.rs" = 418
+"crates/construct/src/tui/markdown.rs" = 385
+"crates/construct/src/tui/view.rs" = 482
