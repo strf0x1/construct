@@ -20,6 +20,8 @@ mod delegate;
 mod e2e;
 #[path = "models.rs"]
 mod models;
+#[path = "notes.rs"]
+mod notes;
 #[path = "permission.rs"]
 mod permission;
 #[path = "slash.rs"]

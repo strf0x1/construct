@@ -273,6 +273,7 @@ impl App {
             | Event::Invoke { .. }
             | Event::Assistant { .. }
             | Event::ToolResult { .. }
+            | Event::Note { .. }
             | Event::Request { .. } => {}
             Event::TurnStart => {
                 self.busy = true;

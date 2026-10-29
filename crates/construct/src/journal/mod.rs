@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 mod export;
+pub mod notes;
 mod read;
 mod show;
 mod totals;

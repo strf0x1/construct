@@ -7,7 +7,7 @@
 use crate::child::Origin;
 use crate::compact::{self, Reason};
 use crate::config::{Config, Paths};
-use crate::journal;
+use crate::journal::{self, notes::Coalescer};
 use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
@@ -47,6 +47,8 @@ pub struct Agent {
     pub user_turns: u32,
     pub tool_calls: u32,
     cancel_tx: watch::Sender<bool>,
+    /// What the provider client recorded without failing, until the model call ends.
+    notes: Coalescer,
 }
 
 impl Agent {
@@ -143,6 +145,7 @@ impl Agent {
             user_turns: 0,
             tool_calls: 0,
             cancel_tx,
+            notes: Coalescer::default(),
         };
         if agent.messages.len() == 1 {
             let ev = Event::for_message(agent.messages[0].clone());
@@ -415,6 +418,7 @@ impl Agent {
             }
             self.run_tools(&calls, tx).await;
         }
+        self.notes.flush_suppressed(&self.journal, tx);
         self.journal.emit(
             Event::TurnEnd {
                 steps,
@@ -456,7 +460,7 @@ impl Agent {
     }
 
     /// One model call. Returns None when interrupted.
-    async fn step(&self, body: Vec<u8>, defs: &[Value], tx: &Events) -> Result<Option<llm::Completion>> {
+    async fn step(&mut self, body: Vec<u8>, defs: &[Value], tx: &Events) -> Result<Option<llm::Completion>> {
         let (dtx, mut drx) = mpsc::unbounded_channel::<Delta>();
         self.journal.emit(
             Event::Request {
@@ -467,20 +471,26 @@ impl Agent {
             },
             tx,
         );
-        let fut = self.client.stream_body(body, Some(&dtx));
-        tokio::pin!(fut);
-        let mut cancel = self.ctx.cancel.clone();
-        loop {
-            tokio::select! {
-                biased;
-                d = drx.recv() => if let Some(d) = d { forward(d, tx) },
-                r = &mut fut => {
-                    while let Ok(d) = drx.try_recv() { forward(d, tx) }
-                    return r.map(Some);
+        let out = {
+            let fut = self.client.stream_body(body, Some(&dtx), &mut self.notes);
+            tokio::pin!(fut);
+            let mut cancel = self.ctx.cancel.clone();
+            loop {
+                tokio::select! {
+                    biased;
+                    d = drx.recv() => if let Some(d) = d { forward(d, tx) },
+                    r = &mut fut => {
+                        while let Ok(d) = drx.try_recv() { forward(d, tx) }
+                        break r.map(Some);
+                    }
+                    _ = cancel.changed() => if *cancel.borrow() { break Ok(None) },
                 }
-                _ = cancel.changed() => if *cancel.borrow() { return Ok(None) },
             }
-        }
+        };
+        // Whether the call succeeded, failed or was cut short, what it
+        // recorded on the way is one row per kind.
+        self.notes.flush(&self.journal, tx);
+        out
     }
 
     async fn run_tools(&mut self, calls: &[llm::ToolCall], tx: &Events) {

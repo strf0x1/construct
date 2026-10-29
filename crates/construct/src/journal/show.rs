@@ -151,6 +151,9 @@ pub fn transcript(entries: &[Entry]) -> String {
             Event::Error { message } => {
                 let _ = writeln!(out, "!! error: {message}\n");
             }
+            Event::Note { class, kind, detail, count } => {
+                let _ = writeln!(out, "   note {class}/{kind} x{count}: {detail}");
+            }
             _ => {}
         }
     }

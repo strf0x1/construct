@@ -2,7 +2,8 @@
 //! reasoning deltas forwarded as they arrive, tool-call fragments joined by
 //! index, and the usage from whichever chunk carries it.
 
-use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage};
+use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage, notes};
+use crate::journal::notes::Coalescer;
 use anyhow::{Result, anyhow};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -18,7 +19,7 @@ pub(super) struct Accumulator {
 }
 
 impl Accumulator {
-    pub(super) fn feed(&mut self, v: &Value, tx: Option<&mpsc::UnboundedSender<Delta>>) {
+    pub(super) fn feed(&mut self, v: &Value, tx: Option<&mpsc::UnboundedSender<Delta>>, notes: &mut Coalescer) {
         if let Some(u) = v.get("usage").filter(|u| u.is_object()) {
             self.usage = Usage::parse(u);
         }
@@ -53,6 +54,9 @@ impl Accumulator {
                 if let Some(id) = c.get("id").and_then(Value::as_str)
                     && !id.is_empty()
                 {
+                    if !entry.0.is_empty() && entry.0 != id {
+                        notes.record(notes::INDEX_COLLISION, &format!("index {index}: {} then {id}", entry.0));
+                    }
                     entry.0 = id.to_string();
                 }
                 if let Some(f) = c.get("function") {
@@ -71,6 +75,11 @@ impl Accumulator {
                 }
             }
         }
+    }
+
+    /// Whether the provider said why it stopped.
+    pub(super) fn finished(&self) -> bool {
+        !self.finish.is_empty()
     }
 
     pub(super) fn finish(self) -> Result<Completion> {
@@ -98,5 +107,32 @@ impl Accumulator {
             usage: self.usage,
             finish_reason: self.finish,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn call(id: &str, args: &str) -> Value {
+        json!({ "choices": [{ "delta": { "tool_calls": [{ "index": 0, "id": id, "function": { "name": "read", "arguments": args } }] } }] })
+    }
+
+    #[test]
+    fn a_new_id_at_a_used_index_is_noted_and_the_same_id_is_not() {
+        let mut acc = Accumulator::default();
+        let mut notes = Coalescer::default();
+        acc.feed(&call("a", "{"), None, &mut notes);
+        acc.feed(&call("a", "}"), None, &mut notes);
+        assert!(notes.drain().is_empty(), "a repeated id is the stream continuing");
+        acc.feed(&call("b", "{}"), None, &mut notes);
+        match notes.drain().as_slice() {
+            [crate::event::Event::Note { kind, detail, count: 1, .. }] => {
+                assert_eq!(kind, "index_collision");
+                assert!(detail.contains("a then b"), "{detail}");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 }

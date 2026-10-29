@@ -44,6 +44,13 @@ pub enum Step {
         delay_ms: u64,
         #[serde(default)]
         reasoning: Option<String>,
+        /// Unparseable `data:` lines sent before the words, the way a flaky
+        /// proxy garbles a stream.
+        #[serde(default)]
+        bad_chunks: usize,
+        /// End the stream after the words: no finish reason, usage or `[DONE]`.
+        #[serde(default)]
+        cut: bool,
     },
     Call {
         call: String,
@@ -54,6 +61,15 @@ pub enum Step {
     },
     Calls {
         calls: Vec<Value>,
+    },
+    /// Answer with this HTTP status instead of a stream: 429 and 5xx are
+    /// retried by clients, 400 is a provider rejecting a parameter.
+    Fail {
+        status: u16,
+        #[serde(default)]
+        retry_after: Option<u64>,
+        #[serde(default)]
+        body: String,
     },
 }
 
@@ -492,7 +508,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         let mut n = s.side_next.lock().unwrap();
         let text = s.cfg.side.get(*n).cloned().unwrap_or_else(|| "Side reply".into());
         *n += 1;
-        Some(Step::Text { text, delay_ms: 0, reasoning: None })
+        Some(Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false })
     } else {
         let mut n = s.next.lock().unwrap();
         let st = s.cfg.script.get(*n).cloned();
@@ -510,8 +526,21 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     };
     let step = match step {
         Some(st) => st,
-        None => Step::Text { text: "done".into(), delay_ms: 0, reasoning: None },
+        None => Step::Text { text: "done".into(), delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false },
     };
+    if let Step::Fail { status, retry_after, body } = &step {
+        rec["status"] = json!(status);
+        rec["error"] = json!(body);
+        rec["t_first_byte"] = json!(ms(&s));
+        rec["t_end"] = rec["t_first_byte"].clone();
+        write_log(&s, &rec);
+        let mut r = Response::builder().status(*status).header("content-type", "application/json");
+        if let Some(secs) = retry_after {
+            r = r.header("retry-after", secs.to_string());
+        }
+        return r.body(Body::from(body.clone())).unwrap();
+    }
+    let mut cut = false;
     let model = req["model"].as_str().unwrap_or("mock").to_string();
     let stream = req["stream"].as_bool().unwrap_or(false);
     let base = |delta: Value, finish: Value| json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [{ "index": 0, "delta": delta, "finish_reason": finish }] });
@@ -527,8 +556,13 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let mut message = json!({ "role": "assistant", "content": Value::Null });
     let mut n_calls = 0;
     match &step {
-        Step::Text { text, delay_ms, reasoning } => {
+        Step::Text { text, delay_ms, reasoning, bad_chunks, cut: cut_here } => {
+            cut = *cut_here;
             let mut first = *delay_ms;
+            for _ in 0..*bad_chunks {
+                chunks.push((first, Bytes::from_static(b"data: {not json\n\n")));
+                first = 0;
+            }
             if let Some(r) = reasoning {
                 chunks.push((first, sse(base(json!({ "role": "assistant", "reasoning_content": r }), Value::Null))));
                 first = 0;
@@ -539,7 +573,9 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
                 let d = if i == 0 { first } else { s.cfg.chunk_ms };
                 chunks.push((d, sse(base(json!({ "content": w }), Value::Null))));
             }
-            chunks.push((0, sse(base(json!({}), json!("stop")))));
+            if !cut {
+                chunks.push((0, sse(base(json!({}), json!("stop")))));
+            }
             message["content"] = json!(text);
         }
         Step::Call { call, args, delay_ms } => {
@@ -550,6 +586,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
             chunks.push((0, sse(base(json!({}), json!("tool_calls")))));
             message["tool_calls"] = tc;
         }
+        Step::Fail { .. } => unreachable!("answered above"),
         Step::Calls { calls } => {
             let mut tcs = vec![];
             for (i, c) in calls.iter().enumerate() {
@@ -572,8 +609,10 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         let finish = if n_calls > 0 { "tool_calls" } else { "stop" };
         return axum::Json(json!({ "id": "chatcmpl-mock", "object": "chat.completion", "created": 0, "model": model, "choices": [{ "index": 0, "message": message, "finish_reason": finish }], "usage": usage })).into_response();
     }
-    chunks.push((0, sse(json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [], "usage": usage }))));
-    chunks.push((0, Bytes::from_static(b"data: [DONE]\n\n")));
+    if !cut {
+        chunks.push((0, sse(json!({ "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model, "choices": [], "usage": usage }))));
+        chunks.push((0, Bytes::from_static(b"data: [DONE]\n\n")));
+    }
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(64);
     let s2 = s.clone();
     tokio::spawn(async move {
