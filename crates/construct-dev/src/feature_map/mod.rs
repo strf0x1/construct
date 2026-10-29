@@ -135,7 +135,10 @@ fn claims(root: &Path, entries: &[Entry], bad: &mut Vec<String>) {
         for line in e.text.lines().filter(|l| l.contains("expect-style")) {
             for hex in hex_colors(line) {
                 if !colors.contains(&hex) && !driven.contains(&hex) {
-                    bad.push(format!("{MAP}/{}: color #{hex} is not an Rgb in crates/construct/src", e.file));
+                    bad.push(format!(
+                        "{MAP}/{}: color #{hex} is neither an Rgb in crates/construct/src nor asserted by its recipe",
+                        e.file
+                    ));
                 }
             }
         }
@@ -324,7 +327,7 @@ pub(super) mod tests {
             "turn.md: surface `web` is not declared",
             "turn.md: recipe `gone` does not exist",
             "turn.md: depends on `crates/gone.rs`, which does not exist",
-            "turn.md: color #123456 is not an Rgb",
+            "turn.md: color #123456 is neither an Rgb",
             "recipes/turn: no feature-map entry names this recipe",
             "`/new` is in COMMANDS but no feature-map entry mentions it",
             "turn.md: step `Look.` needs both Drive: and Expect:",
@@ -353,11 +356,11 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn a_color_the_recipe_asserts_needs_no_rgb_constant() {
+    fn a_color_the_entrys_own_recipe_asserts_needs_no_rgb() {
         let root = tree("blend");
-        write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("#9ECE6A", "#7694d9"));
-        assert!(quiet(&root)[0].contains("color #7694d9 is not an Rgb"));
-        write(&root, &format!("{RECIPES}/turn/drive.txt"), "expect-style \"<1%\" fg=#7694D9\n");
+        write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("#9ECE6A", "#7694D9"));
+        assert!(quiet(&root)[0].contains("color #7694d9 is neither an Rgb"));
+        write(&root, &format!("{RECIPES}/turn/drive.txt"), "expect-style \"<1%\" fg=#7694d9\n");
         assert_eq!(quiet(&root), Vec::<String>::new());
         let _ = std::fs::remove_dir_all(&root);
     }
