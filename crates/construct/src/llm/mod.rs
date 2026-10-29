@@ -241,36 +241,16 @@ impl Client {
         }
 
         let mut acc = stream::Accumulator::default();
+        let mut sse = stream::Sse::default();
         let mut stream = resp.bytes_stream();
-        let mut buf: Vec<u8> = Vec::new();
         let mut done = false;
         'read: while let Some(chunk) = stream.next().await {
             let chunk = chunk.context("model stream interrupted")?;
-            buf.extend_from_slice(&chunk);
-            while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
-                let line: Vec<u8> = buf.drain(..=pos).collect();
-                let line = String::from_utf8_lossy(&line);
-                let line = line.trim_end_matches(['\r', '\n']);
-                let Some(data) = line.strip_prefix("data:") else { continue };
-                let data = data.trim_start();
-                if data == "[DONE]" {
+            for data in sse.push(&chunk) {
+                if acc.data(&data, tx, notes)? {
                     done = true;
                     break 'read;
                 }
-                if data.is_empty() {
-                    continue;
-                }
-                let v: Value = match serde_json::from_str(data) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        notes.record(notes::BAD_CHUNK, &format!("{e}: {}", truncate(data, 80)));
-                        continue;
-                    }
-                };
-                if let Some(err) = v.get("error") {
-                    bail!("model endpoint error: {}", truncate(&err.to_string(), 600));
-                }
-                acc.feed(&v, tx, notes);
             }
         }
         if !done && !acc.finished() {
