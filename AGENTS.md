@@ -109,6 +109,7 @@ cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct           # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev --test it delegate::   # end-to-end, one file's tests (drop the filter for all of them)
 cargo xtask snapshots             # re-record golden snapshots after an intended change
+cargo deny check                  # dependency policy in deny.toml (advisories, licenses, duplicates, sources); needs network, so CI runs it as its own job, not in xtask
 ```
 
 Run `cargo xtask check --quick` as you go, plus the end-to-end tests your
@@ -164,8 +165,9 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
    the lib.
 2. Every module starts with a `//!` paragraph: what it is for and the one
    design choice a reader must know.
-3. A file is one concern. Soft ceiling 300 lines; `tui/view.rs` and
-   `tools/mod.rs` may run longer. Split by concern, never by line count.
+3. A file is one concern. Soft ceiling 300 non-test lines; the files over
+   it today are listed in `docs/ratchets.toml` and may shrink, never grow.
+   Split by concern, never by line count.
 4. Errors: `anyhow::Result` at the binary and in glue; `Result<T, String>` at
    the tool boundary stays, because that string is prose for the model. Clippy
    (`unwrap_used`, `expect_used`) rejects `unwrap()` and `expect()` outside
@@ -182,8 +184,10 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
    the highest tier that can observe the behaviour.
 7. `cargo xtask check` must pass on the PR (CI runs it; `--quick` is the local
    loop). A refactor PR must also leave the golden request snapshots unchanged.
-8. Dependencies: add one only if it removes more code than it adds; pin in
-   `[workspace.dependencies]`; no git deps.
+8. Dependencies: add one only if it removes more code than it adds; no git
+   deps. A dependency both crates use is pinned once in
+   `[workspace.dependencies]` and taken with `.workspace = true`; one only a
+   single crate uses lives in that crate's `Cargo.toml`.
 9. Formatting is `cargo fmt`'s opinion, never hand-tuned.
 10. A decision that constrains future work gets an ADR (`docs/adr/`); check
     there before changing a settled behaviour.
