@@ -184,6 +184,17 @@ pub enum Event {
     Error {
         message: String,
     },
+    /// Something went wrong or odd that the run recovered from or never
+    /// surfaced: `class` is the subsystem (`provider`), `kind` the condition
+    /// (`retry`, `bad_chunk`, ...), `count` how many times in one model call.
+    /// Journal-only in the UI. A new category adds `Kind` constants, not a
+    /// variant (`journal::notes`).
+    Note {
+        class: String,
+        kind: String,
+        detail: String,
+        count: u32,
+    },
     Learn {
         status: String,
     },

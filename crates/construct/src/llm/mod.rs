@@ -6,6 +6,7 @@
 
 pub mod catalog;
 pub mod dialect;
+pub mod notes;
 mod stream;
 mod usage;
 
@@ -13,6 +14,7 @@ pub use dialect::Provider;
 pub use usage::Usage;
 
 use crate::config::Config;
+use crate::journal::notes::Coalescer;
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -160,8 +162,9 @@ impl Client {
         });
     }
 
+    /// A call whose notes nobody reads; the agent loop uses [`Client::stream_body`].
     pub async fn stream(&self, req: Request<'_>, tx: Option<&mpsc::UnboundedSender<Delta>>) -> Result<Completion> {
-        self.stream_body(self.body(&req), tx).await
+        self.stream_body(self.body(&req), tx, &mut Coalescer::default()).await
     }
 
     /// The request body exactly as it goes on the wire, shaped for this
@@ -173,8 +176,14 @@ impl Client {
     }
 
     /// Stream a request already serialized with [`Client::body`], so the caller can
-    /// record its size without serializing it twice.
-    pub async fn stream_body(&self, body: Vec<u8>, tx: Option<&mpsc::UnboundedSender<Delta>>) -> Result<Completion> {
+    /// record its size without serializing it twice. What went wrong without
+    /// failing the call (retries, skipped chunks, a cut stream) goes to `notes`.
+    pub async fn stream_body(
+        &self,
+        body: Vec<u8>,
+        tx: Option<&mpsc::UnboundedSender<Delta>>,
+        notes: &mut Coalescer,
+    ) -> Result<Completion> {
         let mut attempt = 0u32;
         let resp = loop {
             let mut rb = self
@@ -195,6 +204,14 @@ impl Client {
             };
             if retryable && attempt < 4 {
                 attempt += 1;
+                notes.record(
+                    notes::RETRY,
+                    &match &res {
+                        Ok(r) => format!("status {}", r.status()),
+                        Err(e) if e.is_timeout() => "timeout".into(),
+                        Err(_) => "connect error".into(),
+                    },
+                );
                 let wait = res
                     .as_ref()
                     .ok()
@@ -210,6 +227,11 @@ impl Client {
             if !r.status().is_success() {
                 let status = r.status();
                 let text = r.text().await.unwrap_or_default();
+                if status.as_u16() == 400
+                    && let Some(p) = notes::PARAMS.iter().find(|p| text.contains(**p))
+                {
+                    notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
+                }
                 bail!("model endpoint returned {status}: {}", truncate(&text, 600));
             }
             break r;
@@ -221,6 +243,7 @@ impl Client {
         let mut acc = stream::Accumulator::default();
         let mut stream = resp.bytes_stream();
         let mut buf: Vec<u8> = Vec::new();
+        let mut done = false;
         'read: while let Some(chunk) = stream.next().await {
             let chunk = chunk.context("model stream interrupted")?;
             buf.extend_from_slice(&chunk);
@@ -231,6 +254,7 @@ impl Client {
                 let Some(data) = line.strip_prefix("data:") else { continue };
                 let data = data.trim_start();
                 if data == "[DONE]" {
+                    done = true;
                     break 'read;
                 }
                 if data.is_empty() {
@@ -238,15 +262,25 @@ impl Client {
                 }
                 let v: Value = match serde_json::from_str(data) {
                     Ok(v) => v,
-                    Err(_) => continue,
+                    Err(e) => {
+                        notes.record(notes::BAD_CHUNK, &format!("{e}: {}", truncate(data, 80)));
+                        continue;
+                    }
                 };
                 if let Some(err) = v.get("error") {
                     bail!("model endpoint error: {}", truncate(&err.to_string(), 600));
                 }
-                acc.feed(&v, tx);
+                acc.feed(&v, tx, notes);
             }
         }
-        acc.finish()
+        if !done && !acc.finished() {
+            notes.record(notes::TRUNCATED, "stream ended without a finish reason or [DONE]");
+        }
+        let c = acc.finish()?;
+        if c.finish_reason == "length" && !c.message.tool_calls.is_empty() {
+            notes.record(notes::TRUNCATED, &format!("length cutoff with {} tool call(s)", c.message.tool_calls.len()));
+        }
+        Ok(c)
     }
 
     /// One non-streaming completion; used by the learning pass.
