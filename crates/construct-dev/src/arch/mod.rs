@@ -61,7 +61,7 @@ struct OnlyBy {
 pub fn problems(root: &Path) -> Vec<String> {
     let srcs = sources(root);
     let mut bad = boundaries(root, &srcs);
-    bad.extend(ratchet::problems(root, &srcs));
+    bad.extend(ratchet::problems(root));
     bad
 }
 

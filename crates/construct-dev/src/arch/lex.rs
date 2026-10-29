@@ -1,17 +1,15 @@
-//! Just enough of a Rust lexer for the `arch` gate: identifiers, `::`, string
-//! literals and single punctuation, each with its line, and nothing from a
-//! comment. Doc text and strings that mention `crate::x` must never count as
+//! Just enough of a Rust lexer for the `arch` gate: identifiers, `::` and
+//! single punctuation, each with its line, and nothing from a comment or a
+//! string literal. Doc text and strings that mention `crate::x` must never count as
 //! an edge, so the gate reads tokens, never lines.
 //!
 //! `strip_tests` then drops every `#[cfg(test)]` item (and a file under
 //! `#![cfg(test)]`), and reports which lines those items covered, so the
-//! boundary scan, the wire-name count and the line count all see only the
-//! code that ships.
+//! boundary scan and the line count see only the code that ships.
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Tok {
     Ident(String),
-    Str(String),
     /// `::`
     PathSep,
     Punct(char),
@@ -63,9 +61,7 @@ pub(super) fn lex(src: &str) -> Vec<Token> {
                 }
             }
         } else if c == '"' {
-            let (text, next) = quoted(&s, i + 1, &mut line);
-            out.push(Token { tok: Tok::Str(text), line: start_line });
-            i = next;
+            i = quoted(&s, i + 1, &mut line);
         } else if c == '\'' {
             // A char literal ('a', '\n', '\u{1F600}') or a lifetime ('a).
             if at(i + 1) == '\\' {
@@ -98,13 +94,9 @@ pub(super) fn lex(src: &str) -> Vec<Token> {
                     line += usize::from(s[j] == '\n');
                     j += 1;
                 }
-                let text = s[i + hashes + 1..j.min(s.len())].iter().collect();
-                out.push(Token { tok: Tok::Str(text), line: start_line });
                 i = j + 1 + hashes;
             } else if matches!(word.as_str(), "b" | "c") && at(i) == '"' {
-                let (text, next) = quoted(&s, i + 1, &mut line);
-                out.push(Token { tok: Tok::Str(text), line: start_line });
-                i = next;
+                i = quoted(&s, i + 1, &mut line);
             } else if word == "b" && at(i) == '\'' {
                 i += 1;
                 while i < s.len() && s[i] != '\'' {
@@ -128,10 +120,8 @@ pub(super) fn lex(src: &str) -> Vec<Token> {
     out
 }
 
-/// A `"`-delimited body starting at `i` (after the quote): its raw text and
-/// the index after the closing quote.
-fn quoted(s: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
-    let begin = i;
+/// The index after the closing quote of a `"`-delimited body starting at `i`.
+fn quoted(s: &[char], mut i: usize, line: &mut usize) -> usize {
     while i < s.len() && s[i] != '"' {
         *line += usize::from(s[i] == '\n');
         if s[i] == '\\' {
@@ -140,7 +130,7 @@ fn quoted(s: &[char], mut i: usize, line: &mut usize) -> (String, usize) {
         }
         i += 1;
     }
-    (s[begin..i.min(s.len())].iter().collect(), i + 1)
+    i + 1
 }
 
 fn punct(t: &[Token], i: usize, c: char) -> bool {

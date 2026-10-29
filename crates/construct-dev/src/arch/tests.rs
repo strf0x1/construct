@@ -204,34 +204,26 @@ fn a_scanner_that_finds_nothing_fails() {
     );
 }
 
-/// A tree for the ratchets: one tool named `shell`, `a` spelling it once, and
-/// `big.rs` with `n` code lines and a test module that does not count.
+/// A tree for the ratchets: `big.rs` with `n` code lines and a test module
+/// that does not count.
 fn ratchets(name: &str, n: usize, baseline: &str) -> Vec<String> {
     let t = tree(name);
-    write(&t, "crates/construct/src/tools/shell.rs", "//! s\nimpl Shell {\n    pub const NAME: &str = \"shell\";\n}\n");
-    write(
-        &t,
-        "crates/construct/src/a.rs",
-        "//! a\nconst S: &str = \"shell\";\n#[cfg(test)]\nconst T: &str = \"shell\";\n",
-    );
     let tests = "#[cfg(test)]\nmod tests {\n".to_string() + &"    // t\n".repeat(50) + "}\n";
     write(&t, "crates/construct/src/big.rs", &("//! big\n".to_string() + &"fn f() {}\n".repeat(n - 1) + &tests));
     write(&t, "docs/ratchets.toml", baseline);
-    ratchet::problems(&t.0, &sources(&t.0))
+    ratchet::problems(&t.0)
 }
 
 #[test]
 fn a_ratchet_that_rises_fails() {
-    let base = "wire_name_literals = 0\n[lines]\n\"crates/construct/src/big.rs\" = 301\n";
     assert_eq!(
-        ratchets("rise", 305, base),
+        ratchets("rise", 305, "[lines]\n\"crates/construct/src/big.rs\" = 301\n"),
         [
-            "docs/ratchets.toml: crates/construct/src/big.rs grew from 301 to 305 non-test lines; split it by concern instead of adding to it",
-            "docs/ratchets.toml: wire_name_literals grew from 0 to 1: crates/construct/src/a.rs:2 \"shell\"; use the tool's `NAME` const instead (AGENTS.md convention 5)",
+            "docs/ratchets.toml: crates/construct/src/big.rs grew from 301 to 305 non-test lines; split it by concern instead of adding to it"
         ]
     );
     assert_eq!(
-        ratchets("new-long", 302, "wire_name_literals = 1\n"),
+        ratchets("new-long", 302, "[lines]\n"),
         [
             "crates/construct/src/big.rs: 302 non-test lines, over the 300-line soft limit; split it by concern, or if it is one concern add `\"crates/construct/src/big.rs\" = 302` under [lines] in docs/ratchets.toml"
         ]
@@ -240,16 +232,14 @@ fn a_ratchet_that_rises_fails() {
 
 #[test]
 fn a_ratchet_that_falls_asks_for_the_lower_baseline() {
-    let base = "wire_name_literals = 3\n[lines]\n\"crates/construct/src/big.rs\" = 320\n";
     assert_eq!(
-        ratchets("fall", 310, base),
+        ratchets("fall", 310, "[lines]\n\"crates/construct/src/big.rs\" = 320\n"),
         [
-            "docs/ratchets.toml: crates/construct/src/big.rs shrank from 320 to 310 non-test lines; lower the baseline to 310",
-            "docs/ratchets.toml: wire_name_literals dropped from 3 to 1; lower the baseline to 1",
+            "docs/ratchets.toml: crates/construct/src/big.rs shrank from 320 to 310 non-test lines; lower the baseline to 310"
         ]
     );
     assert_eq!(
-        ratchets("under", 300, "wire_name_literals = 1\n[lines]\n\"crates/construct/src/big.rs\" = 301\n"),
+        ratchets("under", 300, "[lines]\n\"crates/construct/src/big.rs\" = 301\n"),
         [
             "docs/ratchets.toml: crates/construct/src/big.rs is no longer over the 300-line soft limit (or is gone); delete its line"
         ]

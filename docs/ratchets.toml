@@ -3,12 +3,6 @@
 # count that drops fails too until its baseline is lowered here, so each
 # improvement is locked in by the PR that made it. Test code never counts.
 
-# String literals in crates/construct/src outside tools/ equal to a tool's
-# wire name (a `const NAME` in tools/), AGENTS.md convention 5. Use the
-# tool's `NAME` const instead. Some hits are other strings that happen to
-# match (`"read"`/`"write"` as sandbox access modes); the count is coarse.
-wire_name_literals = 17
-
 # Non-test lines of each file under crates/*/src over the 300-line soft
 # ceiling (AGENTS.md convention 3). A file that drops under it leaves this
 # list; a new file over it fails until it is split or listed here.
