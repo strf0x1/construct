@@ -108,10 +108,9 @@ fn render(a: &Answer) -> String {
 /// ago") is kept as the backend wrote it.
 fn day(s: &str) -> Option<String> {
     let s = s.trim();
-    let is_iso = s.len() >= 10
-        && s.as_bytes()[4] == b'-'
-        && s.as_bytes()[7] == b'-'
-        && s[..4].bytes().all(|b| b.is_ascii_digit());
+    let b = s.as_bytes();
+    let is_iso = b.len() >= 10
+        && b[..10].iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() });
     match (s.is_empty(), is_iso) {
         (true, _) => None,
         (false, true) => Some(s[..10].to_string()),
@@ -295,6 +294,7 @@ mod tests {
         assert_eq!(day("2026-10-21T14:03:00Z").as_deref(), Some("2026-10-21"));
         assert_eq!(day("2 days ago").as_deref(), Some("2 days ago"));
         assert_eq!(day("  "), None);
+        assert_eq!(day("2026-10-\u{e9}\u{e9}x").as_deref(), Some("2026-10-\u{e9}\u{e9}x"));
     }
 
     fn plan(backends: &[Backend]) -> Vec<(Backend, Option<String>)> {
