@@ -5,7 +5,7 @@
 use anyhow::{Result, anyhow};
 use secretspec::{NamedResolution, Secret, Secrets, Spec};
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 pub const EXA_API_KEY: &str = "EXA_API_KEY";
 pub const BRAVE_API_KEY: &str = "BRAVE_API_KEY";
@@ -34,6 +34,11 @@ fn spec(extra: Option<&str>) -> Result<Secrets> {
 
 static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
 
+#[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
+fn cache() -> MutexGuard<'static, HashMap<String, Option<String>>> {
+    CACHE.get_or_init(Default::default).lock().unwrap()
+}
+
 /// Resolve one secret, once per process (misses are cached too). The
 /// environment is checked directly first: it is the common case and costs
 /// nothing, while the keyring may wake a D-Bus service.
@@ -43,15 +48,14 @@ pub fn get(name: &str) -> Option<String> {
     {
         return Some(v);
     }
-    let cache = CACHE.get_or_init(Default::default);
-    if let Some(hit) = cache.lock().unwrap().get(name) {
+    if let Some(hit) = cache().get(name) {
         return hit.clone();
     }
     let value = spec(Some(name)).ok().and_then(|secrets| match secrets.resolve_named(name) {
         Ok(NamedResolution::Resolved(r)) => r.value.filter(|v| !v.is_empty()),
         _ => None,
     });
-    cache.lock().unwrap().insert(name.to_string(), value.clone());
+    cache().insert(name.to_string(), value.clone());
     value
 }
 
@@ -83,9 +87,7 @@ pub fn set(name: &str, value: &str) -> Result<()> {
     let mut secrets = spec(Some(name))?;
     secrets.set_provider("keyring");
     secrets.set_text(name, value).map_err(|e| anyhow!("secretspec: {e}"))?;
-    if let Some(c) = CACHE.get() {
-        c.lock().unwrap().insert(name.to_string(), Some(value.to_string()));
-    }
+    cache().insert(name.to_string(), Some(value.to_string()));
     Ok(())
 }
 

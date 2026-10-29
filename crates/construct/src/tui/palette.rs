@@ -131,8 +131,10 @@ pub(super) fn candidates(q: &str, skills: &[Skill]) -> Vec<Item> {
         skill: true,
         model: false,
     });
-    let mut scored: Vec<((u8, usize), Item)> =
-        builtins.chain(skills).filter_map(|i| score(&q, &i.name[1..], &i.about).map(|s| (s, i))).collect();
+    let mut scored: Vec<((u8, usize), Item)> = builtins
+        .chain(skills)
+        .filter_map(|i| score(&q, i.name.strip_prefix('/').unwrap_or(&i.name), &i.about).map(|s| (s, i)))
+        .collect();
     scored.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.skill.cmp(&b.1.skill)).then(a.1.name.cmp(&b.1.name)));
     scored.into_iter().map(|(_, i)| i).collect()
 }

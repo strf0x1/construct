@@ -260,8 +260,8 @@ pub fn overflow_limit(err: &str) -> Option<u64> {
 }
 
 fn number_after(s: &str, prefix: &str) -> Option<u64> {
-    let i = s.find(prefix)? + prefix.len();
-    let digits: String = s[i..].chars().take_while(char::is_ascii_digit).collect();
+    let (_, rest) = s.split_once(prefix)?;
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
     digits.parse().ok()
 }
 

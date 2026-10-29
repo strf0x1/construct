@@ -113,7 +113,7 @@ fn day(s: &str) -> Option<String> {
         && b[..10].iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() });
     match (s.is_empty(), is_iso) {
         (true, _) => None,
-        (false, true) => Some(s[..10].to_string()),
+        (false, true) => s.get(..10).map(str::to_string),
         (false, false) => Some(s.to_string()),
     }
 }

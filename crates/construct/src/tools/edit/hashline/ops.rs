@@ -89,7 +89,7 @@ fn echo_prefix_len(line: &str) -> Option<usize> {
     let trimmed = line.trim_start();
     let lead = line.len() - trimmed.len();
     let digits = trimmed.bytes().take_while(u8::is_ascii_digit).count();
-    let rest = trimmed[digits..].strip_prefix(':').filter(|_| digits > 0)?;
+    let rest = trimmed.get(digits..)?.strip_prefix(':').filter(|_| digits > 0)?;
     let letters = rest.bytes().take_while(u8::is_ascii_lowercase).count();
     if !(2..=13).contains(&letters) || rest.as_bytes().get(letters) != Some(&b'|') {
         return None;
@@ -107,8 +107,8 @@ pub fn strip_echoed_anchors(lines: Vec<String>) -> Vec<String> {
     }
     lines
         .into_iter()
-        .map(|l| match echo_prefix_len(&l) {
-            Some(n) => l[n..].to_string(),
+        .map(|l| match echo_prefix_len(&l).and_then(|n| l.get(n..)) {
+            Some(rest) => rest.to_string(),
             None => l,
         })
         .collect()

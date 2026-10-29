@@ -25,11 +25,8 @@ fn base64(data: &[u8]) -> String {
 /// The escape sequence that sets the system clipboard to `text`, and whether
 /// the text had to be cut to fit.
 pub(super) fn osc52(text: &str) -> (String, bool) {
-    let mut end = text.len().min(MAX_BYTES);
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    (format!("\x1b]52;c;{}\x07", base64(&text.as_bytes()[..end])), end < text.len())
+    let cut = crate::text::head(text, MAX_BYTES);
+    (format!("\x1b]52;c;{}\x07", base64(cut.as_bytes())), cut.len() < text.len())
 }
 
 /// Write the sequence to the terminal. Returns whether the text was cut.

@@ -86,9 +86,7 @@ pub fn failed(result: &str) -> bool {
 
 /// The end of an error: a traceback's last lines say what went wrong.
 fn tail(s: &str, n: usize) -> &str {
-    let start = s.len().saturating_sub(n);
-    let start = (start..s.len()).find(|&i| s.is_char_boundary(i)).unwrap_or(s.len());
-    &s[start..]
+    crate::text::tail(s, n)
 }
 
 /// Both, as a prompt section; empty when the session has neither.

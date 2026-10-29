@@ -334,22 +334,19 @@ impl Drop for Driver {
 
 fn unquote(s: &str) -> String {
     let s = s.trim();
-    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
-        s[1..s.len() - 1].replace("\\\"", "\"")
-    } else {
-        s.to_string()
+    match s.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+        Some(inner) => inner.replace("\\\"", "\""),
+        None => s.to_string(),
     }
 }
 
 /// Split `"text with spaces" 3000` into (text, Some(3000)).
 fn text_and_timeout(rest: &str) -> (String, Option<u64>) {
     let rest = rest.trim();
-    if rest.starts_with('"')
-        && let Some(end) = rest[1..].find('"')
+    if let Some(body) = rest.strip_prefix('"')
+        && let Some((text, after)) = body.split_once('"')
     {
-        let text = rest[1..end + 1].to_string();
-        let t = rest[end + 2..].trim().parse().ok();
-        return (text, t);
+        return (text.to_string(), after.trim().parse().ok());
     }
     match rest.rsplit_once(' ') {
         Some((a, b)) if b.parse::<u64>().is_ok() => (unquote(a), b.parse().ok()),
@@ -362,9 +359,9 @@ fn text_and_timeout(rest: &str) -> (String, Option<u64>) {
 fn text_and_rest(rest: &str) -> (String, String) {
     let rest = rest.trim();
     if let Some(body) = rest.strip_prefix('"')
-        && let Some(end) = body.find('"')
+        && let Some((text, after)) = body.split_once('"')
     {
-        return (body[..end].to_string(), body[end + 1..].trim().to_string());
+        return (text.to_string(), after.trim().to_string());
     }
     let (a, b) = rest.split_once(' ').unwrap_or((rest, ""));
     (a.to_string(), b.trim().to_string())
@@ -473,5 +470,5 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
 }
 
 fn nz(n: u16) -> std::num::NonZeroU16 {
-    std::num::NonZeroU16::new(n.max(1)).unwrap()
+    std::num::NonZeroU16::new(n).unwrap_or(std::num::NonZeroU16::MIN)
 }

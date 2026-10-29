@@ -61,8 +61,7 @@ pub(super) async fn observe(
         .complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(1500), temperature: None })
         .await?;
     let text = c.message.content.unwrap_or_default();
-    let json_text = text.find('{').and_then(|a| text.rfind('}').map(|b| &text[a..=b])).unwrap_or("{}");
-    let v: Value = serde_json::from_str(json_text).unwrap_or(json!({}));
+    let v: Value = serde_json::from_str(super::json_object(&text)).unwrap_or(json!({}));
     let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
     let ts = crate::skills::now();
     Ok(v["observations"]
@@ -155,6 +154,6 @@ async fn same_problem_jev(
     Ok(probs
         .iter()
         .filter(|(k, p)| *k != "none" && p.as_f64().unwrap_or(0.0) >= 0.4)
-        .filter_map(|(k, _)| k[1..].parse().ok())
+        .filter_map(|(k, _)| k.get(1..)?.parse().ok())
         .collect())
 }

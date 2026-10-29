@@ -154,8 +154,8 @@ fn place(word: &str, literal: bool, cwd: &Path, home: Option<&Path>) -> Option<P
         return None;
     } else if let Some(rest) = word.strip_prefix("${HOME}").or_else(|| word.strip_prefix("$HOME")) {
         from_home(rest)?
-    } else if word == "~" || word.starts_with("~/") {
-        from_home(&word[1..])?
+    } else if let Some(rest) = word.strip_prefix('~').filter(|r| r.is_empty() || r.starts_with('/')) {
+        from_home(rest)?
     } else if word == ".." || word.starts_with("../") {
         cwd.join(word)
     } else {

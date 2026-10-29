@@ -260,7 +260,7 @@ impl App {
                 let style = if placeholder { theme::faint() } else { Style::default() };
                 lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
                 if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
-                    let before = &self.input[*s..self.cursor];
+                    let before = self.input.get(*s..self.cursor).unwrap_or("");
                     cur = (row, (prompt_w + before.width()) as u16);
                 }
                 row += 1;

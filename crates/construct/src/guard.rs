@@ -68,7 +68,9 @@ fn key_like(w: &str) -> Option<&'static str> {
         return Some("an API key or token");
     }
     // AWS access key ids: AKIA + 16 upper-case letters or digits.
-    if w.len() == 20 && w.starts_with("AKIA") && w[4..].bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit()) {
+    if w.len() == 20
+        && w.strip_prefix("AKIA").is_some_and(|r| r.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit()))
+    {
         return Some("an AWS access key");
     }
     // A JWT: three base64url parts, the first a JSON header.

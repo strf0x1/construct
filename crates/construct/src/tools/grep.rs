@@ -219,14 +219,16 @@ fn search_tree(
             if hits.count > 0 {
                 total.fetch_add(hits.count, Ordering::Relaxed);
                 files.fetch_add(1, Ordering::Relaxed);
-                // A poisoned lock is a panic in another worker.
+                #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic in another worker")]
                 top.lock().unwrap().offer(e.path(), hits.lines);
             }
             WalkState::Continue
         })
     });
     // The workers are done, so the lock is free; poisoned only if one panicked.
-    Found { top: top.into_inner().unwrap(), total: total.into_inner(), files: files.into_inner() }
+    #[expect(clippy::unwrap_used, reason = "poisoned lock: a worker panicked")]
+    let top = top.into_inner().unwrap();
+    Found { top, total: total.into_inner(), files: files.into_inner() }
 }
 
 #[cfg(test)]

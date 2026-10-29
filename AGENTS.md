@@ -160,8 +160,13 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 3. A file is one concern. Soft ceiling 300 lines; `tui/view.rs` and
    `tools/mod.rs` may run longer. Split by concern, never by line count.
 4. Errors: `anyhow::Result` at the binary and in glue; `Result<T, String>` at
-   the tool boundary stays, because that string is prose for the model. No
-   `unwrap()` outside tests except on a `Mutex` lock, with a comment.
+   the tool boundary stays, because that string is prose for the model. Clippy
+   (`unwrap_used`, `expect_used`) rejects `unwrap()` and `expect()` outside
+   tests; a `Mutex` lock takes `#[expect(clippy::unwrap_used, reason =
+   "poisoned lock: ...")]`. Every escape hatch is an `#[expect(..., reason)]`,
+   never an `#[allow]` (`allow_attributes`), so it fails once it goes stale.
+   Byte-offset string slices are linted too (`string_slice`): use `get(..)`
+   or a char-boundary helper.
 5. Tool names, group labels and other wire strings are declared once and
    referenced, never retyped as literals in another module.
 6. Tests: unit tests inline under `#[cfg(test)]` for pure functions; contract

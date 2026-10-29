@@ -4,6 +4,12 @@
 //! `docs` gate in `cargo xtask check` fails until it is. Filter with
 //! `cargo test -p construct --test it <file>::`.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test helpers outside #[test] fns fail the test by panicking"
+)]
+
 #[path = "acp_kinds.rs"]
 mod acp_kinds;
 #[path = "edit_contract.rs"]

@@ -38,14 +38,7 @@ fn normalized_with_map(s: &str) -> (String, Vec<usize>) {
 }
 
 fn find_all(hay: &str, needle: &str) -> Vec<Span> {
-    let mut out = Vec::new();
-    let mut from = 0;
-    while let Some(i) = hay[from..].find(needle) {
-        let start = from + i;
-        out.push(Span { start, end: start + needle.len() });
-        from = start + needle.len().max(1);
-    }
-    out
+    hay.match_indices(needle).map(|(start, m)| Span { start, end: start + m.len() }).collect()
 }
 
 fn find_lines(hay: &str, needle: &str) -> Vec<Span> {

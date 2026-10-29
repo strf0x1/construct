@@ -59,9 +59,7 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<A
 }
 
 fn between<'a>(s: &'a str, a: &str, b: &str) -> Option<&'a str> {
-    let i = s.find(a)? + a.len();
-    let j = s[i..].find(b)? + i;
-    Some(&s[i..j])
+    Some(s.split_once(a)?.1.split_once(b)?.0)
 }
 
 pub(super) fn strip_tags(s: &str) -> String {
@@ -93,9 +91,9 @@ fn percent_decode(s: &str) -> String {
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%'
-            && i + 2 < b.len()
-            && i + 2 < b.len()
-            && let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16)
+            && let Some(hex) = b.get(i + 1..i + 3)
+            && let Ok(hex) = std::str::from_utf8(hex)
+            && let Ok(v) = u8::from_str_radix(hex, 16)
         {
             out.push(v);
             i += 3;
@@ -105,4 +103,14 @@ fn percent_decode(s: &str) -> String {
         i += 1;
     }
     String::from_utf8_lossy(&out).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn percent_decode_leaves_a_broken_escape_before_multibyte_text() {
+        assert_eq!(super::percent_decode("a%20b%2Fc"), "a b/c");
+        assert_eq!(super::percent_decode("%aé"), "%aé");
+        assert_eq!(super::percent_decode("50%"), "50%");
+    }
 }

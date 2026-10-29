@@ -5,7 +5,7 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.91"
 license = "MIT"
 repository = "https://github.com/strf0x1/construct"
 publish = false
@@ -34,7 +34,11 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "allow", priority = -1 } # turn on individual pedantic lints later if they earn it
 dbg_macro = "warn"
 todo = "warn"
-unwrap_used = "allow" # see AGENTS.md conventions; revisit once tools return structured errors
+unwrap_used = "warn" # outside tests; a Mutex lock gets #[expect(..., reason = "poisoned lock: ...")]
+expect_used = "warn"
+string_slice = "warn" # a byte-offset slice panics off a char boundary; use get(..) or a boundary helper
+allow_attributes = "warn" # escape hatches are #[expect], which fails once it goes stale
+allow_attributes_without_reason = "warn"
 
 [profile.dev]
 # Every integration test links the whole lib; full debuginfo made each

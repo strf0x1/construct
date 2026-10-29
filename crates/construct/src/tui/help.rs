@@ -48,7 +48,7 @@ const ALIASES: &[&str] = &["clear", "exit", "q", "?"];
 
 /// Whether `/name` is a built-in command, so a skill can't take the name.
 pub(super) fn is_builtin(name: &str) -> bool {
-    ALIASES.contains(&name) || COMMANDS.iter().any(|e| &e.name[1..] == name)
+    ALIASES.contains(&name) || COMMANDS.iter().any(|e| e.name.strip_prefix('/') == Some(name))
 }
 
 /// The skills box's rows as a `/help` block carries them: `name\tdescription`

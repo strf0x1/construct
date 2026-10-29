@@ -167,11 +167,7 @@ fn cap(text: &str) -> (String, bool) {
     if text.len() <= SUMMARY_MAX {
         return (text.to_string(), false);
     }
-    let mut end = SUMMARY_MAX;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    (format!("{}\n[summary cut at {SUMMARY_MAX} bytes]", &text[..end]), true)
+    (format!("{}\n[summary cut at {SUMMARY_MAX} bytes]", crate::text::head(text, SUMMARY_MAX)), true)
 }
 
 #[cfg(test)]
