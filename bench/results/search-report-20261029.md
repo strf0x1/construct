@@ -3,7 +3,7 @@
 `python3 bench/search_report.py bench/results/task-20261028-22*.json bench/results/task-20261028-23*.json`
 (the 15 files from 221453 to 234020; 5 two-round batches per model). Arms: `grep`
 (the tool), `search` (same tool, named `search`), `none` (no search tool).
-Decision and caveats: docs/adr/0021-search-tool-stays-grep.md.
+Decision and caveats: docs/adr/0024-search-tool-stays-grep.md.
 
 ## anthropic/claude-haiku-5.5  (grep: 110 runs, search: 110 runs, none: 110 runs)
 

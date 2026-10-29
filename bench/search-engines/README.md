@@ -1,6 +1,6 @@
 # Search engines, measured (issue #10)
 
-> Decision: docs/adr/0021-search-tool-stays-grep.md. fff is not adopted; this
+> Decision: docs/adr/0024-search-tool-stays-grep.md. fff is not adopted; this
 > is the record of why, and of how the engines were compared.
 
 A standalone crate (its own `[workspace]`, not built by `cargo xtask check`)

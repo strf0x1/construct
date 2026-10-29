@@ -1,4 +1,4 @@
-# 0021 — The search tool stays `grep`, on ripgrep's crates; fff is not adopted
+# 0024 — The search tool stays `grep`, on ripgrep's crates; fff is not adopted
 
 Status: accepted, 2026-10-29.
 
