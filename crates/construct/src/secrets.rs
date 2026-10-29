@@ -7,12 +7,17 @@ use secretspec::{NamedResolution, Secret, Secrets, Spec};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
+pub const EXA_API_KEY: &str = "EXA_API_KEY";
+pub const BRAVE_API_KEY: &str = "BRAVE_API_KEY";
+pub const TAVILY_API_KEY: &str = "TAVILY_API_KEY";
+
 pub const KNOWN: &[(&str, &str)] = &[
     ("OPENAI_API_KEY", "Key for the OpenAI-compatible model endpoint"),
     ("OPENROUTER_API_KEY", "OpenRouter key, if you keep it under that name"),
     ("TYPESAFE_API_KEY", "TypeSafe key for the Jev router"),
-    ("EXA_API_KEY", "Exa key for web_search (optional)"),
-    ("BRAVE_API_KEY", "Brave Search key for web_search (optional)"),
+    (EXA_API_KEY, "Exa key for web_search (optional)"),
+    (BRAVE_API_KEY, "Brave Search key for web_search (optional)"),
+    (TAVILY_API_KEY, "Tavily key for web_search (optional)"),
 ];
 
 fn spec(extra: Option<&str>) -> Result<Secrets> {
