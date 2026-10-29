@@ -104,19 +104,29 @@ fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) ->
 }
 
 /// What an entry names must exist: each recipe it points at, and each color
-/// an `expect-style` asserts.
+/// an `expect-style` asserts, as an `Rgb` in the code or as an assertion in
+/// one of the entry's own recipes (blended colors are computed, and driving
+/// the recipe proves them).
 fn claims(root: &Path, entries: &[Entry], bad: &mut Vec<String>) {
-    let colors = known_colors(root);
+    let known = known_colors(root);
     for e in entries {
+        let mut colors = known.clone();
         for r in recipe_refs(&e.text) {
-            if !root.join(RECIPES).join(&r).is_dir() {
-                bad.push(format!("{MAP}/{}: recipe `{r}` does not exist in {RECIPES}", e.file));
+            match std::fs::read_to_string(root.join(RECIPES).join(&r).join("drive.txt")) {
+                Ok(drive) => colors.extend(drive.lines().filter(|l| l.contains("expect-style")).flat_map(hex_colors)),
+                Err(_) if !root.join(RECIPES).join(&r).is_dir() => {
+                    bad.push(format!("{MAP}/{}: recipe `{r}` does not exist in {RECIPES}", e.file))
+                }
+                Err(_) => {}
             }
         }
         for line in e.text.lines().filter(|l| l.contains("expect-style")) {
             for hex in hex_colors(line) {
                 if !colors.contains(&hex) {
-                    bad.push(format!("{MAP}/{}: color #{hex} is not an Rgb in crates/construct/src", e.file));
+                    bad.push(format!(
+                        "{MAP}/{}: color #{hex} is neither an Rgb in crates/construct/src nor asserted by its recipe",
+                        e.file
+                    ));
                 }
             }
         }
@@ -291,7 +301,7 @@ mod tests {
             "turn.md: verified_at `abc1234` is not a commit",
             "turn.md: surface `web` is not declared",
             "turn.md: recipe `gone` does not exist",
-            "turn.md: color #123456 is not an Rgb",
+            "turn.md: color #123456 is neither an Rgb",
             "recipes/turn: no feature-map entry names this recipe",
             "`/new` is in COMMANDS but no feature-map entry mentions it",
             "turn.md: step `Look.` needs both Drive: and Expect:",
@@ -316,6 +326,15 @@ mod tests {
         let bad = problems(&root, &|_| true);
         assert_eq!(bad.len(), 1, "{bad:#?}");
         assert!(bad[0].contains("sections out of order"), "{bad:#?}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_color_the_entrys_own_recipe_asserts_needs_no_rgb() {
+        let root = tree("blend");
+        write(&root, &format!("{RECIPES}/turn/drive.txt"), "expect-style \"<1%\" fg=#7694d9\n");
+        write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("#9ECE6A", "#7694D9"));
+        assert_eq!(problems(&root, &|_| true), Vec::<String>::new());
         let _ = std::fs::remove_dir_all(&root);
     }
 
