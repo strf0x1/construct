@@ -1,7 +1,6 @@
 //! Shared harness for the end-to-end tests: build the real binary once, give
 //! each test a fresh home and its own scripted model endpoint, and read back
 //! what the harness sent.
-#![allow(dead_code)] // each test binary uses a different subset
 
 use construct_dev::serve;
 use serde_json::Value;

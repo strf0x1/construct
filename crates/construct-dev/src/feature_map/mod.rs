@@ -211,8 +211,9 @@ fn ticked(line: &str) -> Option<String> {
 
 fn recipe_refs(text: &str) -> BTreeSet<String> {
     let marker = format!("{RECIPES}/");
-    text.match_indices(&marker)
-        .map(|(i, _)| text[i + marker.len()..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-'))
+    text.split(&marker)
+        .skip(1)
+        .map(|after| after.chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '-'))
         .map(String::from_iter)
         .filter(|r| !r.is_empty())
         .collect()
@@ -232,8 +233,8 @@ fn known_colors(root: &Path) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for file in crate::xtask::rust_sources(&root.join("crates")) {
         let Ok(src) = std::fs::read_to_string(&file) else { continue };
-        for (i, _) in src.match_indices("Rgb(") {
-            let args = src[i + 4..].split(')').next().unwrap_or("");
+        for after in src.split("Rgb(").skip(1) {
+            let args = after.split(')').next().unwrap_or("");
             let rgb: Vec<u8> = args.split(',').filter_map(|n| n.trim().parse().ok()).collect();
             if let [r, g, b] = rgb[..] {
                 out.insert(format!("{r:02x}{g:02x}{b:02x}"));
@@ -255,9 +256,9 @@ fn commands(root: &Path) -> Vec<String> {
 /// `` `/model `` counts for `/model`; `` `/models `` does not.
 fn mentions_command(text: &str, cmd: &str) -> bool {
     let needle = format!("`{cmd}");
-    text.match_indices(&needle).any(|(i, _)| {
-        text[i + needle.len()..].chars().next().is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
-    })
+    text.split(&needle)
+        .skip(1)
+        .any(|after| after.chars().next().is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '-' || c == '_')))
 }
 
 #[cfg(test)]

@@ -105,7 +105,7 @@ pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode, salt: Sa
     loop {
         let mut groups: HashMap<&str, Vec<usize>> = HashMap::new();
         for (i, s) in streams.iter().enumerate() {
-            groups.entry(&s[..lens[i]]).or_default().push(i);
+            groups.entry(shown(s, lens[i])).or_default().push(i);
         }
         let mut extended = false;
         for i in groups.into_values().filter(|g| g.len() > 1).flatten() {
@@ -119,8 +119,13 @@ pub fn build(lines: Vec<String>, min_hash_len: usize, mode: AnchorMode, salt: Sa
         }
     }
 
-    let hashes = streams.iter().zip(&lens).map(|(s, &n)| s[..n].to_string()).collect();
+    let hashes = streams.iter().zip(&lens).map(|(s, &n)| shown(s, n).to_string()).collect();
     AnchorMap { hashes, lines, mode }
+}
+
+/// The first `n` letters of a hash stream, the part a read shows.
+fn shown(stream: &str, n: usize) -> &str {
+    stream.get(..n).unwrap_or(stream) // streams are ASCII letters
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -307,7 +312,7 @@ mod tests {
         let mut pair = None;
         for i in 0..20000 {
             let content = format!("line_{i}");
-            let prefix = stream(fnv1a64(&content))[..2].to_string();
+            let prefix: String = stream(fnv1a64(&content)).chars().take(2).collect();
             if let Some(other) = seen.get(&prefix) {
                 pair = Some((other.clone(), content));
                 break;

@@ -17,12 +17,22 @@ impl App {
         self.cursor += s.len();
     }
 
+    #[expect(clippy::string_slice, reason = "the cursor only ever moves to a char boundary")]
+    fn before_cursor(&self) -> &str {
+        &self.input[..self.cursor]
+    }
+
+    #[expect(clippy::string_slice, reason = "the cursor only ever moves to a char boundary")]
+    fn after_cursor(&self) -> &str {
+        &self.input[self.cursor..]
+    }
+
     pub(super) fn prev_boundary(&self) -> usize {
-        self.input[..self.cursor].char_indices().last().map(|(i, _)| i).unwrap_or(0)
+        self.before_cursor().char_indices().last().map(|(i, _)| i).unwrap_or(0)
     }
 
     pub(super) fn next_boundary(&self) -> usize {
-        self.input[self.cursor..].char_indices().nth(1).map(|(i, _)| self.cursor + i).unwrap_or(self.input.len())
+        self.after_cursor().char_indices().nth(1).map(|(i, _)| self.cursor + i).unwrap_or(self.input.len())
     }
 }
 
@@ -207,10 +217,8 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
         }
         KeyCode::Left => app.cursor = app.prev_boundary(),
         KeyCode::Right => app.cursor = app.next_boundary(),
-        KeyCode::Home => app.cursor = app.input[..app.cursor].rfind('\n').map(|i| i + 1).unwrap_or(0),
-        KeyCode::End => {
-            app.cursor = app.input[app.cursor..].find('\n').map(|i| app.cursor + i).unwrap_or(app.input.len())
-        }
+        KeyCode::Home => app.cursor = app.before_cursor().rfind('\n').map(|i| i + 1).unwrap_or(0),
+        KeyCode::End => app.cursor = app.after_cursor().find('\n').map(|i| app.cursor + i).unwrap_or(app.input.len()),
         KeyCode::Char('a') if ctrl => app.cursor = 0,
         KeyCode::Char('e') if ctrl => app.cursor = app.input.len(),
         KeyCode::Char('u') if ctrl => {
@@ -260,11 +268,16 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
 }
 
 fn delete_word(app: &mut App) {
-    let before = &app.input[..app.cursor];
-    let trimmed = before.trim_end();
-    let start = trimmed.rfind(|c: char| c.is_whitespace()).map(|i| i + 1).unwrap_or(0);
+    let start = word_start(app.before_cursor());
     app.input.replace_range(start..app.cursor, "");
     app.cursor = start;
+}
+
+/// Where the last word of `before` starts: just past the space before it,
+/// which may be wider than a byte (U+3000).
+fn word_start(before: &str) -> usize {
+    let trimmed = before.trim_end();
+    trimmed.char_indices().rfind(|(_, c)| c.is_whitespace()).map_or(0, |(i, c)| i + c.len_utf8())
 }
 
 fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
@@ -401,4 +414,14 @@ fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
         return Err("session not started yet".to_string());
     }
     read().map_err(|e| format!("status unavailable: {e:#}"))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn word_start_steps_over_a_wide_space() {
+        assert_eq!(super::word_start("one two  "), 4);
+        assert_eq!(super::word_start("word"), 0);
+        assert_eq!(super::word_start("一\u{3000}二"), "一\u{3000}".len());
+    }
 }

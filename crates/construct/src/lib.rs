@@ -28,5 +28,6 @@ pub mod router;
 pub mod sandbox;
 pub mod secrets;
 pub mod skills;
+pub mod text;
 pub mod tools;
 pub mod tui;

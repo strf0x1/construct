@@ -81,8 +81,13 @@ async fn ask_json(client: &llm::Client, model: &str, system: &str, user: &str, m
         .complete(llm::Request { model, messages: &msgs, tools: &[], max_tokens: Some(max_tokens), temperature: None })
         .await?;
     let text = c.message.content.unwrap_or_default();
-    let body = text.find('{').and_then(|a| text.rfind('}').map(|b| &text[a..=b])).unwrap_or("{}");
-    Ok(serde_json::from_str(body).unwrap_or(json!({})))
+    Ok(serde_json::from_str(json_object(&text)).unwrap_or(json!({})))
+}
+
+/// The outermost `{...}` of a model's reply, which may wrap it in prose or a
+/// fence; `{}` when there is none.
+fn json_object(text: &str) -> &str {
+    text.find('{').and_then(|a| text.get(a..=text.rfind('}')?)).unwrap_or("{}")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -246,6 +251,13 @@ fn log_line_quiet(line: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn json_object_survives_a_brace_before_the_object() {
+        assert_eq!(json_object("sure: {\"a\": 1} done"), "{\"a\": 1}");
+        assert_eq!(json_object("} then {"), "{}");
+        assert_eq!(json_object("no json, é"), "{}");
+    }
 
     #[test]
     fn only_the_playbook_strategy_reads_a_playbook() {

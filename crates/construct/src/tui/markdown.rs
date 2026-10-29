@@ -178,8 +178,9 @@ pub fn render(text: &str, width: usize) -> Vec<Line<'static>> {
                     continue;
                 }
                 Event::End(TagEnd::Table) => {
-                    let t = c.table.take().unwrap();
-                    render_table(&mut c, t);
+                    if let Some(t) = c.table.take() {
+                        render_table(&mut c, t);
+                    }
                     continue;
                 }
                 _ => continue,
@@ -354,7 +355,7 @@ fn render_table(c: &mut Ctx, t: Table) {
     // Squeeze to fit: shrink the widest column first.
     let sep = 3;
     while widths.iter().sum::<usize>() + sep * (cols - 1) > c.width && widths.iter().any(|w| *w > 6) {
-        let i = (0..cols).max_by_key(|i| widths[*i]).unwrap();
+        let Some(i) = (0..cols).max_by_key(|i| widths[*i]) else { break };
         widths[i] -= 1;
     }
     for (ri, r) in t.rows.iter().enumerate() {

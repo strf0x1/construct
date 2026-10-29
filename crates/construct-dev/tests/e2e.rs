@@ -1287,7 +1287,7 @@ fn journal_query_cuts_an_oversized_result_with_a_note() {
             "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c LIMIT 1000) SELECT x FROM c",
         ],
     );
-    assert!(r[0].contains("[result cut at 16 KB"), "{}", &r[0][r[0].len().saturating_sub(300)..]);
+    assert!(r[0].contains("[result cut at 16 KB"), "{}", r[0].get(r[0].len().saturating_sub(300)..).unwrap_or(&r[0]));
     assert!(r[0].len() < 17 * 1024, "{}", r[0].len());
     assert!(r[1].contains("[result cut at 200 rows"), "{}", r[1]);
     assert!(r[1].lines().any(|l| l == "200") && !r[1].lines().any(|l| l == "201"), "{}", r[1]);

@@ -149,7 +149,7 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
             return probs
                 .iter()
                 .filter(|(k, p)| *k != "none" && p.as_f64().unwrap_or(0.0) >= 0.5)
-                .filter_map(|(k, _)| k[1..].parse::<usize>().ok())
+                .filter_map(|(k, _)| k.get(1..)?.parse::<usize>().ok())
                 .next()
                 .map(|i| recent[i].problem_class.clone());
         }

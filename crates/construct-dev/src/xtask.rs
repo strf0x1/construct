@@ -69,9 +69,9 @@ fn exclusive(root: &Path) -> Result<File> {
 
 /// A gate's command: cargo with these args, or a program named by a leading `@`.
 fn gate(args: &[String]) -> Command {
-    match args.split_first() {
-        Some((first, rest)) if first.starts_with('@') => {
-            let mut c = Command::new(&first[1..]);
+    match args.split_first().and_then(|(first, rest)| Some((first.strip_prefix('@')?, rest))) {
+        Some((program, rest)) => {
+            let mut c = Command::new(program);
             c.args(rest);
             c
         }

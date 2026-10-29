@@ -304,7 +304,7 @@ fn status_line_keeps_counters_beside_a_toast() {
         .split(' ')
         .map(|w| {
             // Counts read `998` or `↑998`; the arrow stays.
-            let (arrow, n) = w.strip_prefix(['↑', '↓']).map_or(("", w), |n| (&w[..w.len() - n.len()], n));
+            let (arrow, n) = w.strip_prefix(['↑', '↓']).map_or(("", w), |n| (w.strip_suffix(n).unwrap_or(""), n));
             if n.chars().next().is_some_and(|c| c.is_ascii_digit()) && n.len() < 6 && !n.contains('%') {
                 format!("{arrow}[N]")
             } else {

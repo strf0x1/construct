@@ -3,7 +3,7 @@ id: slash-commands
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/skills.rs]
-verified_at: b85be8e
+verified_at: 24a6aad
 ---
 # Slash commands
 

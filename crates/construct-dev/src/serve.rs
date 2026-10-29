@@ -22,7 +22,8 @@ use anyhow::Result;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, RETRY_AFTER};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use futures::StreamExt;
@@ -32,7 +33,7 @@ use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -222,7 +223,7 @@ async fn chat(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http:
     }
     let t_arrive = ms(&s);
     let idx = {
-        let mut c = s.count.lock().unwrap();
+        let mut c = lock(&s.count);
         *c += 1;
         *c
     };
@@ -242,8 +243,18 @@ async fn chat(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http:
     scripted(s, &req, rec).await
 }
 
+#[expect(clippy::unwrap_used, reason = "poisoned lock: a panic in another handler")]
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap()
+}
+
+/// A 200 event stream.
+fn event_stream(body: Body) -> Response {
+    (StatusCode::OK, [(CONTENT_TYPE, "text/event-stream"), (CACHE_CONTROL, "no-cache")], body).into_response()
+}
+
 fn write_log(s: &Shared, rec: &Value) {
-    if let Some(f) = s.log.lock().unwrap().as_mut() {
+    if let Some(f) = lock(&s.log).as_mut() {
         let _ = writeln!(f, "{rec}");
         let _ = f.flush();
     }
@@ -297,11 +308,8 @@ async fn forward(
             }
         }
         write_log(&s, &rec);
-        return Response::builder()
-            .status(status)
-            .header("content-type", "application/json")
-            .body(Body::from(bytes))
-            .unwrap();
+        let status = StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY);
+        return (status, [(CONTENT_TYPE, "application/json")], Body::from(bytes)).into_response();
     }
     if s.cfg.window.is_some() {
         return windowed(s, resp, rec).await;
@@ -353,12 +361,7 @@ async fn forward(
         write_log(&s2, &rec);
     });
     let stream = tokio_stream(rx);
-    Response::builder()
-        .status(200)
-        .header("content-type", "text/event-stream")
-        .header("cache-control", "no-cache")
-        .body(Body::from_stream(stream))
-        .unwrap()
+    event_stream(Body::from_stream(stream))
 }
 
 /// A streamed upstream answer under `--window`: buffered whole, so the
@@ -394,12 +397,7 @@ async fn windowed(s: Arc<Shared>, resp: reqwest::Response, mut rec: Value) -> Re
     rec["resp_tool_calls"] = json!(calls);
     rec["finish_reason"] = finish;
     write_log(&s, &rec);
-    Response::builder()
-        .status(200)
-        .header("content-type", "text/event-stream")
-        .header("cache-control", "no-cache")
-        .body(Body::from(bytes))
-        .unwrap()
+    event_stream(Body::from(bytes))
 }
 
 fn tokio_stream(
@@ -454,7 +452,7 @@ fn adapt(req: &Value, call: &str, args: &Value) -> (String, Value) {
 fn cached_bytes(s: &Shared, req: &Value) -> u64 {
     let mut blocks = vec![req["tools"].to_string()];
     blocks.extend(req["messages"].as_array().into_iter().flatten().map(Value::to_string));
-    let mut seen = s.prefixes.lock().unwrap();
+    let mut seen = lock(&s.prefixes);
     let (mut h, mut len, mut hit, mut missed) = (DefaultHasher::new(), 0u64, 0u64, false);
     for b in &blocks {
         h.write(b.as_bytes());
@@ -505,19 +503,19 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         return r;
     }
     let step = if side {
-        let mut n = s.side_next.lock().unwrap();
+        let mut n = lock(&s.side_next);
         let text = s.cfg.side.get(*n).cloned().unwrap_or_else(|| "Side reply".into());
         *n += 1;
         Some(Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false })
     } else {
-        let mut n = s.next.lock().unwrap();
+        let mut n = lock(&s.next);
         let st = s.cfg.script.get(*n).cloned();
         if st.is_some() {
             *n += 1;
         }
         st.or_else(|| {
             let (st, max) = s.cfg.repeat_call.clone()?;
-            let mut r = s.repeated.lock().unwrap();
+            let mut r = lock(&s.repeated);
             (*r < max).then(|| {
                 *r += 1;
                 st
@@ -534,11 +532,12 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         rec["t_first_byte"] = json!(ms(&s));
         rec["t_end"] = rec["t_first_byte"].clone();
         write_log(&s, &rec);
-        let mut r = Response::builder().status(*status).header("content-type", "application/json");
+        let status = StatusCode::from_u16(*status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let mut r = (status, [(CONTENT_TYPE, "application/json")], Body::from(body.clone())).into_response();
         if let Some(secs) = retry_after {
-            r = r.header("retry-after", secs.to_string());
+            r.headers_mut().insert(RETRY_AFTER, HeaderValue::from(*secs));
         }
-        return r.body(Body::from(body.clone())).unwrap();
+        return r;
     }
     let mut cut = false;
     let model = req["model"].as_str().unwrap_or("mock").to_string();
@@ -632,10 +631,5 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         rec["t_end"] = json!(ms(&s2));
         write_log(&s2, &rec);
     });
-    Response::builder()
-        .status(200)
-        .header("content-type", "text/event-stream")
-        .header("cache-control", "no-cache")
-        .body(Body::from_stream(tokio_stream(rx)))
-        .unwrap()
+    event_stream(Body::from_stream(tokio_stream(rx)))
 }

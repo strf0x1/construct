@@ -73,8 +73,8 @@ pub fn valid_name(name: &str) -> bool {
 pub fn frontmatter(text: &str) -> (BTreeMap<String, String>, &str) {
     let mut map = BTreeMap::new();
     let Some(rest) = text.strip_prefix("---") else { return (map, text) };
-    let Some(end) = rest.find("\n---") else { return (map, text) };
-    for line in rest[..end].lines() {
+    let Some((head, tail)) = rest.split_once("\n---") else { return (map, text) };
+    for line in head.lines() {
         if let Some((k, v)) = line.split_once(':') {
             let v = v.trim().trim_matches('"').trim_matches('\'');
             if !k.starts_with(' ') && !v.is_empty() {
@@ -82,7 +82,7 @@ pub fn frontmatter(text: &str) -> (BTreeMap<String, String>, &str) {
             }
         }
     }
-    let body = rest[end + 4..].trim_start_matches(['\r', '\n']);
+    let body = tail.trim_start_matches(['\r', '\n']);
     (map, body)
 }
 

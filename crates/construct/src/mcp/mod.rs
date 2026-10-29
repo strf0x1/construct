@@ -45,7 +45,7 @@ pub fn wire_name(server: &str, tool: &str) -> String {
     // FNV-1a: stable across builds, and two long names sharing a prefix
     // still get distinct wire names.
     let h = tool.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
-    format!("{}_{:08x}", &name[..NAME_MAX - 9], h as u32)
+    format!("{}_{:08x}", crate::text::head(&name, NAME_MAX - 9), h as u32)
 }
 
 /// The server a wire name belongs to, if it is an MCP tool's.

@@ -9,9 +9,10 @@ use serde_json::{Value, json};
 fn locate(ctx: &Ctx, lib: &Library, name: &str) -> String {
     let scope = if std::ptr::eq(lib, &ctx.skills) { "global" } else { "project" };
     let path = lib.path_of(name).join("SKILL.md").display().to_string();
-    let path = match std::env::var("HOME") {
-        Ok(h) if !h.is_empty() && path.starts_with(&h) => format!("~{}", &path[h.len()..]),
-        _ => path,
+    let home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
+    let path = match home.as_deref().and_then(|h| path.strip_prefix(h)) {
+        Some(rest) => format!("~{rest}"),
+        None => path,
     };
     format!("{scope}: {path}")
 }

@@ -250,8 +250,7 @@ fn first_word(sql: &str) -> &str {
             break;
         }
     }
-    let end = s.find(|c: char| !c.is_ascii_alphabetic()).unwrap_or(s.len());
-    &s[..end]
+    s.split(|c: char| !c.is_ascii_alphabetic()).next().unwrap_or("")
 }
 
 #[cfg(test)]

@@ -245,6 +245,10 @@ impl Ctx {
         mcp: Option<Arc<crate::mcp::Manager>>,
         sandbox: crate::sandbox::Policy,
     ) -> Self {
+        #[expect(
+            clippy::expect_used,
+            reason = "fails only when the TLS backend can't start, and no tool works without it"
+        )]
         let http = reqwest::Client::builder()
             .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(std::time::Duration::from_secs(15))
@@ -293,9 +297,11 @@ impl Ctx {
     pub fn shell_blocked(&self) -> usize {
         self.shell_blocked.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
     }
+    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
     pub fn mark_read(&self, p: &Path) {
         self.read_files.lock().unwrap().insert(p.to_path_buf());
     }
+    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
     pub fn was_read(&self, p: &Path) -> bool {
         self.read_files.lock().unwrap().contains(p)
     }
@@ -362,7 +368,8 @@ impl Catalog {
     pub async fn start_mcp(&self, server: &str) -> Result<()> {
         let Some(m) = &self.mcp else { bail!("no MCP server {server}") };
         let listed = m.ensure(server).await?;
-        let mut tools = self.tools.write().unwrap(); // a poisoned lock is a panic elsewhere
+        #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
+        let mut tools = self.tools.write().unwrap();
         for t in listed {
             let t = mcp::McpTool::new(m, server, t);
             if !self.disabled.iter().any(|d| d == t.name()) && !tools.iter().any(|x| x.name() == t.name()) {
@@ -372,8 +379,9 @@ impl Catalog {
         Ok(())
     }
 
+    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
     fn tools(&self) -> std::sync::RwLockReadGuard<'_, Vec<Arc<dyn Tool>>> {
-        self.tools.read().unwrap() // a poisoned lock is a panic elsewhere
+        self.tools.read().unwrap()
     }
 
     /// Each tool and its group: what a delegation definition is checked against.
@@ -382,8 +390,9 @@ impl Catalog {
     }
 
     /// Add a tool built after the catalog (one that needs to know the rest).
+    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
     pub fn add(&self, tool: Arc<dyn Tool>) {
-        self.tools.write().unwrap().push(tool); // a poisoned lock is a panic elsewhere
+        self.tools.write().unwrap().push(tool);
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
@@ -523,15 +532,11 @@ pub fn cap_output(ctx: &Ctx, kind: &str, text: &str) -> String {
     let path = dir.join(format!("{kind}-{}-{}.txt", std::process::id(), crate::skills::now_nanos()));
     let saved = std::fs::write(&path, text).is_ok();
     let head = crate::llm::truncate(text, OUTPUT_MAX / 2);
-    let mut tail_start = text.len() - OUTPUT_MAX / 3;
-    while !text.is_char_boundary(tail_start) {
-        tail_start += 1;
-    }
     let lines = text.lines().count();
     format!(
         "{head}\n\n[… {} bytes, {lines} lines total{} …]\n\n{}",
         text.len(),
         if saved { format!("; full output in {}", path.display()) } else { String::new() },
-        &text[tail_start..]
+        crate::text::tail(text, OUTPUT_MAX / 3)
     )
 }
