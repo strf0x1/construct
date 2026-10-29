@@ -155,6 +155,19 @@ class SearchTasks(unittest.TestCase):
         got = self.check(task, work)
         self.assertFalse(got["plural_untouched"] and got["prefetch_untouched"], got)
 
+    def test_no_fixture_file_is_hidden_from_git(self):
+        """A fixture's own .gitignore (build/, dist/, vendor/: the decoys) also hides those
+        files from this repo, where they must be added with `git add -f`. Without them a
+        fresh checkout gets easier tasks, and only a checkout shows it."""
+        root = Path(tasklib.TASKS).parent.parent
+        probe = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=root, capture_output=True, text=True)
+        if probe.returncode != 0:
+            self.skipTest("not a git checkout")
+        # (A wildcard pathspec matches nothing here, so list everything and filter.)
+        listing = subprocess.run(["git", "ls-files", "--others", "--ignored", "--exclude-standard"], cwd=root, capture_output=True, text=True, check=True).stdout.split()
+        hidden = [p for p in listing if re.match(r"bench/tasks/search-[^/]+/fixture/", p)]
+        self.assertEqual(hidden, [], "ignored by git; run `git add -f` on them")
+
     def test_the_committed_fixtures_are_what_the_generator_makes(self):
         """Stale fixtures would score against answers the tree no longer has."""
         import search_fixtures
