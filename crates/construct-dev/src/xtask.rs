@@ -4,8 +4,8 @@
 //! line per gate and a last line of `ok` or `FAILED <gate>`, so an agent never
 //! has to read cargo's output to know whether it is done. A failing gate's
 //! output is printed above that last line. A test failure caused by a golden
-//! snapshot is reported as `FAILED snapshots`. `docs` and `map` run in
-//! process, before cargo: they read files and take milliseconds.
+//! snapshot is reported as `FAILED snapshots`. `docs`, `map` and `arch` run
+//! in process, before cargo: they read files and take milliseconds.
 //!
 //! One run at a time per repository, however many worktrees and agents ask
 //! (`exclusive`): a build links every test binary at once and a second one
@@ -259,8 +259,11 @@ pub fn check(quick: bool) -> Result<bool> {
         out.map(|o| String::from_utf8_lossy(&o.stdout).lines().map(String::from).collect()).unwrap_or_default()
     };
     let git = crate::feature_map::Git { is_commit: &is_commit, changed_since: &changed_since };
-    let in_process: [(&str, &dyn Fn() -> Vec<String>); 2] =
-        [("docs", &|| conventions(&root)), ("map", &|| crate::feature_map::problems(&root, &git))];
+    let in_process: [(&str, &dyn Fn() -> Vec<String>); 3] = [
+        ("docs", &|| conventions(&root)),
+        ("map", &|| crate::feature_map::problems(&root, &git)),
+        ("arch", &|| crate::arch::problems(&root)),
+    ];
     for (name, gate) in in_process {
         let t = Instant::now();
         let problems = gate();
