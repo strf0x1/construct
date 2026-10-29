@@ -138,3 +138,49 @@ mod tests {
         assert_eq!(o.line_delta, -1);
     }
 }
+
+#[cfg(test)]
+mod props {
+    use super::super::anchors::props::map;
+    use super::super::ops::{OP_NAMES, validate};
+    use super::*;
+    use crate::text::prop;
+    use proptest::prelude::*;
+    use serde_json::{Value, json};
+
+    /// An op of any kind at any lines; most anchors are real, some are text.
+    fn op() -> impl Strategy<Value = (usize, prop::Index, prop::Index, String, Option<String>)> {
+        (0..OP_NAMES.len(), any::<prop::Index>(), any::<prop::Index>(), prop::text(), proptest::option::weighted(0.2, prop::text()))
+    }
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        /// A batch that validates applies without panicking, the line count
+        /// moves by `line_delta`, and every region holds exactly its op's text.
+        #[test]
+        fn a_valid_batch_lands_where_it_says(m in map(), ops in proptest::collection::vec(op(), 0..5)) {
+            let n = m.len().max(1);
+            let anchor = |i: &prop::Index, bad: &Option<String>| match bad {
+                Some(raw) => raw.clone(),
+                None if m.is_empty() => "1:ab".into(),
+                None => m.anchor(i.index(n) + 1),
+            };
+            let ops: Vec<Value> = ops
+                .iter()
+                .map(|(kind, a, b, text, bad)| {
+                    let (a, b) = if a.index(n) <= b.index(n) { (a, b) } else { (b, a) };
+                    json!({ "op": OP_NAMES[*kind], "anchor": anchor(a, bad), "start": anchor(a, bad), "end": anchor(b, &None), "text": text })
+                })
+                .collect();
+            let (resolved, errors) = validate(&m, &ops, 256, true);
+            prop_assume!(errors.is_empty());
+            let out = apply(&m.lines, &resolved);
+            prop_assert_eq!(out.lines.len() as isize, m.len() as isize + out.line_delta);
+            for r in &out.regions {
+                let op = resolved.iter().find(|o| o.index == r.index).unwrap();
+                prop_assert_eq!(out.lines.get(r.new_start - 1..r.new_end), Some(&op.insert[..]));
+            }
+        }
+    }
+}

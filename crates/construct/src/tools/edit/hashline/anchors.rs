@@ -16,6 +16,7 @@ use crate::config::{AnchorMode, Salt};
 use std::collections::HashMap;
 use unicode_normalization::UnicodeNormalization;
 
+#[derive(Debug)]
 pub struct AnchorMap {
     /// Displayed hash per line; index 0 is line 1.
     pub hashes: Vec<String>,
@@ -251,6 +252,49 @@ pub(super) fn hash_map(lines: &[&str]) -> AnchorMap {
 #[cfg(test)]
 fn counted(lines: &[&str], mode: AnchorMode) -> AnchorMap {
     build(lines.iter().map(|s| s.to_string()).collect(), 2, mode, Salt::Count)
+}
+
+#[cfg(test)]
+pub(super) mod props {
+    use super::*;
+    use crate::text::prop;
+    use proptest::prelude::*;
+
+    /// A file's lines, with the repeats (blank lines, braces) that salting
+    /// exists for.
+    pub(in super::super) fn lines() -> impl Strategy<Value = Vec<String>> {
+        let line = prop_oneof![
+            3 => prop::text().prop_map(|t| t.replace(['\n', '\r'], "")),
+            1 => proptest::sample::select(&["", "}", "  }", "x"][..]).prop_map(String::from),
+        ];
+        proptest::collection::vec(line, 0..16)
+    }
+
+    pub(in super::super) fn map() -> impl Strategy<Value = AnchorMap> {
+        (lines(), 2usize..4, any::<bool>(), any::<bool>()).prop_map(|(lines, n, hash, count)| {
+            let mode = if hash { AnchorMode::Hash } else { AnchorMode::LineHash };
+            build(lines, n, mode, if count { Salt::Count } else { Salt::Rank })
+        })
+    }
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        /// Every line's anchor, bare or echoed as a whole read row, resolves
+        /// back to that line, under either mode and salt.
+        #[test]
+        fn every_anchor_resolves_to_its_own_line(m in map()) {
+            for line in 1..=m.len() {
+                prop_assert_eq!(resolve(&m, &m.anchor(line)).ok(), Some(line), "{}", m.anchor(line));
+                prop_assert_eq!(resolve(&m, &m.row(line)).ok(), Some(line), "{}", m.row(line));
+            }
+        }
+
+        #[test]
+        fn resolving_any_text_never_panics(m in map(), raw in prop::text_with(&["12:ab", ":", "|", "0:", "99999999999999999999:ab", "AB"])) {
+            let _ = resolve(&m, &raw);
+        }
+    }
 }
 
 #[cfg(test)]

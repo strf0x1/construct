@@ -34,6 +34,7 @@ pub fn tail(s: &str, max: usize) -> &str {
 #[cfg(test)]
 pub(crate) mod prop {
     use proptest::prelude::*;
+    pub(crate) use proptest::sample::Index;
     use proptest::test_runner::{Config, RngSeed};
 
     /// 256 cases from a fixed seed, no regression files written. A failure

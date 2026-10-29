@@ -27,6 +27,18 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<A
         .text()
         .await
         .map_err(|e| e.to_string())?;
+    let out = parse(&html, n);
+    if out.is_empty() && html.contains("anomaly") {
+        return Err(format!(
+            "DuckDuckGo rate-limited this request; set {} with `construct secrets set`",
+            super::search::key_names()
+        ));
+    }
+    Ok(Answer { backend: "DuckDuckGo", hits: out, notes })
+}
+
+/// The results on a DuckDuckGo HTML page, ads left out, at most `n`.
+fn parse(html: &str, n: usize) -> Vec<Hit> {
     let mut out = Vec::new();
     for block in html.split("class=\"result__a\"").skip(1) {
         let href = between(block, "href=\"", "\"").unwrap_or_default();
@@ -49,13 +61,7 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<A
             break;
         }
     }
-    if out.is_empty() && html.contains("anomaly") {
-        return Err(format!(
-            "DuckDuckGo rate-limited this request; set {} with `construct secrets set`",
-            super::search::key_names()
-        ));
-    }
-    Ok(Answer { backend: "DuckDuckGo", hits: out, notes })
+    out
 }
 
 fn between<'a>(s: &'a str, a: &str, b: &str) -> Option<&'a str> {
@@ -107,6 +113,30 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::text::prop;
+    use proptest::prelude::*;
+
+    const PAGE: &[&str] = &[
+        "class=\"result__a\"", "class=\"result__snippet\"", "href=\"", "\"", ">", "</a>", "<b>", "uddg=", "%2F", "%E2%82",
+        "%", "+", "&amp;", "&", "duckduckgo.com/y.js",
+    ];
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        #[test]
+        fn any_page_parses_without_panicking(html in prop::text_with(PAGE), n in 0usize..8) {
+            prop_assert!(super::parse(&html, n).len() <= n.max(1));
+        }
+
+        /// Text with no escape in it comes back as it was.
+        #[test]
+        fn percent_decode_leaves_plain_text_alone(s in prop::text()) {
+            let s = s.replace(['%', '+'], "");
+            prop_assert_eq!(super::percent_decode(&s), s);
+        }
+    }
+
     #[test]
     fn percent_decode_leaves_a_broken_escape_before_multibyte_text() {
         assert_eq!(super::percent_decode("a%20b%2Fc"), "a b/c");
