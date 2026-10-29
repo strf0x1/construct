@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 mod arch;
 mod feature_map;
+mod scratch;
 mod xtask;
 
 #[derive(Parser)]

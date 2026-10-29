@@ -24,6 +24,13 @@ def sh(cmd, cwd):
     subprocess.run(cmd, cwd=cwd, shell=True, check=True, capture_output=True)
 
 
+def tmpdir(test):
+    """A temp dir removed when `test` ends: some tests copy every task fixture."""
+    tmp = tempfile.TemporaryDirectory()
+    test.addCleanup(tmp.cleanup)
+    return Path(tmp.name)
+
+
 SOLUTIONS = {
     # What a correct agent leaves behind, per task.
     "stats-median": lambda w, v: (
@@ -105,7 +112,7 @@ for _name in tasklib.names():
 
 class Tasks(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
+        self.tmp = tmpdir(self)
 
     def materialize(self, name):
         task = tasklib.load(name)
@@ -312,7 +319,7 @@ class Tasks(unittest.TestCase):
 
 class Process(unittest.TestCase):
     def test_edit_outcomes_from_a_session_log(self):
-        home = Path(tempfile.mkdtemp())
+        home = tmpdir(self)
         (home / "sessions").mkdir()
 
         def call(id, name, args):
@@ -350,7 +357,7 @@ class Process(unittest.TestCase):
     def test_edit_outcomes_from_the_journal_match_the_session_log(self):
         # The same run as above, as construct now records it: one event per
         # row in the project's journal (stream deltas and all the rest).
-        home = Path(tempfile.mkdtemp())
+        home = tmpdir(self)
         f = home / "projects" / "p-0000" / "journal.sqlite"
         f.parent.mkdir(parents=True)
         db = sqlite3.connect(f)
@@ -410,7 +417,7 @@ class Process(unittest.TestCase):
 
 class SearchKeys(unittest.TestCase):
     def file(self, text, mode=0o600):
-        f = Path(tempfile.mkdtemp()) / "search.env"
+        f = tmpdir(self) / "search.env"
         f.write_text(text)
         f.chmod(mode)
         return f
@@ -420,7 +427,7 @@ class SearchKeys(unittest.TestCase):
 
         f = self.file("# keys\nEXA_API_KEY=exa-1234567890123\nexport TAVILY_API_KEY='tvly-1234567890123'\nOPENAI_API_KEY=nope\nBRAVE_API_KEY=\n")
         self.assertEqual(bench.read_search_keys(f), {"EXA_API_KEY": "exa-1234567890123", "TAVILY_API_KEY": "tvly-1234567890123"})
-        self.assertEqual(bench.read_search_keys(Path(tempfile.mkdtemp()) / "none"), {})
+        self.assertEqual(bench.read_search_keys(tmpdir(self) / "none"), {})
 
     def test_a_search_key_file_others_can_read_is_refused(self):
         import bench
@@ -436,7 +443,7 @@ class SearchKeys(unittest.TestCase):
         old = bench.SEARCH_KEY_FILE
         bench.SEARCH_KEY_FILE = f
         try:
-            home = Path(tempfile.mkdtemp())
+            home = tmpdir(self)
             self.assertEqual(bench.make_harness("construct", home / "h").full_env()["EXA_API_KEY"], "exa-secret-1234567")
             (home / "log.txt").write_text("tool output: exa-secret-1234567")
             with self.assertRaises(SystemExit) as r:
@@ -454,7 +461,7 @@ class Arms(unittest.TestCase):
         self.assertEqual(name, "hashonly")
         bench.ARMS[name] = body
         try:
-            h = bench.make_harness(name, Path(tempfile.mkdtemp()) / "home")
+            h = bench.make_harness(name, tmpdir(self) / "home")
             h.learn = False
             h.configure("http://127.0.0.1:9/v1", "m")
             cfg = (h.home / "config.toml").read_text()
@@ -477,7 +484,7 @@ class Arms(unittest.TestCase):
         import bench
 
         ep = bench.Endpoint.__new__(bench.Endpoint)
-        ep.log = Path(tempfile.mkdtemp()) / "log.jsonl"
+        ep.log = tmpdir(self) / "log.jsonl"
         ep.log.write_text('{"i": 0}\n{"i": 1, "usage": {"prom')
         self.assertEqual(ep.records(), [{"i": 0}])
 
@@ -489,7 +496,7 @@ class Arms(unittest.TestCase):
         self.assertEqual(arm, {"tools": "", "cfg": "compaction = { age_rounds = 16 }", "bin": ""})
         bench.ARMS[name] = arm
         try:
-            h = bench.make_harness(name, Path(tempfile.mkdtemp()) / "home")
+            h = bench.make_harness(name, tmpdir(self) / "home")
             h.window = 20000
             h.configure("http://127.0.0.1:9/v1", "m")
             parsed = tomllib.loads((h.home / "config.toml").read_text())
@@ -506,13 +513,13 @@ class Arms(unittest.TestCase):
     def test_an_arm_can_run_another_binary(self):
         import bench
 
-        exe = Path(tempfile.mkdtemp()) / "construct"
+        exe = tmpdir(self) / "construct"
         exe.write_text("")
         name, arm = bench.parse_arm(f"main@{exe}:")
         self.assertEqual((name, arm["bin"]), ("main", str(exe)))
         bench.ARMS[name] = arm
         try:
-            h = bench.make_harness(name, Path(tempfile.mkdtemp()))
+            h = bench.make_harness(name, tmpdir(self))
             self.assertEqual(h.headless("hi")[0], str(exe))
         finally:
             bench.ARMS.pop(name, None)
@@ -521,7 +528,7 @@ class Arms(unittest.TestCase):
         import bench
         import tomllib
 
-        h = bench.Construct(Path(tempfile.mkdtemp()) / "home")
+        h = bench.Construct(tmpdir(self) / "home")
         h.configure("http://127.0.0.1:9/v1", "anthropic/claude-haiku-5.5", upstream="https://openrouter.ai/api/v1")
         self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["provider"], {"dialect": "openrouter"})
         h.configure("http://127.0.0.1:9/v1", "mock-model")
@@ -572,7 +579,7 @@ class Compaction(unittest.TestCase):
     def test_scorecard_from_a_journal_and_the_endpoint_log(self):
         import compaction
 
-        home = Path(tempfile.mkdtemp())
+        home = tmpdir(self)
         d = home / "projects" / "p"
         d.mkdir(parents=True)
         db = sqlite3.connect(d / "journal.sqlite")

@@ -282,10 +282,10 @@ pub fn check(quick: bool) -> Result<bool> {
     let reach = if quick { changed_paths(&root).map_or(everything, |p| touched(&p)) } else { everything };
     for (name, args) in &plan(quick, &reach) {
         let t = Instant::now();
-        let out = gate(args).current_dir(&root).output().with_context(|| format!("running gate {name}"))?;
+        let (passed, output) =
+            crate::scratch::run(name, gate(args).current_dir(&root)).with_context(|| format!("running gate {name}"))?;
         let secs = t.elapsed().as_secs_f32();
-        if !out.status.success() {
-            let output = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        if !passed {
             let name = if name.starts_with("test") && output.contains("snapshot assertion for") {
                 "snapshots"
             } else {
