@@ -40,9 +40,7 @@ pub fn wrap(
         lines.push(Line::from(std::mem::take(cur)));
     };
     for (word, style) in words {
-        // Only the separating space is free at a line end: a trailing
-        // U+3000 or no-break space is part of the word and takes columns.
-        let ww = word.trim_end_matches(' ').width();
+        let ww = word.trim_end_matches(' ').width(); // a trailing U+3000 or U+00A0 takes columns
         let used = cur_w - if first { iw } else { hw };
         if used > 0 && used + ww > avail {
             // trim the trailing space of the line we're closing
@@ -60,9 +58,8 @@ pub fn wrap(
             // A single word longer than the line: hard-break it.
             let mut chunk = String::new();
             let mut cw = cur_w - if first { iw } else { hw };
-            let mut prev = None;
-            for c in word.chars() {
-                let w = crate::text::cols_after(prev.replace(c), c);
+            for (i, c) in word.char_indices() {
+                let w = crate::text::cols_after(word.get(..i).and_then(|p| p.chars().next_back()), c);
                 if cw + w > avail {
                     cur.push(Span::styled(std::mem::take(&mut chunk), style));
                     flush(&mut lines, &mut cur);
@@ -386,7 +383,6 @@ fn render_table(c: &mut Ctx, t: Table) {
     }
     c.out.push(Line::default());
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,8 +390,34 @@ mod tests {
     use proptest::prelude::*;
 
     const SYNTAX: &[&str] = &[
-        "*", "**", "_", "`", "```", "```rust\n", "~~", "# ", "## ", "> ", "- ", "* ", "1. ", "- [ ] ", "- [x] ", "|",
-        "| --- |", "|:-:|", "[", "](", ")", "<b>", "</b>", "\\", "---", "    ", "\n\n", "\t",
+        "*",
+        "**",
+        "_",
+        "`",
+        "```",
+        "```rust\n",
+        "~~",
+        "# ",
+        "## ",
+        "> ",
+        "- ",
+        "* ",
+        "1. ",
+        "- [ ] ",
+        "- [x] ",
+        "|",
+        "| --- |",
+        "|:-:|",
+        "[",
+        "](",
+        ")",
+        "<b>",
+        "</b>",
+        "\\",
+        "---",
+        "    ",
+        "\n\n",
+        "\t",
     ];
 
     fn plain(l: &Line) -> String {

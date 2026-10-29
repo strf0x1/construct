@@ -240,9 +240,8 @@ impl App {
             let mut cw = 0;
             let mut chunks: Vec<(String, usize)> = vec![];
             let mut start = offset;
-            let mut prev = None;
             for (bi, c) in para.char_indices() {
-                let w = crate::text::cols_after(prev.replace(c), c);
+                let w = crate::text::cols_after(para.get(..bi).and_then(|p| p.chars().next_back()), c);
                 if cw + w > avail {
                     chunks.push((std::mem::take(&mut chunk), start));
                     start = offset + bi;
@@ -262,9 +261,7 @@ impl App {
                 lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
                 if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
                     let before = self.input.get(*s..self.cursor).unwrap_or("");
-                    // As drawn: ratatui skips a control character (a pasted tab), width() counts it.
-                    let shown: String = before.chars().filter(|c| !c.is_control()).collect();
-                    cur = (row, (prompt_w + shown.width()) as u16);
+                    cur = (row, (prompt_w + crate::text::cols(before)) as u16); // as drawn: a pasted tab is no column
                 }
                 row += 1;
             }

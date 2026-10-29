@@ -150,7 +150,13 @@ mod props {
 
     /// An op of any kind at any lines; most anchors are real, some are text.
     fn op() -> impl Strategy<Value = (usize, prop::Index, prop::Index, String, Option<String>)> {
-        (0..OP_NAMES.len(), any::<prop::Index>(), any::<prop::Index>(), prop::text(), proptest::option::weighted(0.2, prop::text()))
+        (
+            0..OP_NAMES.len(),
+            any::<prop::Index>(),
+            any::<prop::Index>(),
+            prop::text(),
+            proptest::option::weighted(0.2, prop::text()),
+        )
     }
 
     proptest! {

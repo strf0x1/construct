@@ -19,6 +19,12 @@ pub fn cols_after(prev: Option<char>, c: char) -> usize {
     pair.saturating_sub(p.width().unwrap_or(0))
 }
 
+/// Columns `s` takes on screen: its width without the control characters
+/// a terminal draws as nothing (a ZWJ emoji stays one two-column glyph).
+pub fn cols(s: &str) -> usize {
+    unicode_width::UnicodeWidthStr::width(s.replace(|c: char| c.is_control(), "").as_str())
+}
+
 /// The longest prefix of `s` at most `max` bytes long.
 pub fn head(s: &str, max: usize) -> &str {
     s.split_at(s.floor_char_boundary(max)).0
@@ -53,8 +59,26 @@ pub(crate) mod prop {
     /// combining, wide, zero-width and emoji sequences, every line ending,
     /// tabs and odd spaces.
     const NASTY: &[&str] = &[
-        "é", "e\u{301}", "中文", "😀", "👨\u{200d}👩\u{200d}👧", "\u{200b}", "\u{feff}", "\u{3000}", "\u{a0}",
-        "\r\n", "\n", "\r", "\n\n", "\t", " ", "  ", "\u{2028}", "\u{fe0f}", "ﷺ", "\u{0}",
+        "é",
+        "e\u{301}",
+        "中文",
+        "😀",
+        "👨\u{200d}👩\u{200d}👧",
+        "\u{200b}",
+        "\u{feff}",
+        "\u{3000}",
+        "\u{a0}",
+        "\r\n",
+        "\n",
+        "\r",
+        "\n\n",
+        "\t",
+        " ",
+        "  ",
+        "\u{2028}",
+        "\u{fe0f}",
+        "ﷺ",
+        "\u{0}",
     ];
 
     /// Arbitrary text, weighted towards `NASTY`, ASCII words and `extra`

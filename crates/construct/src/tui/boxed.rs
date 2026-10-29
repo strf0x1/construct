@@ -122,9 +122,8 @@ fn chunks(line: String, w: usize) -> Vec<String> {
     let mut rest = line.as_str();
     while rest.width() > w {
         let (mut end, mut cols) = (0, 0);
-        let mut prev = None;
         for (i, c) in rest.char_indices() {
-            let cw = text::cols_after(prev.replace(c), c);
+            let cw = text::cols_after(rest.get(..i).and_then(|p| p.chars().next_back()), c);
             if cols + cw > w {
                 break;
             }

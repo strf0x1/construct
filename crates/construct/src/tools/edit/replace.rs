@@ -136,7 +136,8 @@ mod tests {
     use crate::text::prop;
     use proptest::prelude::*;
 
-    const CODE: &[&str] = &["\n", "\r\n", "    ", "{", "}", "\u{2019}", "\u{201c}", "\u{2014}", "\u{a0}", "fn ", "x", " \n"];
+    const CODE: &[&str] =
+        &["\n", "\r\n", "    ", "{", "}", "\u{2019}", "\u{201c}", "\u{2014}", "\u{a0}", "fn ", "x", " \n"];
 
     proptest! {
         #![proptest_config(prop::config())]

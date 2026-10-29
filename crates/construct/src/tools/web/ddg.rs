@@ -117,8 +117,21 @@ mod tests {
     use proptest::prelude::*;
 
     const PAGE: &[&str] = &[
-        "class=\"result__a\"", "class=\"result__snippet\"", "href=\"", "\"", ">", "</a>", "<b>", "uddg=", "%2F", "%E2%82",
-        "%", "+", "&amp;", "&", "duckduckgo.com/y.js",
+        "class=\"result__a\"",
+        "class=\"result__snippet\"",
+        "href=\"",
+        "\"",
+        ">",
+        "</a>",
+        "<b>",
+        "uddg=",
+        "%2F",
+        "%E2%82",
+        "%",
+        "+",
+        "&amp;",
+        "&",
+        "duckduckgo.com/y.js",
     ];
 
     proptest! {

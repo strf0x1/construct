@@ -185,8 +185,9 @@ mod tests {
     /// The stream's bytes: lines ended by LF or CRLF, comments and blank
     /// lines between them, then `[DONE]`.
     fn stream() -> impl Strategy<Value = Vec<u8>> {
-        let framed = (prop_oneof![3 => line(), 1 => Just(": keep-alive".to_string()), 1 => Just(String::new())], any::<bool>())
-            .prop_map(|(l, crlf)| format!("{l}{}", if crlf { "\r\n" } else { "\n" }));
+        let framed =
+            (prop_oneof![3 => line(), 1 => Just(": keep-alive".to_string()), 1 => Just(String::new())], any::<bool>())
+                .prop_map(|(l, crlf)| format!("{l}{}", if crlf { "\r\n" } else { "\n" }));
         proptest::collection::vec(framed, 0..24).prop_map(|ls| format!("{}data: [DONE]\n", ls.concat()).into_bytes())
     }
 
