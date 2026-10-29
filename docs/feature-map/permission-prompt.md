@@ -3,7 +3,7 @@ id: permission-prompt
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/permission, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/ask.rs, crates/construct-dev/tests/permission.rs]
-verified_at: b85be8e
+verified_at: 8e97db8
 ---
 # Permission prompt
 
@@ -49,4 +49,4 @@ Preconditions:
 - Keys sent within 450 ms of the panel appearing are dropped on purpose; always `sleep 600` first.
 - The border breathes between two ambers, so `settle` never returns while the panel is open.
 - `expect-style` checks the first occurrence on screen; the path or your typed message can contain the same words.
-- The recipe drives `panel`, `select` and `grace`. The `keys`, `scope`, `always` and `shell` sub-features were proven at `verified_at` by `cargo test -p construct-dev --test permission` (the same binary in a pty, asserting screen, results, journal and `config.toml`); to see them, copy the recipe and change the keys.
+- The recipe drives `panel`, `select` and `grace`. The `keys`, `scope`, `always` and `shell` sub-features were proven at `verified_at` by `cargo test -p construct-dev --test it permission::` (the same binary in a pty, asserting screen, results, journal and `config.toml`); to see them, copy the recipe and change the keys.
