@@ -2,6 +2,7 @@
 id: model-picker
 status: built
 surfaces: [tui]
+depends: [crates/construct/src/tui/picker, crates/construct/src/models.rs]
 ---
 # Model picker
 

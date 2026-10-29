@@ -5,10 +5,15 @@
 //! command or recipe no entry covers. Everything here is read from files the
 //! code already declares (`tui/help.rs`'s `COMMANDS`, the recipe directories,
 //! the theme's `Rgb` constants); nothing runs the app. Whether an entry is
-//! *true* is the recipe's job, not this one's.
+//! *true* is the recipe's job, not this one's, but a `verified` entry whose
+//! recipe or `depends:` paths changed after its `verified_at` is no longer
+//! proven, and says so (ADR 0023).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+
+mod stale;
+pub use stale::Git;
 
 const MAP: &str = "docs/feature-map";
 const RECIPES: &str = ".agents/skills/verify-construct/recipes";
@@ -27,8 +32,7 @@ struct Entry {
 }
 
 /// Every problem with the map, one line each, `path: what is wrong`.
-/// `is_commit` answers whether a `verified_at` names a commit in this repo.
-pub fn problems(root: &Path, is_commit: &dyn Fn(&str) -> bool) -> Vec<String> {
+pub fn problems(root: &Path, git: &Git) -> Vec<String> {
     let mut bad = Vec::new();
     let Ok(readme) = std::fs::read_to_string(root.join(MAP).join("README.md")) else {
         return vec![format!("{MAP}/README.md: missing")];
@@ -42,7 +46,7 @@ pub fn problems(root: &Path, is_commit: &dyn Fn(&str) -> bool) -> Vec<String> {
 
     let mut seen_ids = BTreeMap::new();
     for e in &entries {
-        structure(e, &surfaces, is_commit, &mut bad);
+        structure(e, &surfaces, git.is_commit, &mut bad);
         if !index.contains(&e.file) {
             bad.push(format!("{MAP}/README.md: Features does not list {}", e.file));
         }
@@ -58,6 +62,7 @@ pub fn problems(root: &Path, is_commit: &dyn Fn(&str) -> bool) -> Vec<String> {
 
     claims(root, &entries, &mut bad);
     coverage(root, &entries, &mut bad);
+    stale::stale(&entries, git, &mut bad);
     bad
 }
 
@@ -81,9 +86,11 @@ fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) ->
         (true, sha) if !is_commit(sha) => bad.push(at(format!("verified_at `{sha}` is not a commit in this repo"))),
         _ => {}
     }
-    let listed = field("surfaces").trim_matches(['[', ']']);
-    for s in listed.split(',').map(str::trim).filter(|s| !s.is_empty() && !surfaces.contains(*s)) {
+    for s in listed(e, "surfaces").iter().filter(|s| !surfaces.contains(*s)) {
         bad.push(at(format!("surface `{s}` is not declared in README.md")));
+    }
+    if status == "verified" && listed(e, "depends").is_empty() {
+        bad.push(at("verified with no depends; list the source paths its recipe proves".into()));
     }
 
     let headings: Vec<&str> = e.text.lines().filter_map(|l| l.strip_prefix("## ")).collect();
@@ -103,26 +110,31 @@ fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) ->
     }
 }
 
-/// What an entry names must exist: each recipe it points at, and each color
-/// an `expect-style` asserts, as an `Rgb` in the code or as an assertion in
-/// one of the entry's own recipes (blended colors are computed, and driving
-/// the recipe proves them).
+/// What an entry names must exist: each path it depends on, each recipe it
+/// points at, and each color an `expect-style` asserts. A color is either an
+/// `Rgb` in the source or asserted by one of the entry's recipes, which
+/// proves blended colors (the `ctx` meter) when it is driven.
 fn claims(root: &Path, entries: &[Entry], bad: &mut Vec<String>) {
-    let known = known_colors(root);
+    let colors = known_colors(root);
     for e in entries {
-        let mut colors = known.clone();
-        for r in recipe_refs(&e.text) {
-            match std::fs::read_to_string(root.join(RECIPES).join(&r).join("drive.txt")) {
-                Ok(drive) => colors.extend(drive.lines().filter(|l| l.contains("expect-style")).flat_map(hex_colors)),
-                Err(_) if !root.join(RECIPES).join(&r).is_dir() => {
-                    bad.push(format!("{MAP}/{}: recipe `{r}` does not exist in {RECIPES}", e.file))
-                }
-                Err(_) => {}
+        for d in listed(e, "depends") {
+            if !root.join(&d).exists() {
+                bad.push(format!("{MAP}/{}: depends on `{d}`, which does not exist", e.file));
             }
         }
+        for r in recipe_refs(&e.text) {
+            if !root.join(RECIPES).join(&r).is_dir() {
+                bad.push(format!("{MAP}/{}: recipe `{r}` does not exist in {RECIPES}", e.file));
+            }
+        }
+        let driven: BTreeSet<String> = recipe_refs(&e.text)
+            .iter()
+            .filter_map(|r| std::fs::read_to_string(root.join(RECIPES).join(r).join("drive.txt")).ok())
+            .flat_map(|d| d.lines().filter(|l| l.contains("expect-style")).flat_map(hex_colors).collect::<Vec<_>>())
+            .collect();
         for line in e.text.lines().filter(|l| l.contains("expect-style")) {
             for hex in hex_colors(line) {
-                if !colors.contains(&hex) {
+                if !colors.contains(&hex) && !driven.contains(&hex) {
                     bad.push(format!(
                         "{MAP}/{}: color #{hex} is neither an Rgb in crates/construct/src nor asserted by its recipe",
                         e.file
@@ -175,6 +187,12 @@ fn frontmatter(text: &str) -> BTreeMap<String, String> {
         .filter_map(|l| l.split_once(':'))
         .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
         .collect()
+}
+
+/// A `key: [a, b]` frontmatter list.
+fn listed(e: &Entry, key: &str) -> Vec<String> {
+    let value = e.front.get(key).map(String::as_str).unwrap_or("").trim_matches(['[', ']']);
+    value.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
 }
 
 /// The lines under `## name`, up to the next H2.
@@ -243,11 +261,11 @@ fn mentions_command(text: &str, cmd: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn tree(name: &str) -> PathBuf {
+    pub(super) fn tree(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("feature-map-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         for d in [MAP, &format!("{RECIPES}/turn"), "crates/construct/src/tui"] {
@@ -263,11 +281,16 @@ mod tests {
         dir
     }
 
-    fn write(root: &Path, path: &str, text: &str) {
+    pub(super) fn write(root: &Path, path: &str, text: &str) {
         std::fs::write(root.join(path), text).unwrap();
     }
 
-    const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\n---\n# Turn\n\n\
+    /// A repo where `abc1234` is the only commit and nothing changed since.
+    fn quiet(root: &Path) -> Vec<String> {
+        problems(root, &Git { is_commit: &|sha| sha == "abc1234", changed_since: &|_, _| Vec::new() })
+    }
+
+    pub(super) const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\ndepends: [crates/construct/src/tui/theme.rs]\n---\n# Turn\n\n\
         ## Sub-features\n\n- `turn-new` `/new` clears.\n\n## How to get to it (user POV)\n\n- Type.\n\n\
         ## Done when\n\n- Cleared.\n\n## Driving it\n\nRecipe: `.agents/skills/verify-construct/recipes/turn`.\n\n\
         - **Look.** Drive: `expect-style \"ok\" fg=#9ECE6A`. Expect: green.\n\n## Gotchas\n\n- None.\n";
@@ -276,7 +299,7 @@ mod tests {
     fn a_map_that_matches_the_repo_has_no_complaints() {
         let root = tree("good");
         write(&root, &format!("{MAP}/turn.md"), GOOD);
-        assert_eq!(problems(&root, &|sha| sha == "abc1234"), Vec::<String>::new());
+        assert_eq!(quiet(&root), Vec::<String>::new());
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -287,6 +310,7 @@ mod tests {
             .replace("recipes/turn`", "recipes/gone`")
             .replace("#9ECE6A", "#123456")
             .replace("[tui]", "[tui, web]")
+            .replace("tui/theme.rs]", "tui/theme.rs, crates/gone.rs]")
             .replace("`/new` clears", "clears")
             .replace(" Expect: green.", "")
             .replace("## Gotchas\n\n- None.\n", "");
@@ -296,11 +320,13 @@ mod tests {
             &format!("{MAP}/extra.md"),
             "---\nid: other\nstatus: done\n---\n## Sub-features\n\n- `turn-new` x\n",
         );
-        let bad = problems(&root, &|_| false);
+        let bad =
+            problems(&root, &Git { is_commit: &|_| false, changed_since: &|_, _| panic!("asked about a non-commit") });
         for want in [
             "turn.md: verified_at `abc1234` is not a commit",
             "turn.md: surface `web` is not declared",
             "turn.md: recipe `gone` does not exist",
+            "turn.md: depends on `crates/gone.rs`, which does not exist",
             "turn.md: color #123456 is neither an Rgb",
             "recipes/turn: no feature-map entry names this recipe",
             "`/new` is in COMMANDS but no feature-map entry mentions it",
@@ -323,7 +349,7 @@ mod tests {
             ## Sub-features\n\n- `turn-new` x\n\n## How to get to it (user POV)\n\n- x\n\n\
             Recipe: `.agents/skills/verify-construct/recipes/turn`.\n";
         write(&root, &format!("{MAP}/turn.md"), entry);
-        let bad = problems(&root, &|_| true);
+        let bad = problems(&root, &Git { is_commit: &|_| true, changed_since: &|_, _| Vec::new() });
         assert_eq!(bad.len(), 1, "{bad:#?}");
         assert!(bad[0].contains("sections out of order"), "{bad:#?}");
         let _ = std::fs::remove_dir_all(&root);
@@ -332,9 +358,20 @@ mod tests {
     #[test]
     fn a_color_the_entrys_own_recipe_asserts_needs_no_rgb() {
         let root = tree("blend");
-        write(&root, &format!("{RECIPES}/turn/drive.txt"), "expect-style \"<1%\" fg=#7694d9\n");
         write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("#9ECE6A", "#7694D9"));
-        assert_eq!(problems(&root, &|_| true), Vec::<String>::new());
+        assert!(quiet(&root)[0].contains("color #7694d9 is neither an Rgb"));
+        write(&root, &format!("{RECIPES}/turn/drive.txt"), "expect-style \"<1%\" fg=#7694d9\n");
+        assert_eq!(quiet(&root), Vec::<String>::new());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_verified_entry_must_say_what_it_depends_on() {
+        let root = tree("nodeps");
+        write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("depends: [crates/construct/src/tui/theme.rs]\n", ""));
+        let bad = quiet(&root);
+        assert_eq!(bad.len(), 1, "{bad:#?}");
+        assert!(bad[0].contains("verified with no depends"), "{bad:#?}");
         let _ = std::fs::remove_dir_all(&root);
     }
 

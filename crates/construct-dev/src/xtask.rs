@@ -124,8 +124,17 @@ pub fn check() -> Result<bool> {
         let rev = format!("{sha}^{{commit}}");
         Command::new("git").args(["cat-file", "-e", &rev]).current_dir(&root).status().is_ok_and(|s| s.success())
     };
+    let changed_since = |sha: &str, path: &str| {
+        let range = format!("{sha}..HEAD");
+        let out = Command::new("git")
+            .args(["log", "--no-merges", "--format=%H", &range, "--", path])
+            .current_dir(&root)
+            .output();
+        out.map(|o| String::from_utf8_lossy(&o.stdout).lines().map(String::from).collect()).unwrap_or_default()
+    };
+    let git = crate::feature_map::Git { is_commit: &is_commit, changed_since: &changed_since };
     let in_process: [(&str, &dyn Fn() -> Vec<String>); 2] =
-        [("docs", &|| conventions(&root)), ("map", &|| crate::feature_map::problems(&root, &is_commit))];
+        [("docs", &|| conventions(&root)), ("map", &|| crate::feature_map::problems(&root, &git))];
     for (name, gate) in in_process {
         let t = Instant::now();
         let problems = gate();
