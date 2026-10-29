@@ -1,0 +1,5 @@
+request_timeout_ms = 3000
+pool_size = 8
+log_level = "info"
+base_delay_ms = 100
+max_retry_delay_ms = 5000

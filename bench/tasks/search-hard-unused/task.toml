@@ -1,0 +1,9 @@
+description = "Fifteen per-name look-ups with mentions in comments, strings, imports, tests, docs, build output and longer names."
+generate = "search_fixtures_hard:unused_tree"
+turns = ["pkg/legacy/ defines 15 helper functions named `legacy_*`. Which of them are never referenced anywhere else in the repo's source? A function counts as referenced if its exact name appears on any line of a .py file under pkg/ or scripts/ other than its own `def` line (comments, strings and imports count, and so do mentions from other unused code). Mentions in tests/, docs/ and generated output (build/) don't count, and a longer name such as `legacy_x_v2` is a different name. Write the unreferenced function names, one per line, sorted, to answer.txt, and nothing else."]
+timeout_s = 900
+changes = ["answer.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000

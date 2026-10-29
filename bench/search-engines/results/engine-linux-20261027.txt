@@ -1,0 +1,36 @@
+# corpus linux: 97169 files (after ignore rules), 5 reps, 24 cores
+# fff: scan 61 ms
+# fff+watch: scan 70 ms
+# fff+idx: scan 70 ms, content index ready at 479 ms
+# cold fff: setup 70 ms + first query 29.3 ms (200 matches)
+# cold fff+idx: setup 344 ms + first query 6.5 ms (200 matches)
+query                    seq         par     rg(bin)         fff   fff+watch     fff+idx   matches(seq/par/rg/fff)
+lit-rare            527.8 ms     71.1 ms     74.1 ms     20.6 ms     20.3 ms      3.2 ms   537/537/537/200
+  [lit-rare] fff extra e.g. []
+  [lit-rare] fff missing e.g. []
+lit-common          726.7 ms     89.6 ms    520.7 ms      0.9 ms      0.9 ms      0.7 ms   2527349/2527349/2527349/200
+  [lit-common] fff extra e.g. []
+  [lit-common] fff missing e.g. [("arch/m68k/ifpsp060/fplsp.doc", 36), ("arch/m68k/ifpsp060/fplsp.doc", 37), ("arch/m68k/ifpsp060/fplsp.doc", 38), ("arch/m68k/ifpsp060/fplsp.doc", 40)]
+regex              1387.2 ms    150.1 ms     85.5 ms      3.4 ms      3.5 ms      1.7 ms   10566/10566/10566/200
+  [regex] fff extra e.g. [("Documentation/admin-guide/pnp.rst", 236), ("arch/arm/common/locomo.c", 355), ("drivers/dma/pl330.c", 3010), ("drivers/firmware/arm_ffa/driver.c", 421)]
+  [regex] fff missing e.g. []
+regex-anchored     1269.7 ms    136.8 ms     77.5 ms      1.9 ms      1.8 ms      0.4 ms   9090/9090/9090/200
+  [regex-anchored] fff extra e.g. [("arch/arm/include/asm/pgtable-nommu.h", 12), ("arch/csky/mm/asid.c", 10), ("arch/m68k/include/asm/pgtable_no.h", 10), ("arch/parisc/kernel/drivers.c", 25)]
+  [regex-anchored] fff missing e.g. []
+icase               616.5 ms     83.3 ms     91.2 ms      1.0 ms      1.0 ms      0.8 ms   21442/21442/21442/206
+  [icase] fff extra e.g. []
+  [icase] fff missing e.g. []
+include-glob        291.9 ms     41.6 ms     34.2 ms      9.8 ms      9.4 ms      0.9 ms   441/441/441/202
+  [include-glob] fff extra e.g. []
+  [include-glob] fff missing e.g. []
+no-match            525.3 ms     71.0 ms     71.7 ms     43.7 ms     43.1 ms     10.5 ms   0/0/0/0
+  [no-match] fff extra e.g. []
+  [no-match] fff missing e.g. []
+# correctness vs rg binary (+extra lines / -missing lines)
+lit-rare         truth(rg)=   537  seq +0/-0  par +0/-0  fff +0/-0  fff+idx +0/-0
+lit-common       truth(rg)=2527349  seq +0/-0  par +0/-0  fff +0/-38  fff+idx +0/-38
+regex            truth(rg)= 10566  seq +0/-0  par +0/-0  fff +135/-0  fff+idx +135/-0
+regex-anchored   truth(rg)=  9090  seq +0/-0  par +0/-0  fff +484/-0  fff+idx +484/-0
+icase            truth(rg)= 21442  seq +0/-0  par +0/-0  fff +0/-0  fff+idx +0/-0
+include-glob     truth(rg)=   441  seq +0/-0  par +0/-0  fff +0/-0  fff+idx +0/-0
+no-match         truth(rg)=     0  seq +0/-0  par +0/-0  fff +0/-0  fff+idx +0/-0
