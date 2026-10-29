@@ -40,7 +40,9 @@ pub fn wrap(
         lines.push(Line::from(std::mem::take(cur)));
     };
     for (word, style) in words {
-        let ww = word.trim_end().width();
+        // Only the separating space is free at a line end: a trailing
+        // U+3000 or no-break space is part of the word and takes columns.
+        let ww = word.trim_end_matches(' ').width();
         let used = cur_w - if first { iw } else { hw };
         if used > 0 && used + ww > avail {
             // trim the trailing space of the line we're closing
@@ -382,4 +384,51 @@ fn render_table(c: &mut Ctx, t: Table) {
         }
     }
     c.out.push(Line::default());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::text::prop;
+    use proptest::prelude::*;
+
+    const SYNTAX: &[&str] = &[
+        "*", "**", "_", "`", "```", "```rust\n", "~~", "# ", "## ", "> ", "- ", "* ", "1. ", "- [ ] ", "- [x] ", "|",
+        "| --- |", "|:-:|", "[", "](", ")", "<b>", "</b>", "\\", "---", "    ", "\n\n", "\t",
+    ];
+
+    fn plain(l: &Line) -> String {
+        l.spans.iter().map(|s| s.content.as_ref()).collect()
+    }
+
+    #[test]
+    fn a_word_ending_in_a_wide_space_still_fits() {
+        // Shrunk from `wrapped_lines_fit_the_width`: U+3000 is two columns,
+        // and trim_end() used to count it as the free separator.
+        let text = format!("{} ab\u{3000}", "x".repeat(8));
+        for l in wrap(vec![Span::raw(text)], 11, vec![], vec![]) {
+            assert!(prop::cols(&l) <= 11, "{:?}", plain(&l));
+        }
+    }
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        #[test]
+        fn render_never_panics(text in prop::text_with(SYNTAX), width in 0usize..120) {
+            render(&text, width);
+        }
+
+        /// Unindented text wraps to the width (8 at the least), one
+        /// character at a time when a word is wider than the line.
+        #[test]
+        fn wrapped_lines_fit_the_width(text in prop::text(), width in 0usize..80) {
+            let text = text.replace(['\n', '\r'], " ");
+            for l in wrap(vec![Span::raw(text)], width, vec![], vec![]) {
+                // Trailing spaces are blank cells the frame clips; only what shows counts.
+                let shown = Line::raw(plain(&l).trim_end_matches(' ').to_string());
+                prop_assert!(prop::cols(&shown) <= width.max(8), "{} > {width}: {:?}", prop::cols(&shown), plain(&l));
+            }
+        }
+    }
 }
