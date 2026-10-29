@@ -24,6 +24,7 @@ serde = { version = "1", features = ["derive"] }
 # doesn't depend on which crates a test run happens to unify.
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = "1"
+toml = "1"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
