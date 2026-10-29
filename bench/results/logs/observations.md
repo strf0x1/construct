@@ -297,3 +297,11 @@ Playbook arm re-run after the credentials rule went into the playbook and workfl
 - `bench/results/curriculum-20261027-223121.json`: model anthropic/claude-haiku-5.5; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
 - `bench/results/curriculum-20261027-223119.json`: model deepseek/deepseek-v4.1-flash-1017; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
 - `bench/results/curriculum-20261027-223148.json`: model deepseek/deepseek-v4.1-flash-1017; bench 1f2004a dirty; playbook 1f2004a dirty editor=replace router=local
+
+## 2026-10-29 00:00 note
+
+Search suite, 10 rounds x 3 arms (grep, search, none) x 11 tasks on three models, 990 runs, $1.65. No consistent effect of the tool's name on adoption; no measurable difference between having the search tool and not. See docs/adr/0021-search-tool-stays-grep.md and bench/results/search-report-20261029.md. The construct binary was built from d501de0 plus the search_name change committed as 4ea4ac4 (hence dirty).
+
+- `bench/results/task-20261028-221453.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
+- `bench/results/task-20261028-222858.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
+- `bench/results/task-20261028-225539.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
