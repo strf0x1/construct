@@ -340,3 +340,74 @@ fn a_child_past_its_time_limit_ends_the_job_as_a_timeout_and_wakes() {
     assert_eq!(reqs.len(), 4, "{}", text(&out));
     assert!(last_message(&reqs[3]).1.contains(r#"status="timeout""#));
 }
+
+#[test]
+fn ctrl_c_during_a_run_turn_interrupts_it_and_journals_the_job_as_cancelled() {
+    let env = Env::new(
+        "jobs-sigint",
+        json!({ "steps": [
+            shell_bg("sleep 300"),
+            { "call": "shell", "args": { "command": "touch started && sleep 300" } },
+            { "text": "never" }
+        ] }),
+    );
+    let mut c = std::process::Command::new(construct());
+    c.args(["run", "--no-learn", "start and wait"]).current_dir(&env.work);
+    for (k, v) in env.env() {
+        if v.is_empty() {
+            c.env_remove(k);
+        } else {
+            c.env(k, v);
+        }
+    }
+    let mut run = c.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let marker = env.work.join("started");
+    let end = std::time::Instant::now() + std::time::Duration::from_millis(budget(15_000));
+    while !marker.exists() && std::time::Instant::now() < end {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(marker.exists(), "the foreground command never started");
+    let sent = std::process::Command::new("kill").args(["-INT", &run.id().to_string()]).status().unwrap();
+    assert!(sent.success());
+    // It ends on its own, well inside the sleeps it was interrupted from.
+    let waited = std::time::Instant::now();
+    let status = run.wait().unwrap();
+    assert!(waited.elapsed().as_secs() < budget(30), "construct kept running after Ctrl-C");
+    assert!(status.success(), "{status:?}");
+
+    let end = rows(&env, "job_end");
+    assert_eq!((end.len(), end[0].payload["status"].clone()), (1, json!("cancelled")));
+    let turn_end = rows(&env, "turn_end");
+    assert_eq!(turn_end[0].payload["interrupted"], true);
+    assert!(rows(&env, "jobs_delivered").is_empty());
+    assert_eq!(env.requests().len(), 2, "nothing asked the model again");
+}
+
+#[test]
+fn a_background_child_reaching_past_its_sandbox_is_refused_when_nobody_can_be_asked() {
+    let secret = Env::dir_for("jobs-delegate-ask").join("outside.txt");
+    let env = Env::new(
+        "jobs-delegate-ask",
+        json!({ "steps": [
+            { "calls": [delegate_bg("read the file"), sleep(1)] },
+            { "call": "read", "args": { "path": secret.display().to_string() } },
+            { "text": "could not read it" },
+            { "text": "sent it" },
+            { "text": "the scout could not read it" }
+        ] }),
+    );
+    std::fs::write(&secret, "outside-data\n").unwrap();
+    env.config("[agents.scout]\nprompt = \"You are a scout.\"\ntools = [\"read\"]\n");
+    let out = env.run(&["run", "--no-learn", "send the scout"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 5, "{}", text(&out));
+    // The child's read came back refused, and nothing of the file reached anyone.
+    let refusal = last_tool_result(&reqs[2]);
+    assert!(refusal.contains("blocked") && !refusal.contains("outside-data"), "{refusal}");
+    assert!(!last_message(&reqs[4]).1.contains("outside-data"));
+    // The job itself still ended on its own, with the child's report.
+    let end = &rows(&env, "job_end")[0].payload;
+    assert_eq!(end["status"], "completed");
+    assert!(end["tail"].as_str().unwrap().contains("could not read it"));
+}

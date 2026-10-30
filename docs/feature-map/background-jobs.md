@@ -3,7 +3,7 @@ id: background-jobs
 status: verified
 verified_at: 74c1148
 surfaces: [tui, cli]
-depends: [crates/construct/src/jobs, crates/construct/src/agent/wake.rs, crates/construct/src/tools/shell_job.rs, crates/construct/src/tools/job.rs, crates/construct/src/tools/delegate/background.rs, crates/construct/src/tui/jobs.rs, crates/construct-dev/tests/jobs.rs]
+depends: [crates/construct/src/jobs, crates/construct/src/cli/headless.rs, crates/construct/src/agent/wake.rs, crates/construct/src/tools/shell_job.rs, crates/construct/src/tools/job.rs, crates/construct/src/tools/delegate/background.rs, crates/construct/src/tui/jobs.rs, crates/construct-dev/tests/jobs.rs]
 ---
 # Background jobs
 
@@ -57,5 +57,7 @@ Preconditions:
 
 - The cancel, check, timeout and limit sub-features are proven by `cargo test -p construct-dev --test it jobs::` (the real binary under `construct run`, asserting requests and journal rows), not by the TUI recipe.
 - A background child is a child process like a foreground one: depth stays one, so a child cannot start one, and its questions for the user (permission prompts) are asked as the job runs, whatever the parent is doing.
+- `construct run`: Ctrl-C during a turn interrupts that turn (journaled as interrupted), cancels the jobs and exits; it no longer kills the process mid-turn. Proven by `cargo test -p construct-dev --test it jobs::ctrl_c`.
+- A background child's permission questions are rejected where nobody can be asked (`construct run`), so it gets a refusal and the job still ends on its own (`jobs::a_background_child_reaching`).
 - A job dies with construct: quitting cancels it (journaled). Nothing survives a restart.
 - A completion that arrives while a turn runs waits for the next turn boundary; the recipe's job ends while the TUI is idle.

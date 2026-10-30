@@ -66,22 +66,28 @@ pub(super) async fn run(
         }
         failed
     });
-    agent.turn(&text, &tx).await?;
+    let cancel = agent.canceller();
+    let (turn, mut interrupted) = interruptible(agent.turn(&text, &tx), &cancel).await;
+    turn?;
     // Jobs the turn left running: wait for each ending and give it a turn, so
     // the run is not over while work it asked for is. The jobs' own time
     // limits bound this, and Ctrl-C cancels them.
-    loop {
+    while !interrupted {
         let next = tokio::select! {
             n = agent.next_wake() => n,
-            _ = tokio::signal::ctrl_c() => {
-                agent.stop_jobs().await;
-                break;
-            }
+            _ = tokio::signal::ctrl_c() => break,
         };
         if !next {
             break;
         }
-        agent.wake(&tx).await?;
+        let (woke, stopped) = interruptible(agent.wake(&tx), &cancel).await;
+        woke?;
+        interrupted = stopped;
+    }
+    // Ctrl-C (or the end of the run) leaves nothing running, and the journal
+    // says so.
+    if interrupted || agent.jobs().running() > 0 {
+        agent.stop_jobs().await;
     }
     drop(tx);
     let failed = printer.await.unwrap_or(true);
@@ -92,4 +98,24 @@ pub(super) async fn run(
         std::process::exit(1);
     }
     Ok(())
+}
+
+/// Run a turn that Ctrl-C interrupts rather than kills: the turn is asked to
+/// stop and still ends properly, so the journal records it as interrupted.
+/// Whether it was interrupted comes back with its result.
+async fn interruptible<T>(
+    turn: impl std::future::Future<Output = Result<T>>,
+    cancel: &tokio::sync::watch::Sender<bool>,
+) -> (Result<T>, bool) {
+    tokio::pin!(turn);
+    let mut interrupted = false;
+    loop {
+        tokio::select! {
+            r = &mut turn => return (r, interrupted),
+            _ = tokio::signal::ctrl_c(), if !interrupted => {
+                cancel.send_replace(true);
+                interrupted = true;
+            }
+        }
+    }
 }
