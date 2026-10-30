@@ -90,11 +90,13 @@ impl Child {
     }
 }
 
-/// The open peek panel: which child, and how far back from the newest line.
+/// The open peek panel: which child, how far back from the newest line, and
+/// when a cancel was asked for (it waits for a `y`).
 #[derive(Default)]
 pub(super) struct Peek {
     pub(super) sel: usize,
     pub(super) back: usize,
+    pub(super) armed: Option<Instant>,
 }
 
 #[derive(Default)]
@@ -104,6 +106,8 @@ pub(super) struct Dock {
     /// Children running now, foreground and background, oldest first.
     pub(super) children: Vec<Child>,
     pub(super) peek: Option<Peek>,
+    /// The session's jobs, to cancel one while a turn runs.
+    pub(super) jobs: Option<crate::jobs::Jobs>,
 }
 
 impl Dock {
@@ -181,7 +185,7 @@ mod tests {
         let mut d = Dock::default();
         d.add("a", "x".into());
         d.add("b", "y".into());
-        d.peek = Some(Peek { sel: 1, back: 0 });
+        d.peek = Some(Peek { sel: 1, ..Default::default() });
         d.finish("b");
         assert_eq!(d.peek.as_ref().map(|p| p.sel), Some(0));
         d.finish("a");

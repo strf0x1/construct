@@ -16,6 +16,7 @@ mod jobs;
 mod listing;
 mod markdown;
 mod palette;
+mod peek;
 mod picker;
 mod prompt;
 mod status;
@@ -145,7 +146,8 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let docked = app.dock.active();
         tokio::select! {
             Some(ready) = ready_rx.recv() => {
-                let (session, canceller, groups, history, catalog, spent) = ready;
+                let (session, canceller, groups, history, catalog, spent, jobs) = ready;
+                app.dock.jobs = Some(jobs);
                 app.ready = true;
                 app.totals = spent;
                 app.session = session;

@@ -7,5 +7,8 @@
   {"call":"shell","args":{"command":"sleep 6"}},
   {"text":"started it"},
   {"text":"the second pass found nothing at all"},
-  {"text":"the second scout is back"}
+  {"text":"the second scout is back"},
+  {"calls":[{"call":"delegate","args":{"agent":"scout","task":"look a third time, in the background","background":true}},{"call":"shell","args":{"command":"sleep 2"}}]},
+  {"call":"shell","args":{"command":"sleep 20"}},
+  {"text":"started the third"}
 ]}

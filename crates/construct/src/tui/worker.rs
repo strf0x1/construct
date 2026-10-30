@@ -11,9 +11,17 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 
 /// What the agent task hands the UI once it is built: session id, turn
-/// canceller, enabled groups, resumed history, and the session's tools.
-pub(super) type Ready =
-    (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>, crate::journal::Totals);
+/// canceller, enabled groups, resumed history, the session's tools and its jobs
+/// (so the UI can cancel one while a turn runs).
+pub(super) type Ready = (
+    String,
+    watch::Sender<bool>,
+    Vec<String>,
+    Vec<crate::llm::Message>,
+    Arc<Catalog>,
+    crate::journal::Totals,
+    crate::jobs::Jobs,
+);
 
 pub(super) async fn agent_task(
     mut cfg: Config,
@@ -41,8 +49,15 @@ pub(super) async fn agent_task(
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
     // A resumed session's status line starts from what it has already spent.
     let spent = if history.is_empty() { Default::default() } else { spent(&paths, &cwd, &agent.journal.session) };
-    let _ =
-        ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone(), spent));
+    let _ = ready.send((
+        agent.journal.session.clone(),
+        agent.canceller(),
+        vec![],
+        history,
+        agent.catalog.clone(),
+        spent,
+        agent.jobs(),
+    ));
     // How far learning has seen: an index into the live conversation, and
     // the journal seq the detached learner resumes from.
     let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
@@ -92,6 +107,7 @@ pub(super) async fn agent_task(
                             vec![],
                             agent.catalog.clone(),
                             Default::default(),
+                            agent.jobs(),
                         ));
                     }
                     Err(e) => {

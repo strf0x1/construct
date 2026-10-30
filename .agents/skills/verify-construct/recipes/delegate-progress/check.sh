@@ -24,4 +24,8 @@ call=$(grep '|job_start|' "$j" | grep -o '"call_id":"[^"]*"' | head -1)
 grep "|tool_start|" "$j" | grep '"name":"delegate"' | grep -q "\"id\":${call#*:}" || { echo "job_start does not name the delegate call"; exit 1; }
 grep -q '|job_end|.*"status":"completed"' "$j" || { echo "the background child did not complete"; exit 1; }
 ! grep -q '|child|' "$j" || { echo "the Child wrapper was journaled"; exit 1; }
-echo "ok: the dock and peek for both delegate calls came from the children's own journaled rows; the job is tied to its call"
+# The third child was cancelled through its job, and nobody was woken for it.
+grep -q '|job_end|.*"id":"j2".*"status":"cancelled"\|job_end|.*"status":"cancelled".*"id":"j2"' "$j" || { echo "j2 was not journaled as cancelled"; exit 1; }
+grep -q '|tool_start|.*sleep 20' "$j" || { echo "the third child never ran its command"; exit 1; }
+[ "$(grep -c '|jobs_delivered|' "$j")" = 1 ] || { echo "expected one delivery (j1); a cancel must not wake"; exit 1; }
+echo "ok: the dock and peek for both delegate calls came from the children's own journaled rows; the job is tied to its call; ctrl+x then y cancelled the third without waking anyone"
