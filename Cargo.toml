@@ -25,6 +25,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = "1"
 toml = "1"
+# Property tests (dev only): shrinking turns a random panic into a pinnable
+# counterexample. Without fork/timeout, which pull in a subprocess runner.
+proptest = { version = "1", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"

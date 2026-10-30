@@ -289,6 +289,24 @@ mod tests {
         assert!(snippets[5..].iter().all(|n| (REST_CHARS..REST_CHARS + 10).contains(n)), "{snippets:?}");
     }
 
+    proptest::proptest! {
+        #![proptest_config(crate::text::prop::config())]
+
+        /// A date from a backend is either cut to its day or kept as sent.
+        #[test]
+        fn a_date_is_its_day_or_itself(s in crate::text::prop::text_with(&["2026-10-21", "T14:03:00Z", "-", "0", "3 days ago"])) {
+            if let Some(d) = day(&s) {
+                proptest::prop_assert!(d == s.trim() || (d.len() == 10 && s.trim().starts_with(&d)), "{d:?} from {s:?}");
+            }
+        }
+
+        #[test]
+        fn rendering_any_hits_never_panics(texts in proptest::collection::vec(crate::text::prop::text(), 0..8)) {
+            let hits = texts.chunks(2).map(|t| hit(&t[0], t.get(1).map(String::as_str))).collect();
+            render(&answer(hits));
+        }
+    }
+
     #[test]
     fn only_a_day_shaped_date_is_cut() {
         assert_eq!(day("2026-10-21T14:03:00Z").as_deref(), Some("2026-10-21"));

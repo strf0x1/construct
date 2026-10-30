@@ -241,7 +241,7 @@ impl App {
             let mut chunks: Vec<(String, usize)> = vec![];
             let mut start = offset;
             for (bi, c) in para.char_indices() {
-                let w = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                let w = crate::text::cols_after(para.get(..bi).and_then(|p| p.chars().next_back()), c);
                 if cw + w > avail {
                     chunks.push((std::mem::take(&mut chunk), start));
                     start = offset + bi;
@@ -261,7 +261,7 @@ impl App {
                 lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
                 if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
                     let before = self.input.get(*s..self.cursor).unwrap_or("");
-                    cur = (row, (prompt_w + before.width()) as u16);
+                    cur = (row, (prompt_w + crate::text::cols(before)) as u16); // as drawn: a pasted tab is no column
                 }
                 row += 1;
             }

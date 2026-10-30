@@ -418,6 +418,100 @@ fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::app::App;
+    use super::handle_key;
+    use crate::config::Config;
+    use crate::text::prop;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use proptest::prelude::*;
+
+    /// One user action: a key, or a bracketed paste.
+    #[derive(Debug, Clone)]
+    enum Act {
+        Key(KeyCode, KeyModifiers),
+        Paste(String),
+    }
+
+    fn act() -> impl Strategy<Value = Act> {
+        let (none, ctrl, alt) = (KeyModifiers::NONE, KeyModifiers::CONTROL, KeyModifiers::ALT);
+        let keys = [
+            (KeyCode::Backspace, none),
+            (KeyCode::Backspace, ctrl),
+            (KeyCode::Delete, none),
+            (KeyCode::Left, none),
+            (KeyCode::Right, none),
+            (KeyCode::Home, none),
+            (KeyCode::End, none),
+            (KeyCode::Enter, none),
+            (KeyCode::Enter, alt),
+            (KeyCode::Tab, none),
+            (KeyCode::Char('a'), ctrl),
+            (KeyCode::Char('e'), ctrl),
+            (KeyCode::Char('u'), ctrl),
+            (KeyCode::Char('k'), ctrl),
+            (KeyCode::Char('w'), ctrl),
+            (KeyCode::Char('j'), ctrl),
+            (KeyCode::Char('p'), ctrl),
+            (KeyCode::Char('n'), ctrl),
+        ];
+        prop_oneof![
+            4 => proptest::sample::select(keys.to_vec()).prop_map(|(k, m)| Act::Key(k, m)),
+            // No '/': a line starting with one is a slash command, which reads the disk.
+            4 => any::<char>().prop_map(|c| Act::Key(KeyCode::Char(if c == '/' || c.is_control() { 'x' } else { c }), KeyModifiers::NONE)),
+            1 => prop::text().prop_map(|t| Act::Paste(t.replace('/', ""))),
+        ]
+    }
+
+    #[test]
+    fn the_cursor_follows_a_pasted_tab_as_drawn() {
+        // Shrunk from `editing_keeps_the_cursor_on_a_char_boundary` (a `\0`):
+        // a tab draws as nothing, so the cursor sits right after the `x`.
+        let mut app = App::new(Config::default());
+        app.insert("\tx");
+        assert_eq!(app.input_lines(40).1, (0, 3));
+    }
+
+    #[test]
+    fn an_emoji_keycap_wraps_at_its_drawn_width() {
+        // Shrunk from `editing_keeps_the_cursor_on_a_char_boundary`: `0` and
+        // U+FE0F draw two columns wide, one more than the chars count.
+        let mut app = App::new(Config::default());
+        app.insert(&format!("{}0\u{fe0f}", "x".repeat(27)));
+        for l in app.input_lines(31).0 {
+            assert!(prop::cols(&l) <= 30, "{l:?}");
+        }
+    }
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        /// Any run of edits leaves the cursor on a char boundary of the
+        /// input, and the input box wraps every row inside its width.
+        #[test]
+        fn editing_keeps_the_cursor_on_a_char_boundary(
+            acts in proptest::collection::vec(act(), 0..24),
+            width in 0usize..60,
+        ) {
+            let mut app = App::new(Config::default());
+            let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+            for a in acts {
+                match a {
+                    Act::Key(k, m) => {
+                        handle_key(&mut app, KeyEvent::new(k, m), &tx);
+                    }
+                    Act::Paste(t) => app.insert(&t.replace("\r\n", "\n").replace('\r', "\n")),
+                }
+                prop_assert!(app.input.is_char_boundary(app.cursor), "cursor {} in {:?}", app.cursor, app.input);
+            }
+            let (lines, (_, col)) = app.input_lines(width);
+            let room = 2 + width.saturating_sub(3).max(4);
+            for l in &lines {
+                prop_assert!(prop::cols(l) <= room, "{} > {room}: {l:?}", prop::cols(l));
+            }
+            prop_assert!(usize::from(col) <= room, "cursor column {col} > {room}");
+        }
+    }
+
     #[test]
     fn word_start_steps_over_a_wide_space() {
         assert_eq!(super::word_start("one two  "), 4);

@@ -129,3 +129,44 @@ pub fn replace_once(text: &str, old: &str, new: &str, all: bool) -> Result<Strin
     }
     Ok(if crlf { out.replace('\n', "\r\n") } else { out })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::text::prop;
+    use proptest::prelude::*;
+
+    const CODE: &[&str] =
+        &["\n", "\r\n", "    ", "{", "}", "\u{2019}", "\u{201c}", "\u{2014}", "\u{a0}", "fn ", "x", " \n"];
+
+    proptest! {
+        #![proptest_config(prop::config())]
+
+        #[test]
+        fn replace_never_panics(
+            text in prop::text_with(CODE),
+            old in prop::text_with(CODE),
+            new in prop::text_with(CODE),
+            all in any::<bool>(),
+        ) {
+            let _ = replace_once(&text, &old, &new, all);
+        }
+
+        /// The tool's promise: an `old` found once is swapped for `new`,
+        /// and the rest of the file is left byte for byte.
+        #[test]
+        fn a_unique_match_is_replaced_and_nothing_else_moves(
+            before in prop::text_with(CODE),
+            old in prop::text_with(CODE),
+            after in prop::text_with(CODE),
+            new in prop::text_with(CODE),
+        ) {
+            // CRLF files are rewritten in full; their promise is the e2e tests'.
+            let [before, old, after, new] = [before, old, after, new].map(|s| s.replace('\r', ""));
+            let text = format!("{before}{old}{after}");
+            prop_assume!(!old.is_empty() && old != new && text.matches(old.as_str()).count() == 1);
+            let out = replace_once(&text, &old, &new, false).unwrap();
+            prop_assert_eq!(out, format!("{before}{new}{after}"));
+        }
+    }
+}
