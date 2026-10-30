@@ -1,0 +1,1 @@
+{"steps":[{"call":"shell","args":{"command":"sleep 2 && echo watched-done","background":true}},{"text":"started, waiting"},{"text":"it said watched-done"}]}

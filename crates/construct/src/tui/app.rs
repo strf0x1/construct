@@ -1,6 +1,7 @@
 //! The TUI's state: transcript blocks, the input line, and how agent events
 //! change them.
 
+use super::args::primary_arg;
 use super::ask::Prompt;
 use super::palette::{self, Palette, Query};
 use super::picker::Picker;
@@ -122,6 +123,7 @@ pub(super) struct App {
     pub(super) context_pct: u64,
     pub(super) groups: Vec<String>,
     pub(super) learning: Option<(String, Instant)>,
+    pub(super) dock: super::children::Dock,
     pub(super) toast: Option<(String, Color, Instant)>,
     pub(super) ready: bool,
     pub(super) session: String,
@@ -141,18 +143,6 @@ pub(super) struct App {
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
     skill_libs: Option<Vec<Library>>,
-}
-
-/// The argument a tool's display hints name, or the raw arguments.
-fn primary_arg(key: &str, args: &str) -> String {
-    let v: serde_json::Value = serde_json::from_str(args).unwrap_or_default();
-    let s = match v.get(key) {
-        Some(serde_json::Value::String(s)) => s.clone(),
-        Some(other) => other.to_string(),
-        None => args.to_string(),
-    };
-    let s = s.replace('\n', " ⏎ ");
-    crate::llm::truncate(&s, 200)
 }
 
 impl App {
@@ -177,6 +167,7 @@ impl App {
             context_pct: 0,
             groups: vec![],
             learning: None,
+            dock: Default::default(),
             toast: None,
             ready: false,
             session: String::new(),
@@ -261,8 +252,6 @@ impl App {
             // The record, not the screen: the UI already shows what these carry.
             Event::Manifest(_)
             | Event::Head { .. }
-            // The nested view of a child's work is not drawn yet.
-            | Event::Child { .. }
             | Event::Permission { .. }
             // Shown when the prompt is answered, so a child's are too.
             | Event::Access { .. }
@@ -349,6 +338,7 @@ impl App {
                 self.push(b);
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
+                self.end_call(&id);
                 if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id) {
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
@@ -401,6 +391,10 @@ impl App {
                 self.close_reasoning();
                 self.notice(theme::RED, format!("✗ {message}"));
             }
+            Event::Child { id, inner } => self.on_child(&id, *inner),
+            Event::JobStart(_) | Event::JobEnd(_) => self.on_job(&ev),
+            // The turn it starts or joins says it.
+            Event::JobsDelivered(_) => {}
             Event::Learn { status } => {
                 if status.starts_with("learning") {
                     self.learning = Some((status, Instant::now()));

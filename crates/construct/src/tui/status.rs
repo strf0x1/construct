@@ -7,10 +7,13 @@
 //! resends the history. Labels are faint, numbers a soft gray, and only a
 //! filling window ever gets loud.
 
+use super::app::App;
 use super::theme;
 use crate::journal::{Totals, human};
 use ratatui::style::{Color, Style};
-use ratatui::text::Span;
+use ratatui::text::{Line, Span};
+use std::time::Duration;
+use unicode_width::UnicodeWidthStr;
 
 /// Cells in the `ctx` meter.
 const METER: u64 = 5;
@@ -77,6 +80,80 @@ fn ctx_color(pct: u64) -> Color {
         70..90 => theme::YELLOW,
         _ => theme::RED,
     }
+}
+
+impl App {
+    /// The bottom line. The counters and the session id are never dropped:
+    /// the toast and then the group labels give way first, then the model
+    /// name is cut. The counters are `status::counters`.
+    pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
+        let router = crate::models::is_router(&self.cfg.model);
+        let compact = width < super::status::COMPACT_BELOW;
+        let mut must = super::status::counters(&self.totals, self.context_pct, router, compact);
+        if self.scroll > 0 {
+            must.push(Span::styled(format!(" · scrolled {}", self.scroll), Style::new().fg(theme::CYAN)));
+        }
+        if !self.session.is_empty() {
+            must.push(Span::styled(format!(" · {}", short_session(&self.session)), theme::faint()));
+        }
+        must.push(Span::raw(" "));
+        let w = |v: &[Span<'static>]| v.iter().map(|s| s.content.width()).sum::<usize>();
+        let must_w = w(&must);
+        // What is left of the line after a minimal model name (" ◆ " + 8).
+        let mut spare = width.saturating_sub(must_w + 11);
+        let mut extras: Vec<Span<'static>> = vec![];
+        let toast = if let Some((s, _)) = &self.learning {
+            Some(Span::styled(format!("◇ {s}  "), Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2))))
+        } else if let Some((t, c, at)) = &self.toast
+            && at.elapsed() < Duration::from_secs(6)
+        {
+            Some(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)))
+        } else {
+            self.jobs_span(phase)
+        };
+        let groups =
+            (!self.groups.is_empty()).then(|| Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
+        // The toast is cut to what is left (it is a hint); groups show whole or not at all.
+        if let Some(sp) = toast {
+            let sw = sp.content.width();
+            if sw <= spare {
+                spare -= sw;
+                extras.push(sp);
+            } else if spare >= 12 {
+                let keep: String = sp.content.chars().take(spare - 3).collect();
+                spare = 0;
+                extras.push(Span::styled(format!("{keep}…  "), sp.style));
+            }
+        }
+        if let Some(sp) = groups
+            && sp.content.width() <= spare
+        {
+            extras.push(sp);
+        }
+        let right_w = w(&extras) + must_w;
+        let model_room = width.saturating_sub(right_w + 3 + 1);
+        let model = if self.cfg.model.width() <= model_room {
+            self.cfg.model.clone()
+        } else {
+            let keep = model_room.saturating_sub(1);
+            let mut m: String = self.cfg.model.chars().take(keep).collect();
+            m.push('…');
+            m
+        };
+        let left = vec![Span::styled(" ◆ ", Style::new().fg(theme::ACCENT2)), Span::styled(model, theme::dim())];
+        let lw = w(&left);
+        let mut spans = left;
+        spans.push(Span::raw(" ".repeat(width.saturating_sub(lw + right_w))));
+        spans.extend(extras);
+        spans.extend(must);
+        Line::from(spans)
+    }
+}
+
+/// A session id (`20261023-034723-c3ca`) without its date: enough to tell
+/// sessions apart on the status line. `/status` has the whole id.
+fn short_session(id: &str) -> String {
+    id.split_once('-').map_or(id, |(_, rest)| rest).to_string()
 }
 
 #[cfg(test)]

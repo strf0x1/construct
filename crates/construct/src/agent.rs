@@ -4,6 +4,9 @@
 //! runner and the tests all observe the same thing, and every durable event
 //! is journaled on the way out (`journal::Writer::emit`).
 
+mod user_turn;
+mod wake;
+
 use crate::child::Origin;
 use crate::compact::{self, Reason};
 use crate::config::{Config, Paths};
@@ -92,6 +95,7 @@ impl Agent {
         let cwd_s = cwd.display().to_string();
         let file = journal::path(&paths, &cwd);
         let mut unsent = vec![];
+        let resume_id = resume.clone();
         let (writer, mut messages) = match resume {
             Some(id) => journal::Writer::resume(&file, &id)?,
             None => {
@@ -122,7 +126,11 @@ impl Agent {
             Some(m) if m.role == "system" => messages[0] = Message::system(system),
             _ => messages.insert(0, Message::system(system)),
         }
-        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox));
+        let jobs = crate::jobs::Jobs::new(&cfg.jobs);
+        if let Some(id) = &resume_id {
+            jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
+        }
+        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox).with_jobs(jobs));
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
         let mut agent = Self {
@@ -263,7 +271,7 @@ impl Agent {
     }
 
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
-        self.run_turn(text, None, tx).await
+        self.run_turn(Some(text), None, tx).await
     }
 
     /// A turn the user started with `/<skill> text`: the skill's SKILL.md (as
@@ -272,7 +280,7 @@ impl Agent {
     /// is gone by now is an error and no turn.
     pub async fn invoke(&mut self, skill: &str, text: &str, tx: &Events) -> Result<()> {
         match crate::tools::skill::load(&self.ctx, skill, None) {
-            Ok(body) => self.run_turn(text, Some((skill, body)), tx).await,
+            Ok(body) => self.run_turn(Some(text), Some((skill, body)), tx).await,
             Err(e) => {
                 self.journal.emit(Event::Error { message: e }, tx);
                 Ok(())
@@ -280,7 +288,9 @@ impl Agent {
         }
     }
 
-    async fn run_turn(&mut self, text: &str, invoked: Option<(&str, String)>, tx: &Events) -> Result<()> {
+    /// One turn. `text` is what the user typed; `None` is a turn that job
+    /// completions start (`wake`), which has no user message to route or answer.
+    async fn run_turn(&mut self, text: Option<&str>, invoked: Option<(&str, String)>, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
         self.ctx.turn_began();
@@ -292,54 +302,10 @@ impl Agent {
         if self.user_turns == 0 {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
-        let mut route = self.route(text).await;
-        // Project skills are listed in the system prompt, so the tool that
-        // loads them is on wherever they are: being in the repo is the trigger.
-        let has_kit_skills = self.ctx.project_skills.as_ref().is_some_and(|p| !p.list().is_empty());
-        if has_kit_skills && !route.groups.contains(&Group::Skills) {
-            route.groups.push(Group::Skills);
+        if let Some(text) = text {
+            self.begin_user_turn(text, invoked, tx).await;
         }
-        if let Some((name, _)) = &invoked {
-            route.skills.retain(|(n, _)| n != name);
-            // Its linked files are read with the skill tool.
-            if !route.groups.contains(&Group::Skills) {
-                route.groups.push(Group::Skills);
-            }
-        }
-        self.journal.emit(
-            Event::Route {
-                groups: route.groups.iter().map(Group::label).collect(),
-                skills: route.skills.iter().map(|(n, p)| format!("{n} {p:.2}")).collect(),
-                source: route.source.clone(),
-                ms: route.ms,
-                note: route.note.clone(),
-            },
-            tx,
-        );
-        self.enable(route.groups.clone(), tx).await;
-
-        for (name, _) in &route.skills {
-            if let Some(lib) = self.ctx.skill_lib(name) {
-                lib.suggested(name);
-            }
-        }
-        let mut content = text.to_string();
-        if let Some((name, body)) = invoked {
-            let scope = if self.ctx.project_skills.as_ref().is_some_and(|p| p.get(name).is_some()) {
-                "project"
-            } else {
-                "global"
-            };
-            self.journal.emit(Event::Invoke { skill: name.to_string(), scope: scope.to_string() }, tx);
-            content = crate::prompt::invoked_skill(name, &body, text);
-        }
-        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills()) {
-            content.push_str("\n\n");
-            content.push_str(&r);
-        }
-        self.push(Message::user(content), tx);
-        self.user_turns += 1;
-        self.turns_since_memory += 1;
+        self.deliver_jobs(tx);
 
         let mut steps = 0u32;
         let mut turn_usage = Usage::default();
@@ -602,6 +568,7 @@ impl Agent {
             self.tool_calls += 1;
             self.tool_calls_since_skill += 1;
         }
+        self.offer_job_tool();
     }
 
     /// Cut history if the planner says so (see `compact`). Returns whether

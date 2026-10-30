@@ -6,7 +6,8 @@
 # A recipe dir holds model.json (the scripted model's steps), drive.txt (the
 # construct-dev drive script), optionally setup.sh (runs first, with WORK,
 # OUTSIDE, CHOME and EVIDENCE set; write config or files there) and
-# optionally check.sh (runs after a passing drive with the same variables and
+# optionally serve.args (extra `serve` flags) and check.sh (runs after a passing
+# drive with the same variables and
 # the evidence collected; asserts what the system did, and exits non-zero to
 # fail the run). The screen can look right while the tool call failed:
 # check.sh is where that gets caught.
@@ -62,7 +63,9 @@ fill "$recipe/drive.txt" >"$scratch/drive.txt"
 [ -f "$recipe/setup.sh" ] && bash "$recipe/setup.sh"
 
 mkdir -p "$scratch/requests"
-port=$("$root/scripts/mock.sh" "$scratch/mock" "$scratch/model.json" --dump "$scratch/requests")
+# serve.args (optional): extra `construct-dev serve` flags, e.g. --chunk-ms to slow a stream down.
+extra=(); [ -f "$recipe/serve.args" ] && read -r -a extra <"$recipe/serve.args"
+port=$("$root/scripts/mock.sh" "$scratch/mock" "$scratch/model.json" --dump "$scratch/requests" ${extra[@]+"${extra[@]}"})
 set +e
 DRIVE_RAW_LOG="$EVIDENCE/raw.log" "$root/target/debug/construct-dev" drive --metrics --cols "$cols" --rows "$rows" --cwd "$WORK" \
   --script "$scratch/drive.txt" \

@@ -1,0 +1,92 @@
+# A running delegated child shows on the dock, a row between the transcript and
+# the prompt, and ctrl+t opens the peek panel with its steps. Foreground first:
+# the child's shell call, then its words as they stream. Then a background child
+# with the TUI idle and the transcript scrolled away from it.
+wait "ask construct" 5000
+type send the scout
+key enter
+wait "shell sleep 4" 8000
+sleep 300
+snap --style foreground-dock
+expect "ctrl+t peek"
+expect-style "ctrl+t peek" fg=#464c66
+image {evidence}/foreground-dock.png
+wait "· found" 8000
+key ctrl-t
+sleep 300
+expect "esc close"
+expect "✓ shell sleep 4"
+snap --style foreground-peek
+image {evidence}/foreground-peek.png
+key esc
+gone "esc close" 2000
+wait "foreground done" 8000
+gone "ctrl+t peek" 2000
+resize 100 18
+type send another
+key enter
+wait "started it" 8000
+wait "job j1 started" 3000
+wait "shell sleep 6" 3000
+sleep 300
+snap --style background-dock
+expect "1 job running"
+expect "ctrl+t peek"
+key pgup
+sleep 300
+snap scrolled-away
+expect "scrolled"
+expect "shell sleep 6"
+key esc
+sleep 200
+key ctrl-t
+sleep 300
+snap --style background-peek
+expect "esc close"
+expect "j1"
+image {evidence}/background-peek.png
+key esc
+gone "esc close" 2000
+wait "job j1 completed" 12000
+wait "the second scout is back" 8000
+gone "ctrl+t peek" 2000
+# A third background child, to cancel from the peek panel. A stray y does
+# nothing; ctrl+x then another key disarms; only ctrl+x then y stops it.
+type send a third
+key enter
+wait "started the third" 8000
+wait "shell sleep 20" 3000
+sleep 300
+key ctrl-t
+sleep 200
+type y
+sleep 200
+expect "ctrl+x cancel"
+key ctrl-x
+sleep 200
+expect "press y"
+key down
+sleep 200
+type y
+sleep 200
+expect "1 job running"
+expect "ctrl+x cancel"
+key ctrl-x
+sleep 300
+expect "cancel j2 scout? press y"
+snap --style cancel-armed
+expect-style "cancel j2 scout? press y" fg=#f7768e
+image {evidence}/cancel-armed.png
+type y
+wait "job j2 cancelled" 8000
+expect "cancelling j2"
+gone "ctrl+t peek" 3000
+gone "esc close" 2000
+snap cancelled
+image {evidence}/cancelled.png
+key ctrl-t
+expect "no agents running"
+snap after
+image {evidence}/after.png
+key ctrl-d
+sleep 500

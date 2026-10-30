@@ -1,7 +1,8 @@
 //! The command line: clap types and the subcommand bodies. `main.rs` only
 //! handles the sandbox helper and calls [`run`].
 
-use crate::agent::{Agent, Event};
+mod headless;
+
 use crate::config::{Config, Paths};
 use crate::{journal, learn, llm, memory, router, secrets, skills, tools, tui};
 use anyhow::{Result, bail};
@@ -145,7 +146,7 @@ pub fn run() -> Result<()> {
             if text.trim().is_empty() {
                 bail!("nothing to run: pass a prompt");
             }
-            rt.block_on(headless(cfg, paths, resume, text, json, !no_learn))
+            rt.block_on(headless::run(cfg, paths, resume, text, json, !no_learn))
         }
         Some(Cmd::Child { acp: false }) => rt.block_on(crate::child::serve::run()),
         Some(Cmd::Child { acp: true }) => {
@@ -322,76 +323,6 @@ fn resolve_resume(resume: &Option<String>, cont: bool, paths: &Paths) -> Result<
         return db.latest(&cwd.display().to_string());
     }
     Ok(None)
-}
-
-async fn headless(
-    cfg: Config,
-    paths: Paths,
-    resume: Option<String>,
-    text: String,
-    json: bool,
-    learn: bool,
-) -> Result<()> {
-    let learn = learn && cfg.learn.enabled;
-    let mut cfg = cfg;
-    llm::catalog::prepare(&mut cfg, &paths).await;
-    let cwd = std::env::current_dir()?;
-    let mut agent = Agent::new(cfg, paths, cwd, resume)?;
-    // Overlaps the model's TLS handshake with routing.
-    agent.warm();
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
-    let printer = tokio::spawn(async move {
-        let mut out = std::io::stdout();
-        let mut err = std::io::stderr();
-        let mut failed = false;
-        let mut at_line_start = true;
-        while let Some(ev) = rx.recv().await {
-            if json {
-                let _ = writeln!(out, "{}", serde_json::to_string(&ev).unwrap_or_default());
-                let _ = out.flush();
-                if matches!(ev, Event::Error { .. }) {
-                    failed = true;
-                }
-                continue;
-            }
-            match ev {
-                Event::Text { text } => {
-                    let _ = write!(out, "{text}");
-                    let _ = out.flush();
-                    at_line_start = text.ends_with('\n');
-                }
-                Event::ToolStart { name, args, .. } => {
-                    if !at_line_start {
-                        let _ = writeln!(out);
-                        at_line_start = true;
-                    }
-                    let _ = writeln!(err, "· {name} {}", llm::truncate(&args.replace('\n', " "), 160));
-                }
-                Event::ToolEnd { ok: false, output, .. } => {
-                    let _ = writeln!(err, "  ✗ {}", llm::truncate(&output.replace('\n', " "), 200));
-                }
-                Event::Error { message } => {
-                    failed = true;
-                    let _ = writeln!(err, "error: {message}");
-                }
-                Event::TurnEnd { .. } if !at_line_start => {
-                    let _ = writeln!(out);
-                }
-                _ => {}
-            }
-        }
-        failed
-    });
-    agent.turn(&text, &tx).await?;
-    drop(tx);
-    let failed = printer.await.unwrap_or(true);
-    if learn && learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
-        learn::spawn_detached(&agent.journal.session);
-    }
-    if failed {
-        std::process::exit(1);
-    }
-    Ok(())
 }
 
 async fn learn_cmd(cfg: Config, paths: Paths, session: Option<String>, curate: bool) -> Result<()> {

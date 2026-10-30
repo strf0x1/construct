@@ -11,9 +11,17 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 
 /// What the agent task hands the UI once it is built: session id, turn
-/// canceller, enabled groups, resumed history, and the session's tools.
-pub(super) type Ready =
-    (String, watch::Sender<bool>, Vec<String>, Vec<crate::llm::Message>, Arc<Catalog>, crate::journal::Totals);
+/// canceller, enabled groups, resumed history, the session's tools and its jobs
+/// (so the UI can cancel one while a turn runs).
+pub(super) type Ready = (
+    String,
+    watch::Sender<bool>,
+    Vec<String>,
+    Vec<crate::llm::Message>,
+    Arc<Catalog>,
+    crate::journal::Totals,
+    crate::jobs::Jobs,
+);
 
 pub(super) async fn agent_task(
     mut cfg: Config,
@@ -41,12 +49,34 @@ pub(super) async fn agent_task(
     let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
     // A resumed session's status line starts from what it has already spent.
     let spent = if history.is_empty() { Default::default() } else { spent(&paths, &cwd, &agent.journal.session) };
-    let _ =
-        ready.send((agent.journal.session.clone(), agent.canceller(), vec![], history, agent.catalog.clone(), spent));
+    let _ = ready.send((
+        agent.journal.session.clone(),
+        agent.canceller(),
+        vec![],
+        history,
+        agent.catalog.clone(),
+        spent,
+        agent.jobs(),
+    ));
     // How far learning has seen: an index into the live conversation, and
     // the journal seq the detached learner resumes from.
     let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
-    while let Some(c) = cmds.recv().await {
+    loop {
+        // A command the user already typed goes first; a job that ended while
+        // idle starts a turn of its own (ADR 0026).
+        let jobs = agent.jobs();
+        let c = tokio::select! {
+            biased;
+            c = cmds.recv() => match c {
+                Some(c) => c,
+                None => break,
+            },
+            () = jobs.ready() => {
+                let _ = agent.wake(&tx).await;
+                maybe_learn(&mut agent, &tx, &mut reviewed, false);
+                continue;
+            }
+        };
         match c {
             Cmd::Prompt(text) => {
                 let _ = agent.turn(&text, &tx).await;
@@ -63,6 +93,7 @@ pub(super) async fn agent_task(
                 }
             }
             Cmd::New => {
+                agent.stop_jobs().await;
                 finish(&agent, reviewed);
                 match build(None, agent.cfg.clone()) {
                     Ok(a) => {
@@ -76,6 +107,7 @@ pub(super) async fn agent_task(
                             vec![],
                             agent.catalog.clone(),
                             Default::default(),
+                            agent.jobs(),
                         ));
                     }
                     Err(e) => {
@@ -85,6 +117,9 @@ pub(super) async fn agent_task(
             }
         }
     }
+    // Quitting cancels what is still running, and the journal says so; the
+    // helpers' own watchdog covers a process that is stopped before this ends.
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(1200), agent.stop_jobs()).await;
     finish(&agent, reviewed);
 }
 

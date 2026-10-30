@@ -29,6 +29,19 @@ impl Call {
         self.sink.as_ref().map(|(journal, _)| journal.session.as_str())
     }
 
+    /// The session's journal and event stream, for a tool that starts work
+    /// which reports on its own later (`jobs`).
+    pub fn sink(&self) -> Option<(Arc<Writer>, Events)> {
+        self.sink.clone()
+    }
+
+    /// Journal and send one event of the session's own.
+    pub fn emit(&self, ev: Event) {
+        if let Some((journal, tx)) = &self.sink {
+            journal.emit(ev, tx);
+        }
+    }
+
     /// A call with nowhere to stream to (tests, the learning pass).
     pub fn detached(id: &str) -> Self {
         Self { id: id.to_string(), sink: None, child: Mutex::new(None) }

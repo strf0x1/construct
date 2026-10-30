@@ -2,11 +2,9 @@
 //! isn't a built-in runs the skill of that name; built-ins win a clash.
 
 use super::app::{App, Block, Cmd, Kind, Status};
-use super::ask::Choice;
 use super::picker::{Outcome, Picker};
 use super::theme;
 use crate::config::Paths;
-use crate::permission::Verdict;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
@@ -34,48 +32,6 @@ impl App {
     pub(super) fn next_boundary(&self) -> usize {
         self.after_cursor().char_indices().nth(1).map(|(i, _)| self.cursor + i).unwrap_or(self.input.len())
     }
-}
-
-/// A key while a permission question is on screen: it takes every key, so
-/// typing can't reach the input line or answer by accident. Returns true to quit.
-fn prompt_key(app: &mut App, k: KeyEvent) -> bool {
-    let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
-    // Interrupting is always allowed: the question goes with the turn.
-    if k.code == KeyCode::Esc || (ctrl && k.code == KeyCode::Char('c')) {
-        while !app.prompts.is_empty() {
-            app.answer_prompt(|p| (p.answer(Verdict::Cancel), false));
-        }
-        if let Some(c) = &app.canceller {
-            c.send_replace(true);
-        }
-        return false;
-    }
-    let Some(p) = app.prompts.front_mut() else { return false };
-    if !p.ready() {
-        return false;
-    }
-    let choices = p.choices();
-    let pick = match k.code {
-        KeyCode::Up | KeyCode::Char('k') => {
-            p.selected = (p.selected + choices.len() - 1) % choices.len();
-            None
-        }
-        KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Char('j') => {
-            p.selected = (p.selected + 1) % choices.len();
-            None
-        }
-        KeyCode::Tab | KeyCode::BackTab => {
-            p.toggle_folder();
-            None
-        }
-        KeyCode::Enter => choices.get(p.selected).copied(),
-        KeyCode::Char(c) if !ctrl => choices.iter().copied().find(|ch| ch.key() == c.to_ascii_lowercase()),
-        _ => None,
-    };
-    if let Some(choice) = pick {
-        app.answer_prompt(|p| (p.choose(choice), choice != Choice::Deny));
-    }
-    false
 }
 
 /// A key while the model picker is open: it takes every key, so typing
@@ -133,10 +89,13 @@ fn palette_key(app: &mut App, k: KeyEvent) -> bool {
 pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
     app.prune_prompts();
     if !app.prompts.is_empty() {
-        return prompt_key(app, k);
+        return super::ask::prompt_key(app, k);
     }
     if app.picker.is_some() {
         picker_key(app, k, cmd);
+        return false;
+    }
+    if app.peek_key(k) {
         return false;
     }
     if palette_key(app, k) {

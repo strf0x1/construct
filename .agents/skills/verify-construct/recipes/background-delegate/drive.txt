@@ -1,0 +1,24 @@
+# A background child outlives the turn that started it: interrupting the
+# parent's next (long) step leaves the child running, and its summary still
+# arrives as a turn of its own. A second child is cancelled by quitting.
+wait "ask construct" 5000
+type send the scout
+key enter
+wait "job j1 started" 8000
+wait "sleep 120" 8000
+key esc
+sleep 800
+snap --style interrupted
+expect "1 job running"
+image {evidence}/interrupted.png
+wait "job j1 completed" 10000
+wait "the scout found nothing" 8000
+gone "1 job running" 500
+image {evidence}/after.png
+type send another
+key enter
+wait "job j2 started" 8000
+wait "started another" 8000
+expect "1 job running"
+key ctrl-d
+sleep 3500

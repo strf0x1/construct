@@ -1,6 +1,7 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
+pub use crate::tools::web::WebConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -31,6 +32,7 @@ pub struct Config {
     pub router: RouterConfig,
     pub sandbox: SandboxConfig,
     pub tools: ToolsConfig,
+    pub jobs: crate::jobs::JobsConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Agents the model can delegate to, each run as a sandboxed child.
     pub agents: BTreeMap<String, crate::agents::AgentDef>,
@@ -210,6 +212,7 @@ impl Default for Config {
             router: RouterConfig::default(),
             sandbox: SandboxConfig::default(),
             tools: ToolsConfig::default(),
+            jobs: Default::default(),
             mcp: BTreeMap::new(),
             agents: BTreeMap::new(),
             headers: BTreeMap::new(),
@@ -277,6 +280,7 @@ pub struct ToolsConfig {
     pub search_name: String,
     pub hashline: HashlineConfig,
     pub web: WebConfig,
+    pub shell: crate::jobs::ShellConfig,
 }
 
 impl ToolsConfig {
@@ -295,23 +299,8 @@ impl Default for ToolsConfig {
             search_name: crate::tools::grep::Grep::NAME.into(),
             hashline: HashlineConfig::default(),
             web: WebConfig::default(),
+            shell: Default::default(),
         }
-    }
-}
-
-/// Knobs for the web tools.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct WebConfig {
-    /// Which backend answers `web_search`: "auto" (the keyed backends in
-    /// order Exa, Brave, Tavily, else DuckDuckGo) or one of "exa", "brave",
-    /// "tavily", "ddg". A named backend is the only one tried.
-    pub search: String,
-}
-
-impl Default for WebConfig {
-    fn default() -> Self {
-        Self { search: "auto".into() }
     }
 }
 

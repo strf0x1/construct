@@ -5,9 +5,12 @@
 //! sweep, and only then kills the process group. The helper's stderr is its
 //! report of what it stopped.
 
+use super::Call;
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
+use crate::jobs::ShellConfig;
 use crate::permission::{Access, Outside, blocked_in, outside};
-use crate::sandbox::{GRACE, Policy, SWEPT, StopOnDrop};
+use crate::sandbox::report::{parse_report, swept_note};
+use crate::sandbox::{GRACE, Policy, StopOnDrop};
 use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -16,10 +19,17 @@ use tokio::io::AsyncReadExt;
 const DEFAULT_TIMEOUT_S: u64 = 120;
 const MAX_TIMEOUT_S: u64 = 1800;
 
-pub struct Shell;
+pub struct Shell {
+    /// The longest a background command runs, in seconds.
+    background_timeout: u64,
+}
 
 impl Shell {
     pub const NAME: &str = "shell";
+
+    pub fn new(cfg: &ShellConfig) -> Self {
+        Self { background_timeout: cfg.background_timeout.max(1) }
+    }
 }
 
 #[async_trait::async_trait]
@@ -36,12 +46,13 @@ impl Tool for Shell {
     fn definition(&self) -> Value {
         def(
             Self::NAME,
-            "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s.",
+            "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s. background = true returns a job id at once and you are told when it ends: use it to wait on CI or a long build, with a command that exits on what you wait for.",
             obj(
                 json!({
                     "command": { "type": "string" },
                     "workdir": { "type": "string", "description": "Directory to run in; defaults to the session's" },
-                    "timeout": { "type": "integer", "description": "Seconds, max 1800" }
+                    "timeout": { "type": "integer", "description": "Seconds, max 1800" },
+                    "background": { "type": "boolean", "description": "Run as a background job" }
                 }),
                 &["command"],
             ),
@@ -51,7 +62,10 @@ impl Tool for Shell {
         Display { primary_arg: "command", preview_lines: 4 }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        run(ctx, &a).await.map(|o| o.with_kind(OutputKind::Tail)).map_err(|mut e| {
+        self.call_with(ctx, &Call::detached(""), a).await
+    }
+    async fn call_with(&self, ctx: &Ctx, call: &Call, a: Value) -> Result<Output, ToolError> {
+        run(ctx, call, self.background_timeout, &a).await.map(|o| o.with_kind(OutputKind::Tail)).map_err(|mut e| {
             e.kind = OutputKind::Tail;
             e
         })
@@ -68,7 +82,7 @@ const MAX_ASKS: usize = 2;
 /// reads past the words, but not past a refusal.
 pub const STOP_AFTER: usize = 3;
 
-async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
+async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<Output, ToolError> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
     let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
     let cwd =
@@ -92,6 +106,14 @@ async fn run(ctx: &Ctx, a: &Value) -> Result<Output, ToolError> {
         if *ctx.cancel.borrow() {
             return Err(ToolError::new("interrupted", "[interrupted before the command ran]"));
         }
+    }
+    if a.get("background").and_then(Value::as_bool).unwrap_or(false) {
+        let job = super::shell_job::start(ctx, call, command, &cwd, &policy, background_max, a.get("timeout"))?;
+        let (text, data) = sandbox_note(ctx, job.text, &named, &policy, false);
+        return Ok(match data {
+            Some(d) => Output::plain(text).with_data(json!({ "job": job.id, "sandbox": d["sandbox"] })),
+            None => Output::plain(text).with_data(json!({ "job": job.id })),
+        });
     }
     let mut asks = 0;
     let r = loop {
@@ -256,15 +278,12 @@ async fn run_once(
     if out.is_empty() {
         out.push_str("(no output)");
     }
-    if !swept.is_empty() {
-        let n = swept.len();
-        let mut names = swept;
-        names.dedup();
-        let s = if n == 1 { "" } else { "es" };
+    let note = swept_note(swept);
+    if !note.is_empty() {
         if !out.ends_with('\n') {
             out.push('\n');
         }
-        out.push_str(&format!("[stopped {n} background process{s}: {}]", names.join(", ")));
+        out.push_str(&note);
     }
     let code = status.and_then(|s| s.code());
     match (stopped, code) {
@@ -284,36 +303,5 @@ async fn run_once(
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),
-    }
-}
-
-/// Split the helper's stderr into the names it swept, sorted, and anything
-/// else it said (a sandbox failure).
-fn parse_report(report: &str) -> (Vec<String>, String) {
-    let mut swept = Vec::new();
-    let mut other = String::new();
-    for line in report.lines() {
-        match line.strip_prefix(SWEPT).and_then(|r| r.trim_start().split_once(' ')) {
-            Some((_pid, comm)) => swept.push(comm.to_string()),
-            None => {
-                other.push('\n');
-                other.push_str(line);
-            }
-        }
-    }
-    swept.sort();
-    (swept, other)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn report_separates_swept_names_from_helper_messages() {
-        let r = format!("{SWEPT} 12 sleep\n{SWEPT} 9 bf\nconstruct sandbox: landlock: nope\n");
-        let (swept, other) = parse_report(&r);
-        assert_eq!(swept, ["bf", "sleep"]);
-        assert_eq!(other, "\nconstruct sandbox: landlock: nope");
     }
 }

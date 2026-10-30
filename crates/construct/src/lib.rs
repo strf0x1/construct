@@ -14,6 +14,7 @@ pub mod event;
 pub mod guard;
 pub mod home;
 pub mod jev;
+pub mod jobs;
 pub mod journal;
 pub mod learn;
 pub mod llm;

@@ -52,7 +52,7 @@ impl Drop for Fixture {
 }
 
 fn all_groups() -> Vec<Group> {
-    vec![Group::Core, Group::Web, Group::Memory, Group::Skills, Group::SkillWrite, Group::History]
+    vec![Group::Core, Group::Web, Group::Memory, Group::Skills, Group::SkillWrite, Group::History, Group::Jobs]
 }
 
 #[test]

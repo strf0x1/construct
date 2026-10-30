@@ -3,7 +3,7 @@ id: status-line
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/status.rs, crates/construct/src/journal/totals.rs, crates/construct/src/journal/show.rs]
-verified_at: 9f975c3
+verified_at: 066a40d
 ---
 # Status line
 

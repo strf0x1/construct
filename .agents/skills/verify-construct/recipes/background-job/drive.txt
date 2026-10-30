@@ -1,0 +1,15 @@
+# A background command returns at once; the screen says a job runs; when it
+# ends the agent takes a turn of its own with no one typing.
+wait "ask construct" 5000
+type watch it
+key enter
+wait "started, waiting" 8000
+wait "job j1 started" 2000
+snap --style running
+expect "1 job running"
+image {evidence}/running.png
+wait "job j1 completed" 6000
+wait "it said watched-done" 8000
+gone "1 job running" 500
+image {evidence}/after.png
+snap after

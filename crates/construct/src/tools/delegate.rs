@@ -7,15 +7,22 @@
 //! `data` with the child's session id. The child's whole transcript is in the
 //! parent's journal under that id, so nothing is lost and nothing large
 //! enters the parent's context.
+//!
+//! With `background = true` the same child runs as a job (`background`) and
+//! the summary arrives later, as the job's completion.
+
+mod background;
 
 use super::{Call, Ctx, Display, Group, Output, Tool, ToolError, def, obj};
 use crate::agents::AgentDef;
-use crate::child::run::{Spec, Stop, run};
+use crate::child::run::{Outcome, Spec, Stop, run};
 use crate::child::{self, MAX_DEPTH};
 use crate::config::Config;
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 /// What the model gets of a child's answer; the rest is in the journal.
 const SUMMARY_MAX: usize = 8 * 1024;
@@ -33,6 +40,8 @@ struct Prepared {
     system: String,
     /// The model endpoint's TCP port: the one place a child may connect.
     port: u16,
+    /// Background runs of this agent that have not ended (`max_background`).
+    running: Arc<AtomicUsize>,
 }
 
 impl Delegate {
@@ -50,7 +59,7 @@ impl Delegate {
                 .ok()
                 .and_then(|u| u.port_or_known_default())
                 .with_context(|| format!("[agents.{name}] base_url {:?} has no port", config.base_url))?;
-            agents.insert(name.clone(), Prepared { def: def.clone(), config, system, port });
+            agents.insert(name.clone(), Prepared { def: def.clone(), config, system, port, running: Arc::default() });
         }
         Ok(Self { parent: cfg.clone(), agents })
     }
@@ -73,13 +82,14 @@ impl Tool for Delegate {
         def(
             Self::NAME,
             &format!(
-                "Give a self-contained task to another agent and get its summary back. It starts with none of your context, so say everything it needs, and what to report. Agents: {}.",
+                "Give a self-contained task to another agent and get its summary back (background = true returns a job id at once, and you are told when the agent ends). It starts with none of your context, so say everything it needs, and what to report. Agents: {}.",
                 list.join("; ")
             ),
             obj(
                 json!({
                     "agent": { "type": "string", "enum": self.agents.keys().collect::<Vec<_>>() },
-                    "task": { "type": "string", "description": "What to do and what to report back" }
+                    "task": { "type": "string", "description": "What to do and what to report back" },
+                    "background": { "type": "boolean", "description": "Run as a background job" }
                 }),
                 &["agent", "task"],
             ),
@@ -102,6 +112,8 @@ impl Tool for Delegate {
             let known: Vec<&String> = self.agents.keys().collect();
             return Err(ToolError::new("unknown_agent", format!("no agent {name:?}; the agents are {known:?}")));
         };
+        let background = args.get("background").and_then(Value::as_bool).unwrap_or(false);
+        let reserved = if background { Some(background::reserve(call, name, &p.def, &p.running)?) } else { None };
         let tag: String = call.id.chars().filter(char::is_ascii_alphanumeric).collect();
         let policy = ctx.policy().for_agent(&p.def, &ctx.paths, &tag, p.port).map_err(ToolError::sandbox)?;
         // What the user lent this agent earlier in the session.
@@ -112,6 +124,10 @@ impl Tool for Delegate {
         let cwd = if policy.check_read(&ctx.cwd).is_ok() { ctx.cwd.clone() } else { policy.tmp.join("work") };
         std::fs::create_dir_all(&cwd)
             .map_err(|e| ToolError::new("spawn", format!("creating {}: {e}", cwd.display())))?;
+        if let Some(reserved) = reserved {
+            let launch = background::Launch { name, task, prepared: p, parent: &self.parent, policy, cwd };
+            return background::start(ctx, call, reserved, launch);
+        }
         let spec = Spec {
             name,
             def: &p.def,
@@ -134,11 +150,7 @@ impl Tool for Delegate {
             "ms": started.elapsed().as_millis() as u64,
             "truncated": truncated,
         });
-        let mut pointer =
-            out.session.as_deref().map(|s| format!("\n[full transcript: journal session {s}]")).unwrap_or_default();
-        if out.stopped.is_some() && !out.diagnostics.is_empty() {
-            pointer.push_str(&format!("\n[its stderr ended: {}]", crate::llm::truncate(&out.diagnostics, 600)));
-        }
+        let pointer = pointer(&out);
         match (out.stopped, out.error) {
             (Some(Stop::Timeout), _) => Err(ToolError::new(
                 "timeout",
@@ -160,6 +172,17 @@ impl Tool for Delegate {
             (None, None) => Ok(Output::plain(format!("{summary}{pointer}")).with_data(data)),
         }
     }
+}
+
+/// Where the rest of the child's work is: its journal session, and its stderr
+/// when it was stopped. Starts with a newline, or is empty.
+fn pointer(out: &Outcome) -> String {
+    let mut pointer =
+        out.session.as_deref().map(|s| format!("\n[full transcript: journal session {s}]")).unwrap_or_default();
+    if out.stopped.is_some() && !out.diagnostics.is_empty() {
+        pointer.push_str(&format!("\n[its stderr ended: {}]", crate::llm::truncate(&out.diagnostics, 600)));
+    }
+    pointer
 }
 
 /// The summary at most `SUMMARY_MAX` bytes, and whether it was cut.

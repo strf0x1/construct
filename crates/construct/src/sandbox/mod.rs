@@ -25,10 +25,10 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 pub mod open;
+pub mod report;
 mod stop;
 mod supervise;
 pub use stop::{GRACE, StopOnDrop};
-pub use supervise::SWEPT;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Policy {
