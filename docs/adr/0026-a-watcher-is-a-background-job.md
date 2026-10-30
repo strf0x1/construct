@@ -112,3 +112,9 @@ openai/codex#32188; OpenCode `packages/opencode/src/tool/task.ts` and
 Claude Code's "How the agent loop works", tools reference and channels
 reference (code.claude.com, read 2026-10-20). Nothing here is measured yet.
 The token cost of polling is Codex #32188's figure, not ours.
+
+Implemented for background commands in #34's first slice: `crates/construct/src/jobs/`,
+`agent/wake.rs`, e2e in `crates/construct-dev/tests/jobs.rs`, TUI recipe
+`background-job`. The shell tool's schema grew by about 200 bytes on every
+request (the `background` flag and one sentence); the golden request snapshots
+were re-recorded for it. Background delegates are not yet jobs.

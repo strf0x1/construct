@@ -16,7 +16,7 @@
 may_use = ["agent", "agents", "child", "config", "event", "learn", "llm", "manifest", "permission", "tools"]
 
 [modules.agent]
-may_use = ["child", "compact", "config", "event", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "secrets", "tools"]
+may_use = ["child", "compact", "config", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "secrets", "tools"]
 
 [modules.agents]
 may_use = ["child", "config", "sandbox", "tools"]
@@ -31,10 +31,10 @@ may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm",
 may_use = ["config", "llm"]
 
 [modules.config]
-may_use = ["agents", "learn", "mcp", "models", "tools"]
+may_use = ["agents", "jobs", "learn", "mcp", "models", "tools"]
 
 [modules.event]
-may_use = ["compact", "llm", "manifest", "permission", "tools"]
+may_use = ["compact", "jobs", "llm", "manifest", "permission", "tools"]
 
 [modules.guard]
 may_use = []
@@ -44,6 +44,9 @@ may_use = []
 
 [modules.jev]
 may_use = ["config", "journal", "llm"]
+
+[modules.jobs]
+may_use = ["event", "journal", "llm", "sandbox", "text"]
 
 [modules.journal]
 may_use = ["child", "compact", "config", "event", "llm", "models", "project", "skills", "tools"]
@@ -97,13 +100,13 @@ may_use = ["config", "guard", "tools"]
 may_use = []
 
 [modules.tools]
-may_use = ["agents", "child", "config", "event", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+may_use = ["agents", "child", "config", "event", "jobs", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
 
 [modules.trace]
 may_use = ["config"]
 
 [modules.tui]
-may_use = ["agent", "compact", "config", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
+may_use = ["agent", "compact", "config", "event", "jobs", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
 must_not_use = [
   { module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
   { module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },

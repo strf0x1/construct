@@ -24,6 +24,8 @@ mod compaction;
 mod delegate;
 #[path = "e2e.rs"]
 mod e2e;
+#[path = "jobs.rs"]
+mod jobs;
 #[path = "models.rs"]
 mod models;
 #[path = "notes.rs"]

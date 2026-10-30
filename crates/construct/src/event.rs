@@ -232,6 +232,13 @@ pub enum Event {
         id: String,
         request: crate::permission::Request,
     },
+    /// A background job started (ADR 0026, `jobs`).
+    JobStart(crate::jobs::Started),
+    /// A background job ended, however it did. Never a `User` row; only some
+    /// endings wake the agent (`jobs::Status::wakes`).
+    JobEnd(crate::jobs::Info),
+    /// The model was given these endings (`jobs::Delivered`).
+    JobsDelivered(crate::jobs::Delivered),
     /// An event from a child session a tool is running, as the parent sees
     /// it. `id` is the delegating call's id, so a UI nests it under that call.
     /// Wire only: the parent journals the inner event under the child's own
@@ -268,6 +275,7 @@ impl Event {
             | Event::User { message }
             | Event::Assistant { message }
             | Event::ToolResult { message, .. } => Some(message),
+            Event::JobsDelivered(d) => d.message.as_ref(),
             _ => None,
         }
     }

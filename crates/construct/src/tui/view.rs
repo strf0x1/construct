@@ -326,7 +326,7 @@ impl App {
         {
             Some(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)))
         } else {
-            None
+            self.jobs_span(phase)
         };
         let groups =
             (!self.groups.is_empty()).then(|| Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));

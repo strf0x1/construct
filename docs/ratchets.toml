@@ -12,11 +12,11 @@
 "crates/construct-dev/src/style.rs" = 375
 "crates/construct-dev/src/xtask.rs" = 354
 "crates/construct/src/acp/client.rs" = 399
-"crates/construct/src/agent.rs" = 739
+"crates/construct/src/agent.rs" = 706
 "crates/construct/src/child/run.rs" = 324
-"crates/construct/src/cli.rs" = 475
+"crates/construct/src/cli.rs" = 406
 "crates/construct/src/compact/mod.rs" = 347
-"crates/construct/src/config.rs" = 491
+"crates/construct/src/config.rs" = 480
 "crates/construct/src/mcp/conn.rs" = 334
 "crates/construct/src/router.rs" = 304
 "crates/construct/src/sandbox/mod.rs" = 379
@@ -24,9 +24,9 @@
 "crates/construct/src/skills.rs" = 313
 "crates/construct/src/tools/edit/hashline/mod.rs" = 368
 "crates/construct/src/tools/edit/hashline/ops.rs" = 312
-"crates/construct/src/tools/mod.rs" = 542
+"crates/construct/src/tools/mod.rs" = 518
 "crates/construct/src/tools/shell.rs" = 307
-"crates/construct/src/tui/app.rs" = 435
+"crates/construct/src/tui/app.rs" = 429
 "crates/construct/src/tui/input.rs" = 418
 "crates/construct/src/tui/markdown.rs" = 385
 "crates/construct/src/tui/view.rs" = 482

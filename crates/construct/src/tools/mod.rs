@@ -16,11 +16,14 @@ pub mod edit;
 pub mod fs;
 pub mod glob;
 pub mod grep;
+mod group;
 pub mod history;
+pub mod job;
 pub mod mcp;
 pub mod memory;
 pub mod read;
 pub mod shell;
+mod shell_job;
 pub mod skill;
 pub mod web;
 pub mod write;
@@ -29,6 +32,7 @@ use crate::config::{Paths, ToolsConfig};
 use crate::skills::Library;
 use anyhow::{Result, bail};
 pub use call::Call;
+pub use group::Group;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashSet};
@@ -41,43 +45,6 @@ pub const OUTPUT_MAX: usize = 30_000;
 /// The switch the model uses to turn on a group the router missed. The agent
 /// answers it itself; it is not a catalog tool.
 pub const ENABLE_TOOLS: &str = "enable_tools";
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Group {
-    Core,
-    Web,
-    Memory,
-    Skills,
-    SkillWrite,
-    History,
-    Mcp(String),
-}
-
-impl Group {
-    pub fn label(&self) -> String {
-        match self {
-            Group::Core => "core".into(),
-            Group::Web => "web".into(),
-            Group::Memory => "memory".into(),
-            Group::Skills => "skills".into(),
-            Group::SkillWrite => "skill-write".into(),
-            Group::History => "history".into(),
-            Group::Mcp(s) => format!("mcp:{s}"),
-        }
-    }
-
-    /// The inverse of `label` for the groups the model may ask for.
-    pub fn parse(label: &str) -> Option<Group> {
-        Some(match label {
-            "web" => Group::Web,
-            "memory" => Group::Memory,
-            "history" => Group::History,
-            "skills" => Group::Skills,
-            "skill-write" => Group::SkillWrite,
-            l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),
-        })
-    }
-}
 
 /// One tool: everything about it lives in its `impl`, and its wire name is
 /// declared there and nowhere else.
@@ -231,6 +198,8 @@ pub struct Ctx {
     pub sandbox: crate::sandbox::Policy,
     /// Who may be asked, and what has been approved (`permission`).
     pub perms: Arc<crate::permission::Perms>,
+    /// Work that outlives a call and reports when it ends.
+    pub jobs: crate::jobs::Jobs,
     read_files: Mutex<HashSet<PathBuf>>,
     /// Shell calls the sandbox blocked this turn (`shell::STOP_AFTER`).
     shell_blocked: std::sync::atomic::AtomicUsize,
@@ -268,9 +237,15 @@ impl Ctx {
             mcp,
             sandbox,
             perms,
+            jobs: crate::jobs::Jobs::new(&Default::default()),
             read_files: Mutex::new(HashSet::new()),
             shell_blocked: Default::default(),
         }
+    }
+    /// This session's jobs, under the limit its config sets.
+    pub fn with_jobs(mut self, jobs: crate::jobs::Jobs) -> Self {
+        self.jobs = jobs;
+        self
     }
     /// The project kit (when there is one) and then the global library: the
     /// order a name is looked up in, so a kit skill hides a global one.
@@ -322,7 +297,7 @@ pub struct Catalog {
 impl Catalog {
     /// The one place implementations are chosen.
     pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>) -> Result<Catalog> {
-        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell)];
+        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         match cfg.editor.as_str() {
             "replace" => {
                 tools.push(Arc::new(read::Read));
@@ -350,6 +325,7 @@ impl Catalog {
         tools.push(Arc::new(skill::SkillManage));
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
+        tools.push(Arc::new(job::JobTool));
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
             bail!("tools.search_name: {:?} is already a tool", t.name());

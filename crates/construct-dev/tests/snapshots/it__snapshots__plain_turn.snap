@@ -3,7 +3,7 @@ source: crates/construct-dev/tests/snapshots.rs
 expression: snap
 ---
 {
-  "bytes": 3976,
+  "bytes": 4208,
   "n_tools": 7,
   "request": {
     "model": "openrouter/free",
@@ -26,7 +26,7 @@ expression: snap
         "type": "function",
         "function": {
           "name": "shell",
-          "description": "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s.",
+          "description": "Run a bash command and return its combined stdout/stderr. Use for builds, tests, git, and anything without a dedicated tool. Default timeout 120s. background = true returns a job id at once and you are told when it ends: use it to wait on CI or a long build, with a command that exits on what you wait for.",
           "parameters": {
             "type": "object",
             "properties": {
@@ -40,6 +40,10 @@ expression: snap
               "timeout": {
                 "type": "integer",
                 "description": "Seconds, max 1800"
+              },
+              "background": {
+                "type": "boolean",
+                "description": "Run as a background job"
               }
             },
             "required": [

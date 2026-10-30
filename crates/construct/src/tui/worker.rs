@@ -46,7 +46,22 @@ pub(super) async fn agent_task(
     // How far learning has seen: an index into the live conversation, and
     // the journal seq the detached learner resumes from.
     let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
-    while let Some(c) = cmds.recv().await {
+    loop {
+        // A command the user already typed goes first; a job that ended while
+        // idle starts a turn of its own (ADR 0026).
+        let jobs = agent.jobs();
+        let c = tokio::select! {
+            biased;
+            c = cmds.recv() => match c {
+                Some(c) => c,
+                None => break,
+            },
+            () = jobs.ready() => {
+                let _ = agent.wake(&tx).await;
+                maybe_learn(&mut agent, &tx, &mut reviewed, false);
+                continue;
+            }
+        };
         match c {
             Cmd::Prompt(text) => {
                 let _ = agent.turn(&text, &tx).await;
@@ -63,6 +78,7 @@ pub(super) async fn agent_task(
                 }
             }
             Cmd::New => {
+                agent.stop_jobs().await;
                 finish(&agent, reviewed);
                 match build(None, agent.cfg.clone()) {
                     Ok(a) => {
@@ -85,6 +101,9 @@ pub(super) async fn agent_task(
             }
         }
     }
+    // Quitting cancels what is still running, and the journal says so; the
+    // helpers' own watchdog covers a process that is stopped before this ends.
+    let _ = tokio::time::timeout(std::time::Duration::from_millis(1200), agent.stop_jobs()).await;
     finish(&agent, reviewed);
 }
 
