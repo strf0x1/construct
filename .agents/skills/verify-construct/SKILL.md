@@ -44,6 +44,7 @@ A recipe is a directory named after the feature id:
 |---|---|
 | `model.json` | the scripted model: `{"steps":[{"call":"read","args":{"path":"{outside}/a.txt"}},{"text":"done"}]}`. One step per model request, in order, across the parent and any delegated children. |
 | `drive.txt` | the drive script (commands below) |
+| `serve.args` | optional; extra `construct-dev serve` flags on one line, e.g. `--chunk-ms 500` to stream a reply slowly enough to snap mid-way |
 | `setup.sh` | optional; runs first with `WORK`, `OUTSIDE`, `CHOME` (the construct home: put `config.toml` there) and `EVIDENCE` set |
 | `check.sh` | optional, and you want one; runs after a passing drive with the same variables, once the evidence is collected. It asserts what the system did (a tool result in `$EVIDENCE/requests/`, rows in `$EVIDENCE/journal.txt`, files in `$WORK`), and a non-zero exit fails the run |
 
@@ -52,7 +53,7 @@ A recipe is a directory named after the feature id:
 scratch space, edit it, and pass that path.
 
 Existing recipes, in `recipes/`: `permission-prompt`, `delegation`,
-`slash-commands`, `status-line`.
+`delegate-progress`, `slash-commands`, `status-line`.
 
 ## Drive script commands
 

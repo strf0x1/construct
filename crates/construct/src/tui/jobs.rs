@@ -20,10 +20,15 @@ impl App {
                     theme::FAINT,
                     format!("◆ job {id} started · {}", crate::llm::truncate(&label.replace('\n', " ⏎ "), 80)),
                 );
+                // Marked so the child's progress can be filed under it.
+                if let Some(b) = self.blocks.last_mut() {
+                    (b.id, b.detail) = (super::nested::job_block_id(id), s.call_id.clone());
+                }
             }
             Event::JobEnd(j) => {
                 let (id, status, ms) = (&j.id, j.status, j.ms);
                 self.jobs_running = self.jobs_running.saturating_sub(1);
+                self.end_job(id);
                 let color = match status {
                     Status::Completed => theme::GREEN,
                     Status::Failed | Status::Timeout => theme::RED,

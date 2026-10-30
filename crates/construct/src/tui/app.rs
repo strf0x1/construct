@@ -252,8 +252,6 @@ impl App {
             // The record, not the screen: the UI already shows what these carry.
             Event::Manifest(_)
             | Event::Head { .. }
-            // The nested view of a child's work is not drawn yet.
-            | Event::Child { .. }
             | Event::Permission { .. }
             // Shown when the prompt is answered, so a child's are too.
             | Event::Access { .. }
@@ -340,6 +338,7 @@ impl App {
                 self.push(b);
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
+                self.end_call(&id);
                 if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id) {
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
@@ -392,6 +391,7 @@ impl App {
                 self.close_reasoning();
                 self.notice(theme::RED, format!("✗ {message}"));
             }
+            Event::Child { id, inner } => self.on_child(&id, *inner),
             Event::JobStart(_) | Event::JobEnd(_) => self.on_job(&ev),
             // The turn it starts or joins says it.
             Event::JobsDelivered(_) => {}

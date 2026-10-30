@@ -1,0 +1,35 @@
+# A delegated child shows what it is doing under the call that started it,
+# and the lines go when it ends. Foreground first: the child's shell call,
+# then its words as they stream. Then a background child, with the TUI idle.
+wait "ask construct" 5000
+type send the scout
+key enter
+wait "↳ shell sleep 4" 8000
+sleep 300
+snap --style foreground-tool
+expect-style "↳ shell sleep 4" fg=#464c66
+image {evidence}/foreground-tool.png
+wait "↳ found" 8000
+snap foreground-text
+expect "↳ shell sleep 4"
+wait "foreground done" 8000
+gone "↳ " 2000
+type send another
+key enter
+wait "started it" 8000
+wait "job j1 started" 3000
+wait "↳ shell sleep 6" 3000
+sleep 300
+snap --style background-tool
+expect "1 job running"
+image {evidence}/background-tool.png
+wait "↳ the second" 12000
+sleep 600
+snap background-text
+wait "job j1 completed" 12000
+wait "the second scout is back" 8000
+gone "↳ " 2000
+snap after
+image {evidence}/after.png
+key ctrl-d
+sleep 500

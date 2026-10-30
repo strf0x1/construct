@@ -1,0 +1,11 @@
+{"steps":[
+  {"call":"delegate","args":{"agent":"scout","task":"look around, then report"}},
+  {"call":"shell","args":{"command":"sleep 4"}},
+  {"text":"found the notes and am checking them now"},
+  {"text":"foreground done"},
+  {"calls":[{"call":"delegate","args":{"agent":"scout","task":"look again, in the background","background":true}},{"call":"shell","args":{"command":"sleep 2"}}]},
+  {"call":"shell","args":{"command":"sleep 6"}},
+  {"text":"started it"},
+  {"text":"the second pass found nothing at all"},
+  {"text":"the second scout is back"}
+]}

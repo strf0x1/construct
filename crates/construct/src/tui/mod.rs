@@ -13,6 +13,7 @@ mod input;
 mod jobs;
 mod listing;
 mod markdown;
+mod nested;
 mod palette;
 mod picker;
 mod prompt;
