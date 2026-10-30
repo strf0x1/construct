@@ -2,6 +2,7 @@
 file, and capture what it prints."""
 import contextlib
 import io
+import os
 import tempfile
 
 LEDGER = """\
@@ -28,4 +29,6 @@ def run(*argv, ledger=LEDGER):
             code = cli.main(["--ledger", f.name, *argv])
         except SystemExit as e:  # argparse errors
             code = e.code
+        finally:
+            os.unlink(f.name)
     return code, out.getvalue().splitlines(), err.getvalue()

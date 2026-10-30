@@ -13,9 +13,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 import journal
 
 
-def home_with(*sessions):
-    """A home whose one project journal holds `sessions`: lists of events."""
-    home = Path(tempfile.mkdtemp())
+def home_with(test, *sessions):
+    """A home whose one project journal holds `sessions`: lists of events.
+    Removed when `test` ends."""
+    tmp = tempfile.TemporaryDirectory()
+    test.addCleanup(tmp.cleanup)
+    home = Path(tmp.name)
     f = home / "projects" / "p" / "journal.sqlite"
     f.parent.mkdir(parents=True)
     db = sqlite3.connect(f)
@@ -43,6 +46,7 @@ def note(kind, count, detail="", cls="provider"):
 class Errors(unittest.TestCase):
     def test_groups_by_provider_and_model_with_rates_per_100_turns(self):
         home = home_with(
+            self,
             [head("a/one", "openrouter")] + turn("a/one") * 4 + [note("retry", 2, "status 503"), note("bad_chunk", 200), {"event": "error", "message": "boom"}],
             [head("a/one", "openrouter")] + turn("a/one") * 4 + [note("retry", 1)],
             [head("b/two", "openai")] + turn("b/two") * 10 + [{"event": "tool_end", "id": "x", "name": "shell", "ok": False, "output": "", "ms": 1, "kind": "plain", "code": "timeout"}],
@@ -59,20 +63,20 @@ class Errors(unittest.TestCase):
         self.assertIn("10.0/100 turns", text)  # one timeout over 10 turns
 
     def test_a_model_switch_moves_later_rows_to_the_new_model(self):
-        home = home_with([head("a/one", "openai")] + turn("a/one") + [{"event": "model", "model": "a/two", "context_window": 1}] + turn("a/two") + [note("truncated", 1)])
+        home = home_with(self, [head("a/one", "openai")] + turn("a/one") + [{"event": "model", "model": "a/two", "context_window": 1}] + turn("a/two") + [note("truncated", 1)])
         found = journal.errors(home)
         self.assertEqual(found[("openai", "a/one")]["turns"], 1)
         self.assertEqual(dict(found[("openai", "a/two")]["notes"]), {"provider/truncated": 1})
 
     def test_filters_and_the_window(self):
-        home = home_with([head("a/one", "openrouter")] + turn("a/one"), [head("b/two", "openai")] + turn("b/two"))
+        home = home_with(self, [head("a/one", "openrouter")] + turn("a/one"), [head("b/two", "openai")] + turn("b/two"))
         self.assertEqual(list(journal.errors(home, provider="openai")), [("openai", "b/two")])
         self.assertEqual(list(journal.errors(home, model="a/")), [("openrouter", "a/one")])
         self.assertEqual(journal.errors(home, since=time.time() + 60), {})
         self.assertEqual(journal.report({}), "no sessions in range\n")
 
     def test_suppressed_rows_name_the_kind_they_fold(self):
-        home = home_with([head("m", "openai")] + turn() + [note("suppressed", 40, "bad_chunk")])
+        home = home_with(self, [head("m", "openai")] + turn() + [note("suppressed", 40, "bad_chunk")])
         self.assertEqual(dict(journal.errors(home)[("openai", "m")]["notes"]), {"provider/suppressed (bad_chunk)": 40})
 
     def test_since_is_a_duration_ago(self):
@@ -82,7 +86,7 @@ class Errors(unittest.TestCase):
             journal.parse_since("soon")
 
     def test_the_old_session_view_still_skips_notes(self):
-        home = home_with([head("m", "openai"), note("retry", 1)] + turn())
+        home = home_with(self, [head("m", "openai"), note("retry", 1)] + turn())
         types = [r["type"] for r in journal.sessions(home)[0]]
         self.assertEqual(types, ["session"])
 
