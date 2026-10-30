@@ -1,6 +1,7 @@
 ---
 id: background-jobs
-status: built
+status: verified
+verified_at: 74c1148
 surfaces: [tui, cli]
 depends: [crates/construct/src/jobs, crates/construct/src/agent/wake.rs, crates/construct/src/tools/shell_job.rs, crates/construct/src/tools/job.rs, crates/construct/src/tools/delegate/background.rs, crates/construct/src/tui/jobs.rs, crates/construct-dev/tests/jobs.rs]
 ---
