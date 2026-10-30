@@ -31,8 +31,16 @@ pub(super) struct Slot(Arc<AtomicUsize>);
 impl Slot {
     /// A place if fewer than `max` are held.
     fn take(running: &Arc<AtomicUsize>, max: usize) -> Option<Self> {
-        let free = |n: usize| (n < max).then_some(n + 1);
-        running.try_update(Ordering::SeqCst, Ordering::SeqCst, free).ok().map(|_| Self(running.clone()))
+        let mut held = running.load(Ordering::SeqCst);
+        loop {
+            if held >= max {
+                return None;
+            }
+            match running.compare_exchange_weak(held, held + 1, Ordering::SeqCst, Ordering::SeqCst) {
+                Ok(_) => return Some(Self(running.clone())),
+                Err(now) => held = now,
+            }
+        }
     }
 }
 
