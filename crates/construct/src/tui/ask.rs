@@ -6,7 +6,9 @@
 //! sender reports `is_closed`, and the UI removes the prompt: nothing has to
 //! tell the UI a question went stale.
 
+use super::app::App;
 use crate::permission::{Ask, Decision, Request, Verdict};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 
@@ -144,4 +146,46 @@ impl Ask for TuiAsk {
         // A prompt dropped unanswered (the UI went away) is not a yes.
         answer.await.unwrap_or(Decision::CANCEL)
     }
+}
+
+/// A key while a permission question is on screen: it takes every key, so
+/// typing can't reach the input line or answer by accident. Returns true to quit.
+pub(super) fn prompt_key(app: &mut App, k: KeyEvent) -> bool {
+    let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+    // Interrupting is always allowed: the question goes with the turn.
+    if k.code == KeyCode::Esc || (ctrl && k.code == KeyCode::Char('c')) {
+        while !app.prompts.is_empty() {
+            app.answer_prompt(|p| (p.answer(Verdict::Cancel), false));
+        }
+        if let Some(c) = &app.canceller {
+            c.send_replace(true);
+        }
+        return false;
+    }
+    let Some(p) = app.prompts.front_mut() else { return false };
+    if !p.ready() {
+        return false;
+    }
+    let choices = p.choices();
+    let pick = match k.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            p.selected = (p.selected + choices.len() - 1) % choices.len();
+            None
+        }
+        KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Char('j') => {
+            p.selected = (p.selected + 1) % choices.len();
+            None
+        }
+        KeyCode::Tab | KeyCode::BackTab => {
+            p.toggle_folder();
+            None
+        }
+        KeyCode::Enter => choices.get(p.selected).copied(),
+        KeyCode::Char(c) if !ctrl => choices.iter().copied().find(|ch| ch.key() == c.to_ascii_lowercase()),
+        _ => None,
+    };
+    if let Some(choice) = pick {
+        app.answer_prompt(|p| (p.choose(choice), choice != Choice::Deny));
+    }
+    false
 }

@@ -14,7 +14,6 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::io::{Stdout, Write};
-use std::time::Duration;
 use unicode_width::UnicodeWidthStr;
 
 impl App {
@@ -300,72 +299,6 @@ impl App {
         Line::from(spans)
     }
 
-    /// The bottom line. The counters and the session id are never dropped:
-    /// the toast and then the group labels give way first, then the model
-    /// name is cut. The counters are `status::counters`.
-    pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
-        let router = crate::models::is_router(&self.cfg.model);
-        let compact = width < super::status::COMPACT_BELOW;
-        let mut must = super::status::counters(&self.totals, self.context_pct, router, compact);
-        if self.scroll > 0 {
-            must.push(Span::styled(format!(" · scrolled {}", self.scroll), Style::new().fg(theme::CYAN)));
-        }
-        if !self.session.is_empty() {
-            must.push(Span::styled(format!(" · {}", short_session(&self.session)), theme::faint()));
-        }
-        must.push(Span::raw(" "));
-        let w = |v: &[Span<'static>]| v.iter().map(|s| s.content.width()).sum::<usize>();
-        let must_w = w(&must);
-        // What is left of the line after a minimal model name (" ◆ " + 8).
-        let mut spare = width.saturating_sub(must_w + 11);
-        let mut extras: Vec<Span<'static>> = vec![];
-        let toast = if let Some((s, _)) = &self.learning {
-            Some(Span::styled(format!("◇ {s}  "), Style::new().fg(theme::pulse(phase, theme::FAINT, theme::ACCENT2))))
-        } else if let Some((t, c, at)) = &self.toast
-            && at.elapsed() < Duration::from_secs(6)
-        {
-            Some(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)))
-        } else {
-            self.jobs_span(phase)
-        };
-        let groups =
-            (!self.groups.is_empty()).then(|| Span::styled(format!("{}  ", self.groups.join(" ")), theme::faint()));
-        // The toast is cut to what is left (it is a hint); groups show whole or not at all.
-        if let Some(sp) = toast {
-            let sw = sp.content.width();
-            if sw <= spare {
-                spare -= sw;
-                extras.push(sp);
-            } else if spare >= 12 {
-                let keep: String = sp.content.chars().take(spare - 3).collect();
-                spare = 0;
-                extras.push(Span::styled(format!("{keep}…  "), sp.style));
-            }
-        }
-        if let Some(sp) = groups
-            && sp.content.width() <= spare
-        {
-            extras.push(sp);
-        }
-        let right_w = w(&extras) + must_w;
-        let model_room = width.saturating_sub(right_w + 3 + 1);
-        let model = if self.cfg.model.width() <= model_room {
-            self.cfg.model.clone()
-        } else {
-            let keep = model_room.saturating_sub(1);
-            let mut m: String = self.cfg.model.chars().take(keep).collect();
-            m.push('…');
-            m
-        };
-        let left = vec![Span::styled(" ◆ ", Style::new().fg(theme::ACCENT2)), Span::styled(model, theme::dim())];
-        let lw = w(&left);
-        let mut spans = left;
-        spans.push(Span::raw(" ".repeat(width.saturating_sub(lw + right_w))));
-        spans.extend(extras);
-        spans.extend(must);
-        Line::from(spans)
-    }
-
     pub(super) fn draw(&mut self, term: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         let phase = self.started.elapsed().as_secs_f32();
         let size = term.size()?;
@@ -381,9 +314,12 @@ impl App {
         let palette_h = palette.len() as u16;
         // A question takes the place of the activity line, rule, input and palette.
         let panel_h = self.prompts.front().map(|p| prompt::height(p, width).min(area.height.saturating_sub(4)));
+        // Running children sit above the activity line; a question has no room for them.
+        let dock = if panel_h.is_none() { self.dock_lines(width as usize, phase) } else { vec![] };
+        let dock_h = dock.len() as u16;
         let bottom = match panel_h {
-            Some(h) => h + 1,                // panel + status
-            None => input_h + palette_h + 3, // activity + rule + input + palette + status
+            Some(h) => h + 1,                         // panel + status
+            None => input_h + palette_h + 3 + dock_h, // dock + activity + rule + input + palette + status
         };
         let main_h = area.height.saturating_sub(bottom);
         let body = if self.blocks.is_empty() {
@@ -416,19 +352,22 @@ impl App {
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + h, width, 1));
                 return;
             }
-            f.render_widget(Paragraph::new(activity.clone()), Rect::new(0, main_h, width, 1));
+            let low = main_h + dock_h;
+            f.render_widget(Paragraph::new(dock.clone()), Rect::new(0, main_h, width, dock_h));
+            f.render_widget(Paragraph::new(activity.clone()), Rect::new(0, low, width, 1));
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),
-                Rect::new(0, main_h + 1, width, 1),
+                Rect::new(0, low + 1, width, 1),
             );
             f.render_widget(
                 Paragraph::new(input.clone()).scroll((input_scroll, 0)),
-                Rect::new(0, main_h + 2, width, input_h),
+                Rect::new(0, low + 2, width, input_h),
             );
-            f.render_widget(Paragraph::new(palette.clone()), Rect::new(0, main_h + 2 + input_h, width, palette_h));
-            f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + 2 + input_h + palette_h, width, 1));
+            f.render_widget(Paragraph::new(palette.clone()), Rect::new(0, low + 2 + input_h, width, palette_h));
+            f.render_widget(Paragraph::new(status.clone()), Rect::new(0, low + 2 + input_h + palette_h, width, 1));
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
-            f.set_cursor_position(Position::new(cursor.1.min(width - 1), main_h + 2 + cy));
+            f.set_cursor_position(Position::new(cursor.1.min(width - 1), low + 2 + cy));
+            self.render_peek(f, Rect::new(0, 0, width, main_h), phase);
             if let Some(p) = self.picker.as_mut() {
                 // Everything above the status line: the box needs the room for its details.
                 picker::render(f, Rect::new(0, 0, width, area.height.saturating_sub(1)), p);
@@ -473,10 +412,4 @@ pub(super) fn fit(s: &str, w: usize) -> String {
     }
     out.push('…');
     out
-}
-
-/// A session id (`20261023-034723-c3ca`) without its date: enough to tell
-/// sessions apart on the status line. `/status` has the whole id.
-fn short_session(id: &str) -> String {
-    id.split_once('-').map_or(id, |(_, rest)| rest).to_string()
 }
