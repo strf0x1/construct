@@ -1,6 +1,6 @@
 //! Background jobs (ADR 0026, #34): work that outlives the tool call that
 //! started it and tells the agent when it ends. A job is a background shell
-//! command or, later, a background delegate; a watcher (CI, a review, a
+//! command or a background delegate; a watcher (CI, a review, a
 //! delay) is just a command that exits on the thing it waits for.
 //!
 //! The design choice: the registry knows nothing about what a job does. A kind

@@ -78,6 +78,9 @@ pub struct AgentDef {
     pub max_turns: u32,
     /// Seconds before the parent kills the child.
     pub timeout: u64,
+    /// Calls to this agent that may run in the background at once (counted
+    /// against `[jobs] limit` too). 0 turns background runs off.
+    pub max_background: usize,
 }
 
 impl Default for AgentDef {
@@ -102,6 +105,7 @@ impl Default for AgentDef {
             context_window: 0,
             max_turns: 30,
             timeout: 600,
+            max_background: 2,
         }
     }
 }

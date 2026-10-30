@@ -117,4 +117,18 @@ Implemented for background commands in #34's first slice: `crates/construct/src/
 `agent/wake.rs`, e2e in `crates/construct-dev/tests/jobs.rs`, TUI recipe
 `background-job`. The shell tool's schema grew by about 200 bytes on every
 request (the `background` flag and one sentence); the golden request snapshots
-were re-recorded for it. Background delegates are not yet jobs.
+were re-recorded for it.
+
+Background delegates are the second slice: `delegate` takes `background = true`
+and the child runs as a job (`crates/construct/src/tools/delegate/background.rs`).
+It owns its own cancel switch, so interrupting the parent's turn leaves it
+running while `job cancel` and quitting stop it; a child that times out ends the
+job as `timeout`, one that is interrupted as `cancelled`, and its capped summary
+and the pointer to its journal session are the completion's tail. Background
+children count against `[jobs] limit` and against a per-definition
+`[agents.<name>] max_background` (default 2, 0 turns it off), both refused with
+a `job_limit` error. Inside a child the call is refused like any delegation
+(depth stays one). The delegate schema grew by one flag and one clause, but
+only a session that has agents sees it, so no golden snapshot moved. E2E in
+`jobs.rs`; TUI recipe `background-delegate` proves an interrupt keeps the child
+running and quitting cancels it.

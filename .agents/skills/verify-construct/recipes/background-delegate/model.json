@@ -1,0 +1,10 @@
+{"steps":[
+  {"calls":[{"call":"delegate","args":{"agent":"scout","task":"wait, then report","background":true}},{"call":"shell","args":{"command":"sleep 1"}}]},
+  {"call":"shell","args":{"command":"sleep 4"}},
+  {"call":"shell","args":{"command":"sleep 120"}},
+  {"text":"scout-done: found nothing"},
+  {"text":"the scout found nothing"},
+  {"calls":[{"call":"delegate","args":{"agent":"scout","task":"wait longer","background":true}},{"call":"shell","args":{"command":"sleep 1"}}]},
+  {"call":"shell","args":{"command":"sleep 120"}},
+  {"text":"started another"}
+]}

@@ -1,5 +1,5 @@
 //! `job`: look at or stop a background job. Starting one is the shell tool's
-//! `background = true` (and later a delegate's); the agent is told when a job
+//! `background = true` (and a delegate's); the agent is told when a job
 //! ends, so this exists to read one that is still running, to re-read a
 //! result, and to cancel.
 //!
