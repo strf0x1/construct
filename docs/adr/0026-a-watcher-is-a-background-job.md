@@ -1,6 +1,6 @@
 # 0026 — A watcher is a background job, not a scheduler
 
-Status: proposed. 2026-10-29.
+Status: accepted. 2026-10-29.
 
 ## Context
 
