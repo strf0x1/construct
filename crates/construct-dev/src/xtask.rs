@@ -30,7 +30,7 @@ const GATES: &[(&str, &[&str])] = &[
 
 /// Cargo, niced, with its jobs and the test threads capped at a third of the
 /// cores (at most 8) unless the caller already set them.
-fn cargo() -> Command {
+pub(crate) fn cargo() -> Command {
     let mut c = Command::new("nice");
     c.args(["-n", "10", &std::env::var("CARGO").unwrap_or_else(|_| "cargo".into())]);
     let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -46,7 +46,7 @@ fn cargo() -> Command {
 /// Hold the repository's xtask lock until the returned file is dropped (or the
 /// process dies). The lock lives in the git common dir, so every worktree of
 /// the repository shares it. Waits, and says so, if another run has it.
-fn exclusive(root: &Path) -> Result<File> {
+pub(crate) fn exclusive(root: &Path) -> Result<File> {
     let common = Command::new("git")
         .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
         .current_dir(root)
@@ -83,7 +83,7 @@ fn gate(args: &[String]) -> Command {
     }
 }
 
-fn workspace_root() -> Result<PathBuf> {
+pub(crate) fn workspace_root() -> Result<PathBuf> {
     let out = cargo().args(["locate-project", "--workspace", "--message-format", "plain"]).output()?;
     anyhow::ensure!(out.status.success(), "cargo locate-project failed");
     let manifest = PathBuf::from(String::from_utf8(out.stdout)?.trim());

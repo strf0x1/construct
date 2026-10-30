@@ -10,6 +10,7 @@ mod arch;
 mod deps;
 mod feature_map;
 mod scratch;
+mod size;
 mod xtask;
 
 #[derive(Parser)]
@@ -86,6 +87,8 @@ enum Cmd {
     },
     /// Apply clippy's fixes, then cargo fmt.
     Fix,
+    /// Build the release binary and compare its size to the `[binary]` baseline in docs/ratchets.toml. Slow (fat LTO); CI runs it as its own job.
+    Size,
     /// Re-record the golden snapshots (accepting an intended change) and list what changed.
     Snapshots,
 }
@@ -133,6 +136,7 @@ fn main() -> Result<()> {
         Cmd::AcpFake(o) => acp_fake::run(o),
         Cmd::Check { quick } => exit_with(xtask::check(quick)?),
         Cmd::Fix => exit_with(xtask::fix()?),
+        Cmd::Size => exit_with(size::size()?),
         Cmd::Snapshots => exit_with(xtask::snapshots()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {
             let text = if script == "-" {

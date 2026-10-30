@@ -30,3 +30,23 @@
 "crates/construct/src/tui/input.rs" = 377
 "crates/construct/src/tui/markdown.rs" = 385
 "crates/construct/src/tui/view.rs" = 415
+
+# Size of the stripped release `construct`, checked by `cargo xtask size`
+# (crates/construct-dev/src/size.rs), which CI runs as its own job because a
+# fat-LTO build is slow. A band, not an exact count: the toolchain floats on
+# `stable` and CI's linker is not yours, so the same source moves a little.
+# Past the band either way it fails. Growth means stop and tell the user what
+# was added and what it costs before raising `bytes`; shrinkage asks for the
+# lower baseline. CI's number is the one that counts.
+[binary]
+bytes = 21459080
+tolerance_pct = 2
+
+# External packages in Cargo.lock (workspace members excluded), counted
+# exactly by the `arch` gate (crates/construct-dev/src/arch/lockfile.rs). The
+# early warning for `[binary]`: a new dependency moves this at once, in
+# `check --quick`, before any release build. Growth means stop and tell the
+# user which dependency came in and why before raising it; a drop must be
+# lowered to match.
+[lockfile]
+packages = 583
