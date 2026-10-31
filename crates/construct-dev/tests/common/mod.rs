@@ -79,6 +79,7 @@ impl Env {
             log: Some(dir.join("log.jsonl")),
             dump_dir: Some(dir.join("dump")),
             chunk_ms: 1,
+            models_ms: steps["models_ms"].as_u64().unwrap_or(0),
             window,
             cache: true,
         };

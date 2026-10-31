@@ -244,3 +244,30 @@ fn providers_add_probes_writes_one_table_in_place_and_refuses_what_would_break()
             .ends_with("[providers.lan]\nbase_url = \"http://10.255.255.1:8000/v1\"\ndiscover = \"off\"\n")
     );
 }
+
+/// Startup discovery is slower than a user: the list lands while `/model`
+/// is already open, and the open box takes it without being reopened.
+#[test]
+fn a_list_that_lands_after_the_picker_opened_appears_in_it() {
+    let a = Env::new("providers-late-list", json!({ "steps": [{ "text": "ok" }], "models_ms": 2000 }));
+    a.config(&format!(
+        "model = \"a/x\"\n[router]\nmode = \"local\"\n[learn]\nenabled = false\n\
+         [providers.a]\nbase_url = \"http://127.0.0.1:{}/v1\"\n[providers.a.models.x]\nlabel = \"X\"\n",
+        a.port
+    ));
+    let mut d =
+        drive::Driver::spawn(&[construct().display().to_string()], &a.env(), Some(a.work.to_str().unwrap()), 120, 34)
+            .unwrap();
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(8000));
+    run(
+        &mut d,
+        &mut log,
+        // The box is open before the list lands: no list yet, and no listed model.
+        &format!("wait \"ask construct\" {short}\ntype /model\nkey enter\nwait \"1 catalogued · no list\" {short}\n"),
+    );
+    assert!(!d.text().contains("a/mock/small"));
+    run(&mut d, &mut log, &format!("wait \"1 catalogued · 2 listed\" {long}\nwait \"a/mock/small\" {short}\n"));
+    assert!(d.text().contains("▸ a/x"), "the running model is still highlighted\n{}", d.text());
+    d.kill();
+}

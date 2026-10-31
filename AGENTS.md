@@ -28,7 +28,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct/src/jobs/` | Background jobs (ADR 0026, #34): the registry (`mod.rs`: ids, limit, cancel, the journal's `job_start`/`job_end`), `command.rs` (a sandboxed shell command as a job body), `info.rs` (`Status::wakes` is the one list of wake sources; the tagged text a completion reaches the model as; `unconsumed` reads the journal for what was never delivered). Delivery is `agent/wake.rs`: only at a turn boundary, exactly once. Jobs die with the process. |
 | `crates/construct/src/sandbox/` | Tool boundary: Landlock for shell (via `construct __sandbox`), path checks for file tools, credential-free env. `supervise.rs`: that helper is a subreaper, and nothing a shell call starts outlives it. |
 | `crates/construct/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
-| `crates/construct-dev/src/serve.rs` | Scripted or recording OpenAI-compatible endpoint. |
+| `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
 | `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks the module graph against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
