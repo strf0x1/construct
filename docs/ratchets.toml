@@ -19,8 +19,7 @@
 "crates/construct/src/config.rs" = 452
 "crates/construct/src/mcp/conn.rs" = 334
 "crates/construct/src/router.rs" = 304
-"crates/construct/src/sandbox/mod.rs" = 379
-"crates/construct/src/sandbox/open.rs" = 302
+"crates/construct/src/sandbox/mod.rs" = 376
 "crates/construct/src/skills.rs" = 313
 "crates/construct/src/tools/edit/hashline/mod.rs" = 368
 "crates/construct/src/tools/edit/hashline/ops.rs" = 312

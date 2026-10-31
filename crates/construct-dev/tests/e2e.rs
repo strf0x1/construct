@@ -106,7 +106,7 @@ fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
         "hashline",
         json!({ "steps": [
             { "call": "read", "args": { "path": "notes.txt" } },
-            { "call": "shell", "args": { "command": "sed -i '1i inserted' notes.txt" } },
+            { "call": "shell", "args": { "command": "printf 'inserted\\n' | cat - notes.txt > n.tmp && mv n.tmp notes.txt" } },
             { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "2:ds", "text": "BETA" } ] } },
             { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "3:ds", "text": "BETA" } ] } },
             { "text": "done" }
@@ -160,7 +160,7 @@ fn hashline_hash_mode_follows_moved_content() {
         "hashline-hash",
         json!({ "steps": [
             { "call": "read", "args": { "path": "notes.txt" } },
-            { "call": "shell", "args": { "command": "sed -i '1i inserted' notes.txt" } },
+            { "call": "shell", "args": { "command": "printf 'inserted\\n' | cat - notes.txt > n.tmp && mv n.tmp notes.txt" } },
             { "call": "edit", "args": { "path": "notes.txt", "edits": [ { "op": "set", "anchor": "ds", "text": "BETA" } ] } },
             { "text": "done" }
         ] }),
@@ -521,15 +521,15 @@ fn tui_wheel_scrolls_without_mouse_capture_and_copy_writes_osc52() {
         ),
     );
     let b64 = |s: &str| {
-        let out = std::process::Command::new("base64")
-            .arg("-w0")
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .unwrap();
+        let mut cmd = std::process::Command::new("base64");
+        // GNU base64 wraps at 76 columns; BSD's doesn't, and has no -w.
+        if cfg!(target_os = "linux") {
+            cmd.arg("-w0");
+        }
+        let out = cmd.stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn().unwrap();
         use std::io::Write;
         out.stdin.as_ref().unwrap().write_all(s.as_bytes()).unwrap();
-        String::from_utf8(out.wait_with_output().unwrap().stdout).unwrap()
+        String::from_utf8(out.wait_with_output().unwrap().stdout).unwrap().trim_end().to_string()
     };
     assert!(has(&d.raw, format!("\x1b]52;c;{}\x07", b64("final-reply")).as_bytes()), "/copy wrote the reply");
     run(&mut d, &mut log, format!("type /copy error\nkey enter\nwait \"copied last tool error\" {short}\n"));
@@ -639,6 +639,14 @@ fn jev_down_falls_back_to_local_routing_and_is_logged() {
     assert_eq!(call["ok"], false);
 }
 
+/// Reads construct's own environment (it holds the fake API key) from inside a
+/// shell call: through /proc on Linux, through ps on macOS.
+const ENVIRON_PROBE: &str = if cfg!(target_os = "linux") {
+    "tr '\\0' '\\n' < /proc/$(cut -d' ' -f4 /proc/$PPID/stat)/environ"
+} else {
+    "ps eww -p $(ps -o ppid= -p $PPID) 2>&1 | tr ' ' '\\n'"
+};
+
 #[test]
 fn sandbox_keeps_tools_inside_the_workspace() {
     let env = Env::new(
@@ -647,7 +655,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
             { "call": "shell", "args": { "command": "cat \"$HOME/.config/fake.key\"" } },
             { "call": "shell", "args": { "command": "cat ../outside/secret.txt" } },
             { "call": "shell", "args": { "command": "env" } },
-            { "call": "shell", "args": { "command": "tr '\\0' '\\n' < /proc/$(cut -d' ' -f4 /proc/$PPID/stat)/environ" } },
+            { "call": "shell", "args": { "command": ENVIRON_PROBE } },
             { "call": "read", "args": { "path": "../outside/secret.txt" } },
             { "call": "read", "args": { "path": "link.txt" } },
             { "call": "write", "args": { "path": "../outside/new.txt", "content": "x" } },
@@ -696,7 +704,7 @@ fn sandbox_keeps_tools_inside_the_workspace() {
 /// Whether a `sleep 300` started by a test command is still running.
 fn sleep_alive(work: &std::path::Path, pidfile: &str) -> bool {
     let pid = std::fs::read_to_string(work.join(pidfile)).unwrap_or_else(|_| panic!("{pidfile} not written"));
-    std::fs::read(format!("/proc/{}/cmdline", pid.trim())).is_ok_and(|c| c == b"sleep\x00300\x00")
+    is_sleep_300(&pid)
 }
 
 fn tool_results(env: &Env) -> Vec<String> {
@@ -713,10 +721,15 @@ fn tool_results(env: &Env) -> Vec<String> {
 fn escape_steps() -> Value {
     // setsid and nohup exec in place, so the first command waits until $! is
     // `sleep` before ending: the sweep names whatever the process is by then.
+    let wait = if cfg!(target_os = "linux") {
+        "for i in $(seq 100); do [ \"$(cat /proc/$!/comm)\" = sleep ] && break; sleep 0.05; done"
+    } else {
+        "sleep 0.3"
+    };
     json!({ "steps": [
-        { "call": "shell", "args": { "command": "setsid nohup sleep 300 >/dev/null 2>&1 & echo $! > a.pid; for i in $(seq 100); do [ \"$(cat /proc/$!/comm)\" = sleep ] && break; sleep 0.05; done" } },
+        { "call": "shell", "args": { "command": format!("{SETSID}nohup sleep 300 >/dev/null 2>&1 & echo $! > a.pid; {wait}") } },
         { "call": "shell", "args": { "command": "sleep 300 & echo $! > b.pid" } },
-        { "call": "shell", "args": { "command": "setsid sleep 300 & echo $! > c.pid; sleep 30", "timeout": 1 } },
+        { "call": "shell", "args": { "command": format!("{SETSID}sleep 300 & echo $! > c.pid; sleep 30"), "timeout": 1 } },
         { "text": "done" }
     ] })
 }
@@ -755,7 +768,7 @@ fn killing_construct_mid_call_stops_the_command_tree() {
     let env = Env::new(
         "escape-kill",
         json!({ "steps": [
-            { "call": "shell", "args": { "command": "setsid sleep 300 & echo $! > a.pid; sleep 30" } },
+            { "call": "shell", "args": { "command": format!("{SETSID}sleep 300 & echo $! > a.pid; sleep 30") } },
             { "text": "done" }
         ] }),
     );
@@ -1401,7 +1414,7 @@ fn nothing_an_mcp_server_starts_outlives_construct() {
     assert!(out.status.success(), "{}", text(&out));
     let pid = tool_results(&env)[0].clone();
     assert!(pid.parse::<u32>().is_ok(), "{pid}");
-    let alive = || std::fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|c| c == b"sleep\x00300\x00");
+    let alive = || is_sleep_300(&pid);
     let t = std::time::Instant::now();
     while alive() && t.elapsed() < Duration::from_millis(budget(3000)) {
         std::thread::sleep(Duration::from_millis(50));

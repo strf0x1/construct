@@ -1,6 +1,6 @@
 # 0004 — Shell commands run under Landlock via a re-exec of `construct`
 
-Status: accepted, 2026-10-20 (backfilled 2026-10-21). Partly superseded by 0006: the helper supervises the shell instead of exec'ing it.
+Status: accepted, 2026-10-20 (backfilled 2026-10-21). Partly superseded by 0006: the helper supervises the shell instead of exec'ing it. Linux only; 0028 is the macOS counterpart.
 
 ## Context
 
@@ -37,7 +37,7 @@ unconfined.
 ## Consequences
 
 - No extra dependency at runtime beyond the `landlock` crate, and no root.
-- Linux only. Other platforms get no shell boundary until someone adds one.
+- Linux only. macOS got its own backend in 0028; other platforms have none.
 - A tool that breaks inside the sandbox is fixed by adding its toolchain path
   to `HOME_RO` / `HOME_RW` plus a step in the sandbox e2e test, not by turning
   the sandbox off (AGENTS.md).

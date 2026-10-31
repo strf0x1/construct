@@ -19,6 +19,19 @@ pub fn budget(ms: u64) -> u64 {
     if std::env::var_os("CONSTRUCT_E2E_SLOW").is_some_and(|v| v == "1") { ms * 2 } else { ms }
 }
 
+/// Whether `pid` is a live `sleep 300`, the process these tests start and
+/// expect the sandbox to stop. Read with `ps`, which works on Linux and macOS.
+pub fn is_sleep_300(pid: &str) -> bool {
+    Command::new("ps")
+        .args(["-o", "command=", "-p", pid.trim()])
+        .output()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).trim() == "sleep 300")
+}
+
+/// `setsid` on Linux, where the sandbox sweeps a process that left the group.
+/// macOS has no `setsid` and no way to sweep one (#9).
+pub const SETSID: &str = if cfg!(target_os = "linux") { "setsid " } else { "" };
+
 pub fn construct() -> PathBuf {
     static BUILD: Once = Once::new();
     BUILD.call_once(|| {
@@ -55,7 +68,10 @@ pub struct Row {
 impl Env {
     /// Where `Env::new(name, ..)` puts its files, for paths a script needs up front.
     pub fn dir_for(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("construct-e2e-{name}-{}", std::process::id()))
+        // Resolved: on macOS the temp dir is under the /var -> /private/var link,
+        // and construct keys its journal by the real working directory.
+        let tmp = std::env::temp_dir();
+        tmp.canonicalize().unwrap_or(tmp).join(format!("construct-e2e-{name}-{}", std::process::id()))
     }
 
     pub fn new(name: &str, steps: Value) -> Self {

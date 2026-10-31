@@ -10,71 +10,28 @@
 //! temp-file-plus-rename of an atomic replace go through a directory fd too
 //! (`openat`, `renameat`), so the destination can't be redirected.
 //!
-//! Where `openat2` isn't there (kernel before 5.6, a seccomp filter, not
-//! Linux) the open falls back to `openat` relative to the root fd on the
-//! already-canonicalized path: today's canonicalize-and-check.
+//! Where `openat2` isn't there (kernel before 5.6, a seccomp filter) the open
+//! falls back to `openat` relative to the root fd on the already-canonicalized
+//! path: today's canonicalize-and-check. macOS does its own version of this
+//! (`beneath.rs`).
 //!
 //! Not covered: the granted root itself is opened by name, so replacing one
 //! of the root's own parent directories is out of scope.
 
 use super::Policy;
-use std::ffi::{CString, OsStr, OsString};
+use super::beneath::{O_PATH, cstr, open_beneath, owned};
+use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::fd::{AsRawFd, IntoRawFd, OwnedFd};
+use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path, PathBuf};
-
-#[repr(C)]
-struct OpenHow {
-    flags: u64,
-    mode: u64,
-    resolve: u64,
-}
-const RESOLVE_NO_MAGICLINKS: u64 = 0x02;
-const RESOLVE_BENEATH: u64 = 0x08;
-
-fn cstr(p: &OsStr) -> io::Result<CString> {
-    CString::new(p.as_bytes()).map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))
-}
-
-fn owned(fd: libc::c_long) -> io::Result<OwnedFd> {
-    if fd < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    // SAFETY: a fresh descriptor the kernel just returned to us alone.
-    Ok(unsafe { OwnedFd::from_raw_fd(fd as RawFd) })
-}
-
-/// Open `rel` below `dir`, not following links out of it.
-fn open_beneath(dir: RawFd, rel: &Path, flags: i32, mode: u32) -> io::Result<OwnedFd> {
-    let c = cstr(rel.as_os_str())?;
-    #[cfg(target_os = "linux")]
-    {
-        let how = OpenHow {
-            flags: (flags | libc::O_CLOEXEC) as u64,
-            mode: mode as u64,
-            resolve: RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS,
-        };
-        // SAFETY: `c` is NUL-terminated and outlives the call; `how` is a
-        // repr(C) open_how whose size is passed alongside.
-        let r = unsafe {
-            libc::syscall(libc::SYS_openat2, dir, c.as_ptr(), &how as *const OpenHow, std::mem::size_of::<OpenHow>())
-        };
-        match owned(r) {
-            Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS | libc::EPERM)) => {}
-            r => return r,
-        }
-    }
-    // SAFETY: as above.
-    owned(unsafe { libc::openat(dir, c.as_ptr(), flags | libc::O_CLOEXEC, mode) } as libc::c_long)
-}
 
 fn open_dir(path: &Path) -> io::Result<OwnedFd> {
     let c = cstr(path.as_os_str())?;
     // SAFETY: `c` is NUL-terminated and outlives the call.
-    owned(unsafe { libc::open(c.as_ptr(), libc::O_PATH | libc::O_DIRECTORY | libc::O_CLOEXEC) } as libc::c_long)
+    owned(unsafe { libc::open(c.as_ptr(), O_PATH | libc::O_DIRECTORY | libc::O_CLOEXEC) } as libc::c_long)
 }
 
 fn open_path(path: &Path, flags: i32, mode: u32) -> io::Result<OwnedFd> {
@@ -143,7 +100,7 @@ impl At<'_> {
     fn parent(&self, mkdirs: bool) -> Result<Option<(OwnedFd, OsString)>, String> {
         let name = self.real.file_name().ok_or_else(|| format!("{}: not a file path", self.real.display()))?.to_owned();
         let step = |dir: &OwnedFd, comp: &OsStr| -> io::Result<OwnedFd> {
-            let flags = libc::O_PATH | libc::O_DIRECTORY | libc::O_NOFOLLOW;
+            let flags = O_PATH | libc::O_DIRECTORY | libc::O_NOFOLLOW;
             match open_beneath(dir.as_raw_fd(), Path::new(comp), flags, 0) {
                 Err(e) if mkdirs && e.kind() == io::ErrorKind::NotFound => {
                     let c = cstr(comp)?;
@@ -203,7 +160,7 @@ pub fn read_file(policy: &Policy, path: &Path) -> Result<Vec<u8>, String> {
 /// Metadata of what `path` really is, without opening it for reading.
 pub fn metadata(policy: &Policy, path: &Path) -> Result<std::fs::Metadata, String> {
     let at = locate(policy, path, false)?;
-    at.open(libc::O_PATH, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
+    at.open(O_PATH, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
 }
 
 /// Whether anything is at `path`, as far as the policy lets us see.
@@ -242,7 +199,7 @@ pub fn list_dir(policy: &Policy, path: &Path) -> Result<Vec<String>, String> {
             _ => {
                 // SAFETY: `dir` is still live.
                 let dfd = unsafe { libc::dirfd(dir) };
-                open_beneath(dfd, Path::new(&name), libc::O_PATH | libc::O_DIRECTORY, 0).is_ok()
+                open_beneath(dfd, Path::new(&name), O_PATH | libc::O_DIRECTORY, 0).is_ok()
             }
         };
         let n = name.to_string_lossy();

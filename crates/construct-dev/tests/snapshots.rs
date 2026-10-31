@@ -64,6 +64,9 @@ fn first_request(name: &str, config: &str, prompt: &str, setup: impl FnOnce(&Env
     (env, req)
 }
 
+/// What `ls` says on Linux, written out so the snapshots are the same on any OS.
+const LS_MISSING: &str = "echo \"ls: cannot access '/nonexistent-release-dir': No such file or directory\" >&2; exit 2";
+
 #[test]
 fn plain_turn() {
     let (env, req) =
@@ -154,7 +157,7 @@ fn learning_review() {
     let env = Env::new(
         "snap-learn",
         json!({ "steps": [
-            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "call": "shell", "args": { "command": LS_MISSING } },
             { "call": "shell", "args": { "command": "exit 2" } },
             { "call": "shell", "args": { "command": "false" } },
             { "text": "released" },
@@ -180,7 +183,7 @@ fn hybrid_reflection() {
     let env = Env::new(
         "snap-hybrid",
         json!({ "steps": [
-            { "call": "shell", "args": { "command": "ls /nonexistent-release-dir" } },
+            { "call": "shell", "args": { "command": LS_MISSING } },
             { "text": "released" }
         ], "side": ["{}"] }),
     );

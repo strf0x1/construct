@@ -9,7 +9,7 @@ memory so it doesn't happen again.
 
 ## Install
 
-Linux x86-64 (glibc 2.35 or newer):
+Linux x86-64 (glibc 2.35 or newer), or macOS on Apple silicon or Intel:
 
 ```sh
 curl -fsSL https://construct.sprawlcommons.com/install.sh | sh
@@ -20,7 +20,9 @@ puts `construct` in `~/.local/bin`. It doesn't use sudo or edit your shell
 profile. Pass `sh -s -- --version vX.Y.Z` to pin a version, or download an
 archive from [Releases](https://github.com/strf0x1/construct/releases).
 
-Only Linux is supported for now, because the sandbox is built on Landlock.
+The sandbox is Landlock on Linux and a Seatbelt profile on macOS. The macOS
+build is new and has had less testing; what it does not do yet is in
+[ADR 0028](docs/adr/0028-seatbelt-sandbox-on-macos.md).
 
 To build from source:
 
@@ -97,7 +99,7 @@ the agent writes and maintains itself. Anything it keeps is checked first for
 credentials and for text that tries to steer the agent.
 
 **Sandbox and permissions.** Shell commands and MCP servers run under
-Landlock, file tools check paths, and the environment carries no
+Landlock (Linux) or Seatbelt (macOS), file tools check paths, and the environment carries no
 credentials. By default the agent can touch the working directory, a private
 temp dir, and system paths and toolchains. Anything else asks you first; you
 can allow it once, for the session, or permanently in config.
