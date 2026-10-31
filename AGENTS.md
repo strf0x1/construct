@@ -31,6 +31,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
 | `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks the module graph against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
+| `crates/construct-dev/src/size.rs` | `cargo xtask size`: release binary size against the `[binary]` band in `docs/ratchets.toml`; CI's own job (fat LTO is slow). |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
@@ -136,9 +137,18 @@ by hand.
 
 The `arch` gate checks every `crate::` path between top-level modules of
 `crates/construct/src` against `docs/architecture.toml`, and the counts in
-`docs/ratchets.toml` (the non-test line count of each file over 300 lines)
-against reality: a count that grows fails, and one that drops fails until
+`docs/ratchets.toml` (the non-test line count of each file over 300 lines, and the number of
+external crates in `Cargo.lock`) against reality: a count that grows fails, and one that drops fails until
 its baseline is lowered to match.
+
+`cargo xtask size` (CI job `size`, not part of `check`) builds the release
+binary and compares its size to `[binary]` in the same file, within a
+tolerance band. If it fails on growth, a dependency or feature probably
+bloated the binary: stop, find what grew it, and tell the user what it costs
+before raising the baseline. Never bump it to get green. Its early warning
+is `[lockfile]` in the same file, the exact count of external crates in
+`Cargo.lock`, checked by the `arch` gate: adding a dependency fails
+`check --quick` until you have told the user what came in and raised it.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh

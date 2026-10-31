@@ -245,3 +245,27 @@ fn a_ratchet_that_falls_asks_for_the_lower_baseline() {
         ]
     );
 }
+
+/// A tree with a `Cargo.lock` of one workspace member and two external crates.
+fn lockfile(name: &str, section: &str) -> Vec<String> {
+    let t = tree(name);
+    let lock = "[[package]]\nname = \"me\"\n\n[[package]]\nname = \"a\"\nsource = \"registry+x\"\n\n[[package]]\nname = \"b\"\nsource = \"registry+x\"\n";
+    write(&t, "Cargo.lock", lock);
+    write(&t, "docs/ratchets.toml", &format!("[lines]\n{section}"));
+    ratchet::problems(&t.0)
+}
+
+#[test]
+fn the_crate_count_ratchet_says_stop_on_growth_and_lower_on_shrink() {
+    assert_eq!(lockfile("lock-same", "[lockfile]\npackages = 2\n"), Vec::<String>::new());
+    let grew = lockfile("lock-grew", "[lockfile]\npackages = 1\n");
+    assert!(
+        grew.len() == 1 && grew[0].contains("2 external crates, up from 1") && grew[0].contains("tell the user"),
+        "{grew:?}"
+    );
+    assert_eq!(
+        lockfile("lock-shrank", "[lockfile]\npackages = 3\n"),
+        ["docs/ratchets.toml: Cargo.lock shrank from 3 to 2 external crates; lower `packages` under [lockfile] to 2"]
+    );
+    assert_eq!(lockfile("lock-missing", ""), ["docs/ratchets.toml: no [lockfile] section; add `packages = 2`"]);
+}

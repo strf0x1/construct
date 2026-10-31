@@ -17,11 +17,13 @@ use std::path::Path;
 
 mod edges;
 mod lex;
+mod lockfile;
 mod ratchet;
 #[cfg(test)]
 mod tests;
 
 use edges::{Edge, SRC, Source, references, sources};
+pub(crate) use ratchet::RATCHETS;
 
 const TABLE: &str = "docs/architecture.toml";
 

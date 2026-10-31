@@ -3,20 +3,22 @@
 //! asking for the lower baseline, so an improvement is locked in by the PR
 //! that made it.
 //!
-//! One is kept, `[lines]`: each source file under `crates/*/src` over the
+//! One is kept here, `[lines]`: each source file under `crates/*/src` over the
 //! 300-line soft ceiling (AGENTS.md convention 3), counting only lines
 //! outside `#[cfg(test)]` items, with `tests.rs` files left out. A count of
 //! tool names retyped as literals was tried and dropped: nearly every string
 //! spelling `"read"` or `"memory"` meant something else (an access mode, a
 //! directory), and a ratchet that is mostly noise teaches agents to bump the
-//! baseline without reading it.
+//! baseline without reading it. Two more share the file: `[lockfile]`, the
+//! external crate count (`lockfile.rs`), and `[binary]`, the release binary's
+//! size, which needs a build and so is `cargo xtask size`'s (size.rs).
 
 use super::lex::{lex, strip_tests};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-pub(super) const RATCHETS: &str = "docs/ratchets.toml";
+pub(crate) const RATCHETS: &str = "docs/ratchets.toml";
 pub(super) const SOFT_LIMIT: usize = 300;
 
 #[derive(Deserialize)]
@@ -24,6 +26,12 @@ pub(super) const SOFT_LIMIT: usize = 300;
 struct Ratchets {
     #[serde(default)]
     lines: BTreeMap<String, usize>,
+    /// Read and enforced by `cargo xtask size`, which builds the binary; named
+    /// here only so `deny_unknown_fields` accepts the section.
+    #[serde(default)]
+    #[expect(dead_code, reason = "checked by `cargo xtask size`, not by this gate")]
+    binary: Option<crate::size::Baseline>,
+    lockfile: Option<super::lockfile::Lockfile>,
 }
 
 /// Non-test lines of every file over the soft limit, by repo-relative path.
@@ -75,5 +83,6 @@ pub(super) fn problems(root: &Path) -> Vec<String> {
         ));
     }
 
+    bad.extend(super::lockfile::problems(root, r.lockfile.as_ref()));
     bad
 }
