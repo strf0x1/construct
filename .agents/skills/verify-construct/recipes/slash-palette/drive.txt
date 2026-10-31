@@ -3,7 +3,7 @@
 wait "ask construct" 5000
 type /
 wait "/help" 2000
-expect "more (↑↓ to scroll)"
+wait "more (↑↓ to scroll)" 3000
 type cre
 wait "▸ /create-verification" 2000
 expect "skill · Build a verification skill"
