@@ -28,5 +28,5 @@
 "crates/construct/src/tools/shell.rs" = 307
 "crates/construct/src/tui/app.rs" = 429
 "crates/construct/src/tui/input.rs" = 377
-"crates/construct/src/tui/markdown.rs" = 385
+"crates/construct/src/tui/markdown.rs" = 336
 "crates/construct/src/tui/view.rs" = 415
