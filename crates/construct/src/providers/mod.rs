@@ -8,12 +8,13 @@
 //! (the top-level fields) when none does. So the same config always routes
 //! the same way, cached list or not.
 
-use crate::config::Config;
 use crate::endpoint::Endpoint;
 use crate::models::ModelEntry;
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
+mod resolve;
 
 /// The provider the top-level `base_url`, `api_key_secret` and `[models.*]`
 /// declare.
@@ -170,133 +171,10 @@ fn loopback(url: &str) -> bool {
     matches!(host, "localhost" | "127.0.0.1" | "[::1]") || host.ends_with(".localhost")
 }
 
-impl Config {
-    /// Which provider serves `selector`, and the id it is sent as. An id that
-    /// more than one provider lists must be qualified.
-    pub fn resolve(&self, selector: &str) -> Result<Resolved> {
-        if let Some((first, rest)) = selector.split_once('/') {
-            if first == DEFAULT {
-                return Ok(Resolved { provider: None, id: rest.to_string() });
-            }
-            if self.providers.contains_key(first) {
-                let id = match preset(first).and_then(|p| p.routers) {
-                    Some(prefix) if !rest.contains('/') => format!("{prefix}{rest}"),
-                    _ => rest.to_string(),
-                };
-                return Ok(Resolved { provider: Some(first.to_string()), id });
-            }
-        }
-        let mut named = self.providers.iter().filter(|(_, p)| p.models.contains_key(selector)).map(|(n, _)| n);
-        // Only what the user catalogued: a fetched list never changes where an id goes.
-        let default_lists = self.models.contains_key(selector);
-        match (named.next(), named.next(), default_lists) {
-            (Some(n), None, false) => Ok(Resolved { provider: Some(n.clone()), id: selector.to_string() }),
-            (None, _, _) => Ok(Resolved { provider: None, id: selector.to_string() }),
-            _ => {
-                let mut all: Vec<String> = self
-                    .providers
-                    .iter()
-                    .filter(|(_, p)| p.models.contains_key(selector))
-                    .map(|(n, _)| format!("{n}/{selector}"))
-                    .collect();
-                if default_lists {
-                    all.insert(0, format!("{DEFAULT}/{selector}"));
-                }
-                bail!("{selector:?} is served by more than one provider; pick one: {}", all.join(", "))
-            }
-        }
-    }
-
-    /// The id `selector` is sent as: the selector itself if it doesn't resolve.
-    pub fn wire_id(&self, selector: &str) -> String {
-        self.resolve(selector).map_or_else(|_| selector.to_string(), |r| r.id)
-    }
-
-    /// The named provider serving the selected model; `None` for `default`.
-    pub fn provider_name(&self) -> Option<String> {
-        self.resolve(&self.model).ok().and_then(|r| r.provider)
-    }
-
-    /// How provider `name` learns its models: `openai` for `default`.
-    pub fn discovery(&self, name: &str) -> Discover {
-        self.providers.get(name).map_or(Discover::Openai, |p| p.discover)
-    }
-
-    /// How many models provider `name`'s fetched list holds.
-    pub fn listed(&self, name: &str) -> usize {
-        self.providers.get(name).map_or(if name == DEFAULT { self.discovered.len() } else { 0 }, |p| p.discovered.len())
-    }
-
-    /// Every provider's name, `default` first.
-    pub fn provider_names(&self) -> Vec<String> {
-        std::iter::once(DEFAULT.to_string()).chain(self.providers.keys().cloned()).collect()
-    }
-
-    /// Provider `name`'s endpoint and the ids its catalog lists (as sent).
-    pub fn provider(&self, name: &str) -> Option<(Endpoint, Vec<String>)> {
-        if name == DEFAULT {
-            return Some((Endpoint::declared(self), self.models.keys().cloned().collect()));
-        }
-        let p = self.providers.get(name)?;
-        Some((p.endpoint(name), p.models.keys().cloned().collect()))
-    }
-
-    /// Whether the selected model is one of OpenRouter's own routers, judged
-    /// on the id sent, not the selector (`openrouter/anthropic/x` is not one).
-    pub fn on_router(&self) -> bool {
-        crate::models::is_router(&self.wire_id(&self.model))
-    }
-
-    /// The selected model as `provider/id` when a named provider serves it,
-    /// so a bare id that resolved elsewhere says where.
-    pub fn qualified_model(&self) -> String {
-        match self.provider_name() {
-            Some(p) if !self.model.starts_with(&format!("{p}/")) => format!("{p}/{}", self.model),
-            _ => self.model.clone(),
-        }
-    }
-
-    /// Where requests go, for display: `name · url`, or the url for `default`.
-    pub fn endpoint_label(&self) -> String {
-        let ep = self.endpoint();
-        if ep.name == DEFAULT { ep.base_url } else { format!("{} · {}", ep.name, ep.base_url) }
-    }
-
-    /// Every catalogued selector, for the picker and the palette: the
-    /// top-level catalog and its list, then each provider's as `name/id`, so
-    /// each provider's models are together.
-    pub fn catalog_ids(&self) -> Vec<String> {
-        // A top-level id another provider also lists is shown qualified.
-        let plain = |id: &String| if self.resolve(id).is_ok() { id.clone() } else { format!("{DEFAULT}/{id}") };
-        let mut ids: Vec<String> = self.models.keys().map(plain).collect();
-        ids.extend(self.discovered.keys().filter(|id| !self.models.contains_key(*id)).map(plain));
-        for (name, p) in &self.providers {
-            ids.extend(p.models.keys().map(|id| format!("{name}/{id}")));
-            ids.extend(p.discovered.keys().filter(|id| !p.models.contains_key(*id)).map(|id| format!("{name}/{id}")));
-        }
-        ids
-    }
-
-    /// The `[providers.*]` tables and every model setting, checked at load.
-    pub(crate) fn check_providers(&self) -> Result<()> {
-        for (name, p) in &self.providers {
-            p.check(name)?;
-        }
-        let agents = self.agents.iter().map(|(n, a)| (format!("[agents.{n}] model"), &a.model));
-        let named = [("model".to_string(), &self.model), ("[learn] model".into(), &self.learn.model)]
-            .into_iter()
-            .chain([("[compaction] model".to_string(), &self.compaction.model)])
-            .chain(agents);
-        for (field, selector) in named.filter(|(_, s)| !s.is_empty()) {
-            self.resolve(selector).map_err(|e| anyhow::anyhow!("{field}: {e}"))?;
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Config;
 
     fn cfg(toml: &str) -> Config {
         let c: Config = toml::from_str(toml).unwrap();
@@ -372,6 +250,26 @@ mod tests {
         assert_eq!(keyless.providers["lan-box"].endpoint("lan-box").api_key_secret, "");
         let named = cfg("[providers.lan-box]\nbase_url = \"http://10.0.0.9/v1\"\n");
         assert_eq!(named.providers["lan-box"].endpoint("lan-box").api_key_secret, "LAN_BOX_API_KEY");
+    }
+
+    #[test]
+    fn a_provider_name_that_hides_listed_ids_is_reported_once_per_list() {
+        let entry = ModelEntry::default;
+        let mut c = cfg("[providers.minimax]\nbase_url = \"http://127.0.0.1:1/v1\"\n\
+             [providers.qwen]\nbase_url = \"http://127.0.0.1:2/v1\"\n\
+             [providers.openrouter]\n");
+        assert!(c.shadowed().is_empty(), "nothing listed, nothing hidden");
+        for id in ["minimax/m1", "minimax/m2", "openrouter/free", "anthropic/x"] {
+            c.discovered.insert(id.into(), entry());
+        }
+        c.providers.get_mut("qwen").unwrap().discovered.insert("qwen/qwen3".into(), entry());
+        let w = c.shadowed();
+        assert_eq!(w.len(), 2, "{w:#?}");
+        assert!(
+            w[0].starts_with("provider \"minimax\"") && w[0].contains("2 id(s) in default's models (e.g. minimax/m1)")
+        );
+        assert!(w[0].contains("default/minimax/m1"), "{}", w[0]);
+        assert!(w[1].contains("in qwen's models (e.g. qwen/qwen3)") && w[1].contains("qwen/qwen/qwen3"), "{}", w[1]);
     }
 
     #[test]

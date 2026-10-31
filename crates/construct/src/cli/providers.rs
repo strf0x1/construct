@@ -51,6 +51,12 @@ pub(super) async fn run(cfg: &Config, paths: &Paths, cmd: Option<ProvidersCmd>) 
     match cmd {
         None | Some(ProvidersCmd::List) => {
             print!("{}", list(cfg, paths));
+            // The cached lists too: a name can hide ids only a list has.
+            let mut cfg = cfg.clone();
+            llm::overlay::overlay(&mut cfg, paths);
+            for w in cfg.shadowed() {
+                println!("warning: {w}");
+            }
             Ok(())
         }
         Some(ProvidersCmd::Add { name, url, key_secret, discover }) => {

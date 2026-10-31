@@ -54,6 +54,7 @@ fn switching_providers_sends_each_request_to_its_own_endpoint_with_its_own_key()
     assert_eq!(head.payload["model"], "a/x");
     assert_eq!(head.payload["manifest"]["provider"], "a");
     assert_eq!(head.payload["manifest"]["context_window"], 64_000, "the provider's entry sets the window");
+    assert_eq!(head.payload["manifest"]["window_source"], "catalog");
     let sw: Vec<&Row> = rows.iter().filter(|r| r.ty == "model").collect();
     assert_eq!(sw.len(), 1);
     assert_eq!((&sw[0].payload["model"], &sw[0].payload["provider"]), (&json!("b/x"), &json!("b")));
@@ -188,6 +189,7 @@ fn a_named_providers_model_list_sets_the_window_at_startup_and_is_cached() {
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let head = a.journal().into_iter().find(|r| r.ty == "head").unwrap();
     assert_eq!(head.payload["manifest"]["context_window"], 32_768, "the window the server's list states");
+    assert_eq!(head.payload["manifest"]["window_source"], "discovered");
     assert_eq!(a.requests()[0]["model"], "mock/small");
     let list = stdout(&a.run(&["providers"]));
     assert!(list.lines().any(|l| l.starts_with("a ") && l.contains("2 listed")), "the list is cached\n{list}");
@@ -202,6 +204,7 @@ fn a_named_providers_model_list_sets_the_window_at_startup_and_is_cached() {
     assert!(b.run(&["run", "--no-learn", "go"]).status.success());
     let head = b.journal().into_iter().find(|r| r.ty == "head").unwrap();
     assert_eq!(head.payload["manifest"]["context_window"], 131_072);
+    assert_eq!(head.payload["manifest"]["window_source"], "default");
 }
 
 #[test]
@@ -270,4 +273,21 @@ fn a_list_that_lands_after_the_picker_opened_appears_in_it() {
     run(&mut d, &mut log, &format!("wait \"1 catalogued · 2 listed\" {long}\nwait \"a/mock/small\" {short}\n"));
     assert!(d.text().contains("▸ a/x"), "the running model is still highlighted\n{}", d.text());
     d.kill();
+}
+
+#[test]
+fn a_provider_name_that_hides_listed_ids_is_warned_about() {
+    let a = Env::new("providers-shadow", json!({ "steps": [{ "text": "ok" }] }));
+    // The endpoint lists `mock/small`; a provider called `mock` takes `mock/…`.
+    a.config(&format!(
+        "model = \"mock/mock/small\"\n[providers.mock]\nbase_url = \"http://127.0.0.1:{}/v1\"\n",
+        a.port
+    ));
+    let out = a.run(&["run", "--no-learn", "go"]);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{err}");
+    let want = "provider \"mock\" takes every mock/… selector, so 1 id(s) in mock's models (e.g. mock/small) are reached as mock/mock/small";
+    assert!(err.contains(want), "{err}");
+    assert_eq!(a.requests()[0]["model"], "mock/small", "the qualified form reaches it");
+    assert!(stdout(&a.run(&["providers"])).contains(&format!("warning: {want}")));
 }

@@ -13,6 +13,46 @@ use crate::endpoint::Endpoint;
 use crate::providers::Resolved;
 use anyhow::Result;
 
+/// Which layer set the selected model's window (`Config::window_source`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WindowSource {
+    /// The user's model entry.
+    Catalog,
+    /// `[providers.<name>] context_window`.
+    Provider(String),
+    /// The provider's model list (discovery).
+    Discovered,
+    /// The top-level `context_window` in config.toml.
+    Config,
+    /// Nobody said: the built-in default.
+    Default,
+}
+
+impl WindowSource {
+    /// One word, for the manifest and the scorers that read it.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Catalog => "catalog",
+            Self::Provider(_) => "provider",
+            Self::Discovered => "discovered",
+            Self::Config => "config",
+            Self::Default => "default",
+        }
+    }
+}
+
+impl std::fmt::Display for WindowSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Catalog => f.write_str("catalog entry"),
+            Self::Provider(p) => write!(f, "[providers.{p}]"),
+            Self::Discovered => f.write_str("the server's model list"),
+            Self::Config => f.write_str("config.toml"),
+            Self::Default => f.write_str("the default"),
+        }
+    }
+}
+
 /// The top-level limits an entry can cover, as they were before any entry.
 #[derive(Debug, Clone)]
 pub struct Defaults {
@@ -70,21 +110,20 @@ impl Config {
 
     /// Where the selected model's window came from, in `select_model`'s order
     /// read backwards: the first layer that set it.
-    pub fn window_source(&self) -> String {
-        let provider = self.provider_name();
+    pub fn window_source(&self) -> WindowSource {
         let set = |e: Option<&ModelEntry>| e.is_some_and(|e| e.context_window.is_some());
+        let provider =
+            self.provider_name().filter(|p| self.providers.get(p).is_some_and(|d| d.context_window.is_some()));
         if set(self.catalogued(&self.model)) {
-            "catalog entry".into()
-        } else if let Some(p) =
-            provider.as_ref().filter(|p| self.providers.get(*p).is_some_and(|d| d.context_window.is_some()))
-        {
-            format!("[providers.{p}]")
+            WindowSource::Catalog
+        } else if let Some(p) = provider {
+            WindowSource::Provider(p)
         } else if set(self.discovered_entry(&self.model)) {
-            "the server's model list".into()
+            WindowSource::Discovered
         } else if self.window_pinned {
-            "config.toml".into()
+            WindowSource::Config
         } else {
-            "the default".into()
+            WindowSource::Default
         }
     }
 

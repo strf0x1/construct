@@ -157,6 +157,9 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                 app.catalog = Some(catalog);
                 // The worker warmed the list before building the agent; this is a file read.
                 crate::llm::overlay::overlay(&mut app.cfg, &paths);
+                for w in app.cfg.shadowed() {
+                    app.notice(theme::YELLOW, w);
+                }
                 // A box opened before now shows the catalog from before the lists.
                 if let Some(p) = app.picker.as_mut() {
                     p.refresh(&app.cfg);
