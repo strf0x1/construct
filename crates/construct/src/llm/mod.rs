@@ -120,6 +120,7 @@ pub struct Client {
     pub api_key: Option<String>,
     pub headers: BTreeMap<String, String>,
     pub provider: Provider,
+    prefix: String, // `Endpoint::error_prefix`, before every error
 }
 
 pub struct Request<'a> {
@@ -144,6 +145,7 @@ impl Client {
             api_key,
             headers: ep.headers.clone(),
             provider: Provider::of(ep),
+            prefix: ep.error_prefix(),
         })
     }
 
@@ -224,7 +226,7 @@ impl Client {
                 tokio::time::sleep(Duration::from_millis(wait)).await;
                 continue;
             }
-            let r = res.context("model request failed")?;
+            let r = res.with_context(|| format!("{}model request failed", self.prefix))?;
             if !r.status().is_success() {
                 let status = r.status();
                 let text = r.text().await.unwrap_or_default();
@@ -233,7 +235,7 @@ impl Client {
                 {
                     notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
                 }
-                bail!("model endpoint returned {status}: {}", truncate(&text, 600));
+                bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
             }
             break r;
         };

@@ -111,3 +111,70 @@ fn a_child_on_another_provider_reaches_only_that_endpoint_with_only_that_key() {
     assert_eq!(b.auth_seen(), vec![json!("Bearer bbbb…")], "the child: b's key, never a's");
     assert_eq!(b.requests()[0]["model"], "x");
 }
+
+fn stdout(out: &std::process::Output) -> String {
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+#[test]
+fn providers_lists_each_one_and_test_probes_only_the_one_named() {
+    let a = Env::new("providers-cli-a", json!({ "side": ["ok"], "steps": [{ "call": "ping", "args": {} }] }));
+    let b = Env::new("providers-cli-b", json!({ "steps": [{ "text": "no" }] }));
+    a.config(&two(&a, &b));
+    let list = stdout(&a.run_with(&KEYS, &["providers"]));
+    let row = |name: &str, port: u16, key: &str| {
+        list.lines().any(|l| {
+            l.split_whitespace().collect::<Vec<_>>().starts_with(&[
+                name,
+                &format!("http://127.0.0.1:{port}/v1"),
+                "openai",
+                key,
+            ])
+        })
+    };
+    assert!(row("a", a.port, "A_KEY") && row("b", b.port, "B_KEY"), "{list}");
+    assert!(list.lines().any(|l| l.starts_with("default ")), "{list}");
+    assert!(a.auth_seen().is_empty(), "list sends nothing");
+
+    let out = a.run_with(&KEYS, &["providers", "test", "a", "--model", "mock"]);
+    let text = stdout(&out);
+    assert!(out.status.success(), "{text}{}", String::from_utf8_lossy(&out.stderr));
+    for want in [
+        "models  ok      2 listed",
+        "reply   ok      \"ok\" from mock",
+        "tools   ok      called ping",
+        "window  131072 (stated by /models)",
+    ] {
+        assert!(text.contains(want), "missing {want:?}\n{text}");
+    }
+    assert_eq!(a.auth_seen(), vec![json!("Bearer aaaa…"); 2], "the reply and the tool call, with a's key");
+    assert_eq!(a.requests()[1]["tools"][0]["function"]["name"], "ping");
+    assert!(b.auth_seen().is_empty(), "b was not probed");
+}
+
+#[test]
+fn providers_test_fails_on_a_model_that_wont_call_tools() {
+    let a = Env::new("providers-cli-notools", json!({ "side": ["ok"], "steps": [{ "text": "I would rather not" }] }));
+    let b = Env::new("providers-cli-notools-b", json!({ "steps": [] }));
+    a.config(&two(&a, &b));
+    let out = a.run_with(&KEYS, &["providers", "test", "a"]);
+    assert!(!out.status.success());
+    assert!(
+        stdout(&out).contains("reply   ok      \"ok\" from x"),
+        "the catalogued id is the default\n{}",
+        stdout(&out)
+    );
+    assert!(stdout(&out).contains("tools   FAILED  no tool call"), "{}", stdout(&out));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("a: 1 of 3 checks failed"));
+}
+
+#[test]
+fn an_error_from_a_named_provider_says_which_one_its_url_and_key() {
+    let a = Env::new("providers-error", json!({ "steps": [{ "text": "never" }] }));
+    // The fragment is not sent, so the request lands on /v1 and the mock answers 404.
+    let url = format!("http://127.0.0.1:{}/v1#", a.port);
+    a.config(&format!("model = \"c/m\"\n[providers.c]\nbase_url = \"{url}\"\n"));
+    let out = a.run(&["run", "--no-learn", "go"]);
+    let all = format!("{}{}", stdout(&out), String::from_utf8_lossy(&out.stderr));
+    assert!(all.contains(&format!("c ({url}, no key): model endpoint returned 404")), "{all}");
+}

@@ -1,6 +1,7 @@
 # The picker lists each provider's models as provider/id beside the running
 # one; switching to one names it, and a provider whose key is missing is
-# refused with the provider and the secret named.
+# refused with the provider and the secret named. /status names the provider
+# and its url.
 wait "ask construct" 5000
 type hello
 key enter
@@ -24,3 +25,9 @@ type /model gpubox/qwen3-8b
 key enter
 wait "gpubox: no API key" 3000
 image {evidence}/no-key.png
+type /status
+key enter
+wait "╭─ status" 3000
+expect "local · http://127.0.0.1:1/v1"
+expect "local/qwen3-8b"
+image {evidence}/status.png

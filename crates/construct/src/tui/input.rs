@@ -367,7 +367,7 @@ fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
         let db = crate::journal::Journal::open(&file)?;
         let entries = db.since(&app.session, 0)?;
         let totals = crate::journal::Totals::session(&db, &entries)?;
-        Ok(crate::journal::status_rows(&app.session, &file, &app.cfg.model, app.cfg.context_window, &totals))
+        Ok(crate::journal::status_rows(&app.session, &file, &app.cfg, &totals))
     };
     if app.session.is_empty() {
         return Err("session not started yet".to_string());

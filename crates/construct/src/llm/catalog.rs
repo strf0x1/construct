@@ -177,6 +177,11 @@ fn read(paths: &Paths, base_url: &str) -> Option<Cached> {
     serde_json::from_slice(&std::fs::read(paths.models_cache(base_url)).ok()?).ok()
 }
 
+/// How old the cached list for `base_url` is; `None` when there is none.
+pub fn cache_age(paths: &Paths, base_url: &str) -> Option<Duration> {
+    read(paths, base_url).map(|c| Duration::from_secs(now().saturating_sub(c.fetched_at)))
+}
+
 /// The cached list for `base_url`, however old; empty when there is none.
 pub fn cached(paths: &Paths, base_url: &str) -> Vec<ModelInfo> {
     read(paths, base_url).map(|c| c.models).unwrap_or_default()

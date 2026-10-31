@@ -1,0 +1,141 @@
+//! `construct providers`: what each provider is, and whether it answers.
+//!
+//! The design choice: `list` reads only config, secrets and the cached model
+//! lists, so it is instant and offline; `test` is the one place construct
+//! probes a provider on purpose (its `/models`, a short reply, a tool call),
+//! each step timed and reported on its own line, so a misbehaving local
+//! server shows which part fails.
+
+use crate::config::{Config, Paths};
+use crate::llm::{self, Message, catalog};
+use anyhow::{Result, bail};
+use clap::Subcommand;
+use serde_json::json;
+use std::time::{Duration, Instant};
+
+#[derive(Subcommand)]
+pub(super) enum ProvidersCmd {
+    /// Each provider: url, dialect, key, catalogued and cached models.
+    List,
+    /// Probe one provider: its model list, a short reply and a tool call.
+    Test {
+        name: String,
+        /// The id to try, as the provider knows it. Default: its first
+        /// catalogued model, else the first it lists.
+        #[arg(long)]
+        model: Option<String>,
+    },
+}
+
+pub(super) fn list(cfg: &Config, paths: &Paths) -> String {
+    let mut rows = vec![["provider", "url", "dialect", "key", "models"].map(String::from)];
+    for name in cfg.provider_names() {
+        let Some((ep, ids)) = cfg.provider(&name) else { continue };
+        let key = match (ep.api_key_secret.as_str(), ep.key().is_some()) {
+            ("", _) => "none".to_string(),
+            (s, true) => format!("{s} (set)"),
+            (s, false) => format!("{s} (not set)"),
+        };
+        let cached = catalog::cached(paths, &ep.base_url).len();
+        let listed = match catalog::cache_age(paths, &ep.base_url) {
+            Some(age) => format!("{} catalogued · {cached} listed {} ago", ids.len(), ago(age)),
+            None => format!("{} catalogued · list not fetched", ids.len()),
+        };
+        let dialect = llm::Provider::of(&ep).name().to_string();
+        rows.push([name, ep.base_url, dialect, key, listed]);
+    }
+    let widths: Vec<usize> = (0..5).map(|i| rows.iter().map(|r| r[i].chars().count()).max().unwrap_or(0)).collect();
+    let mut out = String::new();
+    for r in rows {
+        let line: Vec<String> = r.iter().zip(&widths).map(|(c, w)| format!("{c:<w$}")).collect();
+        out.push_str(line.join("  ").trim_end());
+        out.push('\n');
+    }
+    out
+}
+
+fn ago(d: Duration) -> String {
+    match d.as_secs() {
+        s @ 0..60 => format!("{s}s"),
+        s @ 60..3600 => format!("{}m", s / 60),
+        s @ 3600..86_400 => format!("{}h", s / 3600),
+        s => format!("{}d", s / 86_400),
+    }
+}
+
+/// Probe `name`: prints one line per step and fails if any step did.
+pub(super) async fn test(cfg: &Config, name: &str, model: Option<String>) -> Result<()> {
+    let Some((ep, ids)) = cfg.provider(name) else {
+        bail!("no provider {name:?}; there are: {}", cfg.provider_names().join(", "));
+    };
+    let dialect = llm::Provider::of(&ep).name();
+    let key_name = if ep.api_key_secret.is_empty() { "no key".to_string() } else { ep.api_key_secret.clone() };
+    println!("{name}  {}  {dialect}  {key_name}", ep.base_url);
+    let client = llm::Client::new(&ep, ep.require(ep.key())?)?;
+    let mut failed = 0;
+
+    let started = Instant::now();
+    let listed = match client.list_models().await {
+        Ok(m) => {
+            println!("models  ok      {} listed in {} ms", m.len(), started.elapsed().as_millis());
+            m
+        }
+        Err(e) => {
+            failed += 1;
+            println!("models  FAILED  {e:#}");
+            vec![]
+        }
+    };
+    let Some(model) = model.or_else(|| ids.first().cloned()).or_else(|| listed.first().map(|m| m.id.clone())) else {
+        bail!("{name}: no model to try (none catalogued or listed); pass --model");
+    };
+
+    let started = Instant::now();
+    let msgs = [Message::user("Reply with exactly: ok")];
+    let req = llm::Request { model: &model, messages: &msgs, tools: &[], max_tokens: Some(512), temperature: None };
+    match client.complete(req).await {
+        Ok(c) => {
+            let text = c.message.content.unwrap_or_default();
+            let (u, ms) = (c.usage, started.elapsed().as_millis());
+            let said = llm::truncate(text.trim(), 40);
+            println!(
+                "reply   ok      {said:?} from {model} in {ms} ms, {} in / {} out",
+                u.prompt_tokens, u.completion_tokens
+            );
+        }
+        Err(e) => {
+            failed += 1;
+            println!("reply   FAILED  {model}: {e:#}");
+        }
+    }
+
+    let started = Instant::now();
+    let ping = json!({ "type": "function", "function": {
+        "name": "ping", "description": "Answer a connectivity check.",
+        "parameters": { "type": "object", "properties": {} } } });
+    let msgs = [Message::user("Call the ping tool now.")];
+    let tools = [ping];
+    let req = llm::Request { model: &model, messages: &msgs, tools: &tools, max_tokens: Some(512), temperature: None };
+    match client.complete(req).await {
+        Ok(c) if c.message.tool_calls.iter().any(|t| t.function.name == "ping") => {
+            println!("tools   ok      called ping in {} ms", started.elapsed().as_millis());
+        }
+        Ok(c) => {
+            failed += 1;
+            println!("tools   FAILED  no tool call (finish {:?}); this model may not do tools here", c.finish_reason);
+        }
+        Err(e) => {
+            failed += 1;
+            println!("tools   FAILED  {e:#}");
+        }
+    }
+
+    match catalog::find(&listed, &model).and_then(|m| m.context) {
+        Some(w) => println!("window  {w} (stated by /models)"),
+        None => println!("window  not stated by /models"),
+    }
+    if failed > 0 {
+        bail!("{name}: {failed} of 3 checks failed");
+    }
+    Ok(())
+}

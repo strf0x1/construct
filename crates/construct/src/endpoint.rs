@@ -77,6 +77,17 @@ impl Endpoint {
         }
     }
 
+    /// What an error from this endpoint starts with: nothing for `default`
+    /// (its errors read as they always have), else the provider, its url and
+    /// which key went with the request.
+    pub fn error_prefix(&self) -> String {
+        if self.name == DEFAULT {
+            return String::new();
+        }
+        let key = if self.api_key_secret.is_empty() { "no key".into() } else { format!("key {}", self.api_key_secret) };
+        format!("{} ({}, {key}): ", self.name, self.base_url)
+    }
+
     /// The key for a session in this process: the keyring and environment.
     /// No secret declared means keyless, never the fallback.
     pub fn key(&self) -> Option<String> {

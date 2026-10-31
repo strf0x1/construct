@@ -5,7 +5,7 @@ This directory is the maintained source for the user-facing behavior of construc
 ## Surfaces
 
 - `tui` — the full-screen interface: `construct` with no arguments in a terminal. Driven in a pty by `construct-dev drive` against a scripted model.
-- `cli` — headless subcommands: `construct run "<prompt>"` (add `--json` for one event per line), `construct manifest`, `construct sessions …`.
+- `cli` — headless subcommands: `construct run "<prompt>"` (add `--json` for one event per line), `construct manifest`, `construct sessions …`, `construct providers …`.
 
 ## Baseline preconditions
 
@@ -39,6 +39,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Delegation](./delegation.md) — the model hands a task to a configured agent, whose own blocked access asks the user as a subagent
 - [Delegate progress](./delegate-progress.md) — a running child's current tool and latest words, nested under its delegate call or job line
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
+- [Providers](./providers.md) — named endpoints with their own url, key and models; `provider/model` selection; `construct providers [test <name>]`
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
 - [Scroll and copy](./scroll-copy.md) — wheel and keys scroll the transcript without mouse capture; `/copy` puts the last reply on the clipboard
 - [Status line](./status-line.md) — the bottom row: model, cumulative in/out/cache, cost, context use, session id

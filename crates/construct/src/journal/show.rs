@@ -5,7 +5,7 @@
 //! choice: nothing is kept in memory by the UI for this; the journal is asked.
 
 use super::{Entry, Journal, Totals};
-use crate::config::Paths;
+use crate::config::{Config, Paths};
 use crate::event::Event;
 use crate::llm::truncate;
 use anyhow::{Result, bail};
@@ -31,13 +31,14 @@ fn tilde(p: &Path) -> String {
 }
 
 /// The `/status` rows: a label and its value.
-pub fn status_rows(session: &str, journal: &Path, model: &str, window: u32, t: &Totals) -> Vec<(&'static str, String)> {
-    let u = &t.usage;
-    let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, crate::models::is_router(model));
+pub fn status_rows(session: &str, journal: &Path, cfg: &Config, t: &Totals) -> Vec<(&'static str, String)> {
+    let (u, window) = (&t.usage, cfg.context_window);
+    let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, cfg.on_router());
     let mut rows = vec![
         ("session", session.to_string()),
         ("journal", tilde(journal)),
-        ("model", model.to_string()),
+        ("model", cfg.qualified_model()),
+        ("endpoint", cfg.endpoint_label()),
         ("context", format!("{} ({used} used)", human(window as u64))),
         ("requests", t.requests.to_string()),
         (
