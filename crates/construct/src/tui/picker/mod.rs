@@ -148,6 +148,23 @@ impl Picker {
         out
     }
 
+    /// Rebuild the rows from `cfg`, keeping what is typed and the highlighted
+    /// model. Startup discovery can lay a provider's list under the catalog
+    /// after the box opened; without this the box would show the windows
+    /// and models from before it until reopened.
+    pub(super) fn refresh(&mut self, cfg: &Config) {
+        let keep = self.current().map(|r| r.id.clone());
+        let Some(mut fresh) = Self::open(cfg) else { return };
+        fresh.query = std::mem::take(&mut self.query);
+        if !fresh.query.is_empty() {
+            fresh.refilter();
+        }
+        if let Some(n) = keep.and_then(|id| fresh.shown.iter().position(|&i| fresh.rows[i].id == id)) {
+            fresh.selected = n;
+        }
+        *self = fresh;
+    }
+
     pub(super) fn current(&self) -> Option<&Row> {
         self.shown.get(self.selected).map(|&i| &self.rows[i])
     }
@@ -244,6 +261,28 @@ mod tests {
         for ch in s.chars() {
             p.key(key(KeyCode::Char(ch)));
         }
+    }
+
+    #[test]
+    fn a_list_that_lands_while_open_refreshes_the_rows_and_keeps_query_and_highlight() {
+        let mut p = Picker::open(&cfg()).unwrap();
+        typed(&mut p, "o");
+        p.key(key(KeyCode::Down));
+        let before = p.current().unwrap().id.clone();
+        let mut later = cfg();
+        let entry = |w: u32| crate::models::ModelEntry { context_window: Some(w), ..Default::default() };
+        later.discovered.insert("a/one".into(), entry(1));
+        later.discovered.insert("d/four".into(), entry(64_000));
+        later.select_model("b/two").unwrap();
+        p.refresh(&later);
+        assert_eq!(p.query, "o", "what was typed stays");
+        assert_eq!(p.current().unwrap().id, before, "the highlight stays on the same model");
+        assert!(p.rows.iter().any(|r| r.id == "d/four" && r.window == 64_000), "the list's model is a row now");
+
+        let mut idle = Picker::open(&cfg()).unwrap();
+        idle.refresh(&later);
+        assert_eq!(idle.current().unwrap().id, "b/two", "with nothing typed, still on the running model");
+        assert_eq!(idle.shown.len(), 4);
     }
 
     #[test]

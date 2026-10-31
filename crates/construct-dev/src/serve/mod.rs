@@ -18,6 +18,8 @@
 //! bench reads: tool-call latency is the gap between a response that ended in
 //! tool calls and the harness's next request.
 
+mod models;
+
 use anyhow::Result;
 use axum::Router;
 use axum::body::{Body, Bytes};
@@ -92,6 +94,9 @@ pub struct Config {
     pub window: Option<u64>,
     /// Report simulated prefix-cache hits and writes in usage.
     pub cache: bool,
+    /// Wait this long before answering a `GET` (the model list): a slow
+    /// server, whose list lands after the UI is up.
+    pub models_ms: u64,
 }
 
 struct Shared {
@@ -123,7 +128,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         prefixes: Mutex::new(HashSet::new()),
         http: reqwest::Client::builder().pool_idle_timeout(Duration::from_secs(120)).build()?,
     });
-    let app = Router::new().route("/{*path}", post(chat)).route("/{*path}", get(models)).with_state(shared);
+    let app = Router::new().route("/{*path}", post(chat)).route("/{*path}", get(models::list)).with_state(shared);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let port = listener.local_addr()?.port();
     // Without TCP_NODELAY the tail of a streamed response can wait ~40ms on
@@ -136,31 +141,6 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         let _ = axum::serve(listener, app).await;
     });
     Ok((port, h))
-}
-
-async fn models(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http::Uri) -> Response {
-    if let Some(up) = &s.cfg.upstream {
-        let path = uri.path().trim_start_matches("/v1").trim_start_matches("/api/v1");
-        let mut rb = s.http.get(format!("{up}{path}"));
-        if let Some(k) = auth(&s, &headers) {
-            rb = rb.bearer_auth(k);
-        }
-        return match rb.send().await {
-            Ok(r) => {
-                let st = StatusCode::from_u16(r.status().as_u16()).unwrap_or(StatusCode::OK);
-                (st, r.bytes().await.unwrap_or_default()).into_response()
-            }
-            Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
-        };
-    }
-    axum::Json(json!({ "object": "list", "data": [
-        { "id": "mock", "object": "model", "context_length": 131072 },
-        // OpenRouter's shape: a small window, per-token prices as strings.
-        { "id": "mock/small", "name": "Mock: Small", "context_length": 32768,
-          "pricing": { "prompt": "0.0000003", "completion": "0.0000025" },
-          "supported_parameters": ["tools", "tool_choice"] },
-    ] }))
-    .into_response()
 }
 
 fn auth(s: &Shared, headers: &HeaderMap) -> Option<String> {
