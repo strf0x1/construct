@@ -194,6 +194,41 @@ impl Config {
         self.resolve(&self.model).ok().and_then(|r| r.provider)
     }
 
+    /// Every provider's name, `default` first.
+    pub fn provider_names(&self) -> Vec<String> {
+        std::iter::once(DEFAULT.to_string()).chain(self.providers.keys().cloned()).collect()
+    }
+
+    /// Provider `name`'s endpoint and the ids its catalog lists (as sent).
+    pub fn provider(&self, name: &str) -> Option<(Endpoint, Vec<String>)> {
+        if name == DEFAULT {
+            return Some((Endpoint::declared(self), self.models.keys().cloned().collect()));
+        }
+        let p = self.providers.get(name)?;
+        Some((p.endpoint(name), p.models.keys().cloned().collect()))
+    }
+
+    /// Whether the selected model is one of OpenRouter's own routers, judged
+    /// on the id sent, not the selector (`openrouter/anthropic/x` is not one).
+    pub fn on_router(&self) -> bool {
+        crate::models::is_router(&self.wire_id(&self.model))
+    }
+
+    /// The selected model as `provider/id` when a named provider serves it,
+    /// so a bare id that resolved elsewhere says where.
+    pub fn qualified_model(&self) -> String {
+        match self.provider_name() {
+            Some(p) if !self.model.starts_with(&format!("{p}/")) => format!("{p}/{}", self.model),
+            _ => self.model.clone(),
+        }
+    }
+
+    /// Where requests go, for display: `name · url`, or the url for `default`.
+    pub fn endpoint_label(&self) -> String {
+        let ep = self.endpoint();
+        if ep.name == DEFAULT { ep.base_url } else { format!("{} · {}", ep.name, ep.base_url) }
+    }
+
     /// Every catalogued selector, for the picker and the palette: the
     /// top-level catalog, then each provider's as `name/id`, then the
     /// endpoint's own list.
