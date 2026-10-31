@@ -72,7 +72,12 @@ pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Picker) {
     };
     list_table(f, list, p);
     if split && let Some(row) = p.current() {
-        f.render_widget(Paragraph::new(details(row)).wrap(Wrap { trim: false }).block(side_block()), side);
+        f.render_widget(
+            Paragraph::new(details(row, p.groups.get(&row.provider).map(|(_, has)| has.as_str())))
+                .wrap(Wrap { trim: false })
+                .block(side_block()),
+            side,
+        );
     }
     f.set_cursor_position(Position::new(search.x + 2 + p.query.width() as u16, search.y));
 }
@@ -97,12 +102,19 @@ fn list_table(f: &mut Frame, area: Rect, p: &mut Picker) {
         Cell::from(Line::from(Span::styled("$/M in·out", head)).right_aligned()),
         Cell::from(""),
     ]);
-    let rows: Vec<TRow> = p
-        .shown
+    let lines = p.lines();
+    let at = lines.iter().position(|l| *l == Err(p.selected)).unwrap_or(0);
+    let rows: Vec<TRow> = lines
         .iter()
-        .enumerate()
-        .map(|(n, &i)| {
-            let r = &p.rows[i];
+        .map(|line| {
+            let n = match *line {
+                Ok(provider) => {
+                    let text = p.groups.get(provider).map_or(provider, |(title, _)| title.as_str());
+                    return TRow::new([Cell::from(""), Cell::from(Span::styled(fit(text, name_w), theme::faint()))]);
+                }
+                Err(n) => n,
+            };
+            let r = &p.rows[p.shown[n]];
             let sel = n == p.selected;
             let mark = if sel { Span::styled("▸", Style::new().fg(theme::ACCENT2)) } else { Span::raw(" ") };
             let id = if sel { Style::new().fg(theme::ACCENT).add_modifier(Modifier::BOLD) } else { theme::accent() };
@@ -126,7 +138,7 @@ fn list_table(f: &mut Frame, area: Rect, p: &mut Picker) {
     ];
     let table =
         Table::new(rows, widths).header(header).column_spacing(1).row_highlight_style(Style::new().bg(SELECTED_BG));
-    p.table.select(Some(p.selected));
+    p.table.select(Some(at));
     f.render_stateful_widget(table, area, &mut p.table);
 }
 
@@ -157,7 +169,7 @@ fn money(x: f64) -> String {
 
 /// The pane beside the list: name, chips, description, then the numbers
 /// that decide whether to switch.
-fn details(r: &Row) -> Vec<Line<'static>> {
+fn details(r: &Row, provider: Option<&str>) -> Vec<Line<'static>> {
     let title = if r.label.is_empty() { r.id.clone() } else { r.label.clone() };
     let mut out = vec![Line::from(Span::styled(title, Style::new().fg(theme::ACCENT).add_modifier(Modifier::BOLD)))];
     if !r.label.is_empty() {
@@ -194,6 +206,10 @@ fn details(r: &Row) -> Vec<Line<'static>> {
             Some(p) => format!("${} in · ${} out per M", money(p.prompt), money(p.completion)),
         },
     ));
+    if let Some(has) = provider {
+        out.push(kv("Provider", r.provider.clone()));
+        out.push(kv("Models", has.to_string()));
+    }
     out.push(kv("Endpoint", host(&r.endpoint)));
     out.push(kv("Dialect", r.dialect.to_string()));
     out.push(kv("Key", r.key.clone()));

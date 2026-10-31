@@ -203,3 +203,44 @@ fn a_named_providers_model_list_sets_the_window_at_startup_and_is_cached() {
     let head = b.journal().into_iter().find(|r| r.ty == "head").unwrap();
     assert_eq!(head.payload["manifest"]["context_window"], 131_072);
 }
+
+#[test]
+fn providers_add_probes_writes_one_table_in_place_and_refuses_what_would_break() {
+    let a = Env::new("providers-add", json!({ "steps": [{ "text": "ok" }] }));
+    let mine = "# mine\nmodel = \"openrouter/free\" # keep\n\n[router]\nmode = \"local\"\n";
+    a.config(mine);
+    let url = format!("http://127.0.0.1:{}/v1", a.port);
+    let out = a.run(&["providers", "add", "box", "--url", &format!("{url}/")]);
+    let text = stdout(&out);
+    assert!(out.status.success(), "{text}{}", String::from_utf8_lossy(&out.stderr));
+    assert!(text.contains("discover  openai (2 listed, windows up to 131072)"), "{text}");
+    assert!(text.contains("key       none"), "a loopback server is keyless\n{text}");
+    let written = std::fs::read_to_string(a.home.join("config.toml")).unwrap();
+    assert_eq!(
+        written,
+        format!("{mine}\n[providers.box]\nbase_url = \"{url}\"\n"),
+        "the rest of the file is untouched"
+    );
+
+    // The new provider runs at once, with the window its list states.
+    let run = a.run(&["--model", "box/mock/small", "run", "--no-learn", "go"]);
+    assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stderr));
+    assert_eq!(a.requests()[0]["model"], "mock/small");
+
+    let again = a.run(&["providers", "add", "box", "--url", &url]);
+    assert!(String::from_utf8_lossy(&again.stderr).contains("box is already a provider"));
+    let dead = a.run(&["providers", "add", "dead", "--url", "http://127.0.0.1:1/v1"]);
+    assert!(String::from_utf8_lossy(&dead.stderr).contains("pass --discover off to add it unprobed"));
+    let bad = a.run(&["providers", "add", "x", "--url", &url, "--discover", "carrier-pigeon"]);
+    assert!(String::from_utf8_lossy(&bad.stderr).contains("one of openai, vllm, llama.cpp, ollama, off"));
+    assert_eq!(std::fs::read_to_string(a.home.join("config.toml")).unwrap(), written, "refusals write nothing");
+
+    let off = a.run(&["providers", "add", "lan", "--url", "http://10.255.255.1:8000/v1", "--discover", "off"]);
+    let text = stdout(&off);
+    assert!(text.contains("LAN_API_KEY, not set yet: construct secrets set LAN_API_KEY"), "{text}");
+    assert!(
+        std::fs::read_to_string(a.home.join("config.toml"))
+            .unwrap()
+            .ends_with("[providers.lan]\nbase_url = \"http://10.255.255.1:8000/v1\"\ndiscover = \"off\"\n")
+    );
+}

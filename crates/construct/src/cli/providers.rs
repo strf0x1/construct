@@ -1,14 +1,17 @@
 //! `construct providers`: what each provider is, and whether it answers.
 //!
 //! The design choice: `list` reads only config, secrets and the cached model
-//! lists, so it is instant and offline; `test` is the one place construct
-//! probes a provider on purpose (its `/models`, a short reply, a tool call),
-//! each step timed and reported on its own line, so a misbehaving local
-//! server shows which part fails.
+//! lists, so it is instant and offline; `test` and `add` are the places
+//! construct probes a provider on purpose (`test`: its models, a short reply,
+//! a tool call, each step timed on its own line, so a misbehaving local
+//! server shows which part fails). `add` writes one table into the user's
+//! `config.toml` in place and never a key: it names the command that stores
+//! one, since typing it here would echo it.
 
-use crate::config::{Config, Paths};
+use crate::config::{Config, Paths, write_atomic};
 use crate::llm::{self, Message, catalog};
-use anyhow::{Result, bail};
+use crate::providers::{Discover, Provider};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::Subcommand;
 use serde_json::json;
 use std::time::{Duration, Instant};
@@ -17,6 +20,22 @@ use std::time::{Duration, Instant};
 pub(super) enum ProvidersCmd {
     /// Each provider: url, dialect, key, catalogued and cached models.
     List,
+    /// Add `[providers.<name>]`: probe the server, guess how to discover its
+    /// models, and write the table into config.toml.
+    Add {
+        name: String,
+        /// The server, up to and including `/v1`.
+        #[arg(long)]
+        url: String,
+        /// The secret holding its key. Default: none for a loopback url,
+        /// else `<NAME>_API_KEY`.
+        #[arg(long)]
+        key_secret: Option<String>,
+        /// `openai`, `vllm`, `llama.cpp`, `ollama` or `off`. Default: guessed
+        /// from what the server answers to.
+        #[arg(long)]
+        discover: Option<String>,
+    },
     /// Probe one provider: its model list, a short reply and a tool call.
     Test {
         name: String,
@@ -27,7 +46,21 @@ pub(super) enum ProvidersCmd {
     },
 }
 
-pub(super) fn list(cfg: &Config, paths: &Paths) -> String {
+/// `construct providers [list | add | test]`.
+pub(super) async fn run(cfg: &Config, paths: &Paths, cmd: Option<ProvidersCmd>) -> Result<()> {
+    match cmd {
+        None | Some(ProvidersCmd::List) => {
+            print!("{}", list(cfg, paths));
+            Ok(())
+        }
+        Some(ProvidersCmd::Add { name, url, key_secret, discover }) => {
+            add(cfg, paths, &name, &url, key_secret, discover).await
+        }
+        Some(ProvidersCmd::Test { name, model }) => test(cfg, paths, &name, model).await,
+    }
+}
+
+fn list(cfg: &Config, paths: &Paths) -> String {
     let mut rows = vec![["provider", "url", "dialect", "key", "models"].map(String::from)];
     for name in cfg.provider_names() {
         let Some((ep, ids)) = cfg.provider(&name) else { continue };
@@ -54,6 +87,98 @@ pub(super) fn list(cfg: &Config, paths: &Paths) -> String {
     out
 }
 
+/// `construct providers add`: refuses a taken name, a bad table and a
+/// server that doesn't answer (unless `--discover off`), and leaves the file
+/// as it was when the result would not load.
+async fn add(
+    cfg: &Config,
+    paths: &Paths,
+    name: &str,
+    url: &str,
+    key_secret: Option<String>,
+    discover: Option<String>,
+) -> Result<()> {
+    let file = paths.config();
+    ensure!(
+        !cfg.provider_names().iter().any(|n| n == name),
+        "{name} is already a provider; edit it in {}",
+        file.display()
+    );
+    let mut decl = Provider {
+        base_url: url.trim_end_matches('/').to_string(),
+        api_key_secret: key_secret.clone(),
+        ..Provider::default()
+    };
+    decl.check(name)?;
+    let ep = decl.endpoint(name);
+    let key = if ep.api_key_secret.is_empty() { None } else { ep.key() };
+    let client = llm::Client::new(&ep, key.clone())?;
+    let how = match discover {
+        Some(d) => serde_json::from_value(json!(d))
+            .map_err(|_| anyhow!("--discover {d:?}: one of openai, vllm, llama.cpp, ollama, off"))?,
+        None => llm::discover::guess(&client).await,
+    };
+    let listed = match how {
+        Discover::Off => vec![],
+        _ => llm::discover::fetch(&client, how).await.map_err(|e| match key {
+            None if !ep.api_key_secret.is_empty() => {
+                anyhow!(
+                    "{name}: {e:#}; it may want its key: construct secrets set {}, then add it again",
+                    ep.api_key_secret
+                )
+            }
+            _ => anyhow!(
+                "{name}: {e:#}; check --url (up to and including /v1), or pass --discover off to add it unprobed"
+            ),
+        })?,
+    };
+    decl.discover = how;
+    let before = std::fs::read_to_string(&file).unwrap_or_default();
+    write_atomic(&file, with_table(&before, name, &decl)?.as_bytes())?;
+    if let Err(e) = Config::load(paths) {
+        write_atomic(&file, before.as_bytes())?;
+        return Err(e.context(format!("{} would not load with [providers.{name}]; left as it was", file.display())));
+    }
+    if !listed.is_empty() {
+        catalog::store(paths, &ep.base_url, &listed);
+    }
+    let window =
+        listed.iter().filter_map(|m| m.context).max().map_or(String::new(), |w| format!(", windows up to {w}"));
+    let key_line = match (ep.api_key_secret.as_str(), key.is_some()) {
+        ("", _) => "none".to_string(),
+        (s, true) => s.to_string(),
+        (s, false) => format!("{s}, not set yet: construct secrets set {s}"),
+    };
+    println!("added [providers.{name}] to {}", file.display());
+    println!("  url       {}", ep.base_url);
+    println!("  key       {key_line}");
+    println!("  discover  {} ({} listed{window})", json!(how).as_str().unwrap_or_default(), listed.len());
+    println!("next: construct providers test {name}, then /model {name}/<id>");
+    Ok(())
+}
+
+/// `text` with `[providers.<name>]` added, everything else as it was.
+fn with_table(text: &str, name: &str, p: &Provider) -> Result<String> {
+    use toml_edit::{DocumentMut, Item, Table, value};
+    let mut doc: DocumentMut = text.parse().context("parsing config.toml")?;
+    let providers = doc.entry("providers").or_insert_with(|| {
+        let mut t = Table::new();
+        t.set_implicit(true);
+        Item::Table(t)
+    });
+    let Some(providers) = providers.as_table_mut() else { bail!("config.toml: `providers` is not a table") };
+    let mut t = Table::new();
+    t["base_url"] = value(&p.base_url);
+    if let Some(s) = &p.api_key_secret {
+        t["api_key_secret"] = value(s);
+    }
+    if p.discover != Discover::Openai {
+        t["discover"] = value(json!(p.discover).as_str().unwrap_or_default());
+    }
+    providers.insert(name, Item::Table(t));
+    Ok(doc.to_string())
+}
+
 fn ago(d: Duration) -> String {
     match d.as_secs() {
         s @ 0..60 => format!("{s}s"),
@@ -64,7 +189,7 @@ fn ago(d: Duration) -> String {
 }
 
 /// Probe `name`: prints one line per step and fails if any step did.
-pub(super) async fn test(cfg: &Config, paths: &Paths, name: &str, model: Option<String>) -> Result<()> {
+async fn test(cfg: &Config, paths: &Paths, name: &str, model: Option<String>) -> Result<()> {
     let Some((ep, ids)) = cfg.provider(name) else {
         bail!("no provider {name:?}; there are: {}", cfg.provider_names().join(", "));
     };

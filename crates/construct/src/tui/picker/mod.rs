@@ -28,6 +28,8 @@ pub(super) struct Row {
     pub(super) compacts_at: u64,
     pub(super) pricing: Option<Pricing>,
     pub(super) endpoint: String,
+    /// The provider serving it (`default` for the top-level endpoint).
+    pub(super) provider: String,
     pub(super) dialect: &'static str,
     pub(super) key: String,
     pub(super) current: bool,
@@ -55,6 +57,7 @@ impl Row {
             dialect: crate::llm::Provider::of(&ep).name(),
             endpoint: ep.base_url,
             key: ep.api_key_secret,
+            provider: ep.name,
             current: id == cfg.model,
             catalogued: c.entry().is_some(),
         }
@@ -74,6 +77,10 @@ pub(super) struct Picker {
     /// Position in `shown`.
     pub(super) selected: usize,
     pub(super) table: TableState,
+    /// Per provider: its heading (name and host), shown above its rows while
+    /// nothing is typed, and what it has (`1 catalogued · 26 listed`), shown
+    /// beside a row. Empty when there is only `default`, which needs neither.
+    pub(super) groups: std::collections::BTreeMap<String, (String, String)>,
 }
 
 /// What a key did to the picker.
@@ -83,6 +90,26 @@ pub(super) enum Outcome {
     Close,
     /// Switch to this id.
     Pick(String),
+}
+
+/// Each provider's heading (name, host) and how many models it has. Built
+/// from what is in memory: opening the box asks no server.
+fn headers(cfg: &Config) -> std::collections::BTreeMap<String, (String, String)> {
+    let mut out = std::collections::BTreeMap::new();
+    for name in cfg.provider_names() {
+        let Some((ep, ids)) = cfg.provider(&name) else { continue };
+        let listed = cfg.listed(&name);
+        let host = ep
+            .base_url
+            .split_once("://")
+            .map_or(ep.base_url.as_str(), |(_, r)| r)
+            .split('/')
+            .next()
+            .unwrap_or_default();
+        let list = if listed == 0 { "no list".to_string() } else { format!("{listed} listed") };
+        out.insert(name.clone(), (format!("{name} · {host}"), format!("{} catalogued · {list}", ids.len())));
+    }
+    out
 }
 
 impl Picker {
@@ -98,10 +125,27 @@ impl Picker {
             ids.insert(0, cfg.model.clone());
         }
         let rows: Vec<Row> = ids.iter().map(|id| Row::of(cfg, id)).collect();
-        let mut p = Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default() };
+        let groups = if cfg.providers.is_empty() { Default::default() } else { headers(cfg) };
+        let mut p =
+            Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default(), groups };
         p.refilter();
         p.selected = p.shown.iter().position(|&i| p.rows[i].current).unwrap_or(0);
         Some(p)
+    }
+
+    /// Where each row of the table is: a provider's header, or `shown[n]`.
+    pub(super) fn lines(&self) -> Vec<Result<&str, usize>> {
+        let mut out = vec![];
+        let mut last = None;
+        for (n, &i) in self.shown.iter().enumerate() {
+            let p = self.rows[i].provider.as_str();
+            if !self.groups.is_empty() && self.query.is_empty() && last != Some(p) {
+                out.push(Ok(p));
+                last = Some(p);
+            }
+            out.push(Err(n));
+        }
+        out
     }
 
     pub(super) fn current(&self) -> Option<&Row> {
