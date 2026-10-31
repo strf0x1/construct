@@ -225,7 +225,8 @@ impl AgentDef {
     fn model_config(&self, parent: &Config) -> Config {
         let mut cfg = parent.clone();
         if !self.model.is_empty() {
-            cfg.select_model(&self.model);
+            // Checked at load (`Config::check_providers`).
+            let _ = cfg.select_model(&self.model);
         }
         cfg
     }
@@ -261,7 +262,7 @@ impl AgentDef {
         // The model's catalog entry supplies its window and endpoint; what
         // this definition says itself, below, comes after and wins.
         if !self.model.is_empty() {
-            cfg.select_model(&self.model);
+            cfg.select_model(&self.model).with_context(|| format!("[agents.{name}] model"))?;
         }
         let mut ep = cfg.endpoint();
         if !self.base_url.is_empty() {
@@ -327,7 +328,7 @@ mod tests {
              [models.remote]\nbase_url = \"http://other/v1\"\napi_key_secret = \"REMOTE_KEY\"\n",
         )
         .unwrap();
-        cfg.select_model(&cfg.model.clone());
+        cfg.select_model(&cfg.model.clone()).unwrap();
         let child = |def: AgentDef| def.child_config("c", &cfg, &table).unwrap();
         let small = child(AgentDef { model: "small".into(), ..Default::default() });
         assert_eq!((small.context_window, small.max_tokens), (32768, Some(2048)));
@@ -344,7 +345,7 @@ mod tests {
              [models.bare]\nbase_url = \"http://local/v1\"\n",
         )
         .unwrap();
-        cfg.select_model(&cfg.model.clone());
+        cfg.select_model(&cfg.model.clone()).unwrap();
         let remote = AgentDef { model: "remote".into(), ..Default::default() };
         assert_eq!(remote.secret_names(&cfg), vec!["REMOTE_KEY"]);
         assert!(!remote.inherits_key(&cfg), "no fallback key for another host");

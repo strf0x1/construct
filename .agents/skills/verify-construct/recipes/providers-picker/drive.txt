@@ -1,0 +1,26 @@
+# The picker lists each provider's models as provider/id beside the running
+# one; switching to one names it, and a provider whose key is missing is
+# refused with the provider and the secret named.
+wait "ask construct" 5000
+type hello
+key enter
+wait "first-reply" 5000
+type /model
+key enter
+wait "search models…" 3000
+expect "local/qwen3-8b"
+expect "gpubox/qwen3-8b"
+snap --style picker
+image {evidence}/picker.png
+type laptop
+wait "1/3" 2000
+expect "127.0.0.1:1"
+image {evidence}/picker-filtered.png
+key enter
+wait "model → local/qwen3-8b" 3000
+expect "32.8k ctx"
+image {evidence}/switched.png
+type /model gpubox/qwen3-8b
+key enter
+wait "gpubox: no API key" 3000
+image {evidence}/no-key.png

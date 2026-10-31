@@ -1,7 +1,10 @@
 # 0027 — Providers are named endpoints; an endpoint is resolved, never stored
 
-Status: accepted, 2026-10-31. Lands in steps under #129; step 1 (the
-`Endpoint` type, only the implicit `default` provider) is in this PR.
+Status: accepted, 2026-10-31. Lands in steps under #129: step 1 (the
+`Endpoint` type, only the implicit `default` provider) in #130; step 2
+(`[providers.*]`, the `openrouter` preset, `provider/model` selection, the
+journal's `provider`) after it. Discovery per provider (6) and the
+`construct providers` commands are later steps.
 
 ## Context
 
@@ -72,8 +75,10 @@ not to.
    discovery parser. A trait arrives with the second wire protocol
    (Anthropic Messages, OpenAI Responses), at the level of the wire: build
    the body, fold the stream.
-8. **The journal records the provider.** `Event::Model` and `Event::Usage`
-   gain a defaulted `provider` field (additive, ADR 0008).
+8. **The journal records the provider.** `Event::Model` and the manifest
+   (in the `head` row and each `manifest` event) gain a defaulted
+   `provider`, absent for `default` (additive, ADR 0008). Usage rows belong
+   to the model row before them, so they carry none.
 
 ## Consequences
 
@@ -99,3 +104,9 @@ not to.
 - Step 1: `crates/construct/src/endpoint.rs` unit tests, the `models.rs` and
   `agents.rs` tests rewritten against `Config::endpoint()`, and the golden
   request snapshots unchanged (`cargo xtask check`).
+- Step 2: `crates/construct/src/providers.rs` unit tests (resolution, the
+  router rule, key defaults, mistakes); `crates/construct-dev/tests/providers.rs`
+  (two scripted endpoints switched with `/model`, each request carrying only
+  its own key and the plain id; an ambiguous bare id refused before any
+  request; a loopback provider sent no key; a child on another provider);
+  the `providers-picker` verify recipe; golden snapshots unchanged.

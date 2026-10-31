@@ -8,6 +8,7 @@ pub mod catalog;
 pub mod dialect;
 pub mod notes;
 mod stream;
+mod switch;
 mod usage;
 
 pub use dialect::Provider;

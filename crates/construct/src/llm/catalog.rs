@@ -258,7 +258,8 @@ pub fn overlay(cfg: &mut Config, paths: &Paths) {
         .filter(|m| m.tools)
         .map(|m| (m.id.clone(), entry_of(m, cfg.window_pinned)))
         .collect();
-    cfg.select_model(&cfg.model.clone());
+    // The model resolved at load; the list only adds entries.
+    let _ = cfg.select_model(&cfg.model.clone());
 }
 
 /// Warm the cache (briefly), then [`overlay`]. For startup, before an agent is built.
@@ -353,7 +354,7 @@ mod tests {
         let paths = Paths { home: dir.clone() };
         let cfg_for = |toml: &str| {
             let mut c: Config = toml::from_str(toml).unwrap();
-            c.select_model(&c.model.clone());
+            c.select_model(&c.model.clone()).unwrap();
             c
         };
         let mut cfg = cfg_for("model = \"b/small\"");
@@ -370,9 +371,9 @@ mod tests {
         assert!(e.pricing.is_some() && e.max_tokens.is_none());
         assert!(!cfg.discovered.contains_key("c/chat-only"), "not tool-capable");
         // A variant id takes its base's window; an unlisted id gets the default back.
-        cfg.select_model("b/small:nitro");
+        cfg.select_model("b/small:nitro").unwrap();
         assert_eq!(cfg.context_window, 32768);
-        cfg.select_model("z/unlisted");
+        cfg.select_model("z/unlisted").unwrap();
         assert_eq!(cfg.context_window, Config::default().context_window);
 
         // The user's own entry wins, and a pinned window is kept.

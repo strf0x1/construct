@@ -240,7 +240,7 @@ mod tests {
             "#,
         )
         .unwrap();
-        c.select_model("anthropic/claude-haiku-5.5");
+        c.select_model("anthropic/claude-haiku-5.5").unwrap();
         c
     }
 

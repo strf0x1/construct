@@ -352,7 +352,7 @@ impl App {
             }
             Event::Usage { .. } => self.context_pct = self.context_pct_now(),
             Event::Model { model, context_window, .. } => {
-                self.cfg.select_model(&model);
+                let _ = self.cfg.select_model(&model); // the agent switched, so it resolves
                 self.context_pct = self.context_pct_now();
                 let label = self.cfg.entry().map(|e| e.label.as_str()).filter(|l| !l.is_empty());
                 let what = label.map_or(model.clone(), |l| format!("{model} ({l})"));

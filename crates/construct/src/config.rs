@@ -1,6 +1,7 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
+pub use crate::providers::{CacheMode, Dialect, ProviderConfig};
 pub use crate::tools::web::WebConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,8 @@ pub struct Config {
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
     pub provider: ProviderConfig,
+    /// Named endpoints besides the top-level one (`providers.rs`, ADR 0027).
+    pub providers: BTreeMap<String, crate::providers::Provider>,
     /// The model catalog (`models.rs`): what an id means here. The top-level
     /// `context_window`, `max_tokens`, endpoint and provider are the defaults
     /// for an id with no entry.
@@ -50,39 +53,6 @@ pub struct Config {
     /// Never written back, and `models` wins an id in both.
     #[serde(skip)]
     pub discovered: BTreeMap<String, crate::models::ModelEntry>,
-}
-
-/// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ProviderConfig {
-    pub dialect: Dialect,
-    pub cache: CacheMode,
-}
-
-/// `"auto"` picks by `base_url`: openrouter.ai is `"openrouter"`, anything
-/// else `"openai"`, the plain dialect every compatible server speaks (local
-/// servers, vLLM, DeepSeek, OpenAI). Name one when a proxy hides the host.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Dialect {
-    #[default]
-    Auto,
-    #[serde(rename = "openai")]
-    OpenAi,
-    #[serde(rename = "openrouter")]
-    OpenRouter,
-}
-
-/// `"auto"` marks prompt-cache breakpoints for models whose provider only
-/// caches when asked (Anthropic and Gemini behind OpenRouter); `"off"` never
-/// marks any. Providers that cache on their own are unaffected either way.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CacheMode {
-    #[default]
-    Auto,
-    Off,
 }
 
 /// When and how history is cut to fit the context window (see `compact`).
@@ -217,6 +187,7 @@ impl Default for Config {
             agents: BTreeMap::new(),
             headers: BTreeMap::new(),
             provider: ProviderConfig::default(),
+            providers: BTreeMap::new(),
             models: BTreeMap::new(),
             defaults: None,
             discovered: BTreeMap::new(),
@@ -453,7 +424,8 @@ impl Config {
         cfg.load_catalog(&paths.models())?;
         // The model's entry (limits, endpoint) is laid over the defaults here,
         // so every consumer sees the resolved values.
-        cfg.select_model(&cfg.model.clone());
+        cfg.check_providers().with_context(|| format!("in {}", path.display()))?;
+        cfg.select_model(&cfg.model.clone())?;
         for name in cfg.mcp.keys() {
             crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }

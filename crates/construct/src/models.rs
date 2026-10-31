@@ -13,6 +13,7 @@
 
 use crate::config::{CacheMode, Config, Dialect};
 use crate::endpoint::Endpoint;
+use crate::providers::Resolved;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -64,7 +65,7 @@ impl Pricing {
 }
 
 impl ModelEntry {
-    fn check(&self, id: &str) -> Result<()> {
+    pub(crate) fn check(&self, id: &str) -> Result<()> {
         ensure!(!id.trim().is_empty(), "a model id is empty");
         ensure!(self.context_window != Some(0), "[models.{id:?}] context_window must be more than 0");
         ensure!(self.max_tokens != Some(0), "[models.{id:?}] max_tokens must be more than 0");
@@ -125,8 +126,11 @@ impl Defaults {
 }
 
 impl Config {
-    /// Make `id` the model: the defaults, then its catalog entry if it has one.
-    pub fn select_model(&mut self, id: &str) {
+    /// Make `selector` the model: the defaults, its provider's defaults, then
+    /// its catalog entry if it has one. A selector that resolves to more than
+    /// one provider changes nothing.
+    pub fn select_model(&mut self, selector: &str) -> Result<()> {
+        let to = self.resolve(selector)?;
         let defaults = match &self.defaults {
             Some(d) => d.clone(),
             None => {
@@ -136,46 +140,74 @@ impl Config {
             }
         };
         defaults.restore(self);
-        self.model = id.to_string();
-        if let Some(e) = self.lookup(id).cloned() {
+        if let Some(p) = to.provider.as_ref().and_then(|p| self.providers.get(p)) {
+            self.context_window = p.context_window.unwrap_or(self.context_window);
+            self.max_tokens = p.max_tokens.or(self.max_tokens);
+        }
+        self.model = selector.to_string();
+        if let Some(e) = self.lookup(selector).cloned() {
             e.apply(self);
         }
+        Ok(())
     }
 
-    /// The entry for `id`: the user's catalog, then the endpoint's own list
-    /// (which also knows `vendor/model:variant` by `vendor/model`).
-    pub fn lookup(&self, id: &str) -> Option<&ModelEntry> {
-        self.models.get(id).or_else(|| self.discovered.get(id)).or_else(|| {
+    /// The entry for `selector`: its provider's catalog; for `default`, the
+    /// user's catalog, then the endpoint's own list (which also knows
+    /// `vendor/model:variant` by `vendor/model`).
+    pub fn lookup(&self, selector: &str) -> Option<&ModelEntry> {
+        let Resolved { provider, id } = self.resolve(selector).ok()?;
+        if let Some(p) = provider {
+            return self.providers.get(&p)?.models.get(&id);
+        }
+        self.models.get(&id).or_else(|| self.discovered.get(&id)).or_else(|| {
             let (base, _) = id.split_once(':')?;
             self.discovered.get(base)
         })
     }
 
-    /// Where the selected model's requests go: the declared endpoint, moved
-    /// by its catalog entry if that names one.
+    /// Where the selected model's requests go.
     pub fn endpoint(&self) -> Endpoint {
-        let declared = Endpoint::declared(self);
-        match self.entry() {
-            Some(e) => e.endpoint(declared),
-            None => declared,
+        self.endpoint_for(&self.model)
+    }
+
+    /// Where `selector`'s requests go: its provider's endpoint (the declared
+    /// one for `default`), moved by its catalog entry if that names one.
+    pub fn endpoint_for(&self, selector: &str) -> Endpoint {
+        let named = self.resolve(selector).ok().and_then(|r| r.provider);
+        let base = match named.as_ref().and_then(|p| self.providers.get(p).map(|d| (p, d))) {
+            Some((name, p)) => p.endpoint(name),
+            None => Endpoint::declared(self),
+        };
+        match self.lookup(selector) {
+            Some(e) => e.endpoint(base),
+            None => base,
         }
     }
 
-    /// Make `ep` the declared endpoint, and stop the selected model's entry
-    /// from moving it: a delegated child is handed its endpoint this way,
-    /// already resolved.
+    /// Make `ep` the declared endpoint and the selected model a plain id on
+    /// it: a delegated child is handed its endpoint this way, already
+    /// resolved, so nothing in its config can send it elsewhere.
     pub fn pin_endpoint(&mut self, ep: Endpoint) {
+        let id = self.wire_id(&self.model);
+        let entry = self.lookup(&self.model).cloned();
+        // A summarizer elsewhere is not the child's to reach; it uses its own model.
+        let summarizer = std::mem::take(&mut self.compaction.model);
+        if !summarizer.is_empty() && self.endpoint_for(&summarizer).base_url == ep.base_url {
+            self.compaction.model = self.wire_id(&summarizer);
+        }
         self.base_url = ep.base_url;
         self.api_key_secret = ep.api_key_secret;
         self.headers = ep.headers;
         self.provider = ep.provider;
-        let model = self.model.clone();
-        if let Some(e) = self.models.get_mut(&model) {
+        self.providers.clear();
+        if let Some(mut e) = entry {
             e.base_url.clear();
             e.api_key_secret.clear();
             e.dialect = None;
             e.cache = None;
+            self.models.insert(id.clone(), e);
         }
+        self.model = id;
     }
 
     /// The catalog entry of the selected model.
@@ -241,7 +273,7 @@ mod tests {
     fn cfg_with(toml: &str) -> Config {
         let mut c: Config = toml::from_str(toml).unwrap();
         c.load_catalog(Path::new("/nonexistent/models.toml")).unwrap();
-        c.select_model(&c.model.clone());
+        c.select_model(&c.model.clone()).unwrap();
         c
     }
 
@@ -267,12 +299,12 @@ mod tests {
     fn an_entry_covers_the_defaults_and_unknown_ids_get_them_back() {
         let mut c = cfg_with(CATALOG);
         assert_eq!((c.context_window, c.max_tokens), (1_000_000, Some(32000)));
-        c.select_model("small");
+        c.select_model("small").unwrap();
         assert_eq!(c.context_window, 32768);
         assert_eq!(c.max_tokens, Some(4000), "an entry that names no cap leaves the default");
         assert_eq!(c.endpoint().base_url, "https://other.example/v1");
         assert_eq!(c.endpoint().api_key_secret, "OTHER_KEY");
-        c.select_model("some/other-id");
+        c.select_model("some/other-id").unwrap();
         assert_eq!((c.context_window, c.max_tokens), (131_072, Some(4000)));
         assert_eq!(c.endpoint(), Endpoint::declared(&Config::default()), "the endpoint is back too");
         assert!(c.entry().is_none());
@@ -282,7 +314,7 @@ mod tests {
     fn another_endpoint_without_a_secret_gets_no_key() {
         let mut c =
             cfg_with("api_key_secret = \"MAIN_KEY\"\n[models.local]\nbase_url = \"http://127.0.0.1:8080/v1\"\n");
-        c.select_model("local");
+        c.select_model("local").unwrap();
         assert_eq!(c.endpoint().api_key_secret, "", "the default's secret is not sent to another host");
         assert!(c.endpoint().key().is_none(), "and neither is the OpenRouter fallback");
         assert_eq!(c.api_key_secret, "MAIN_KEY", "what config.toml declares is untouched");
@@ -291,9 +323,9 @@ mod tests {
     #[test]
     fn another_endpoint_leaves_the_extra_headers_behind() {
         let mut c = cfg_with(&format!("{CATALOG}\n[headers]\nX-Title = \"construct\"\n"));
-        c.select_model("small");
+        c.select_model("small").unwrap();
         assert!(c.endpoint().headers.is_empty());
-        c.select_model("big");
+        c.select_model("big").unwrap();
         assert_eq!(c.endpoint().headers.len(), 1);
     }
 

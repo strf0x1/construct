@@ -73,11 +73,8 @@ impl Agent {
         origin: Option<Origin>,
     ) -> Result<Self> {
         let ep = cfg.endpoint();
-        let key = ep.require(match origin {
-            Some(_) => ep.env_key(),
-            None => ep.key(),
-        })?;
-        let client = llm::Client::new(&ep, key)?;
+        let key = if origin.is_some() { ep.env_key() } else { ep.key() };
+        let client = llm::Client::new(&ep, ep.require(key)?)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -173,11 +170,10 @@ impl Agent {
     /// resolve leaves the old model in place.
     pub fn set_model(&mut self, id: &str, tx: &Events) -> Result<()> {
         let mut cfg = self.cfg.clone();
-        cfg.select_model(id);
+        cfg.select_model(id)?;
         let ep = cfg.endpoint();
         if ep != self.cfg.endpoint() {
-            let key = ep.require(ep.key())?;
-            self.client = llm::Client::new(&ep, key)?;
+            self.client = llm::Client::new(&ep, ep.require(ep.key())?)?;
             self.client.warm();
         }
         self.cfg = cfg;
@@ -187,6 +183,7 @@ impl Agent {
         self.journal.emit(
             Event::Model {
                 model: self.cfg.model.clone(),
+                provider: self.cfg.provider_name(),
                 context_window: self.cfg.context_window,
                 max_tokens: self.cfg.max_tokens,
             },
@@ -403,7 +400,7 @@ impl Agent {
     /// The request body for `messages` with these tools, as sent.
     fn body(&self, messages: &[Message], defs: &[Value]) -> Vec<u8> {
         self.client.body(&llm::Request {
-            model: &self.cfg.model,
+            model: &self.cfg.wire_id(&self.cfg.model),
             messages,
             tools: defs,
             max_tokens: self.cfg.max_tokens,
@@ -572,7 +569,7 @@ impl Agent {
         let budget = compact::budget(self.cfg_context_window(), self.cfg.max_tokens);
         let ratio = self.bytes_per_token;
         let (client, model, max_tokens, temperature) =
-            (self.client.clone(), self.cfg.model.clone(), self.cfg.max_tokens, self.cfg.temperature);
+            (self.client.clone(), self.cfg.wire_id(&self.cfg.model), self.cfg.max_tokens, self.cfg.temperature);
         let size = move |messages: &[Message]| {
             let req = llm::Request { model: &model, messages, tools: defs, max_tokens, temperature };
             (client.body(&req).len() as f64 / ratio) as u64
@@ -639,15 +636,17 @@ impl Agent {
             Message::system(format!("{}\nKeep it under {words} words.", compact::SUMMARY_SYSTEM)),
             Message::user(compact::summary_request(&self.messages[1..upto], max_chars)),
         ];
-        let model = self.summarizer();
         let mut usage = Usage::default();
+        let (client, model) = match self.client.for_model(&self.cfg, self.summarizer()) {
+            Ok(c) => c,
+            Err(e) => return (Err(format!("{e:#}")), usage),
+        };
         // An empty answer is the model's flake (reasoning, then no text): one
         // more try is cheaper than losing the summary to a coarser cut.
         for _ in 0..2 {
-            let r = self
-                .client
+            let r = client
                 .complete(llm::Request {
-                    model,
+                    model: &model,
                     messages: &req,
                     tools: &[],
                     max_tokens: Some(compact::summary_allowance(budget) as u32 + compact::REASONING_HEADROOM),

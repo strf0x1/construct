@@ -31,10 +31,10 @@ may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm",
 may_use = ["config", "llm"]
 
 [modules.config]
-may_use = ["agents", "jobs", "learn", "mcp", "models", "tools"]
+may_use = ["agents", "jobs", "learn", "mcp", "models", "providers", "tools"]
 
 [modules.endpoint]
-may_use = ["config", "secrets"]
+may_use = ["config", "providers", "secrets"]
 
 [modules.event]
 may_use = ["compact", "jobs", "llm", "manifest", "permission", "tools"]
@@ -76,7 +76,7 @@ may_use = ["config", "sandbox", "secrets", "text"]
 may_use = ["config", "guard", "project"]
 
 [modules.models]
-may_use = ["config", "endpoint"]
+may_use = ["config", "endpoint", "providers"]
 
 [modules.permission]
 may_use = ["config", "event", "journal", "sandbox", "tools"]
@@ -86,6 +86,9 @@ may_use = ["config"]
 
 [modules.prompt]
 may_use = ["journal", "learn", "llm", "memory", "skills", "tools"]
+
+[modules.providers]
+may_use = ["config", "endpoint", "models"]
 
 [modules.router]
 may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]

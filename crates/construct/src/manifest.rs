@@ -47,6 +47,9 @@ pub struct Manifest {
     pub dialect: String,
     #[serde(default)]
     pub cache: CacheMode,
+    /// The named provider serving `model`; absent for `default` (ADR 0027).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
 }
 
 impl Manifest {
@@ -71,6 +74,7 @@ impl Manifest {
             compaction: Default::default(),
             dialect: String::new(),
             cache: Default::default(),
+            provider: None,
         }
     }
 
@@ -93,6 +97,7 @@ impl Manifest {
             compaction: cfg.compaction.clone(),
             dialect: crate::llm::Provider::of(&cfg.endpoint()).name().into(),
             cache: cfg.endpoint().provider.cache,
+            provider: cfg.provider_name(),
         }
     }
 

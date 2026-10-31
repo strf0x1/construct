@@ -125,6 +125,8 @@ pub enum Event {
     /// catalog entry (or the defaults) gave it. The head row has the first.
     Model {
         model: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider: Option<String>,
         context_window: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_tokens: Option<u32>,

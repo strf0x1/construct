@@ -242,11 +242,11 @@ pub(super) fn session_text(messages: &[Message]) -> String {
 }
 
 pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result<Outcome> {
-    let ep = cfg.endpoint();
+    let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let mut books = Books::load(paths);
     let task = format!("{}{}", session_text(messages), books.listing());
-    let v: Value = ask_json(&client, cfg.learn_model(), SYSTEM, &task, 1500).await?;
+    let v: Value = ask_json(&client, &cfg.wire_id(cfg.learn_model()), SYSTEM, &task, 1500).await?;
     let d: Delta = serde_json::from_value(v).unwrap_or_default();
     let actions = books.apply(&d);
     let summary = if actions.is_empty() { "Nothing to save.".into() } else { "Playbook updated.".into() };
