@@ -1,0 +1,16 @@
+Third-party software in construct
+=================================
+
+construct is built from the open-source crates below. Each license is
+reproduced in full, followed by the crates it covers.
+{{#each licenses}}
+
+------------------------------------------------------------------------
+{{{name}}} ({{{id}}})
+Used by:
+{{#each used_by}}
+  - {{{crate.name}}} {{{crate.version}}}{{#if crate.repository}} ({{{crate.repository}}}){{/if}}
+{{/each}}
+
+{{{text}}}
+{{/each}}

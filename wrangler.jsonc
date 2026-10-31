@@ -1,0 +1,7 @@
+// construct.sprawlcommons.com: the landing page and install.sh, served as
+// static assets from site/. No Worker code runs. Releases live on GitHub.
+{
+  "name": "construct",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./site" }
+}
