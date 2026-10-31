@@ -10,10 +10,10 @@ expression: "screen(&env, &d)"
 
 
 
-
-
-
   ╭─ commands ─────────────────────────────────────────────────────────────────╮
+  │ /resume [id]          browse saved sessions in this directory, or resume   │
+  │                       by id                                                │
+  │ /rename <title>       name the current session                             │
   │ /new                  fresh session (also /clear)                          │
   │ /model [id]           pick from the catalog, or switch to any id           │
   │ /models [query]       search the endpoint's model list: window and price   │

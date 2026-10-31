@@ -34,6 +34,10 @@ mod notes;
 mod permission;
 #[path = "providers.rs"]
 mod providers;
+#[path = "recovery.rs"]
+mod recovery;
+#[path = "sessions.rs"]
+mod sessions;
 #[path = "slash.rs"]
 mod slash;
 #[path = "snapshots.rs"]

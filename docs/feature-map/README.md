@@ -34,6 +34,8 @@ This directory is the maintained source for the user-facing behavior of construc
 
 ## Features
 
+- [Resume saved sessions](./session-browser.md) — browse, name, switch and recover conversations from this directory
+
 - [Permission prompt](./permission-prompt.md) — a tool reaching past the sandbox asks the user: once, for the session, always, or deny
 - [Background jobs](./background-jobs.md) — a shell command or a delegated agent runs in the background; its ending wakes the agent, a cancel never does
 - [Delegation](./delegation.md) — the model hands a task to a configured agent, whose own blocked access asks the user as a subagent

@@ -29,7 +29,7 @@ impl App {
                 let color = match status {
                     Status::Completed => theme::GREEN,
                     Status::Failed | Status::Timeout => theme::RED,
-                    Status::Cancelled | Status::Running => theme::YELLOW,
+                    Status::Cancelled | Status::Running | Status::Interrupted => theme::YELLOW,
                 };
                 self.notice(color, format!("◆ job {id} {} · {:.1}s", status.label(), ms as f64 / 1000.0));
             }

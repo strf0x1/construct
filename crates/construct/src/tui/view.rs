@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{boxed, help, markdown, picker, prompt, theme};
+use super::{boxed, help, markdown, prompt, theme};
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -368,10 +368,7 @@ impl App {
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), low + 2 + cy));
             self.render_peek(f, Rect::new(0, 0, width, main_h), phase);
-            if let Some(p) = self.picker.as_mut() {
-                // Everything above the status line: the box needs the room for its details.
-                picker::render(f, Rect::new(0, 0, width, area.height.saturating_sub(1)), p);
-            }
+            self.render_modal(f, Rect::new(0, 0, width, area.height.saturating_sub(1)));
         })?;
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;

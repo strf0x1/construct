@@ -21,6 +21,8 @@
 //! Timings (first output, first non-blank frame, each wait) are reported so
 //! the same driver measures load latency in the bench.
 
+mod keys;
+
 use anyhow::{Context, Result, anyhow, bail};
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
 use serde_json::{Value, json};
@@ -286,25 +288,7 @@ impl Driver {
     }
 
     pub fn key(&mut self, name: &str) -> Result<()> {
-        let b: Vec<u8> = match name {
-            "enter" => b"\r".to_vec(),
-            "esc" => b"\x1b".to_vec(),
-            "tab" => b"\t".to_vec(),
-            "backspace" => b"\x7f".to_vec(),
-            "up" => b"\x1b[A".to_vec(),
-            "down" => b"\x1b[B".to_vec(),
-            "right" => b"\x1b[C".to_vec(),
-            "left" => b"\x1b[D".to_vec(),
-            "pgup" => b"\x1b[5~".to_vec(),
-            "pgdn" => b"\x1b[6~".to_vec(),
-            "alt-enter" => b"\x1b\r".to_vec(),
-            k if k.starts_with("ctrl-") && k.len() == 6 => {
-                let c = k.as_bytes()[5].to_ascii_lowercase();
-                vec![c - b'a' + 1]
-            }
-            other => bail!("unknown key {other}"),
-        };
-        self.send(&b)
+        self.send(&keys::bytes(name)?)
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) -> Result<()> {

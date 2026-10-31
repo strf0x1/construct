@@ -92,7 +92,7 @@ pub fn find(paths: &Paths, id: &str) -> Result<(PathBuf, Vec<Entry>)> {
         .collect();
     files.sort();
     for f in files {
-        let Ok(db) = Journal::open(&f) else { continue };
+        let Ok(db) = Journal::read_only(&f) else { continue };
         let entries = db.since(id, 0)?;
         if !entries.is_empty() {
             return Ok((f, entries));
