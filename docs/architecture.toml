@@ -52,7 +52,7 @@ may_use = ["config", "journal", "llm"]
 may_use = ["event", "journal", "llm", "sandbox", "text"]
 
 [modules.journal]
-may_use = ["child", "compact", "config", "event", "llm", "models", "project", "skills", "tools"]
+may_use = ["child", "compact", "config", "event", "llm", "project", "skills", "tools"]
 
 [modules.learn]
 may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]

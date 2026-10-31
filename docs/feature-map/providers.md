@@ -32,7 +32,7 @@ Preconditions:
 - Two scripted endpoints, as in `crates/construct-dev/tests/providers.rs`; the TUI side is the `providers-picker` recipe (see [Model picker](./model-picker.md)).
 
 - **List and test.** Drive: `construct providers`, then `construct providers test a --model mock` against a scripted endpoint whose side reply is `ok` and whose step is a `ping` call. Expect: rows for `default`, `a` and `b`; `models  ok`, `reply   ok`, `tools   ok      called ping`, `window  131072 (stated by /models)`; the endpoint's log shows `a`'s key twice and `b` untouched.
-- **Second view.** The scripted endpoints' request logs (`Env::auth_seen`, `Env::requests`): which key and which `model` each request carried.
+- **Second view.** The scripted endpoints' request logs. Drive: `cargo test -p construct-dev --test it providers::`. Expect: every test passes; each reads `Env::auth_seen` and `Env::requests` for which key and which `model` reached which endpoint.
 - Contract: `crates/construct-dev/tests/providers.rs`, `crates/construct/src/providers.rs` unit tests.
 
 ## Gotchas
