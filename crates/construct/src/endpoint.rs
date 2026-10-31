@@ -53,10 +53,11 @@ impl Endpoint {
     }
 
     /// The key for a session in this process: the keyring and environment.
+    /// No secret declared means keyless, never the fallback.
     pub fn key(&self) -> Option<String> {
-        match (self.fallback, self.api_key_secret.is_empty()) {
-            (true, _) => crate::secrets::api_key(&self.api_key_secret),
-            (false, true) => None,
+        match (self.api_key_secret.is_empty(), self.fallback) {
+            (true, _) => None,
+            (false, true) => crate::secrets::api_key(&self.api_key_secret),
             (false, false) => crate::secrets::get(&self.api_key_secret),
         }
     }
