@@ -8,7 +8,7 @@
 
 use super::Client;
 use crate::config::{Paths, write_atomic};
-use crate::providers::Discover;
+use crate::providers::{Discover, Reach};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -39,8 +39,12 @@ pub struct ModelInfo {
 
 #[derive(Serialize, Deserialize)]
 pub(super) struct Cached {
+    /// Unix seconds of the last fetch that worked; 0 for never.
     pub(super) fetched_at: u64,
     pub(super) models: Vec<ModelInfo>,
+    /// The last fetch that failed after it: when, and the cause.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) failed: Option<(u64, String)>,
 }
 
 /// The entries of a `/models` body (`{"data": [...]}` or a bare array), by id.
@@ -177,7 +181,13 @@ fn read(paths: &Paths, base_url: &str) -> Option<Cached> {
 
 /// How old the cached list for `base_url` is; `None` when there is none.
 pub fn cache_age(paths: &Paths, base_url: &str) -> Option<Duration> {
-    read(paths, base_url).map(|c| Duration::from_secs(now().saturating_sub(c.fetched_at)))
+    read(paths, base_url).filter(|c| c.fetched_at > 0).map(|c| Duration::from_secs(now().saturating_sub(c.fetched_at)))
+}
+
+/// How the last fetches of `base_url`'s list went.
+pub fn reach(paths: &Paths, base_url: &str) -> Reach {
+    let Some(c) = read(paths, base_url) else { return Reach::default() };
+    Reach { fetched_at: (c.fetched_at > 0).then_some(c.fetched_at), failed: c.failed }
 }
 
 /// The cached list for `base_url`, however old; empty when there is none.
@@ -208,7 +218,7 @@ impl Client {
 
 /// Cache `models` as `base_url`'s list, fetched now.
 pub fn store(paths: &Paths, base_url: &str, models: &[ModelInfo]) {
-    let cache = Cached { fetched_at: now(), models: models.to_vec() };
+    let cache = Cached { fetched_at: now(), models: models.to_vec(), failed: None };
     if let Ok(bytes) = serde_json::to_vec(&cache) {
         let _ = write_atomic(&paths.models_cache(base_url), &bytes);
     }
@@ -227,7 +237,16 @@ pub async fn refresh(client: &Client, paths: &Paths, force: bool, how: Discover)
             store(paths, &client.base_url, &models);
             Ok(models)
         }
-        Err(e) => old.map(|c| c.models).ok_or(e),
+        Err(e) => {
+            // Kept beside the list it failed to replace, so the picker can say so.
+            let cause = format!("{e:#}").rsplit(": ").next().unwrap_or_default().to_string();
+            let (fetched_at, models) = old.map_or((0, vec![]), |c| (c.fetched_at, c.models));
+            let cache = Cached { fetched_at, models: models.clone(), failed: Some((now(), cause)) };
+            if let Ok(bytes) = serde_json::to_vec(&cache) {
+                let _ = write_atomic(&paths.models_cache(&client.base_url), &bytes);
+            }
+            if models.is_empty() { Err(e) } else { Ok(models) }
+        }
     }
 }
 

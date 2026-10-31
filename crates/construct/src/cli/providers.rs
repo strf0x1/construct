@@ -51,6 +51,12 @@ pub(super) async fn run(cfg: &Config, paths: &Paths, cmd: Option<ProvidersCmd>) 
     match cmd {
         None | Some(ProvidersCmd::List) => {
             print!("{}", list(cfg, paths));
+            // The cached lists too: a name can hide ids only a list has.
+            let mut cfg = cfg.clone();
+            llm::overlay::overlay(&mut cfg, paths);
+            for w in cfg.shadowed() {
+                println!("warning: {w}");
+            }
             Ok(())
         }
         Some(ProvidersCmd::Add { name, url, key_secret, discover }) => {
@@ -70,10 +76,15 @@ fn list(cfg: &Config, paths: &Paths) -> String {
             (s, false) => format!("{s} (not set)"),
         };
         let cached = catalog::cached(paths, &ep.base_url).len();
-        let listed = match catalog::cache_age(paths, &ep.base_url) {
+        let mut listed = match catalog::cache_age(paths, &ep.base_url) {
             Some(age) => format!("{} catalogued · {cached} listed {} ago", ids.len(), ago(age)),
             None => format!("{} catalogued · list not fetched", ids.len()),
         };
+        if let Some((at, why)) = catalog::reach(paths, &ep.base_url).failed {
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+            listed
+                .push_str(&format!(" · unreachable {} ago: {why}", ago(since.saturating_sub(Duration::from_secs(at)))));
+        }
         let dialect = llm::Provider::of(&ep).name().to_string();
         rows.push([name, ep.base_url, dialect, key, listed]);
     }

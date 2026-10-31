@@ -77,10 +77,10 @@ pub(super) struct Picker {
     /// Position in `shown`.
     pub(super) selected: usize,
     pub(super) table: TableState,
-    /// Per provider: its heading (name and host), shown above its rows while
-    /// nothing is typed, and what it has (`1 catalogued · 26 listed`), shown
-    /// beside a row. Empty when there is only `default`, which needs neither.
-    pub(super) groups: std::collections::BTreeMap<String, (String, String)>,
+    /// Per provider: its heading, shown above its rows while nothing is
+    /// typed, and what it has and how it was reached, shown beside a row.
+    /// Empty when there is only `default`, which needs neither.
+    pub(super) groups: std::collections::BTreeMap<String, Group>,
 }
 
 /// What a key did to the picker.
@@ -92,22 +92,47 @@ pub(super) enum Outcome {
     Pick(String),
 }
 
-/// Each provider's heading (name, host) and how many models it has. Built
-/// from what is in memory: opening the box asks no server.
-fn headers(cfg: &Config) -> std::collections::BTreeMap<String, (String, String)> {
+/// One provider's part of the box: its heading, what it has, and how the
+/// last fetch of its list went.
+pub(super) struct Group {
+    /// `name · host`, or `name · unreachable` when the last fetch failed.
+    pub(super) title: String,
+    /// `1 catalogued · 26 listed`, or `· no list`.
+    pub(super) has: String,
+    /// `listed 3m ago`, or `unreachable 20s ago: Connection refused`; none
+    /// for a provider nobody has asked yet.
+    pub(super) reach: Option<String>,
+    /// The last fetch failed: the heading and the reach line are a warning.
+    pub(super) down: bool,
+}
+
+/// Each provider's [`Group`], built from what is in memory (the lists and
+/// what the cache recorded of the fetches): opening the box asks no server.
+fn headers(cfg: &Config) -> std::collections::BTreeMap<String, Group> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let ago = |at: u64| match now.saturating_sub(at) {
+        s @ 0..60 => format!("{s}s ago"),
+        s @ 60..3600 => format!("{}m ago", s / 60),
+        s @ 3600..86_400 => format!("{}h ago", s / 3600),
+        s => format!("{}d ago", s / 86_400),
+    };
     let mut out = std::collections::BTreeMap::new();
     for name in cfg.provider_names() {
         let Some((ep, ids)) = cfg.provider(&name) else { continue };
         let listed = cfg.listed(&name);
-        let host = ep
-            .base_url
-            .split_once("://")
-            .map_or(ep.base_url.as_str(), |(_, r)| r)
-            .split('/')
-            .next()
-            .unwrap_or_default();
+        let host = ep.base_url.split_once("://").map_or(ep.base_url.as_str(), |(_, r)| r);
+        let host = host.split('/').next().unwrap_or_default();
         let list = if listed == 0 { "no list".to_string() } else { format!("{listed} listed") };
-        out.insert(name.clone(), (format!("{name} · {host}"), format!("{} catalogued · {list}", ids.len())));
+        let reach = cfg.providers.get(&name).map(|p| p.reach.clone()).unwrap_or_default();
+        let down = reach.failed.is_some();
+        let reach = match (reach.failed, reach.fetched_at) {
+            (Some((at, why)), _) => Some(format!("unreachable {}: {why}", ago(at))),
+            (None, Some(at)) => Some(format!("listed {}", ago(at))),
+            (None, None) => None,
+        };
+        // The column is narrow: a down provider's heading says so instead of its host.
+        let title = if down { format!("{name} · unreachable") } else { format!("{name} · {host}") };
+        out.insert(name.clone(), Group { title, has: format!("{} catalogued · {list}", ids.len()), reach, down });
     }
     out
 }

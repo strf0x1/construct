@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 mod select;
-pub use select::Defaults;
+pub use select::{Defaults, WindowSource};
 
 /// One catalog entry. Everything is optional: an entry names only what
 /// differs from the top-level settings.

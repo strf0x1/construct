@@ -6,12 +6,13 @@
 //! model switch is a lookup and a dead server costs nothing but its window.
 
 use super::Client;
-use super::catalog::{ModelInfo, cached, refresh};
+use super::catalog::{self, ModelInfo, cached, refresh};
 use crate::config::{Config, Dialect, Paths};
 use crate::endpoint::Endpoint;
 use crate::models::{ModelEntry, Pricing};
 use crate::providers::{DEFAULT, Discover};
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 /// Startup waits this long for a list at most; a model request is not worth
 /// delaying for a catalog.
@@ -53,6 +54,15 @@ fn entry_of(m: &ModelInfo, pinned: bool) -> ModelEntry {
 /// user's entry, the provider's `context_window` or a pinned top-level one
 /// says otherwise. Reads the cache only, so it is safe on the UI path.
 pub fn overlay(cfg: &mut Config, paths: &Paths) {
+    lay_lists(cfg, paths);
+    // The model resolved at load; the lists only add entries.
+    let _ = cfg.select_model(&cfg.model.clone());
+}
+
+/// [`overlay`] without re-selecting the model: for a list that lands after
+/// the session started, which may add rows and change what the picker says
+/// but must not move the running model's window under the agent.
+pub fn lay_lists(cfg: &mut Config, paths: &Paths) {
     for (name, _) in targets(cfg) {
         let Some((ep, _)) = cfg.provider(&name) else { continue };
         let pinned = name == DEFAULT && cfg.window_pinned;
@@ -62,12 +72,10 @@ pub fn overlay(cfg: &mut Config, paths: &Paths) {
             .map(|m| (m.id.clone(), entry_of(m, pinned)))
             .collect();
         match cfg.providers.get_mut(&name) {
-            Some(p) => p.discovered = list,
+            Some(p) => (p.discovered, p.reach) = (list, catalog::reach(paths, &ep.base_url)),
             None => cfg.discovered = list,
         }
     }
-    // The model resolved at load; the lists only add entries.
-    let _ = cfg.select_model(&cfg.model.clone());
 }
 
 /// Refresh the lists, then [`overlay`]. Startup waits briefly for the
@@ -75,8 +83,9 @@ pub fn overlay(cfg: &mut Config, paths: &Paths) {
 /// user declared) refresh in the background and are laid under the catalog
 /// at the next start. `default` is asked only while selected, as before
 /// providers: nobody who moved off OpenRouter is sent there. For startup,
-/// before an agent is built.
-pub async fn prepare(cfg: &mut Config, paths: &Paths) {
+/// before an agent is built. `landed` hears of each fetch as it ends, so a
+/// UI can lay a late list in ([`lay_lists`]).
+pub async fn prepare(cfg: &mut Config, paths: &Paths, landed: Option<mpsc::UnboundedSender<()>>) {
     let selected = cfg.endpoint().name;
     let mut wait = None;
     for (name, how) in targets(cfg) {
@@ -87,8 +96,11 @@ pub async fn prepare(cfg: &mut Config, paths: &Paths) {
         // OpenRouter's list is public; a named provider's may want its key.
         let key = if name == DEFAULT { None } else { ep.key() };
         let Ok(client) = Client::new(&ep, key) else { continue };
-        let paths = paths.clone();
-        let task = tokio::spawn(async move { refresh(&client, &paths, false, how).await.is_ok() });
+        let (paths, landed) = (paths.clone(), landed.clone());
+        let task = tokio::spawn(async move {
+            let _ = refresh(&client, &paths, false, how).await;
+            landed.map(|tx| tx.send(()));
+        });
         if name == selected {
             wait = Some(task);
         }
@@ -118,7 +130,7 @@ mod tests {
         let mut cfg = cfg_for("model = \"b/small\"");
         overlay(&mut cfg, &paths);
         assert!(cfg.discovered.is_empty(), "no cache yet");
-        let cache = Cached { fetched_at: 0, models: parse(&sample()) };
+        let cache = Cached { fetched_at: 0, models: parse(&sample()), failed: None };
         write_atomic(&paths.models_cache(&cfg.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
 
         // A stale cache still overlays: age only matters to `refresh`.
