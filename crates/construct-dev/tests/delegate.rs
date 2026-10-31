@@ -139,7 +139,9 @@ tools = ["read", "shell"]
     // Its shell can't list the workspace or the parent's home, and its
     // environment holds none of the parent's secrets (nor the model key).
     let shell = last_tool_result(&reqs[3]);
-    assert!(shell.matches("Permission denied").count() >= 3, "{shell}");
+    // EACCES from Landlock, EPERM from Seatbelt.
+    let denied = shell.matches("Permission denied").count() + shell.matches("Operation not permitted").count();
+    assert!(denied >= 3, "{shell}");
     assert!(!shell.contains("leak-me-please") && !shell.contains("SECRET_DEPLOY_TOKEN"), "{shell}");
     assert!(!shell.contains("OPENAI_API_KEY"), "{shell}");
     assert!(shell.contains("PATH="), "a working environment: {shell}");
@@ -197,7 +199,7 @@ fn the_manifest_lists_agent_definitions() {
 /// Whether the `sleep 300` a child's shell started is still running.
 fn sleep_alive(work: &std::path::Path) -> bool {
     let Ok(pid) = std::fs::read_to_string(work.join("c.pid")) else { return false };
-    std::fs::read(format!("/proc/{}/cmdline", pid.trim())).is_ok_and(|c| c == b"sleep\x00300\x00")
+    is_sleep_300(&pid)
 }
 
 fn wait_for(limit_ms: u64, mut f: impl FnMut() -> bool) -> bool {

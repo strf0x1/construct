@@ -114,7 +114,15 @@ pub fn run(o: Opts) -> Result<()> {
                         Err(e) => format!("DENIED {e}"),
                     },
                     "probe_spawn" => std::process::Command::new("sh")
-                        .args(["-c", "setsid sleep 300 >/dev/null 2>&1 & echo $!"])
+                        // macOS has no setsid, nor a way to sweep a process that left the group (#9).
+                        .args([
+                            "-c",
+                            if cfg!(target_os = "linux") {
+                                "setsid sleep 300 >/dev/null 2>&1 & echo $!"
+                            } else {
+                                "sleep 300 >/dev/null 2>&1 & echo $!"
+                            },
+                        ])
                         .output()
                         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
                         .unwrap_or_else(|e| format!("DENIED {e}")),
