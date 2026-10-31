@@ -53,6 +53,20 @@ pub async fn fetch(client: &Client, how: Discover) -> Result<Vec<ModelInfo>> {
     }
 }
 
+/// Which kind of server answers at `client`'s url, by what it answers to:
+/// llama.cpp's `/props`, Ollama's `/api/tags`, else plain `/models`. A
+/// llama.cpp router with nothing loaded fails `/props` and reads as
+/// `openai`, which is right for it: its `/models` states `max_model_len`.
+pub async fn guess(client: &Client) -> Discover {
+    if client.get_root("props").await.is_ok_and(|p| props_window(&p).is_some()) {
+        return Discover::LlamaCpp;
+    }
+    if client.get_root("api/tags").await.is_ok_and(|t| t.get("models").is_some_and(Value::is_array)) {
+        return Discover::Ollama;
+    }
+    Discover::Openai
+}
+
 /// llama.cpp's `/props`: the loaded context per slot, and the loaded
 /// model's alias when it says.
 pub fn props_window(props: &Value) -> Option<(u32, Option<String>)> {

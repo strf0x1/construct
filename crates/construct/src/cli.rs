@@ -231,13 +231,7 @@ pub fn run() -> Result<()> {
             println!("{}", llm::catalog::listing(&models, &query.join(" "), limit));
             Ok(())
         }),
-        Some(Cmd::Providers { cmd: None | Some(providers::ProvidersCmd::List) }) => {
-            print!("{}", providers::list(&cfg, &paths));
-            Ok(())
-        }
-        Some(Cmd::Providers { cmd: Some(providers::ProvidersCmd::Test { name, model }) }) => {
-            rt.block_on(providers::test(&cfg, &paths, &name, model))
-        }
+        Some(Cmd::Providers { cmd }) => rt.block_on(providers::run(&cfg, &paths, cmd)),
         Some(Cmd::Memory) => {
             let store = memory::Store::new(&paths, &cfg.memory).with_project(&paths, &std::env::current_dir()?);
             let block = store.prompt_block();

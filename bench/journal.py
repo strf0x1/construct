@@ -95,24 +95,37 @@ def sessions(home: Path, since: float = 0) -> list:
 
 
 def errors(home: Path, since: float = 0, provider: str = "", model: str = "") -> dict:
-    """What went wrong, grouped by (provider dialect, model): turns and model
-    calls as the denominators, and a counter each for `note` rows (summed by
-    their `count`), `error` events and failed `tool_end`s. A note's rate is
-    occurrences per 100 turns, so providers of different sizes compare."""
+    """What went wrong, grouped by (provider, model): turns and model calls as
+    the denominators, and a counter each for `note` rows (summed by their
+    `count`), `error` events and failed `tool_end`s. A note's rate is
+    occurrences per 100 turns, so providers of different sizes compare.
+
+    The provider is the named one (`[providers.x]`, ADR 0027) when the
+    manifest or a `model` row names it, else the top-level endpoint's dialect
+    (`openrouter`, `openai`), as journals from before named providers say."""
     groups = defaultdict(lambda: {"sessions": 0, "turns": 0, "calls": 0, "notes": Counter(), "errors": 0, "tools": Counter()})
     for rs in raw_sessions(home, since):
         head = rs[0][2]
-        dialect = (head.get("manifest") or {}).get("dialect") or "unknown"
+        manifest = head.get("manifest") or {}
+        # The top-level endpoint's label: its dialect. Only a manifest for it says.
+        default = "unknown" if manifest.get("provider") else (manifest.get("dialect") or "unknown")
+        label = manifest.get("provider") or default
         current = head.get("model", "")
         seen = set()
         for ty, at, p in rs:
             if at < since * 1000:
                 continue
+            if ty == "manifest" and not p.get("provider"):
+                default = p.get("dialect") or default
+            if ty in ("manifest", "model"):
+                label = p.get("provider") or default
             if ty in ("request", "model"):
                 current = p.get("model", current)
-            g = groups[(dialect, current)]
-            if (dialect, current) not in seen:
-                seen.add((dialect, current))
+            if ty in ("model", "manifest"):
+                continue  # they move the labels; the rows after them are counted
+            g = groups[(label, current)]
+            if (label, current) not in seen:
+                seen.add((label, current))
                 g["sessions"] += 1
             if ty == "turn_end":
                 g["turns"] += 1
@@ -155,7 +168,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("errors", help="notes, errors and failed tools by provider and model")
     e.add_argument("--since", type=parse_since, default=parse_since("7d"), help="how far back (default 7d)")
-    e.add_argument("--provider", default="", help="only this dialect (substring)")
+    e.add_argument("--provider", default="", help="only this provider name or dialect (substring)")
     e.add_argument("--model", default="", help="only this model (substring)")
     e.add_argument("--home", type=Path, default=Path(os.environ.get("CONSTRUCT_HOME") or Path.home() / ".construct"))
     a = ap.parse_args(argv)

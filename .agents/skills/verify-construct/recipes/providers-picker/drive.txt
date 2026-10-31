@@ -1,5 +1,6 @@
-# The picker lists each provider's models as provider/id beside the running
-# one; switching to one names it, and a provider whose key is missing is
+# The picker lists each provider's models as provider/id under a heading per
+# provider (name, host) beside the running one, and what each provider has
+# beside a row; switching to one names it, and a provider whose key is missing is
 # refused with the provider and the secret named. /status names the provider
 # and its url.
 wait "ask construct" 5000
@@ -11,11 +12,15 @@ key enter
 wait "search models…" 3000
 expect "local/qwen3-8b"
 expect "gpubox/qwen3-8b"
+expect "local · 127.0.0.1:1"
+expect "gpubox · 10.255.255.1:8000"
 snap --style picker
 image {evidence}/picker.png
 type laptop
 wait "1/3" 2000
 expect "127.0.0.1:1"
+expect "1 catalogued · no list"
+gone "gpubox · 10.255.255.1:8000" 1000
 image {evidence}/picker-filtered.png
 key enter
 wait "model → local/qwen3-8b" 3000

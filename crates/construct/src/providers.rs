@@ -143,7 +143,7 @@ impl Provider {
         Endpoint::named(name, base_url, &secret, self.headers.clone(), provider)
     }
 
-    fn check(&self, name: &str) -> Result<()> {
+    pub(crate) fn check(&self, name: &str) -> Result<()> {
         ensure!(
             !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
             "[providers.{name:?}]: a provider name is letters, digits, - and _"
@@ -222,6 +222,11 @@ impl Config {
         self.providers.get(name).map_or(Discover::Openai, |p| p.discover)
     }
 
+    /// How many models provider `name`'s fetched list holds.
+    pub fn listed(&self, name: &str) -> usize {
+        self.providers.get(name).map_or(if name == DEFAULT { self.discovered.len() } else { 0 }, |p| p.discovered.len())
+    }
+
     /// Every provider's name, `default` first.
     pub fn provider_names(&self) -> Vec<String> {
         std::iter::once(DEFAULT.to_string()).chain(self.providers.keys().cloned()).collect()
@@ -258,17 +263,17 @@ impl Config {
     }
 
     /// Every catalogued selector, for the picker and the palette: the
-    /// top-level catalog, then each provider's as `name/id`, then the
-    /// endpoint's own list.
+    /// top-level catalog and its list, then each provider's as `name/id`, so
+    /// each provider's models are together.
     pub fn catalog_ids(&self) -> Vec<String> {
         // A top-level id another provider also lists is shown qualified.
         let plain = |id: &String| if self.resolve(id).is_ok() { id.clone() } else { format!("{DEFAULT}/{id}") };
         let mut ids: Vec<String> = self.models.keys().map(plain).collect();
+        ids.extend(self.discovered.keys().filter(|id| !self.models.contains_key(*id)).map(plain));
         for (name, p) in &self.providers {
             ids.extend(p.models.keys().map(|id| format!("{name}/{id}")));
             ids.extend(p.discovered.keys().filter(|id| !p.models.contains_key(*id)).map(|id| format!("{name}/{id}")));
         }
-        ids.extend(self.discovered.keys().filter(|id| !self.models.contains_key(*id)).map(plain));
         ids
     }
 

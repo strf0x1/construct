@@ -14,7 +14,7 @@
 "crates/construct/src/acp/client.rs" = 399
 "crates/construct/src/agent.rs" = 699
 "crates/construct/src/child/run.rs" = 324
-"crates/construct/src/cli.rs" = 378
+"crates/construct/src/cli.rs" = 372
 "crates/construct/src/compact/mod.rs" = 347
 "crates/construct/src/config.rs" = 452
 "crates/construct/src/mcp/conn.rs" = 334

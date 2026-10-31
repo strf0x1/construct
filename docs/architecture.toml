@@ -25,7 +25,7 @@ may_use = ["child", "config", "sandbox", "tools"]
 may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
 
 [modules.cli]
-may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm", "manifest", "memory", "router", "sandbox", "secrets", "skills", "tools", "tui"]
+may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm", "manifest", "memory", "providers", "router", "sandbox", "secrets", "skills", "tools", "tui"]
 
 [modules.compact]
 may_use = ["config", "llm"]

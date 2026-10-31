@@ -4,7 +4,9 @@ Status: accepted, 2026-10-31. Lands in steps under #129: step 1 (the
 `Endpoint` type, only the implicit `default` provider) in #130; step 2
 (`[providers.*]`, the `openrouter` preset, `provider/model` selection, the
 journal's `provider`) in #131; step 3 (`construct providers` list and
-test) in #132; step 4 (discovery per provider) after it.
+test) in #132; step 4 (discovery per provider) in #133; step 5
+(`construct providers add`, the picker grouped by provider, `journal.py
+errors` by provider) after it.
 
 ## Context
 
