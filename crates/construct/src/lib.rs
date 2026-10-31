@@ -26,6 +26,7 @@ pub mod models;
 pub mod permission;
 pub mod project;
 pub mod prompt;
+pub mod providers;
 pub mod router;
 pub mod sandbox;
 pub mod secrets;

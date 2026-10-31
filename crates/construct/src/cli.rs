@@ -5,7 +5,7 @@ mod headless;
 
 use crate::config::{Config, Paths};
 use crate::{journal, learn, llm, memory, router, secrets, skills, tools, tui};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use std::io::{IsTerminal, Read, Write};
 
@@ -128,7 +128,7 @@ pub fn run() -> Result<()> {
     }
     let mut cfg = Config::load(&paths)?;
     if let Some(m) = &cli.model {
-        cfg.select_model(m);
+        cfg.select_model(m).context("--model")?;
     }
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(4).build()?;
     match cli.cmd {

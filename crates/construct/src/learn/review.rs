@@ -19,7 +19,7 @@ use std::sync::Arc;
 /// only written when the same problem class has come up in another session
 /// too. A skill that was loaded and turned out wrong can be patched at once.
 pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Message], kind: Kind) -> Result<Outcome> {
-    let ep = cfg.endpoint();
+    let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
@@ -33,7 +33,7 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     // reads as a preference to the gate, but it is exactly what recurs.
     let recurring = {
         let prior = ledger(paths);
-        let new = observe(&client, cfg.learn_model(), messages, session).await.unwrap_or_default();
+        let new = observe(&client, &cfg.wire_id(cfg.learn_model()), messages, session).await.unwrap_or_default();
         append_ledger(paths, &new);
         for o in &new {
             ledger_note.push(format!("ledger: {}", o.problem_class));
@@ -129,7 +129,7 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
     let defs = catalog.definitions(&groups);
     let mut out = run_loop(
         &client,
-        cfg.learn_model(),
+        &cfg.wire_id(cfg.learn_model()),
         &ctx,
         &catalog,
         vec![Message::system(SYSTEM), Message::user(task)],

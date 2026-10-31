@@ -32,6 +32,8 @@ mod models;
 mod notes;
 #[path = "permission.rs"]
 mod permission;
+#[path = "providers.rs"]
+mod providers;
 #[path = "slash.rs"]
 mod slash;
 #[path = "snapshots.rs"]

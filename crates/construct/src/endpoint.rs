@@ -7,11 +7,14 @@
 //! decided here and nowhere else.
 
 use crate::config::{Config, ProviderConfig};
+use crate::providers::DEFAULT;
 use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Endpoint {
+    /// The provider: `default` for the top-level fields.
+    pub name: String,
     /// Up to and including `/v1`, without a trailing slash.
     pub base_url: String,
     /// The secret holding this endpoint's key; empty means none is declared.
@@ -29,11 +32,32 @@ impl Endpoint {
     /// The top-level endpoint, as `config.toml` declares it.
     pub fn declared(cfg: &Config) -> Self {
         Self {
+            name: DEFAULT.to_string(),
             base_url: cfg.base_url.trim_end_matches('/').to_string(),
             api_key_secret: cfg.api_key_secret.clone(),
             headers: cfg.headers.clone(),
             provider: cfg.provider.clone(),
             fallback: true,
+        }
+    }
+
+    /// A named provider's endpoint. Its key is its own secret, never a
+    /// fallback.
+    pub fn named(
+        name: &str,
+        base_url: &str,
+        api_key_secret: &str,
+        headers: BTreeMap<String, String>,
+        provider: ProviderConfig,
+    ) -> Self {
+        let base_url = base_url.trim_end_matches('/').to_string();
+        Self {
+            name: name.to_string(),
+            base_url,
+            api_key_secret: api_key_secret.into(),
+            headers,
+            provider,
+            fallback: false,
         }
     }
 
@@ -44,6 +68,7 @@ impl Endpoint {
     pub fn moved(&self, base_url: &str, api_key_secret: &str) -> Self {
         let base_url = base_url.trim_end_matches('/').to_string();
         Self {
+            name: self.name.clone(),
             fallback: self.fallback && base_url == self.base_url,
             base_url,
             api_key_secret: api_key_secret.to_string(),
@@ -69,10 +94,17 @@ impl Endpoint {
     }
 
     /// `key`, unless a secret is declared and nothing resolved: then nothing
-    /// is sent, and the error names the secret.
+    /// is sent, and the error names the secret (and the provider, if named).
     pub fn require(&self, key: Option<String>) -> Result<Option<String>> {
         if key.is_none() && !self.api_key_secret.is_empty() {
-            bail!(crate::secrets::missing_key(&self.api_key_secret));
+            let (name, secret) = (&self.name, &self.api_key_secret);
+            if name == DEFAULT {
+                bail!(crate::secrets::missing_key(secret));
+            }
+            bail!(
+                "{name}: no API key: set {secret} (or construct secrets set {secret}); \
+                 for a keyless endpoint set api_key_secret = \"\" under [providers.{name}]"
+            );
         }
         Ok(key)
     }

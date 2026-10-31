@@ -11,7 +11,7 @@ use anyhow::Result;
 use std::fmt::Write as _;
 
 pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
-    let ep = cfg.endpoint();
+    let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
@@ -43,7 +43,7 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     let defs = catalog.definitions(&[Group::Skills, Group::SkillWrite]);
     let out = run_loop(
         &client,
-        cfg.learn_model(),
+        &cfg.wire_id(cfg.learn_model()),
         &ctx,
         &catalog,
         vec![Message::system(CURATOR), Message::user(listing)],

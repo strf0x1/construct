@@ -38,7 +38,7 @@ pub(super) struct Row {
 impl Row {
     pub(super) fn of(cfg: &Config, id: &str) -> Self {
         let mut c = cfg.clone();
-        c.select_model(id);
+        let _ = c.select_model(id);
         let e = c.entry().cloned().unwrap_or_default();
         let window = c.context_window as u64;
         let budget = compact::budget(window, c.max_tokens);
@@ -89,16 +89,15 @@ impl Picker {
     /// The catalog as rows, the running model selected; none when the
     /// catalog is empty, since a list of one is no choice.
     pub(super) fn open(cfg: &Config) -> Option<Self> {
-        if cfg.models.is_empty() && cfg.discovered.is_empty() {
+        // The user's entries first, each provider's, then the endpoint's list.
+        let mut ids = cfg.catalog_ids();
+        if ids.is_empty() {
             return None;
         }
-        // The user's entries first, then the endpoint's list.
-        let mut ids: Vec<&str> = cfg.models.keys().map(String::as_str).collect();
-        ids.extend(cfg.discovered.keys().map(String::as_str).filter(|id| !cfg.models.contains_key(*id)));
-        if !ids.contains(&cfg.model.as_str()) {
-            ids.insert(0, &cfg.model);
+        if !ids.contains(&cfg.model) {
+            ids.insert(0, cfg.model.clone());
         }
-        let rows: Vec<Row> = ids.into_iter().map(|id| Row::of(cfg, id)).collect();
+        let rows: Vec<Row> = ids.iter().map(|id| Row::of(cfg, id)).collect();
         let mut p = Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default() };
         p.refilter();
         p.selected = p.shown.iter().position(|&i| p.rows[i].current).unwrap_or(0);
@@ -189,7 +188,7 @@ mod tests {
             "#,
         )
         .unwrap();
-        c.select_model("b/two");
+        c.select_model("b/two").unwrap();
         c
     }
 
@@ -214,7 +213,7 @@ mod tests {
     #[test]
     fn an_uncatalogued_running_model_is_listed_first() {
         let mut c = cfg();
-        c.select_model("x/adhoc");
+        c.select_model("x/adhoc").unwrap();
         let p = Picker::open(&c).unwrap();
         assert_eq!(p.rows[0].id, "x/adhoc");
         assert!(!p.rows[0].catalogued && p.rows[0].current);

@@ -81,13 +81,13 @@ pub async fn induce(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result
     let Some(kit) = crate::project::detect(paths, &cwd) else {
         return Ok(Outcome { summary: "Not in a repo; workflows are per repo.".into(), actions: vec![] });
     };
-    let ep = cfg.endpoint();
+    let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let current = load(&kit.dir);
     let mut task = format!("<session>\n{}\n</session>\n\n", digest(messages, 40_000));
     task.push_str(&evidence::section(messages));
     let _ = writeln!(task, "\nCURRENT WORKFLOWS:\n{}", serde_json::to_string_pretty(&current).unwrap_or_default());
-    let v = ask_json(&client, cfg.learn_model(), SYSTEM, &task, 1500).await?;
+    let v = ask_json(&client, &cfg.wire_id(cfg.learn_model()), SYSTEM, &task, 1500).await?;
     let Some(wfs) = parse(&v) else {
         return Ok(Outcome { summary: "Nothing to save (not a verified success).".into(), actions: vec![] });
     };
