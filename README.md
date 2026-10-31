@@ -51,19 +51,43 @@ construct -c                                # continue the last session here
 **OpenRouter** works out of the box and gives you the full model browser:
 `/models` shows each model's context window and price.
 
-**Any other OpenAI-compatible endpoint** also works, including OpenAI itself
-or a local server such as llama.cpp, vLLM, Ollama or LM Studio. Set
-`base_url` and `model` in `~/.construct/config.toml`:
+**Local and other OpenAI-compatible servers** (llama.cpp, vLLM, Ollama, LM
+Studio, OpenAI itself) are added as named providers. Each has its own url,
+key and models, and you can switch between them like any model:
 
-```toml
-base_url = "http://127.0.0.1:8080/v1"
-model = "qwen3-coder"
+```sh
+construct providers add local --url http://127.0.0.1:8080/v1
+construct providers test local        # its model list, a short reply, a tool call
+construct --model local/qwen3-coder   # or /model local/qwen3-coder in the TUI
 ```
 
-You can also set `CONSTRUCT_BASE_URL` and `CONSTRUCT_MODEL` for a single run.
-The key goes in `OPENAI_API_KEY` (a local server that doesn't check keys
-accepts any value). `/models` still lists the endpoint's models, but you
-won't get windows or prices.
+`add` probes the server, works out how to read its models and context
+windows (llama.cpp, vLLM, Ollama or a plain `/models`), and writes a table
+into `~/.construct/config.toml`. You can also write it by hand:
+
+```toml
+model = "local/qwen3-coder"
+
+[providers.local]                    # a server on this machine needs no key
+base_url = "http://127.0.0.1:8080/v1"
+
+[providers.gpubox]                   # another machine: its key is GPUBOX_API_KEY
+base_url = "http://10.0.0.5:8000/v1"
+discover = "vllm"                    # openai (the default), vllm, llama.cpp, ollama, off
+context_window = 32768               # optional: the server's own figure is used otherwise
+```
+
+A model is named `provider/id`. A bare id works when only one provider's
+catalog has it. Each provider's key goes to that provider only; store it
+with `construct secrets set GPUBOX_API_KEY`. `construct providers` lists
+them all, and `/model` groups models by provider and marks one that didn't
+answer at startup. `[providers.openrouter]` on its own adds OpenRouter as a
+named provider too.
+
+For a single endpoint you can still set `base_url` and `model` at the top
+of `config.toml` instead. That endpoint's key is `OPENAI_API_KEY`, or set
+`api_key_secret = ""` for none. `CONSTRUCT_BASE_URL` and `CONSTRUCT_MODEL`
+override them for one run.
 
 Keys come from the environment first, then the OS keyring. `construct config`
 shows the config path and the settings in effect.
@@ -103,6 +127,12 @@ Landlock (Linux) or Seatbelt (macOS), file tools check paths, and the environmen
 credentials. By default the agent can touch the working directory, a private
 temp dir, and system paths and toolchains. Anything else asks you first; you
 can allow it once, for the session, or permanently in config.
+
+**Providers.** Several endpoints side by side, each with its own url, key
+and models, selected as `provider/model` anywhere a model is accepted
+(`--model`, `/model`, compaction, learning, subagents). Context windows come
+from the server where it states them, and `/status` says which source set
+the window. The design is in [ADR 0027](docs/adr/0027-named-providers.md).
 
 **Compaction.** When history grows past the context window, construct stubs
 old tool results first and only then summarizes older rounds. It recovers
