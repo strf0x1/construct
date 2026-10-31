@@ -156,7 +156,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                 app.groups = groups;
                 app.catalog = Some(catalog);
                 // The worker warmed the list before building the agent; this is a file read.
-                crate::llm::catalog::overlay(&mut app.cfg, &paths);
+                crate::llm::overlay::overlay(&mut app.cfg, &paths);
                 // A `/model …` typed before now was matched without the catalog.
                 app.palette = None;
                 app.refresh_palette();

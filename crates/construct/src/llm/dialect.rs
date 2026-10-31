@@ -8,6 +8,7 @@
 //! Responses need no dialect: `usage::Usage::parse` reads every provider's
 //! fields.
 
+use super::{Message, Request};
 use crate::config::{CacheMode, Dialect, ProviderConfig};
 use crate::endpoint::Endpoint;
 use serde_json::{Value, json};
@@ -78,6 +79,26 @@ impl Provider {
             Breakpoint::LastPrompt => mark_last_prompt(body),
         }
     }
+}
+
+/// The body every OpenAI-compatible endpoint accepts.
+pub(super) fn standard_body(req: &Request<'_>) -> Value {
+    let mut body = json!({
+        "model": req.model,
+        "messages": req.messages.iter().map(Message::wire).collect::<Vec<_>>(),
+        "stream": true,
+        "stream_options": { "include_usage": true },
+    });
+    if !req.tools.is_empty() {
+        body["tools"] = json!(req.tools);
+    }
+    if let Some(m) = req.max_tokens {
+        body["max_tokens"] = json!(m);
+    }
+    if let Some(t) = req.temperature {
+        body["temperature"] = json!(t);
+    }
+    body
 }
 
 fn ephemeral() -> Value {

@@ -61,7 +61,7 @@ may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "rou
 may_use = []
 
 [modules.llm]
-may_use = ["config", "endpoint", "journal", "models", "text"]
+may_use = ["config", "endpoint", "journal", "models", "providers", "text"]
 
 [modules.main]
 may_use = ["cli", "sandbox", "trace"]

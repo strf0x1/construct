@@ -1,15 +1,14 @@
-//! The endpoint's model list: fetched from `{base_url}/models`, cached on disk,
-//! searched by name, and laid under the hand-written model catalog
-//! (`crate::models`) as `Config::discovered`. OpenRouter publishes context
-//! length, prices and supported parameters there; other endpoints give ids at
-//! best. The design choice a reader must know: the list only supplies entries
-//! the user's own catalog lacks, and `select_model` resolves them like any
-//! other, so a switch is a cached lookup, never a request, and a failed fetch
-//! falls back to a stale cache instead of failing anything.
+//! A provider's model list: fetched the provider's way (`llm::discover`),
+//! cached on disk per url, and searched by name; `llm::overlay` lays it
+//! under the hand-written catalog. OpenRouter states windows, prices and
+//! supported parameters; vLLM and llama.cpp state windows; others give ids
+//! at best. The design choice a reader must know: a fetch is never on the
+//! UI path, and a failed one falls back to a stale cache instead of failing
+//! anything.
 
 use super::Client;
-use crate::config::{Config, Dialect, Paths, write_atomic};
-use crate::models::{ModelEntry, Pricing};
+use crate::config::{Paths, write_atomic};
+use crate::providers::Discover;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,9 +18,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const TTL_SECS: u64 = 2 * 60 * 60;
 /// One `/models` request, before giving up.
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
-/// Startup waits this long for a list at most; a model request is not worth
-/// delaying for a catalog.
-const STARTUP_WAIT: Duration = Duration::from_secs(3);
 
 /// What one `/models` entry says about a model. Everything but the id is
 /// optional because only some endpoints state it.
@@ -42,9 +38,9 @@ pub struct ModelInfo {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Cached {
-    fetched_at: u64,
-    models: Vec<ModelInfo>,
+pub(super) struct Cached {
+    pub(super) fetched_at: u64,
+    pub(super) models: Vec<ModelInfo>,
 }
 
 /// The entries of a `/models` body (`{"data": [...]}` or a bare array), by id.
@@ -76,7 +72,9 @@ fn entry(e: &Value) -> Option<ModelInfo> {
     Some(ModelInfo {
         id,
         name,
-        context: count(e.get("context_length")),
+        // vLLM states the window it serves as `max_model_len`, beside the
+        // model's trained `context_length`; the served one is what fits.
+        context: count(e.get("max_model_len")).or_else(|| count(e.get("context_length"))),
         max_output: count(e.pointer("/top_provider/max_completion_tokens")),
         prompt_per_m: price("prompt"),
         completion_per_m: price("completion"),
@@ -208,82 +206,37 @@ impl Client {
     }
 }
 
-/// The list: the cache when it is fresh (and `force` is off), else a fetch,
-/// else a stale cache. Errors only when there is nothing at all.
-pub async fn refresh(client: &Client, paths: &Paths, force: bool) -> Result<Vec<ModelInfo>> {
+/// Cache `models` as `base_url`'s list, fetched now.
+pub fn store(paths: &Paths, base_url: &str, models: &[ModelInfo]) {
+    let cache = Cached { fetched_at: now(), models: models.to_vec() };
+    if let Ok(bytes) = serde_json::to_vec(&cache) {
+        let _ = write_atomic(&paths.models_cache(base_url), &bytes);
+    }
+}
+
+/// The list: the cache when it is fresh (and `force` is off), else a fetch
+/// the provider's way (`discover`), else a stale cache. Errors only when
+/// there is nothing at all.
+pub async fn refresh(client: &Client, paths: &Paths, force: bool, how: Discover) -> Result<Vec<ModelInfo>> {
     let old = read(paths, &client.base_url);
     if let Some(c) = old.as_ref().filter(|c| !force && now().saturating_sub(c.fetched_at) <= TTL_SECS) {
         return Ok(c.models.clone());
     }
-    match client.list_models().await {
+    match super::discover::fetch(client, how).await {
         Ok(models) => {
-            let cache = Cached { fetched_at: now(), models: models.clone() };
-            if let Ok(bytes) = serde_json::to_vec(&cache) {
-                let _ = write_atomic(&paths.models_cache(&client.base_url), &bytes);
-            }
+            store(paths, &client.base_url, &models);
             Ok(models)
         }
         Err(e) => old.map(|c| c.models).ok_or(e),
     }
 }
 
-/// Whether `cfg` talks to OpenRouter, whose list states windows.
-fn openrouter(cfg: &Config) -> bool {
-    super::Provider::of(&cfg.endpoint()).dialect == Dialect::OpenRouter
-}
-
-/// A list entry as a catalog entry. Only what OpenRouter states and the
-/// harness uses: the output cap stays the user's, and a pinned top-level
-/// `context_window` is not replaced.
-fn entry_of(m: &ModelInfo, pinned: bool) -> ModelEntry {
-    let tags = [(m.reasoning, "reasoning"), (m.images, "vision")]
-        .into_iter()
-        .filter(|&(on, _t)| on)
-        .map(|(_on, t)| t.to_string())
-        .collect();
-    ModelEntry {
-        label: if m.name == m.id { String::new() } else { m.name.clone() },
-        tags,
-        context_window: if pinned { None } else { m.context },
-        pricing: m.prompt_per_m.zip(m.completion_per_m).map(|(prompt, completion)| Pricing { prompt, completion }),
-        ..ModelEntry::default()
-    }
-}
-
-/// Lay the cached list under the catalog (OpenRouter only, tool-capable
-/// models only) and re-select the model, so its window is the list's unless
-/// the user's own entry or `context_window` says otherwise. Reads the cache
-/// only, so it is safe on the UI path.
-pub fn overlay(cfg: &mut Config, paths: &Paths) {
-    if !openrouter(cfg) {
-        return;
-    }
-    cfg.discovered = cached(paths, &cfg.endpoint().base_url)
-        .iter()
-        .filter(|m| m.tools)
-        .map(|m| (m.id.clone(), entry_of(m, cfg.window_pinned)))
-        .collect();
-    // The model resolved at load; the list only adds entries.
-    let _ = cfg.select_model(&cfg.model.clone());
-}
-
-/// Warm the cache (briefly), then [`overlay`]. For startup, before an agent is built.
-pub async fn prepare(cfg: &mut Config, paths: &Paths) {
-    if !openrouter(cfg) {
-        return;
-    }
-    if let Ok(client) = Client::new(&cfg.endpoint(), None) {
-        let _ = tokio::time::timeout(STARTUP_WAIT, refresh(&client, paths, false)).await;
-    }
-    overlay(cfg, paths);
-}
-
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use serde_json::json;
 
-    fn sample() -> Value {
+    pub(in crate::llm) fn sample() -> Value {
         json!({ "data": [
             { "id": "b/small", "name": "B: Small", "context_length": 32768,
               "pricing": { "prompt": "0.0000003", "completion": "0.0000025" },
@@ -350,51 +303,5 @@ mod tests {
         assert!(row(find(&models, "a/big").unwrap()).contains("1M  free"));
         assert!(listing(&models, "zzz", 5).starts_with("no model matches"));
         assert!(listing(&models, "", 1).contains("and 2 more"));
-    }
-
-    #[test]
-    fn overlay_lays_the_list_under_the_users_catalog() {
-        let dir = std::env::temp_dir().join(format!("construct-catalog-overlay-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let paths = Paths { home: dir.clone() };
-        let cfg_for = |toml: &str| {
-            let mut c: Config = toml::from_str(toml).unwrap();
-            c.select_model(&c.model.clone()).unwrap();
-            c
-        };
-        let mut cfg = cfg_for("model = \"b/small\"");
-        overlay(&mut cfg, &paths);
-        assert!(cfg.discovered.is_empty(), "no cache yet");
-        let cache = Cached { fetched_at: 0, models: parse(&sample()) };
-        write_atomic(&paths.models_cache(&cfg.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
-
-        // A stale cache still overlays: age only matters to `refresh`.
-        overlay(&mut cfg, &paths);
-        assert_eq!(cfg.context_window, 32768);
-        let e = cfg.entry().unwrap();
-        assert_eq!((e.label.as_str(), e.tags.clone()), ("B: Small", vec!["reasoning".to_string(), "vision".into()]));
-        assert!(e.pricing.is_some() && e.max_tokens.is_none());
-        assert!(!cfg.discovered.contains_key("c/chat-only"), "not tool-capable");
-        // A variant id takes its base's window; an unlisted id gets the default back.
-        cfg.select_model("b/small:nitro").unwrap();
-        assert_eq!(cfg.context_window, 32768);
-        cfg.select_model("z/unlisted").unwrap();
-        assert_eq!(cfg.context_window, Config::default().context_window);
-
-        // The user's own entry wins, and a pinned window is kept.
-        let mut own = cfg_for("model = \"b/small\"\n[models.\"b/small\"]\ncontext_window = 9000");
-        overlay(&mut own, &paths);
-        assert_eq!(own.context_window, 9000);
-        let mut pinned = Config { window_pinned: true, ..cfg_for("model = \"b/small\"\ncontext_window = 50000") };
-        overlay(&mut pinned, &paths);
-        assert_eq!(pinned.context_window, 50_000);
-        assert_eq!(pinned.entry().unwrap().label, "B: Small", "the rest still comes from the list");
-
-        let mut local =
-            Config { model: "b/small".into(), base_url: "http://127.0.0.1:1/v1".into(), ..Config::default() };
-        write_atomic(&paths.models_cache(&local.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
-        overlay(&mut local, &paths);
-        assert!(local.discovered.is_empty(), "only OpenRouter states windows");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

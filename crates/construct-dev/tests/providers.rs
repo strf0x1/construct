@@ -143,7 +143,7 @@ fn providers_lists_each_one_and_test_probes_only_the_one_named() {
         "models  ok      2 listed",
         "reply   ok      \"ok\" from mock",
         "tools   ok      called ping",
-        "window  131072 (stated by /models)",
+        "window  131072 (stated by the server)",
     ] {
         assert!(text.contains(want), "missing {want:?}\n{text}");
     }
@@ -177,4 +177,29 @@ fn an_error_from_a_named_provider_says_which_one_its_url_and_key() {
     let out = a.run(&["run", "--no-learn", "go"]);
     let all = format!("{}{}", stdout(&out), String::from_utf8_lossy(&out.stderr));
     assert!(all.contains(&format!("c ({url}, no key): model endpoint returned 404")), "{all}");
+}
+
+#[test]
+fn a_named_providers_model_list_sets_the_window_at_startup_and_is_cached() {
+    let a = Env::new("providers-discover", json!({ "steps": [{ "text": "ok" }] }));
+    // The scripted endpoint lists `mock/small` with a 32768-token window.
+    a.config(&format!("model = \"a/mock/small\"\n[providers.a]\nbase_url = \"http://127.0.0.1:{}/v1\"\n", a.port));
+    let out = a.run(&["run", "--no-learn", "--json", "go"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let head = a.journal().into_iter().find(|r| r.ty == "head").unwrap();
+    assert_eq!(head.payload["manifest"]["context_window"], 32_768, "the window the server's list states");
+    assert_eq!(a.requests()[0]["model"], "mock/small");
+    let list = stdout(&a.run(&["providers"]));
+    assert!(list.lines().any(|l| l.starts_with("a ") && l.contains("2 listed")), "the list is cached\n{list}");
+
+    // `off` asks nothing: the default window stays.
+    let b = Env::new("providers-discover-off", json!({ "steps": [{ "text": "ok" }] }));
+    let cfg = format!(
+        "model = \"a/mock/small\"\n[providers.a]\nbase_url = \"http://127.0.0.1:{}/v1\"\ndiscover = \"off\"\n",
+        b.port
+    );
+    b.config(&cfg);
+    assert!(b.run(&["run", "--no-learn", "go"]).status.success());
+    let head = b.journal().into_iter().find(|r| r.ty == "head").unwrap();
+    assert_eq!(head.payload["manifest"]["context_window"], 131_072);
 }

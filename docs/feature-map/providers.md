@@ -2,7 +2,7 @@
 id: providers
 status: built
 surfaces: [cli, tui]
-depends: [crates/construct/src/providers.rs, crates/construct/src/endpoint.rs, crates/construct/src/cli/providers.rs]
+depends: [crates/construct/src/providers.rs, crates/construct/src/endpoint.rs, crates/construct/src/cli/providers.rs, crates/construct/src/llm/discover.rs, crates/construct/src/llm/overlay.rs]
 ---
 # Providers
 
@@ -15,6 +15,7 @@ Several named endpoints, each with its own url, key and models (ADR 0027). A `[p
 - `providers-list` `construct providers` prints one row per provider: name, url, dialect, key (`set`, `not set` or `none`), how many models it catalogues and how old its cached list is. It sends nothing.
 - `providers-test` `construct providers test <name> [--model id]` prints `models`, `reply` and `tools` lines (`ok` or `FAILED` with the reason and timing) and the window `/models` states; it exits non-zero when any check failed.
 - `providers-errors` an error from a named provider starts with its name, url and key: `gpubox (http://10.0.0.5:8000/v1, key GPUBOX_API_KEY): model endpoint returned 401 …`; a missing key says `gpubox: no API key: set GPUBOX_API_KEY …`.
+- `providers-discover` each named provider's models and windows come from its server at startup, by `discover`: `openai` (default; `/models`, `max_model_len` before `context_length`; also `vllm`), `llama.cpp` (adds `/props`' loaded `n_ctx`), `ollama` (`/api/tags`, `/api/show` `num_ctx`) or `off`. Startup waits up to 3 s for the selected model's provider only; the list is cached per url, its models are offered as `name/id`, and it never decides where a bare id goes. A window's precedence: the user's entry, then `[providers.x] context_window`, then the list, then the top-level. `/status` says which (`· from the server's model list`).
 - `providers-status` the status line shows `provider/id`, `/status` has an `endpoint` row (`local · http://…`), and the journal's `model` rows and manifest carry `provider`.
 
 ## How to get to it (user POV)
@@ -31,11 +32,12 @@ Preconditions:
 
 - Two scripted endpoints, as in `crates/construct-dev/tests/providers.rs`; the TUI side is the `providers-picker` recipe (see [Model picker](./model-picker.md)).
 
-- **List and test.** Drive: `construct providers`, then `construct providers test a --model mock` against a scripted endpoint whose side reply is `ok` and whose step is a `ping` call. Expect: rows for `default`, `a` and `b`; `models  ok`, `reply   ok`, `tools   ok      called ping`, `window  131072 (stated by /models)`; the endpoint's log shows `a`'s key twice and `b` untouched.
+- **List and test.** Drive: `construct providers`, then `construct providers test a --model mock` against a scripted endpoint whose side reply is `ok` and whose step is a `ping` call. Expect: rows for `default`, `a` and `b`; `models  ok`, `reply   ok`, `tools   ok      called ping`, `window  131072 (stated by the server)`; the endpoint's log shows `a`'s key twice and `b` untouched.
 - **Second view.** The scripted endpoints' request logs. Drive: `cargo test -p construct-dev --test it providers::`. Expect: every test passes; each reads `Env::auth_seen` and `Env::requests` for which key and which `model` reached which endpoint.
 - Contract: `crates/construct-dev/tests/providers.rs`, `crates/construct/src/providers.rs` unit tests.
 
 ## Gotchas
 
 - `CONSTRUCT_BASE_URL` overrides only the `default` provider's url.
-- OpenRouter's list fills in windows only for `default` until discovery is per provider (#129 step 4).
+- `default` is asked for its list only while it serves the selected model, and only when it is OpenRouter (ADR 0020).
+- llama.cpp behind a router: `/props` names a model file the router lists under another id, so only `max_model_len` in `/models` counts.

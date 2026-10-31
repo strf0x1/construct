@@ -64,7 +64,7 @@ fn ago(d: Duration) -> String {
 }
 
 /// Probe `name`: prints one line per step and fails if any step did.
-pub(super) async fn test(cfg: &Config, name: &str, model: Option<String>) -> Result<()> {
+pub(super) async fn test(cfg: &Config, paths: &Paths, name: &str, model: Option<String>) -> Result<()> {
     let Some((ep, ids)) = cfg.provider(name) else {
         bail!("no provider {name:?}; there are: {}", cfg.provider_names().join(", "));
     };
@@ -74,10 +74,11 @@ pub(super) async fn test(cfg: &Config, name: &str, model: Option<String>) -> Res
     let client = llm::Client::new(&ep, ep.require(ep.key())?)?;
     let mut failed = 0;
 
-    let started = Instant::now();
-    let listed = match client.list_models().await {
+    let (started, how) = (Instant::now(), cfg.discovery(name));
+    let listed = match llm::discover::fetch(&client, how).await {
         Ok(m) => {
-            println!("models  ok      {} listed in {} ms", m.len(), started.elapsed().as_millis());
+            println!("models  ok      {} listed in {} ms ({how:?})", m.len(), started.elapsed().as_millis());
+            catalog::store(paths, &ep.base_url, &m);
             m
         }
         Err(e) => {
@@ -131,8 +132,8 @@ pub(super) async fn test(cfg: &Config, name: &str, model: Option<String>) -> Res
     }
 
     match catalog::find(&listed, &model).and_then(|m| m.context) {
-        Some(w) => println!("window  {w} (stated by /models)"),
-        None => println!("window  not stated by /models"),
+        Some(w) => println!("window  {w} (stated by the server)"),
+        None => println!("window  not stated by the server"),
     }
     if failed > 0 {
         bail!("{name}: {failed} of 3 checks failed");

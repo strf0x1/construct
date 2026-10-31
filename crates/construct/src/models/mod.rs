@@ -13,11 +13,13 @@
 
 use crate::config::{CacheMode, Config, Dialect};
 use crate::endpoint::Endpoint;
-use crate::providers::Resolved;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
+
+mod select;
+pub use select::Defaults;
 
 /// One catalog entry. Everything is optional: an entry names only what
 /// differs from the top-level settings.
@@ -107,114 +109,7 @@ impl ModelEntry {
     }
 }
 
-/// The top-level limits an entry can cover, as they were before any entry.
-#[derive(Debug, Clone)]
-pub struct Defaults {
-    context_window: u32,
-    max_tokens: Option<u32>,
-}
-
-impl Defaults {
-    fn of(cfg: &Config) -> Self {
-        Self { context_window: cfg.context_window, max_tokens: cfg.max_tokens }
-    }
-
-    fn restore(&self, cfg: &mut Config) {
-        cfg.context_window = self.context_window;
-        cfg.max_tokens = self.max_tokens;
-    }
-}
-
 impl Config {
-    /// Make `selector` the model: the defaults, its provider's defaults, then
-    /// its catalog entry if it has one. A selector that resolves to more than
-    /// one provider changes nothing.
-    pub fn select_model(&mut self, selector: &str) -> Result<()> {
-        let to = self.resolve(selector)?;
-        let defaults = match &self.defaults {
-            Some(d) => d.clone(),
-            None => {
-                let d = Box::new(Defaults::of(self));
-                self.defaults = Some(d.clone());
-                d
-            }
-        };
-        defaults.restore(self);
-        if let Some(p) = to.provider.as_ref().and_then(|p| self.providers.get(p)) {
-            self.context_window = p.context_window.unwrap_or(self.context_window);
-            self.max_tokens = p.max_tokens.or(self.max_tokens);
-        }
-        self.model = selector.to_string();
-        if let Some(e) = self.lookup(selector).cloned() {
-            e.apply(self);
-        }
-        Ok(())
-    }
-
-    /// The entry for `selector`: its provider's catalog; for `default`, the
-    /// user's catalog, then the endpoint's own list (which also knows
-    /// `vendor/model:variant` by `vendor/model`).
-    pub fn lookup(&self, selector: &str) -> Option<&ModelEntry> {
-        let Resolved { provider, id } = self.resolve(selector).ok()?;
-        if let Some(p) = provider {
-            return self.providers.get(&p)?.models.get(&id);
-        }
-        self.models.get(&id).or_else(|| self.discovered.get(&id)).or_else(|| {
-            let (base, _) = id.split_once(':')?;
-            self.discovered.get(base)
-        })
-    }
-
-    /// Where the selected model's requests go.
-    pub fn endpoint(&self) -> Endpoint {
-        self.endpoint_for(&self.model)
-    }
-
-    /// Where `selector`'s requests go: its provider's endpoint (the declared
-    /// one for `default`), moved by its catalog entry if that names one.
-    pub fn endpoint_for(&self, selector: &str) -> Endpoint {
-        let named = self.resolve(selector).ok().and_then(|r| r.provider);
-        let base = match named.as_ref().and_then(|p| self.providers.get(p).map(|d| (p, d))) {
-            Some((name, p)) => p.endpoint(name),
-            None => Endpoint::declared(self),
-        };
-        match self.lookup(selector) {
-            Some(e) => e.endpoint(base),
-            None => base,
-        }
-    }
-
-    /// Make `ep` the declared endpoint and the selected model a plain id on
-    /// it: a delegated child is handed its endpoint this way, already
-    /// resolved, so nothing in its config can send it elsewhere.
-    pub fn pin_endpoint(&mut self, ep: Endpoint) {
-        let id = self.wire_id(&self.model);
-        let entry = self.lookup(&self.model).cloned();
-        // A summarizer elsewhere is not the child's to reach; it uses its own model.
-        let summarizer = std::mem::take(&mut self.compaction.model);
-        if !summarizer.is_empty() && self.endpoint_for(&summarizer).base_url == ep.base_url {
-            self.compaction.model = self.wire_id(&summarizer);
-        }
-        self.base_url = ep.base_url;
-        self.api_key_secret = ep.api_key_secret;
-        self.headers = ep.headers;
-        self.provider = ep.provider;
-        self.providers.clear();
-        if let Some(mut e) = entry {
-            e.base_url.clear();
-            e.api_key_secret.clear();
-            e.dialect = None;
-            e.cache = None;
-            self.models.insert(id.clone(), e);
-        }
-        self.model = id;
-    }
-
-    /// The catalog entry of the selected model.
-    pub fn entry(&self) -> Option<&ModelEntry> {
-        self.lookup(&self.model)
-    }
-
     /// Fold `models.toml` into `[models.*]`; on a clash `config.toml` wins,
     /// being the file the user edits for this machine.
     pub(crate) fn load_catalog(&mut self, file: &Path) -> Result<()> {

@@ -52,6 +52,21 @@ pub enum CacheMode {
     Off,
 }
 
+/// How a provider's models and windows are learned (`llm::discover`).
+/// `openai` reads `/models` (also vLLM's); `llama.cpp` adds the loaded
+/// context from `/props`; `ollama` reads `/api/tags` and `/api/show`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Discover {
+    #[default]
+    #[serde(alias = "vllm")]
+    Openai,
+    #[serde(rename = "llama.cpp", alias = "llamacpp")]
+    LlamaCpp,
+    Ollama,
+    Off,
+}
+
 /// One `[providers.<name>]` table. Everything is optional for a preset.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -64,12 +79,19 @@ pub struct Provider {
     pub headers: BTreeMap<String, String>,
     pub dialect: Option<Dialect>,
     pub cache: Option<CacheMode>,
-    /// Defaults for this provider's models, under any model entry.
+    /// How to learn its models and their windows; `off` asks nothing.
+    pub discover: Discover,
+    /// Defaults for this provider's models, under any model entry. A
+    /// `context_window` here wins over a discovered one.
     pub context_window: Option<u32>,
     pub max_tokens: Option<u32>,
     /// This provider's catalog. An entry here is served by the provider, so
     /// it names no `base_url` or `api_key_secret` of its own.
     pub models: BTreeMap<String, ModelEntry>,
+    /// What discovery found (`llm::overlay::overlay`); `models` wins an id
+    /// in both, and resolution never looks here (decision 5).
+    #[serde(skip)]
+    pub discovered: BTreeMap<String, ModelEntry>,
 }
 
 /// A built-in provider: one row of data, never a code path.
@@ -165,7 +187,8 @@ impl Config {
             }
         }
         let mut named = self.providers.iter().filter(|(_, p)| p.models.contains_key(selector)).map(|(n, _)| n);
-        let default_lists = self.models.contains_key(selector) || self.discovered.contains_key(selector);
+        // Only what the user catalogued: a fetched list never changes where an id goes.
+        let default_lists = self.models.contains_key(selector);
         match (named.next(), named.next(), default_lists) {
             (Some(n), None, false) => Ok(Resolved { provider: Some(n.clone()), id: selector.to_string() }),
             (None, _, _) => Ok(Resolved { provider: None, id: selector.to_string() }),
@@ -192,6 +215,11 @@ impl Config {
     /// The named provider serving the selected model; `None` for `default`.
     pub fn provider_name(&self) -> Option<String> {
         self.resolve(&self.model).ok().and_then(|r| r.provider)
+    }
+
+    /// How provider `name` learns its models: `openai` for `default`.
+    pub fn discovery(&self, name: &str) -> Discover {
+        self.providers.get(name).map_or(Discover::Openai, |p| p.discover)
     }
 
     /// Every provider's name, `default` first.
@@ -238,6 +266,7 @@ impl Config {
         let mut ids: Vec<String> = self.models.keys().map(plain).collect();
         for (name, p) in &self.providers {
             ids.extend(p.models.keys().map(|id| format!("{name}/{id}")));
+            ids.extend(p.discovered.keys().filter(|id| !p.models.contains_key(*id)).map(|id| format!("{name}/{id}")));
         }
         ids.extend(self.discovered.keys().filter(|id| !self.models.contains_key(*id)).map(plain));
         ids
