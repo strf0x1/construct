@@ -54,7 +54,7 @@ pub(super) struct Prompt {
 }
 
 impl Prompt {
-    fn new(request: Request, reply: oneshot::Sender<Decision>) -> Self {
+    pub(super) fn new(request: Request, reply: oneshot::Sender<Decision>) -> Self {
         Self { request, reply: Some(reply), shown: Instant::now(), folder: false, selected: 0 }
     }
 

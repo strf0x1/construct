@@ -20,6 +20,7 @@ mod peek;
 mod picker;
 mod prompt;
 mod status;
+mod table;
 mod theme;
 mod view;
 mod worker;

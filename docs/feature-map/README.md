@@ -42,3 +42,4 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
 - [Scroll and copy](./scroll-copy.md) — wheel and keys scroll the transcript without mouse capture; `/copy` puts the last reply on the clipboard
 - [Status line](./status-line.md) — the bottom row: model, cumulative in/out/cache, cost, context use, session id
+- [Long text wraps](./long-text.md) — long table cells and the permission panel's path, command and tool call wrap instead of ending in `…`
