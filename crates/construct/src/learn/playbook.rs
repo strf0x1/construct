@@ -242,7 +242,8 @@ pub(super) fn session_text(messages: &[Message]) -> String {
 }
 
 pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result<Outcome> {
-    let client = llm::Client::new(cfg, cfg.endpoint_key())?;
+    let ep = cfg.endpoint();
+    let client = llm::Client::new(&ep, ep.key())?;
     let mut books = Books::load(paths);
     let task = format!("{}{}", session_text(messages), books.listing());
     let v: Value = ask_json(&client, cfg.learn_model(), SYSTEM, &task, 1500).await?;

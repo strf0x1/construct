@@ -10,6 +10,7 @@ pub mod child;
 pub mod cli;
 pub mod compact;
 pub mod config;
+pub mod endpoint;
 pub mod event;
 pub mod guard;
 pub mod home;

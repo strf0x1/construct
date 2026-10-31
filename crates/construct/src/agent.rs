@@ -15,7 +15,7 @@ use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
 use crate::tools::{Call, Catalog, Ctx, ENABLE_TOOLS, Group, OutputKind};
-use anyhow::{Result, bail};
+use anyhow::Result;
 use futures::future::join_all;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -72,14 +72,12 @@ impl Agent {
         resume: Option<String>,
         origin: Option<Origin>,
     ) -> Result<Self> {
-        let key = match origin {
-            Some(_) => crate::secrets::env_key(&cfg.api_key_secret),
-            None => cfg.endpoint_key(),
-        };
-        if key.is_none() && !cfg.api_key_secret.is_empty() {
-            bail!(crate::secrets::missing_key(&cfg.api_key_secret));
-        }
-        let client = llm::Client::new(&cfg, key)?;
+        let ep = cfg.endpoint();
+        let key = ep.require(match origin {
+            Some(_) => ep.env_key(),
+            None => ep.key(),
+        })?;
+        let client = llm::Client::new(&ep, key)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -176,14 +174,10 @@ impl Agent {
     pub fn set_model(&mut self, id: &str, tx: &Events) -> Result<()> {
         let mut cfg = self.cfg.clone();
         cfg.select_model(id);
-        let moved = (&cfg.base_url, &cfg.api_key_secret, &cfg.provider, &cfg.headers)
-            != (&self.cfg.base_url, &self.cfg.api_key_secret, &self.cfg.provider, &self.cfg.headers);
-        if moved {
-            let key = cfg.endpoint_key();
-            if key.is_none() && !cfg.api_key_secret.is_empty() {
-                bail!(crate::secrets::missing_key(&cfg.api_key_secret));
-            }
-            self.client = llm::Client::new(&cfg, key)?;
+        let ep = cfg.endpoint();
+        if ep != self.cfg.endpoint() {
+            let key = ep.require(ep.key())?;
+            self.client = llm::Client::new(&ep, key)?;
             self.client.warm();
         }
         self.cfg = cfg;

@@ -224,7 +224,7 @@ pub async fn refresh(client: &Client, paths: &Paths, force: bool) -> Result<Vec<
 
 /// Whether `cfg` talks to OpenRouter, whose list states windows.
 fn openrouter(cfg: &Config) -> bool {
-    super::Provider::new(&cfg.provider, &cfg.base_url).dialect == Dialect::OpenRouter
+    super::Provider::of(&cfg.endpoint()).dialect == Dialect::OpenRouter
 }
 
 /// A list entry as a catalog entry. Only what OpenRouter states and the
@@ -253,7 +253,7 @@ pub fn overlay(cfg: &mut Config, paths: &Paths) {
     if !openrouter(cfg) {
         return;
     }
-    cfg.discovered = cached(paths, &cfg.base_url)
+    cfg.discovered = cached(paths, &cfg.endpoint().base_url)
         .iter()
         .filter(|m| m.tools)
         .map(|m| (m.id.clone(), entry_of(m, cfg.window_pinned)))
@@ -266,7 +266,7 @@ pub async fn prepare(cfg: &mut Config, paths: &Paths) {
     if !openrouter(cfg) {
         return;
     }
-    if let Ok(client) = Client::new(cfg, None) {
+    if let Ok(client) = Client::new(&cfg.endpoint(), None) {
         let _ = tokio::time::timeout(STARTUP_WAIT, refresh(&client, paths, false)).await;
     }
     overlay(cfg, paths);

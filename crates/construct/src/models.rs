@@ -3,14 +3,16 @@
 //! `$CONSTRUCT_HOME/models.toml` and `[models.*]` in `config.toml`.
 //!
 //! The one design choice: the top-level `Config` fields stay the defaults,
-//! and `Config::select_model` lays an entry over them, remembering what it
-//! covered. So a switch always lands on "defaults plus that entry", whatever
-//! was selected before, and an id the catalog doesn't know gets the defaults
-//! again. Field names follow OpenRouter's `/models` (`context_length`,
+//! and `Config::select_model` lays an entry's limits over them, remembering
+//! what it covered. So a switch always lands on "defaults plus that entry",
+//! whatever was selected before, and an id the catalog doesn't know gets the
+//! defaults again. An entry's endpoint is never laid over anything:
+//! `Config::endpoint` resolves it on each call (ADR 0027). Field names follow OpenRouter's `/models` (`context_length`,
 //! `top_provider.max_completion_tokens`, `pricing`) so a later auto-fill is a
 //! straight mapping.
 
-use crate::config::{CacheMode, Config, Dialect, ProviderConfig};
+use crate::config::{CacheMode, Config, Dialect};
+use crate::endpoint::Endpoint;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -72,7 +74,7 @@ impl ModelEntry {
         Ok(())
     }
 
-    /// Lay this entry over `cfg`.
+    /// Lay this entry's limits over `cfg`.
     fn apply(&self, cfg: &mut Config) {
         if let Some(w) = self.context_window {
             cfg.context_window = w;
@@ -80,54 +82,45 @@ impl ModelEntry {
         if self.max_tokens.is_some() {
             cfg.max_tokens = self.max_tokens;
         }
-        if !self.base_url.is_empty() {
-            cfg.base_url = self.base_url.trim_end_matches('/').to_string();
-            cfg.headers.clear();
-            cfg.provider = ProviderConfig::default();
+    }
+
+    /// The endpoint this entry's model is served from, given the declared one.
+    fn endpoint(&self, declared: Endpoint) -> Endpoint {
+        let mut ep = if !self.base_url.is_empty() {
             // A key found for one host is never sent to another.
-            cfg.api_key_secret = self.api_key_secret.clone();
+            declared.moved(&self.base_url, &self.api_key_secret)
         } else if !self.api_key_secret.is_empty() {
-            cfg.api_key_secret = self.api_key_secret.clone();
-        }
+            let mut ep = declared;
+            ep.api_key_secret = self.api_key_secret.clone();
+            ep
+        } else {
+            declared
+        };
         if let Some(d) = self.dialect {
-            cfg.provider.dialect = d;
+            ep.provider.dialect = d;
         }
         if let Some(c) = self.cache {
-            cfg.provider.cache = c;
+            ep.provider.cache = c;
         }
+        ep
     }
 }
 
-/// The top-level values an entry can cover, as they were before any entry.
+/// The top-level limits an entry can cover, as they were before any entry.
 #[derive(Debug, Clone)]
 pub struct Defaults {
     context_window: u32,
     max_tokens: Option<u32>,
-    base_url: String,
-    api_key_secret: String,
-    headers: BTreeMap<String, String>,
-    provider: ProviderConfig,
 }
 
 impl Defaults {
     fn of(cfg: &Config) -> Self {
-        Self {
-            context_window: cfg.context_window,
-            max_tokens: cfg.max_tokens,
-            base_url: cfg.base_url.clone(),
-            api_key_secret: cfg.api_key_secret.clone(),
-            headers: cfg.headers.clone(),
-            provider: cfg.provider.clone(),
-        }
+        Self { context_window: cfg.context_window, max_tokens: cfg.max_tokens }
     }
 
     fn restore(&self, cfg: &mut Config) {
         cfg.context_window = self.context_window;
         cfg.max_tokens = self.max_tokens;
-        cfg.base_url = self.base_url.clone();
-        cfg.api_key_secret = self.api_key_secret.clone();
-        cfg.headers = self.headers.clone();
-        cfg.provider = self.provider.clone();
     }
 }
 
@@ -158,15 +151,30 @@ impl Config {
         })
     }
 
-    /// The key for the selected model's endpoint. Where an entry moved the
-    /// endpoint off the default one, only the entry's own secret counts: no
-    /// OpenRouter fallback, which would hand that key to the other host.
-    pub fn endpoint_key(&self) -> Option<String> {
-        let moved = self.defaults.as_ref().is_some_and(|d| d.base_url != self.base_url);
-        match (moved, self.api_key_secret.is_empty()) {
-            (true, true) => None,
-            (true, false) => crate::secrets::get(&self.api_key_secret),
-            (false, _) => crate::secrets::api_key(&self.api_key_secret),
+    /// Where the selected model's requests go: the declared endpoint, moved
+    /// by its catalog entry if that names one.
+    pub fn endpoint(&self) -> Endpoint {
+        let declared = Endpoint::declared(self);
+        match self.entry() {
+            Some(e) => e.endpoint(declared),
+            None => declared,
+        }
+    }
+
+    /// Make `ep` the declared endpoint, and stop the selected model's entry
+    /// from moving it: a delegated child is handed its endpoint this way,
+    /// already resolved.
+    pub fn pin_endpoint(&mut self, ep: Endpoint) {
+        self.base_url = ep.base_url;
+        self.api_key_secret = ep.api_key_secret;
+        self.headers = ep.headers;
+        self.provider = ep.provider;
+        let model = self.model.clone();
+        if let Some(e) = self.models.get_mut(&model) {
+            e.base_url.clear();
+            e.api_key_secret.clear();
+            e.dialect = None;
+            e.cache = None;
         }
     }
 
@@ -262,12 +270,11 @@ mod tests {
         c.select_model("small");
         assert_eq!(c.context_window, 32768);
         assert_eq!(c.max_tokens, Some(4000), "an entry that names no cap leaves the default");
-        assert_eq!(c.base_url, "https://other.example/v1");
-        assert_eq!(c.api_key_secret, "OTHER_KEY");
+        assert_eq!(c.endpoint().base_url, "https://other.example/v1");
+        assert_eq!(c.endpoint().api_key_secret, "OTHER_KEY");
         c.select_model("some/other-id");
         assert_eq!((c.context_window, c.max_tokens), (131_072, Some(4000)));
-        assert_eq!(c.base_url, Config::default().base_url, "the endpoint is back too");
-        assert_eq!(c.api_key_secret, Config::default().api_key_secret);
+        assert_eq!(c.endpoint(), Endpoint::declared(&Config::default()), "the endpoint is back too");
         assert!(c.entry().is_none());
     }
 
@@ -276,17 +283,18 @@ mod tests {
         let mut c =
             cfg_with("api_key_secret = \"MAIN_KEY\"\n[models.local]\nbase_url = \"http://127.0.0.1:8080/v1\"\n");
         c.select_model("local");
-        assert_eq!(c.api_key_secret, "", "the default's secret is not sent to another host");
-        assert!(c.endpoint_key().is_none(), "and neither is the OpenRouter fallback");
+        assert_eq!(c.endpoint().api_key_secret, "", "the default's secret is not sent to another host");
+        assert!(c.endpoint().key().is_none(), "and neither is the OpenRouter fallback");
+        assert_eq!(c.api_key_secret, "MAIN_KEY", "what config.toml declares is untouched");
     }
 
     #[test]
     fn another_endpoint_leaves_the_extra_headers_behind() {
         let mut c = cfg_with(&format!("{CATALOG}\n[headers]\nX-Title = \"construct\"\n"));
         c.select_model("small");
-        assert!(c.headers.is_empty());
+        assert!(c.endpoint().headers.is_empty());
         c.select_model("big");
-        assert_eq!(c.headers.len(), 1);
+        assert_eq!(c.endpoint().headers.len(), 1);
     }
 
     #[test]

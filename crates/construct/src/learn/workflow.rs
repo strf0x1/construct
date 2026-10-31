@@ -81,7 +81,8 @@ pub async fn induce(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result
     let Some(kit) = crate::project::detect(paths, &cwd) else {
         return Ok(Outcome { summary: "Not in a repo; workflows are per repo.".into(), actions: vec![] });
     };
-    let client = llm::Client::new(cfg, cfg.endpoint_key())?;
+    let ep = cfg.endpoint();
+    let client = llm::Client::new(&ep, ep.key())?;
     let current = load(&kit.dir);
     let mut task = format!("<session>\n{}\n</session>\n\n", digest(messages, 40_000));
     task.push_str(&evidence::section(messages));

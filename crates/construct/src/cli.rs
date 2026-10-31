@@ -219,7 +219,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Models { query, refresh, limit }) => rt.block_on(async {
-            let client = llm::Client::new(&cfg, None)?;
+            let client = llm::Client::new(&cfg.endpoint(), None)?;
             let models = llm::catalog::refresh(&client, &paths, refresh).await?;
             println!("{}", llm::catalog::listing(&models, &query.join(" "), limit));
             Ok(())
