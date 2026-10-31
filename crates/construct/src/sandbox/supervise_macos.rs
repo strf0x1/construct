@@ -101,6 +101,15 @@ pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
         if n > 0 && ev.filter == libc::EVFILT_PROC && ev.ident == parent as usize {
             break;
         }
+        // NOTE_EXIT is delivered a moment before the shell can be reaped, and
+        // is delivered once: a non-blocking wait here could miss it for good.
+        if n > 0 && ev.filter == libc::EVFILT_PROC && ev.ident == shell as usize {
+            let mut st = 0;
+            // SAFETY: waits for our own child, which has exited.
+            if unsafe { libc::waitpid(shell, &mut st, 0) } == shell {
+                status = Some(st);
+            }
+        }
     }
     for (pid, comm) in sweep(shell) {
         eprintln!("{SWEPT} {pid} {comm}");
