@@ -1,121 +1,138 @@
 # construct
 
-A lean, single-binary coding agent in Rust. One idea, really:
+A fast, self-improving coding agent in a single Rust binary.
 
-> **Hermes Agent's self-improving loop, at opencode's speed.**
+construct works with any OpenAI-compatible endpoint, runs its tools in a
+sandbox, keeps a full record of every session, and learns from what goes
+wrong. When a problem comes up more than once, it writes itself a skill or a
+memory so it doesn't happen again.
 
-Hermes gets better the more you use it — it watches a session, and when a
-problem keeps happening it writes itself a skill or a memory so it doesn't
-trip on it again. opencode is fast: first frame is instant, the first request
-is small, nothing blocks the UI. construct is an attempt to have both in one
-binary you can drop on a box: an OpenAI-compatible streaming loop, in-process
-tools, capped memory and agent-written skills, a background learning pass, a
-Jev/local router, and a zero-flicker TUI.
+## Install
 
-## Why this exists
-
-This started as a goal-style challenge — *how far can a strong model push a
-harness if you just point it at the problem and let it iterate?* — and it's
-meant to stay fun. It's not a product and it's not a résumé line. It's a thing
-we build because building it is the good part.
-
-But it has one serious rule, and the rule is the whole point:
-
-> **Measure, change, measure again. Post every number — including the losses.**
-
-No "feels faster." No shipping a change because it's clever. If a change can't
-show up in a benchmark, it doesn't land, and if a benchmark says we got worse,
-that goes in the log too. The entire history of what we tried, what won, and
-what embarrassed us lives in [`bench/results/logs/observations.md`](bench/results/logs/observations.md).
-Read that first if you want to know what actually happened versus what sounded
-good at the time.
-
-## Why Rust
-
-Fast and safe, and here both matter literally. Fast: the harness overhead
-(first frame, first request size, tool latency, memory) has to disappear next
-to the model's own latency, and Rust lets us get there without a runtime
-fighting us. Safe: the agent runs real shell commands and touches the
-filesystem, so the boundary around it is load-bearing. On Linux that boundary
-is Landlock, wired straight into the binary (`crates/construct/src/sandbox/mod.rs`). An agent with
-nothing to go on *searches the disk* — we've watched one read the API-key files
-and another hand-roll a SHA-256 brute-forcer — and the sandbox is what turns
-that from an incident into a contained, denied, logged non-event.
-
-## The shape of it
-
-| Piece | Where | What |
-|---|---|---|
-| The loop | `crates/construct/src/agent.rs`, `crates/construct/src/llm/` | Route, stream, run tools, compact. Everything observable is an `Event`. |
-| Tools | `crates/construct/src/tools/` | shell, read/write/edit/grep/glob, web, memory/skill/session search. |
-| Router | `crates/construct/src/router.rs`, `crates/construct/src/jev.rs` | Per-turn tool groups + skill suggestions. Jev (TypeSafe's System One) when a key resolves, local otherwise. |
-| Learning | `crates/construct/src/learn/` | Observation ledger → recurrence gate → a skill or memory only when a problem *repeats*. Runs detached after a session. |
-| Memory & skills | `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs`, `crates/construct/src/project.rs` | Capped `§` memory, agent-written skills, and per-repo "project kits" that follow the repo, not the session. |
-| Sandbox | `crates/construct/src/sandbox/mod.rs` | The boundary: Landlock for shell and MCP servers, path checks for file tools, a credential-free env. |
-| TUI | `crates/construct/src/tui/` | ratatui app, first frame waits on nothing. |
-
-For how to actually build, run, and test it — including running the whole thing
-against a scripted model with no API key — see **[AGENTS.md](AGENTS.md)**. That's
-the working manual; this file is the why.
-
-## Try your changes interactively
+Linux x86-64 (glibc 2.35 or newer):
 
 ```sh
-./scripts/try.py
+curl -fsSL https://construct.sprawlcommons.com/install.sh | sh
 ```
 
-Builds the current checkout, copies the fresh binary and a small Python project
-into `.construct/try/run-…/`, and opens the construct TUI ready to type. The
-default is [Claude Haiku 5.5 on OpenRouter](https://openrouter.ai/anthropic/claude-haiku-5.5).
-It uses `OPENROUTER_API_KEY` from your environment or OS keyring, or your existing
-`~/.config/construct-bench.key`. To save a key once, run
-`target/debug/construct secrets set OPENROUTER_API_KEY` (reads the key from stdin).
+The installer checks the release's SHA-256, makes sure the binary runs, and
+puts `construct` in `~/.local/bin`. It doesn't use sudo or edit your shell
+profile. Pass `sh -s -- --version vX.Y.Z` to pin a version, or download an
+archive from [Releases](https://github.com/strf0x1/construct/releases).
 
-The sample has a broken `mean` function and tests: try asking construct to run
-the tests and fix it. Each launch gets its own project copy, config, memory,
-and journal, with the workspace sandbox enabled. The test folder is printed
-before launch and kept after exit so you can inspect the results.
+Only Linux is supported for now, because the sandbox is built on Landlock.
+
+To build from source:
 
 ```sh
-./scripts/try.py --project /path/to/project  # test in a copy of your own project
-./scripts/try.py --model anthropic/claude-haiku-5.5
-./scripts/try.py --release                 # optimized build; slower to compile
+cargo build --release -p construct   # target/release/construct
 ```
 
-Project copies start a new Git repository and omit `.git`, `.construct`, `.env*`,
-`*.key`, `*.pem`, `target`, `node_modules`, `.venv`, and `__pycache__`; install dependencies in the copy if
-needed. Extra construct arguments go after `--`. Use `--base-url` for a local
-or scripted endpoint (credentials then use `OPENAI_API_KEY`).
+## Quick start
 
-## What's benchmarked (and what isn't, yet)
+Store a key once. `construct secrets set` reads the key from stdin and keeps
+it in the OS keyring:
 
-Honesty clause, because it's easy to overclaim:
+```sh
+construct secrets set OPENROUTER_API_KEY   # OpenRouter (the default endpoint)
+construct secrets set OPENAI_API_KEY       # any other OpenAI-compatible endpoint
+```
 
-- The microbenchmarks (`size`, `frame`, `tools`, `memory`) measure harness
-  overhead directly, against a mock model.
-- The behavioral suites (`task`, `routing`, `loop`) run a real model against
-  **one tiny synthetic fixture** — a ~6-line Python `stats` library with a
-  planted bug, a planted routing landmine, or a planted learning landmine. These
-  are sharp instruments for isolating one property each (first-request size,
-  routing hit, learning-on-recurrence). They are **not** evidence of edit
-  quality on real code. That gap is tracked in issue #15.
-- Adapters exist for `hermes` and `opencode` (and their source is vendored in
-  `research/src/` for reading how they work), but we have **not** run a
-  real-model head-to-head against them yet — that's gated on sandboxing them
-  first (issue #4). So "beats Hermes and opencode" is the *goal*, not yet a
-  *result*.
+Then:
 
-The one clean behavioral win so far: the self-improving loop works end to end.
-On the seeded loop bench, construct passes the held-out session 3/3 while a
-no-memory control passes 0/3, because the learner wrote itself the missing
-procedure after seeing the problem twice. Numbers and caveats are in the
-observations log.
+```sh
+construct                                   # full-screen TUI in the current directory
+construct run "fix the failing test"        # one prompt, headless
+construct -c                                # continue the last session here
+```
 
-## Where to pick up
+**OpenRouter** works out of the box and gives you the full model browser:
+`/models` shows each model's context window and price.
 
-1. Read [`bench/results/logs/observations.md`](bench/results/logs/observations.md) — the real story, including every dead end.
-2. Read [AGENTS.md](AGENTS.md) — how to build, run, and test.
-3. Skim the open [issues](https://github.com/strf0x1/construct/issues) — that's the queue, roughly in priority order. Most of them came out of a benchmark telling us something.
-4. When you make a change: score it on the relevant bench before and after, and add a line to the observations log. If you can't measure it, that's the first problem to solve, not an exception to the rule.
+**Any other OpenAI-compatible endpoint** also works, including OpenAI itself
+or a local server such as llama.cpp, vLLM, Ollama or LM Studio. Set
+`base_url` and `model` in `~/.construct/config.toml`:
 
-Keep it honest, keep it measured, and keep it fun.
+```toml
+base_url = "http://127.0.0.1:8080/v1"
+model = "qwen3-coder"
+```
+
+You can also set `CONSTRUCT_BASE_URL` and `CONSTRUCT_MODEL` for a single run.
+The key goes in `OPENAI_API_KEY` (a local server that doesn't check keys
+accepts any value). `/models` still lists the endpoint's models, but you
+won't get windows or prices.
+
+Keys come from the environment first, then the OS keyring. `construct config`
+shows the config path and the settings in effect.
+
+Type `/` in the TUI to list commands (`/model`, `/skills`, `/memory`,
+`/status`, …).
+
+## Features
+
+**Journal.** Each project's sessions are written to a SQLite journal
+(`~/.construct/projects/<id>/journal.sqlite`), one row per event: messages,
+tool calls, permission decisions, jobs. Resume uses it, `construct sessions`
+reads and exports it, and the agent can query its own history with read-only
+SQL.
+
+**Subagents.** Define agents under `[agents.<name>]` and the model can
+`delegate` a self-contained task to one. Each child is its own sandboxed
+process with its own tools, model and prompt. It can also be an external ACP
+agent, such as a Codex, Claude, Gemini or opencode adapter. When a child
+needs more access, you get the same permission prompt, labeled with the
+child's name.
+
+**Background jobs.** A shell command or a delegated agent can run in the
+background. The model gets a job id right away and keeps working. When the
+job finishes, the agent picks it up on its own, whether that's a CI watch, a
+slow test suite or a long-running child.
+
+**Learning.** After a session ends, a background pass looks at what happened.
+A cheap gate runs first and decides whether there's anything worth reviewing,
+so most sessions cost nothing extra. What it learns becomes capped memory
+(`USER.md`, `MEMORY.md`), per-project facts and conventions, or skills that
+the agent writes and maintains itself. Anything it keeps is checked first for
+credentials and for text that tries to steer the agent.
+
+**Sandbox and permissions.** Shell commands and MCP servers run under
+Landlock, file tools check paths, and the environment carries no
+credentials. By default the agent can touch the working directory, a private
+temp dir, and system paths and toolchains. Anything else asks you first; you
+can allow it once, for the session, or permanently in config.
+
+**Compaction.** When history grows past the context window, construct stubs
+old tool results first and only then summarizes older rounds. It recovers
+from provider overflow errors, and a resumed session replays exactly the
+same cuts.
+
+**Routing.** The first request stays small, with just the core tools.
+Additional tool groups (web, MCP, history) and skill suggestions are added
+per turn by a router: Jev when a `TYPESAFE_API_KEY` is set, a local one
+otherwise.
+
+**Tools.** shell, read, write, edit (search/replace or hash-anchored lines),
+grep, glob, web fetch and search (Exa, Brave or Tavily), memory, skills,
+history, delegate, jobs, and any stdio MCP server you configure.
+
+**Editors.** `construct acp` runs construct as an Agent Client Protocol
+agent, so editors and other harnesses can drive it.
+
+## Development
+
+[AGENTS.md](AGENTS.md) is the working manual: layout, conventions, tests, and
+how to run and drive the TUI against a scripted model without an API key.
+Design decisions are recorded in [`docs/adr/`](docs/adr/), and benchmark
+history is in [`bench/results/logs/observations.md`](bench/results/logs/observations.md).
+
+To try a change interactively:
+
+```sh
+./scripts/try.py                            # builds, copies a sample project, opens the TUI
+./scripts/try.py --project /path/to/project # use a copy of your own project
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
