@@ -34,7 +34,7 @@ pub(super) async fn agent_task(
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
     // Off the UI path: the first frame is up, and this waits a few seconds at most.
-    crate::llm::catalog::prepare(&mut cfg, &paths).await;
+    crate::llm::overlay::prepare(&mut cfg, &paths).await;
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
     let mut agent = match build(resume, cfg.clone()) {
         Ok(a) => a,

@@ -3,8 +3,8 @@
 Status: accepted, 2026-10-31. Lands in steps under #129: step 1 (the
 `Endpoint` type, only the implicit `default` provider) in #130; step 2
 (`[providers.*]`, the `openrouter` preset, `provider/model` selection, the
-journal's `provider`) after it. Discovery per provider (6) and the
-`construct providers` commands are later steps.
+journal's `provider`) in #131; step 3 (`construct providers` list and
+test) in #132; step 4 (discovery per provider) after it.
 
 ## Context
 
@@ -69,7 +69,13 @@ not to.
    `context_window`, then the discovered value, then the top-level
    `context_window`; a window stated in an overflow error still wins for
    the session (ADR 0013). Discovery reads the cache on the UI path and
-   refreshes in the background (ADR 0020).
+   refreshes in the background (ADR 0020). A named provider discovers with
+   `openai` unless it says otherwise; `default` keeps ADR 0020's rule (only
+   when it is OpenRouter) and is asked only while it serves the selected
+   model, so moving to a local provider stops requests to openrouter.ai.
+   llama.cpp's `/props` describes only the loaded model: its `n_ctx` caps a
+   listed model only when `/models` lists one, or one whose id is the
+   loaded alias.
 7. **No `Provider` trait.** All variation between OpenAI-compatible
    providers is data (presets), body edits (`llm::dialect`, ADR 0012) or a
    discovery parser. A trait arrives with the second wire protocol
@@ -110,3 +116,11 @@ not to.
   its own key and the plain id; an ambiguous bare id refused before any
   request; a loopback provider sent no key; a child on another provider);
   the `providers-picker` verify recipe; golden snapshots unchanged.
+- Step 4: `llm::discover` parsers pinned to `crates/construct/tests/fixtures/discover/`
+  (llama.cpp's `/v1/models` and `/props` recorded from a llama.cpp server
+  behind a router; vLLM and Ollama written from their documented shapes);
+  the layering test in `llm/overlay.rs`; e2e
+  `a_named_providers_model_list_sets_the_window_at_startup_and_is_cached`.
+  Against that llama.cpp server, `model = "local/strata-flash-next"` with
+  no window configured planned against 262144, the window its `/models`
+  states as `max_model_len`.

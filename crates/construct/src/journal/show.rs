@@ -39,7 +39,7 @@ pub fn status_rows(session: &str, journal: &Path, cfg: &Config, t: &Totals) -> V
         ("journal", tilde(journal)),
         ("model", cfg.qualified_model()),
         ("endpoint", cfg.endpoint_label()),
-        ("context", format!("{} ({used} used)", human(window as u64))),
+        ("context", format!("{} ({used} used) · from {}", human(window as u64), cfg.window_source())),
         ("requests", t.requests.to_string()),
         (
             "input",

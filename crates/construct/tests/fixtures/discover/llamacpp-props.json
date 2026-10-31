@@ -1,0 +1,10 @@
+{
+ "default_generation_settings": {
+  "n_ctx": 262144
+ },
+ "model_alias": "qwen3.8-flash-next-iq3_s",
+ "total_slots": 1,
+ "modalities": {
+  "vision": true
+ }
+}

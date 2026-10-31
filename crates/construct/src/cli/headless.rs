@@ -18,7 +18,7 @@ pub(super) async fn run(
 ) -> Result<()> {
     let learn = learn && cfg.learn.enabled;
     let mut cfg = cfg;
-    llm::catalog::prepare(&mut cfg, &paths).await;
+    llm::overlay::prepare(&mut cfg, &paths).await;
     let cwd = std::env::current_dir()?;
     let mut agent = Agent::new(cfg, paths, cwd, resume)?;
     // Overlaps the model's TLS handshake with routing.

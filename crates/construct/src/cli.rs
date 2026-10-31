@@ -226,8 +226,8 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Models { query, refresh, limit }) => rt.block_on(async {
-            let client = llm::Client::new(&cfg.endpoint(), None)?;
-            let models = llm::catalog::refresh(&client, &paths, refresh).await?;
+            let (ep, how) = (cfg.endpoint(), cfg.discovery(&cfg.endpoint().name));
+            let models = llm::catalog::refresh(&llm::Client::new(&ep, None)?, &paths, refresh, how).await?;
             println!("{}", llm::catalog::listing(&models, &query.join(" "), limit));
             Ok(())
         }),
@@ -236,7 +236,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Providers { cmd: Some(providers::ProvidersCmd::Test { name, model }) }) => {
-            rt.block_on(providers::test(&cfg, &name, model))
+            rt.block_on(providers::test(&cfg, &paths, &name, model))
         }
         Some(Cmd::Memory) => {
             let store = memory::Store::new(&paths, &cfg.memory).with_project(&paths, &std::env::current_dir()?);

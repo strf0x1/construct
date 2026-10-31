@@ -24,7 +24,7 @@ pub struct Config {
     /// output reserve (`max_tokens`, or an eighth of it up to 8192).
     pub context_window: u32,
     /// Whether the config file sets `context_window`. When it does, the
-    /// endpoint's list does not supply a window (`llm::catalog::overlay`).
+    /// endpoint's list does not supply a window (`llm::overlay::overlay`).
     #[serde(skip)]
     pub window_pinned: bool,
     pub compaction: CompactionConfig,
@@ -49,7 +49,7 @@ pub struct Config {
     /// The top-level values as they were before an entry covered them.
     #[serde(skip)]
     pub defaults: Option<Box<crate::models::Defaults>>,
-    /// Entries read from the endpoint's own list (`llm::catalog::overlay`).
+    /// Entries read from the endpoint's own list (`llm::overlay::overlay`).
     /// Never written back, and `models` wins an id in both.
     #[serde(skip)]
     pub discovered: BTreeMap<String, crate::models::ModelEntry>,

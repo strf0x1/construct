@@ -29,5 +29,6 @@ type /status
 key enter
 wait "╭─ status" 3000
 expect "local · http://127.0.0.1:1/v1"
+expect "· from catalog entry"
 expect "local/qwen3-8b"
 image {evidence}/status.png

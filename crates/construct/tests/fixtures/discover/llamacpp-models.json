@@ -1,0 +1,32 @@
+{
+ "data": [
+  {
+   "context_length": 131072,
+   "created": 0,
+   "id": "qwen-27b-fable",
+   "max_model_len": 131072,
+   "object": "model",
+   "owned_by": "llamacpp",
+   "profile": "fable"
+  },
+  {
+   "context_length": 262144,
+   "created": 0,
+   "id": "strata-flash-next",
+   "max_model_len": 262144,
+   "object": "model",
+   "owned_by": "strata",
+   "profile": "strata-flash-next"
+  },
+  {
+   "context_length": 200000,
+   "created": 0,
+   "id": "strata-deepseek-v41-iq2xxs",
+   "max_model_len": 200000,
+   "object": "model",
+   "owned_by": "strata",
+   "profile": "strata-deepseek-v41-iq2xxs"
+  }
+ ],
+ "object": "list"
+}

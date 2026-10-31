@@ -6,7 +6,9 @@
 
 pub mod catalog;
 pub mod dialect;
+pub mod discover;
 pub mod notes;
+pub mod overlay;
 mod stream;
 mod switch;
 mod usage;
@@ -173,7 +175,7 @@ impl Client {
     /// The request body exactly as it goes on the wire, shaped for this
     /// endpoint's provider.
     pub fn body(&self, req: &Request<'_>) -> Vec<u8> {
-        let mut body = standard_body(req);
+        let mut body = dialect::standard_body(req);
         self.provider.shape(req.model, &mut body);
         serde_json::to_vec(&body).unwrap_or_default()
     }
@@ -270,26 +272,6 @@ impl Client {
     pub async fn complete(&self, req: Request<'_>) -> Result<Completion> {
         self.stream(req, None).await
     }
-}
-
-/// The body every OpenAI-compatible endpoint accepts.
-fn standard_body(req: &Request<'_>) -> Value {
-    let mut body = json!({
-        "model": req.model,
-        "messages": req.messages.iter().map(Message::wire).collect::<Vec<_>>(),
-        "stream": true,
-        "stream_options": { "include_usage": true },
-    });
-    if !req.tools.is_empty() {
-        body["tools"] = json!(req.tools);
-    }
-    if let Some(m) = req.max_tokens {
-        body["max_tokens"] = json!(m);
-    }
-    if let Some(t) = req.temperature {
-        body["temperature"] = json!(t);
-    }
-    body
 }
 
 pub fn truncate(s: &str, max: usize) -> String {
