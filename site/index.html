@@ -266,12 +266,13 @@ $('#copy').onclick=async()=>{
 // ---------------------------------------------------------------- title scramble
 const GLYPHS='▓▒░<>/\\[]{}=+*^#_01';
 function scramble(el,ms=900){
-  const final=el.textContent,start=performance.now();
+  const text=el.firstChild,final=text?.textContent??el.textContent,start=performance.now();
   if(reduced)return;
   (function step(now){
     const k=Math.min(1,(now-start)/ms);let out='';
     for(let i=0;i<final.length;i++)out+=i<k*final.length?final[i]:GLYPHS[Math.random()*GLYPHS.length|0];
-    el.textContent=out;if(k<1)requestAnimationFrame(step);
+    if(text)text.data=out;else el.textContent=out;
+    if(k<1)requestAnimationFrame(step);
   })(start);
 }
 scramble(title);
