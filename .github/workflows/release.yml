@@ -1,0 +1,116 @@
+name: release
+
+# Push a version tag to build a draft GitHub Release:
+#
+#   check  ->  build (Linux x86-64)  ->  smoke (clean distros)  ->  draft release
+#
+# Nothing is public until you review the draft and press Publish. The steps
+# are in docs/releasing.md.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a tag always rebuilds with the same compiler. RUSTUP_TOOLCHAIN
+  # overrides rust-toolchain.toml (which tracks stable for day-to-day work).
+  # Bump it on purpose, in its own commit.
+  RUSTUP_TOOLCHAIN: "1.97.0"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CONSTRUCT_E2E_SLOW: "1"
+    steps:
+      - uses: actions/checkout@v4
+        # full history: the rust-replay bench tasks are trees at past commits
+        with: { fetch-depth: 0 }
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: "${{ env.RUSTUP_TOOLCHAIN }}", components: "rustfmt, clippy" }
+      - name: Tag matches the crate version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 --locked \
+            | jq -r '.packages[] | select(.name == "construct") | .version')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version"
+            exit 1
+          fi
+      - run: cargo xtask check
+
+  build:
+    needs: check
+    # The oldest supported runner: the binary links against this image's
+    # glibc (2.35), so it also runs on distros at least that new.
+    runs-on: ubuntu-22.04
+    env:
+      TARGET: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: "${{ env.RUSTUP_TOOLCHAIN }}", targets: "${{ env.TARGET }}" }
+      - name: Build
+        run: cargo build --release --locked -p construct --target "$TARGET"
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-about }
+      - name: Package
+        run: |
+          name="construct-$TARGET"
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/construct" LICENSE README.md "dist/$name/"
+          cargo about generate --locked --fail \
+            --manifest-path crates/construct/Cargo.toml \
+            -c about.toml about.hbs -o "dist/$name/THIRD-PARTY-LICENSES.txt"
+          echo "$GITHUB_REF_NAME" > "dist/$name/VERSION"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+          cat "dist/$name.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ env.TARGET }}
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+          if-no-files-found: error
+
+  # The build machine has every library a developer has. These images have
+  # only what a fresh install does: if the binary needs something more, or a
+  # newer glibc, this is where it shows.
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "ubuntu:24.04", "debian:12", "fedora:latest", "archlinux:latest"]
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist-x86_64-unknown-linux-gnu, path: dist }
+      - name: Checksum, unpack, run
+        working-directory: dist
+        run: |
+          sha256sum -c construct-x86_64-unknown-linux-gnu.tar.gz.sha256
+          tar -xzf construct-x86_64-unknown-linux-gnu.tar.gz
+          ./construct-x86_64-unknown-linux-gnu/construct --version
+          ./construct-x86_64-unknown-linux-gnu/construct --help > /dev/null
+
+  release:
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: dist-*, merge-multiple: true, path: dist }
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd dist && cat *.sha256 > SHA256SUMS)
+          set -- --draft --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          case "$GITHUB_REF_NAME" in *-*) set -- "$@" --prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" "$@" dist/*

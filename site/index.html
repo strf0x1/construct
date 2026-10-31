@@ -7,10 +7,9 @@
 <meta name="description" content="A single-binary agent harness. It remembers what matters, writes its own skills, and works inside a sandbox.">
 <meta name="theme-color" content="#07060f">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1 31 16 16 31 1 16z' fill='%237f74e0'/%3E%3Cpath d='M16 1 20 14 31 16 16 16z' fill='%23e6e0ff'/%3E%3Cpath d='M1 16 12 18 16 31 16 16z' fill='%231a1752'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="preload" href="mono.ttf" as="font" type="font/ttf" crossorigin>
 <style>
+@font-face{font-family:"JetBrains Mono";src:url("mono.ttf") format("truetype");font-display:swap;font-weight:100 800}
 :root{
   --bg:#07060f; --ink:#e7e4f8; --dim:#8b87ab; --faint:#2c2948;
   --accent:#b9aff5; --accent-rgb:185,175,245; --deep:#1a1752;
@@ -71,6 +70,10 @@ h1.glitch{animation:glitch .38s steps(2) 1}
   background:transparent;border:1px solid var(--faint);padding:7px 12px;cursor:pointer;transition:border-color .2s,color .2s}
 .install button:hover{border-color:var(--accent);color:var(--accent)}
 .install button:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+.install-links{display:flex;flex-wrap:wrap;gap:6px 22px;margin:12px 0 0;font-size:11.5px;color:var(--dim)}
+.install-links a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--faint);padding:6px 0;transition:border-color .2s,color .2s}
+.install-links a:hover{color:var(--accent);border-color:var(--accent)}
+.install-links span{padding:6px 0;opacity:.8}
 .specs{list-style:none;margin:28px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;font-size:12px;color:var(--dim)}
 .specs li{display:flex;gap:10px}
 .specs span{color:var(--accent);opacity:.7}
@@ -136,9 +139,10 @@ h1.glitch{animation:glitch .38s steps(2) 1}
     <p class="lede">A <b>single-binary agent harness</b>. It remembers what matters, writes its own skills, learns between sessions, and keeps every tool inside a sandbox.</p>
     <div class="install">
       <span class="prompt">$</span>
-      <code id="cmd">curl -fsSL https://raw.githubusercontent.com/strf0x1/construct/main/install.sh | sh</code>
+      <code id="cmd">curl -fsSL https://construct.sprawlcommons.com/install.sh | sh</code>
       <button id="copy" type="button">copy</button>
     </div>
+    <p class="install-links"><a href="/install.sh">read the installer</a><a href="https://github.com/strf0x1/construct/releases/latest">download manually</a><span>linux x86-64 · no sudo · checksum-verified</span></p>
     <ul class="specs">
       <li><span>01</span>one binary, no runtime</li>
       <li><span>02</span>sandboxed tools</li>
