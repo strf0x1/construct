@@ -79,3 +79,17 @@ compaction is explicitly incompatible with safe restoration.
   prompts, accounting rows, isolated models/context and tool pairing.
 - The existing help golden snapshot is intentionally re-recorded to include
   `/resume` and `/rename`; model-request snapshots remain unchanged.
+
+### Measured overhead
+
+The release comparison and full verification record are in
+[issue-127-verification.md](../issue-127-verification.md). Startup and tool
+latency compare as `same`. The release binary grows from 21,702,152 to
+21,880,712 bytes (+178,560, 0.823%). Median mean RSS in the three-round,
+120-step workload rises from 36.283 to 37.133 MiB (+0.850 MiB): the comparator
+reports **worse**, and this is an accepted memory cost of this feature. Peak
+RSS is 43.852 → 46.773 MiB (`same` within the measured spread); wall time is
+5.764 → 5.777 seconds (`same`), with 121 requests and exit code 0 on both
+sides. The final request differs by one fixture-path byte, not by context
+construction. Size measurements have n=1 and no statistical performance
+verdict. Raw results and every comparison are linked from the record.

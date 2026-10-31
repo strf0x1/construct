@@ -1,0 +1,120 @@
+{
+ "manifest": {
+  "harnesses": {
+   "before": {
+    "version": "0.2.0",
+    "git_sha": "169938e8ed504aa913b2989018d871ac05f8de6b",
+    "git_dirty": false,
+    "binary_sha256": "160ae5238f6fd1a7a0d290061b8303dca918eee6abfa107674b0324d07f8c263",
+    "config_sha256": "a36c464b2d006647a30acd8800bfb3abd5d6e03df7044d336900715fca7d2d27",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/home/brandon/git/construct-worktrees/issue-127/target/release/construct"
+   },
+   "after": {
+    "version": "0.2.0",
+    "git_sha": "29be36580bc293a758541f4570040e35d234dbd9",
+    "git_dirty": false,
+    "binary_sha256": "51a80dfac4b08cb95ef92f46586016522432cc56736b457ee69a278856d8a4e3",
+    "config_sha256": "f53068d293dfb80cbeb49dfb6050d4523dd37c83e48db0b00a8f6ab72ee4def7",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/home/brandon/git/construct-worktrees/issue-127/target/release/construct"
+   }
+  },
+  "dev_git_sha": "549797bc547c2f9cb8ba88d6a7af604eec465270",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "320d37ffedab571fd8bb589979c7ad9abd7c18ad03acbd01ac1bcdc160556b9f",
+  "host": "echo",
+  "started": "2026-10-31T22:37:08Z"
+ },
+ "source_files": [
+  "size-20261031-163315.json",
+  "size-20261031-163729.json"
+ ],
+ "raw": {
+  "before": [
+   {
+    "install": 21702152,
+    "parts": {
+     "binary": 21702152
+    },
+    "fresh_home_after_first_run": 37271,
+    "first_run_s": 0.007930638967081904,
+    "first_run_rc": 0
+   }
+  ],
+  "after": [
+   {
+    "install": 21880712,
+    "parts": {
+     "binary": 21880712
+    },
+    "fresh_home_after_first_run": 37271,
+    "first_run_s": 0.007437451044097543,
+    "first_run_rc": 0
+   }
+  ]
+ }
+}
