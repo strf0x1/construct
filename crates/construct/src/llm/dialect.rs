@@ -9,6 +9,7 @@
 //! fields.
 
 use crate::config::{CacheMode, Dialect, ProviderConfig};
+use crate::endpoint::Endpoint;
 use serde_json::{Value, json};
 
 /// Where a request marks its cache breakpoint.
@@ -42,6 +43,11 @@ impl Provider {
             d => d,
         };
         Self { dialect, cache: cfg.cache }
+    }
+
+    /// The dialect `ep` speaks.
+    pub fn of(ep: &Endpoint) -> Self {
+        Self::new(&ep.provider, &ep.base_url)
     }
 
     pub fn name(&self) -> &'static str {

@@ -13,7 +13,7 @@ mod usage;
 pub use dialect::Provider;
 pub use usage::Usage;
 
-use crate::config::Config;
+use crate::endpoint::Endpoint;
 use crate::journal::notes::Coalescer;
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
@@ -130,7 +130,7 @@ pub struct Request<'a> {
 }
 
 impl Client {
-    pub fn new(cfg: &Config, api_key: Option<String>) -> Result<Self> {
+    pub fn new(ep: &Endpoint, api_key: Option<String>) -> Result<Self> {
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(20))
             .pool_idle_timeout(Duration::from_secs(90))
@@ -139,10 +139,10 @@ impl Client {
             .build()?;
         Ok(Self {
             http,
-            base_url: cfg.base_url.trim_end_matches('/').to_string(),
+            base_url: ep.base_url.clone(),
             api_key,
-            headers: cfg.headers.clone(),
-            provider: Provider::new(&cfg.provider, &cfg.base_url),
+            headers: ep.headers.clone(),
+            provider: Provider::of(ep),
         })
     }
 

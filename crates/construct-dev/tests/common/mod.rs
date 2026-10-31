@@ -129,6 +129,13 @@ impl Env {
         c.output().unwrap()
     }
 
+    /// What each request's `Authorization` header looked like, in arrival order:
+    /// null, or the scheme and the token's first four characters.
+    pub fn auth_seen(&self) -> Vec<Value> {
+        let log = std::fs::read_to_string(self.dir.join("log.jsonl")).unwrap_or_default();
+        log.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()["auth"].clone()).collect()
+    }
+
     /// Every request body the harness sent, in order.
     pub fn requests(&self) -> Vec<Value> {
         let mut files: Vec<PathBuf> = std::fs::read_dir(self.dir.join("dump"))

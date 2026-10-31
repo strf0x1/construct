@@ -91,8 +91,8 @@ impl Manifest {
             context_window: cfg.context_window,
             max_tokens: cfg.max_tokens,
             compaction: cfg.compaction.clone(),
-            dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),
-            cache: cfg.provider.cache,
+            dialect: crate::llm::Provider::of(&cfg.endpoint()).name().into(),
+            cache: cfg.endpoint().provider.cache,
         }
     }
 

@@ -5,6 +5,7 @@ use super::app::{App, Block, Cmd, Kind, Status};
 use super::picker::{Outcome, Picker};
 use super::theme;
 use crate::config::Paths;
+use crate::llm::catalog::cached;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
@@ -257,8 +258,7 @@ fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
             let _ = cmd.send(Cmd::Model(arg.to_string()));
         }
         "models" => {
-            let models =
-                Paths::resolve().map(|p| crate::llm::catalog::cached(&p, &app.cfg.base_url)).unwrap_or_default();
+            let models = Paths::resolve().map(|p| cached(&p, &app.cfg.endpoint().base_url)).unwrap_or_default();
             if models.is_empty() {
                 let none =
                     "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`";

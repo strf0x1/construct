@@ -207,7 +207,7 @@ impl App {
             Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())])
         };
         lines.push(row("model", self.cfg.model.clone()));
-        lines.push(row("endpoint", self.cfg.base_url.clone()));
+        lines.push(row("endpoint", self.cfg.endpoint().base_url));
         lines.push(row("router", self.cfg.router.mode.clone()));
         if !self.session.is_empty() {
             lines.push(row("session", self.session.clone()));

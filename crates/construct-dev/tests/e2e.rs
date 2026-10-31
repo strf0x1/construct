@@ -1020,6 +1020,23 @@ fn openrouter_anthropic_requests_carry_a_breakpoint_unless_cache_is_off() {
 }
 
 #[test]
+fn a_keyless_endpoint_is_sent_no_key_not_the_openrouter_fallback() {
+    let env = Env::new("keyless-endpoint", json!({ "steps": [{ "text": "done" }] }));
+    env.config("api_key_secret = \"\"\n");
+    let out =
+        env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "orou-LEAK")], &["run", "--no-learn", "go"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(env.auth_seen(), vec![Value::Null], "api_key_secret = \"\" means keyless");
+
+    // A declared secret that is unset still falls back, as it always has.
+    let env = Env::new("keyed-endpoint-fallback", json!({ "steps": [{ "text": "done" }] }));
+    let out =
+        env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "orou-CCCC")], &["run", "--no-learn", "go"]);
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(env.auth_seen(), vec![json!("Bearer orou…")]);
+}
+
+#[test]
 fn continue_resumes_from_the_journal() {
     let env = Env::new(
         "journal-continue",

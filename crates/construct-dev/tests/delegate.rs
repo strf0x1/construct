@@ -296,13 +296,6 @@ wait "interrupted" {short}
     d.send(b"/quit\r").unwrap();
 }
 
-/// What each request's `Authorization` header looked like, in arrival order:
-/// null, or the scheme and the token's first four characters.
-fn auth_seen(env: &Env) -> Vec<Value> {
-    let log = std::fs::read_to_string(env.dir.join("log.jsonl")).unwrap();
-    log.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()["auth"].clone()).collect()
-}
-
 #[test]
 fn a_child_on_its_own_endpoint_gets_its_own_key_or_none() {
     for (name, extra, child_auth) in [
@@ -316,7 +309,7 @@ fn a_child_on_its_own_endpoint_gets_its_own_key_or_none() {
             .run_with(&[("OPENAI_API_KEY", "parent-AAAA"), ("CHILD_KEY", "child-BBBB")], &["run", "--no-learn", "go"]);
         assert!(out.status.success(), "{}", text(&out));
         // Parent, child, parent: the parent's key never reaches the child.
-        assert_eq!(auth_seen(&env), vec![json!("Bearer pare…"), child_auth, json!("Bearer pare…")], "{name}");
+        assert_eq!(env.auth_seen(), vec![json!("Bearer pare…"), child_auth, json!("Bearer pare…")], "{name}");
     }
 }
 
@@ -513,7 +506,7 @@ fn a_child_gets_the_openrouter_key_the_parent_fell_back_to() {
         env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "orou-CCCC")], &["run", "--no-learn", "go"]);
     assert!(out.status.success(), "{}", text(&out));
     // Parent, child, parent: all three carry the one key.
-    assert_eq!(auth_seen(&env), vec![json!("Bearer orou…"); 3]);
+    assert_eq!(env.auth_seen(), vec![json!("Bearer orou…"); 3]);
 }
 
 #[test]
@@ -523,5 +516,5 @@ fn no_key_fails_before_any_request() {
     let out = env.run_with(&[("OPENAI_API_KEY", ""), ("OPENROUTER_API_KEY", "")], &["run", "--no-learn", "go"]);
     assert!(!out.status.success());
     assert!(text(&out).contains("no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY"), "{}", text(&out));
-    assert!(auth_seen(&env).is_empty(), "a request reached the endpoint");
+    assert!(env.auth_seen().is_empty(), "a request reached the endpoint");
 }

@@ -79,7 +79,8 @@ pub fn write_skills(lib: &Library, skills: &[NewSkill], books: &Books, d: &mut D
 }
 
 pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Result<Outcome> {
-    let client = llm::Client::new(cfg, cfg.endpoint_key())?;
+    let ep = cfg.endpoint();
+    let client = llm::Client::new(&ep, ep.key())?;
     let mut books = Books::load(paths);
     let lib = books.kit.as_ref().map(|k| Library::at(k.skills_dir()));
     let mut task = format!("{}{}", playbook::session_text(messages), books.listing());

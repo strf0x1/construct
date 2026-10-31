@@ -42,6 +42,7 @@ impl Row {
         let e = c.entry().cloned().unwrap_or_default();
         let window = c.context_window as u64;
         let budget = compact::budget(window, c.max_tokens);
+        let ep = c.endpoint();
         Self {
             id: id.to_string(),
             label: e.label,
@@ -51,9 +52,9 @@ impl Row {
             max_tokens: c.max_tokens,
             compacts_at: (budget as f64 * cfg.compaction.threshold as f64) as u64,
             pricing: e.pricing,
-            endpoint: c.base_url.clone(),
-            dialect: crate::llm::Provider::new(&c.provider, &c.base_url).name(),
-            key: c.api_key_secret.clone(),
+            dialect: crate::llm::Provider::of(&ep).name(),
+            endpoint: ep.base_url,
+            key: ep.api_key_secret,
             current: id == cfg.model,
             catalogued: c.entry().is_some(),
         }

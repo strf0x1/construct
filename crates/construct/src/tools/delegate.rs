@@ -55,10 +55,11 @@ impl Delegate {
             let config = def.child_config(name, cfg, table)?;
             let prompt = def.prompt_text(cwd)?;
             let system = if prompt.trim().is_empty() { DEFAULT_PROMPT.to_string() } else { prompt };
-            let port = reqwest::Url::parse(&config.base_url)
+            let url = config.endpoint().base_url;
+            let port = reqwest::Url::parse(&url)
                 .ok()
                 .and_then(|u| u.port_or_known_default())
-                .with_context(|| format!("[agents.{name}] base_url {:?} has no port", config.base_url))?;
+                .with_context(|| format!("[agents.{name}] base_url {url:?} has no port"))?;
             agents.insert(name.clone(), Prepared { def: def.clone(), config, system, port, running: Arc::default() });
         }
         Ok(Self { parent: cfg.clone(), agents })
