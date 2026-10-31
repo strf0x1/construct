@@ -132,7 +132,10 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
     let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
     let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<ask::Prompt>();
-    let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx, prompt_tx));
+    // A provider's model list landing, maybe after the session started.
+    let (landed_tx, mut landed_rx) = mpsc::unbounded_channel::<()>();
+    let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx };
+    let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, out));
 
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
@@ -146,6 +149,14 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let animating = app.animating();
         let docked = app.dock.active();
         tokio::select! {
+            Some(()) = landed_rx.recv() => {
+                // A file read: the fetch is done. The running model's window stays the agent's.
+                crate::llm::overlay::lay_lists(&mut app.cfg, &paths);
+                if let Some(p) = app.picker.as_mut() {
+                    p.refresh(&app.cfg);
+                }
+                dirty = true;
+            }
             Some(ready) = ready_rx.recv() => {
                 let (session, canceller, groups, history, catalog, spent, jobs) = ready;
                 app.dock.jobs = Some(jobs);

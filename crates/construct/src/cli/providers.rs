@@ -76,10 +76,15 @@ fn list(cfg: &Config, paths: &Paths) -> String {
             (s, false) => format!("{s} (not set)"),
         };
         let cached = catalog::cached(paths, &ep.base_url).len();
-        let listed = match catalog::cache_age(paths, &ep.base_url) {
+        let mut listed = match catalog::cache_age(paths, &ep.base_url) {
             Some(age) => format!("{} catalogued · {cached} listed {} ago", ids.len(), ago(age)),
             None => format!("{} catalogued · list not fetched", ids.len()),
         };
+        if let Some((at, why)) = catalog::reach(paths, &ep.base_url).failed {
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+            listed
+                .push_str(&format!(" · unreachable {} ago: {why}", ago(since.saturating_sub(Duration::from_secs(at)))));
+        }
         let dialect = llm::Provider::of(&ep).name().to_string();
         rows.push([name, ep.base_url, dialect, key, listed]);
     }

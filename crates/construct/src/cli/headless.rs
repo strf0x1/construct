@@ -18,7 +18,7 @@ pub(super) async fn run(
 ) -> Result<()> {
     let learn = learn && cfg.learn.enabled;
     let mut cfg = cfg;
-    llm::overlay::prepare(&mut cfg, &paths).await;
+    llm::overlay::prepare(&mut cfg, &paths, None).await;
     for w in cfg.shadowed() {
         eprintln!("construct: {w}");
     }

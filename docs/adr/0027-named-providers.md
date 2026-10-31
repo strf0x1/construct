@@ -77,7 +77,12 @@ not to.
    model, so moving to a local provider stops requests to openrouter.ai.
    llama.cpp's `/props` describes only the loaded model: its `n_ctx` caps a
    listed model only when `/models` lists one, or one whose id is the
-   loaded alias.
+   loaded alias. Each fetch's outcome is written beside the cached list
+   (when it worked, or when and why it failed), and that record is what
+   the picker and `construct providers` show as reachability: nothing on
+   the UI path asks a server. A list that lands after the session started
+   is laid in without re-selecting the running model, so the UI's window
+   never moves away from the agent's.
 7. **No `Provider` trait.** All variation between OpenAI-compatible
    providers is data (presets), body edits (`llm::dialect`, ADR 0012) or a
    discovery parser. A trait arrives with the second wire protocol

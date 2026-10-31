@@ -23,18 +23,26 @@ pub(super) type Ready = (
     crate::jobs::Jobs,
 );
 
+/// Where the worker reports to the UI: the agent's events, the session
+/// being ready, permission questions, and a provider's model list landing.
+pub(super) struct Out {
+    pub(super) tx: mpsc::UnboundedSender<Event>,
+    pub(super) ready: mpsc::UnboundedSender<Ready>,
+    pub(super) prompts: mpsc::UnboundedSender<Prompt>,
+    pub(super) landed: mpsc::UnboundedSender<()>,
+}
+
 pub(super) async fn agent_task(
     mut cfg: Config,
     paths: Paths,
     resume: Option<String>,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
-    tx: mpsc::UnboundedSender<Event>,
-    ready: mpsc::UnboundedSender<Ready>,
-    prompts: mpsc::UnboundedSender<Prompt>,
+    out: Out,
 ) {
+    let Out { tx, ready, prompts, landed } = out;
     let cwd = std::env::current_dir().unwrap_or_default();
     // Off the UI path: the first frame is up, and this waits a few seconds at most.
-    crate::llm::overlay::prepare(&mut cfg, &paths).await;
+    crate::llm::overlay::prepare(&mut cfg, &paths, Some(landed)).await;
     let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
     let mut agent = match build(resume, cfg.clone()) {
         Ok(a) => a,

@@ -291,3 +291,74 @@ fn a_provider_name_that_hides_listed_ids_is_warned_about() {
     assert_eq!(a.requests()[0]["model"], "mock/small", "the qualified form reaches it");
     assert!(stdout(&a.run(&["providers"])).contains(&format!("warning: {want}")));
 }
+
+fn picker_driver(env: &Env) -> drive::Driver {
+    drive::Driver::spawn(&[construct().display().to_string()], &env.env(), Some(env.work.to_str().unwrap()), 120, 34)
+        .unwrap()
+}
+
+/// A provider whose server refused the startup fetch is marked in the box,
+/// with when and why, and `construct providers` says the same.
+#[test]
+fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
+    let a = Env::new("providers-reach", json!({ "steps": [{ "text": "ok" }] }));
+    a.config(&format!(
+        "model = \"up/x\"\n[router]\nmode = \"local\"\n[learn]\nenabled = false\n\
+         [providers.up]\nbase_url = \"http://127.0.0.1:{}/v1\"\n[providers.up.models.x]\n\
+         [providers.down]\nbase_url = \"http://127.0.0.1:1/v1\"\n[providers.down.models.y]\n",
+        a.port
+    ));
+    let mut d = picker_driver(&a);
+    let mut log = Vec::new();
+    let short = budget(3000);
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "wait \"ask construct\" {short}\nsleep 1500\ntype /model\nkey enter\nwait \"search models…\" {short}\n"
+        ),
+    );
+    run(
+        &mut d,
+        &mut log,
+        &format!("wait \"down · unreachable\" {short}\nwait \"Reach       listed\" {short}\n"),
+    );
+    run(
+        &mut d,
+        &mut log,
+        &format!("type down/y\nwait \"Reach       unreachable\" {short}\nwait \"Connection refused\" {short}\n"),
+    );
+    d.kill();
+    let list = stdout(&a.run(&["providers"]));
+    assert!(
+        list.lines().any(|l| l.starts_with("down ") && l.contains("unreachable") && l.contains("Connection refused")),
+        "{list}"
+    );
+}
+
+/// A list that lands after the session started (a provider other than the
+/// running one, refreshed in the background) reaches an open box.
+#[test]
+fn a_background_list_that_lands_after_startup_reaches_the_open_picker() {
+    let a = Env::new("providers-landed-a", json!({ "steps": [{ "text": "ok" }] }));
+    let b = Env::new("providers-landed-b", json!({ "steps": [], "models_ms": 2500 }));
+    a.config(&format!(
+        "model = \"a/x\"\n[router]\nmode = \"local\"\n[learn]\nenabled = false\n\
+         [providers.a]\nbase_url = \"http://127.0.0.1:{}/v1\"\ndiscover = \"off\"\n[providers.a.models.x]\n\
+         [providers.b]\nbase_url = \"http://127.0.0.1:{}/v1\"\n[providers.b.models.y]\n",
+        a.port, b.port
+    ));
+    let mut d = picker_driver(&a);
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(8000));
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "wait \"ask construct\" {short}\ntype /model\nkey enter\ntype b/\nwait \"1 catalogued · no list\" {short}\n"
+        ),
+    );
+    assert!(!d.text().contains("b/mock/small"));
+    run(&mut d, &mut log, &format!("wait \"b/mock/small\" {long}\nwait \"1 catalogued · 2 listed\" {short}\n"));
+    d.kill();
+}

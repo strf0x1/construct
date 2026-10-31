@@ -93,6 +93,20 @@ pub struct Provider {
     /// in both, and resolution never looks here (decision 5).
     #[serde(skip)]
     pub discovered: BTreeMap<String, ModelEntry>,
+    /// How the last fetches of that list went (`llm::overlay`).
+    #[serde(skip)]
+    pub reach: Reach,
+}
+
+/// What the last attempts to fetch a provider's list found, as its cache
+/// file records them. Read, never probed for: startup discovery is the
+/// only thing that asks the server.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Reach {
+    /// Unix seconds of the last fetch that worked.
+    pub fetched_at: Option<u64>,
+    /// Unix seconds and cause of the last one that failed, when it came after.
+    pub failed: Option<(u64, String)>,
 }
 
 /// A built-in provider: one row of data, never a code path.

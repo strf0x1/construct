@@ -3,7 +3,7 @@
 //! details beside it. Real ratatui widgets (`Table`, `Paragraph`, `Block`)
 //! rather than hand-padded lines: the table scrolls itself to the selection.
 
-use super::{Picker, Row};
+use super::{Group, Picker, Row};
 use crate::models::{Pricing, short_tokens};
 use crate::tui::theme;
 use crate::tui::view::fit;
@@ -73,9 +73,7 @@ pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Picker) {
     list_table(f, list, p);
     if split && let Some(row) = p.current() {
         f.render_widget(
-            Paragraph::new(details(row, p.groups.get(&row.provider).map(|(_, has)| has.as_str())))
-                .wrap(Wrap { trim: false })
-                .block(side_block()),
+            Paragraph::new(details(row, p.groups.get(&row.provider))).wrap(Wrap { trim: false }).block(side_block()),
             side,
         );
     }
@@ -109,8 +107,12 @@ fn list_table(f: &mut Frame, area: Rect, p: &mut Picker) {
         .map(|line| {
             let n = match *line {
                 Ok(provider) => {
-                    let text = p.groups.get(provider).map_or(provider, |(title, _)| title.as_str());
-                    return TRow::new([Cell::from(""), Cell::from(Span::styled(fit(text, name_w), theme::faint()))]);
+                    let (text, style) = match p.groups.get(provider) {
+                        Some(g) if g.down => (g.title.as_str(), Style::new().fg(theme::YELLOW)),
+                        Some(g) => (g.title.as_str(), theme::faint()),
+                        None => (provider, theme::faint()),
+                    };
+                    return TRow::new([Cell::from(""), Cell::from(Span::styled(fit(text, name_w), style))]);
                 }
                 Err(n) => n,
             };
@@ -169,7 +171,7 @@ fn money(x: f64) -> String {
 
 /// The pane beside the list: name, chips, description, then the numbers
 /// that decide whether to switch.
-fn details(r: &Row, provider: Option<&str>) -> Vec<Line<'static>> {
+fn details(r: &Row, group: Option<&Group>) -> Vec<Line<'static>> {
     let title = if r.label.is_empty() { r.id.clone() } else { r.label.clone() };
     let mut out = vec![Line::from(Span::styled(title, Style::new().fg(theme::ACCENT).add_modifier(Modifier::BOLD)))];
     if !r.label.is_empty() {
@@ -206,9 +208,16 @@ fn details(r: &Row, provider: Option<&str>) -> Vec<Line<'static>> {
             Some(p) => format!("${} in · ${} out per M", money(p.prompt), money(p.completion)),
         },
     ));
-    if let Some(has) = provider {
+    if let Some(g) = group {
         out.push(kv("Provider", r.provider.clone()));
-        out.push(kv("Models", has.to_string()));
+        out.push(kv("Models", g.has.clone()));
+        if let Some(reach) = &g.reach {
+            let color = if g.down { theme::YELLOW } else { theme::CYAN };
+            out.push(Line::from(vec![
+                Span::styled(format!("{:<12}", "Reach"), theme::faint()),
+                Span::styled(reach.clone(), Style::new().fg(color)),
+            ]));
+        }
     }
     out.push(kv("Endpoint", host(&r.endpoint)));
     out.push(kv("Dialect", r.dialect.to_string()));
