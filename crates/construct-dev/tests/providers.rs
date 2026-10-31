@@ -318,11 +318,7 @@ fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
             "wait \"ask construct\" {short}\nsleep 1500\ntype /model\nkey enter\nwait \"search models…\" {short}\n"
         ),
     );
-    run(
-        &mut d,
-        &mut log,
-        &format!("wait \"down · unreachable\" {short}\nwait \"Reach       listed\" {short}\n"),
-    );
+    run(&mut d, &mut log, &format!("wait \"down · unreachable\" {short}\nwait \"Reach       listed\" {short}\n"));
     run(
         &mut d,
         &mut log,
