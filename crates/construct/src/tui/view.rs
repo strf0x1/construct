@@ -313,7 +313,7 @@ impl App {
         let palette = self.palette.as_ref().map(|p| p.lines(width as usize, rows)).unwrap_or_default();
         let palette_h = palette.len() as u16;
         // A question takes the place of the activity line, rule, input and palette.
-        let panel_h = self.prompts.front().map(|p| prompt::height(p, width).min(area.height.saturating_sub(4)));
+        let panel_h = self.prompts.front().map(|p| prompt::height(p, width, area.height.saturating_sub(4)));
         // Running children sit above the activity line; a question has no room for them.
         let dock = if panel_h.is_none() { self.dock_lines(width as usize, phase) } else { vec![] };
         let dock_h = dock.len() as u16;
