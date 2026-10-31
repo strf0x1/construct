@@ -76,3 +76,9 @@ as well as `bash`: `curl | sh` is `dash` on Debian and Ubuntu.
 `construct` (`wrangler.jsonc`), attached to `construct.sprawlcommons.com`.
 `site/_headers` serves `install.sh` as plain text so "read the installer"
 shows it in the browser instead of downloading it.
+
+It deploys by hand, not on push: after changing anything under `site/`, run
+`npx wrangler deploy` from the repo root (logged in with `wrangler login`).
+`wrangler.jsonc` declares the custom domain as a route, so Cloudflare manages
+its DNS record and certificate, and turns off workers.dev, preview URLs and
+Wrangler's usage metrics.

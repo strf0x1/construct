@@ -1,7 +1,13 @@
 // construct.sprawlcommons.com: the landing page and install.sh, served as
 // static assets from site/. No Worker code runs. Releases live on GitHub.
+// Deploy with `wrangler deploy`; the custom domain's DNS and certificate are
+// managed by Cloudflare from the route below.
 {
   "name": "construct",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./site" }
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "assets": { "directory": "./site" },
+  "routes": [{ "pattern": "construct.sprawlcommons.com", "custom_domain": true }]
 }
