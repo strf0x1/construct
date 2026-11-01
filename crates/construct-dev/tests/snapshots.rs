@@ -244,7 +244,11 @@ fn screens() {
     };
     run(&mut d, &mut log, &format!("wait \"ask construct\" {short}\nsettle 300 {long}\n"));
     insta::assert_snapshot!("first_frame", screen(&env, &d));
-    run(&mut d, &mut log, &format!("type run it\nkey enter\nwait \"All good.\" {long}\nsettle 300 {long}\n"));
+    run(
+        &mut d,
+        &mut log,
+        &format!("type run it\nkey enter\nwait \"All good.\" {long}\nwait \"2 steps\" {long}\nsettle 300 {long}\n"),
+    );
     insta::assert_snapshot!("finished_turn", screen(&env, &d));
     d.kill();
 }
