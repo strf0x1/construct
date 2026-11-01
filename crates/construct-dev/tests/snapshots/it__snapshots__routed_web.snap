@@ -3,7 +3,7 @@ source: crates/construct-dev/tests/snapshots.rs
 expression: "shaped(&env, &req)"
 ---
 {
-  "bytes": 4889,
+  "bytes": 4995,
   "n_tools": 9,
   "request": {
     "model": "openrouter/free",
@@ -238,7 +238,7 @@ expression: "shaped(&env, &req)"
         "type": "function",
         "function": {
           "name": "enable_tools",
-          "description": "Switch on more tools for this session when you need them: memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
+          "description": "Switch on more tools for this session when you need them: developer (approved host-authenticated GitHub issues, git commits, pushes and pull requests); memory (durable memory of the user and machine); history (search past sessions); skills (load saved procedures); skill-write (write the skill library).",
           "parameters": {
             "type": "object",
             "properties": {
@@ -247,6 +247,7 @@ expression: "shaped(&env, &req)"
                 "items": {
                   "type": "string",
                   "enum": [
+                    "developer",
                     "memory",
                     "history",
                     "skills",

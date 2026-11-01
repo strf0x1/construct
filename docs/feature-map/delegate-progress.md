@@ -3,7 +3,7 @@ id: delegate-progress
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/children.rs, crates/construct/src/tui/dock.rs, crates/construct/src/tui/peek.rs, crates/construct/src/tui/jobs.rs, crates/construct/src/tools/call.rs, crates/construct/src/journal/mod.rs]
-verified_at: 549797b
+verified_at: 37ef7fc
 ---
 # Delegate progress
 

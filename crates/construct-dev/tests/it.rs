@@ -22,6 +22,8 @@ mod child;
 mod compaction;
 #[path = "delegate.rs"]
 mod delegate;
+#[path = "developer.rs"]
+mod developer;
 #[path = "e2e.rs"]
 mod e2e;
 #[path = "jobs.rs"]

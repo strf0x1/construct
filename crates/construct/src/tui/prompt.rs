@@ -29,6 +29,13 @@ const SELECTED_BG: Color = Color::Rgb(44, 48, 72);
 const BADGE_FG: Color = Color::Rgb(26, 27, 38);
 const PATHS_SHOWN: usize = 4;
 
+/// Review text cannot emit terminal commands or hide content with carriage returns.
+fn review_text(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| if c.is_control() && c != '\n' { c.escape_default().collect::<Vec<_>>() } else { vec![c] })
+        .collect()
+}
+
 /// `text` wrapped under `mark` to `w` columns, continuation rows indented to match.
 fn wrapped(text: &str, style: Style, w: usize, mark: Span<'static>) -> Vec<Line<'static>> {
     let hang = Span::raw(" ".repeat(mark.content.width()));
@@ -51,6 +58,7 @@ fn agent_of(p: &Prompt) -> &str {
     match &p.request {
         Request::Path(r) => &r.agent,
         Request::Tool(t) => &t.agent,
+        Request::Operation(o) => &o.agent,
     }
 }
 
@@ -58,6 +66,7 @@ fn label(p: &Prompt, c: Choice) -> (String, Color) {
     let (agent, kind) = match &p.request {
         Request::Path(r) => (r.agent.as_str(), None),
         Request::Tool(t) => (t.agent.as_str(), t.kind.as_deref()),
+        Request::Operation(o) => (o.agent.as_str(), None),
     };
     let saves = if agent.is_empty() { "config.toml".to_string() } else { format!("[agents.{agent}] in config.toml") };
     let text = match (&p.request, c) {
@@ -74,6 +83,9 @@ fn label(p: &Prompt, c: Choice) -> (String, Color) {
         (Request::Tool(_), Choice::Always) => {
             format!("Always allow {} from {agent} · saved to {saves}", kind.unwrap_or("these"))
         }
+        (Request::Operation(_), Choice::Once) => "Allow this operation".into(),
+        (Request::Operation(_), Choice::Session) => "Allow this exact operation this session".into(),
+        (Request::Operation(_), Choice::Always) => "Unavailable".into(),
         (_, Choice::Deny) => "Deny".into(),
     };
     let color = match c {
@@ -152,6 +164,27 @@ fn body(p: &Prompt, w: usize, mut budget: usize) -> Vec<Line<'static>> {
                     Style::new().fg(theme::YELLOW),
                 )));
             }
+        }
+        Request::Operation(o) => {
+            out.push(Line::from(Span::styled("Uses host authentication outside the shell sandbox:", theme::dim())));
+            let title = format!("{} ({})", o.operation, o.scope);
+            let detail = review_text(&format!("{title}\n{}", o.detail));
+            let mut lines = Vec::new();
+            for line in detail.lines() {
+                lines.extend(wrapped(line, strong, w, Span::raw("  ")));
+            }
+            let limit = lines.len().saturating_sub(budget.max(1));
+            if budget > 0 {
+                p.scroll_limit.set(limit);
+            }
+            let start = p.scroll.min(limit);
+            let end = (start + budget).min(lines.len());
+            let count = lines.len();
+            out.extend(lines.into_iter().skip(start).take(budget));
+            out.push(Line::from(Span::styled(
+                format!("  rows {}-{end}/{count} · pgup/pgdn · home/end", start + 1),
+                theme::dim(),
+            )));
         }
         Request::Tool(t) => {
             let kind = t.kind.as_deref().map(|k| format!(" ({k})")).unwrap_or_default();
@@ -298,5 +331,33 @@ mod tests {
         assert!(rows.len() <= 18, "{} rows", rows.len());
         assert!(rows.iter().any(|r| r.contains("more rows")), "{rows:#?}");
         assert!(rows.last().is_some_and(|r| r.contains("Deny")), "{rows:#?}");
+    }
+
+    #[test]
+    fn operation_review_escapes_terminal_controls() {
+        assert_eq!(review_text("title\rhidden\x1b[2J\nbody\ttext"), "title\\rhidden\\u{1b}[2J\nbody\\ttext");
+    }
+
+    #[test]
+    fn operation_contents_can_be_reviewed_without_hiding_choices() {
+        let detail =
+            format!("/usr/bin/gh in /private/tmp/construct\n{}\nFINAL CONTENT", "review this body\n".repeat(80));
+        let mut p = ask(Request::Operation(crate::permission::OperationAsk {
+            agent: String::new(),
+            operation: "issue_create".into(),
+            scope: "github.com/owner/repo".into(),
+            detail,
+        }));
+        let first = text(&lay_out(&p, 80, 18));
+        assert!(first.len() <= 18, "{first:#?}");
+        assert!(first.iter().any(|r| r.contains("/usr/bin/gh")), "{first:#?}");
+        assert!(!first.iter().any(|r| r.contains("FINAL CONTENT")));
+        assert_eq!(p.choices(), vec![Choice::Once, Choice::Session, Choice::Deny]);
+        p.scroll = p.scroll_limit.get();
+        let last = text(&lay_out(&p, 80, 18));
+        assert!(last.iter().any(|r| r.contains("FINAL CONTENT")), "{last:#?}");
+        assert!(last.iter().any(|r| r.contains("Allow this exact operation this session")), "{last:#?}");
+        assert!(last.last().is_some_and(|r| r.contains("Deny")), "{last:#?}");
+        assert!(last.len() <= 18, "{last:#?}");
     }
 }

@@ -12,6 +12,7 @@ pub enum Group {
     History,
     /// Checking and cancelling background jobs; on once the session has one.
     Jobs,
+    Developer,
     Mcp(String),
 }
 
@@ -24,6 +25,7 @@ impl Group {
             Group::Skills => "skills".into(),
             Group::SkillWrite => "skill-write".into(),
             Group::History => "history".into(),
+            Group::Developer => "developer".into(),
             Group::Jobs => "jobs".into(),
             Group::Mcp(s) => format!("mcp:{s}"),
         }
@@ -35,6 +37,7 @@ impl Group {
             "web" => Group::Web,
             "memory" => Group::Memory,
             "history" => Group::History,
+            "developer" => Group::Developer,
             "skills" => Group::Skills,
             "skill-write" => Group::SkillWrite,
             l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),

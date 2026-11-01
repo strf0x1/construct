@@ -45,4 +45,4 @@ expression: "screen(&env, &d)"
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 › ask construct anything… (/help)
- ◆ openrouter/free                                            billed ↑0 ↓0 · cache 0% · [SESSION0]
+ ◆ openrouter/free                                            billed [TOKENS] [TOKENS] · cache [CACHE] · [SESSION0]

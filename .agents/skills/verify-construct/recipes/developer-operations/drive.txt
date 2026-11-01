@@ -1,0 +1,27 @@
+wait "ask construct" 5000
+type commit the staged change
+key enter
+wait "PERMISSION" 15000
+sleep 600
+expect "Uses host authentication"
+expect "commit"
+expect "Allow this operation"
+expect-style "Allow this operation" fg=#9ece6a bg=#2c3048 bold
+expect-style "Deny" fg=#f7768e
+snap --style approval-start
+image {evidence}/approval-start.svg
+key pgdn
+key pgdn
+sleep 100
+snap --style approval-end
+image {evidence}/approval-end.svg
+key pgup
+key pgup
+sleep 100
+type y
+wait "developer operation done" 15000
+gone "PERMISSION" 1000
+snap --style result
+image {evidence}/result.svg
+type /quit
+key enter

@@ -23,6 +23,7 @@ use tokio::sync::watch;
 
 pub struct Perms {
     paths: Paths,
+    pub(super) operations: Mutex<Vec<super::OperationAsk>>,
     /// The session's sandbox policy before any approval.
     base: Policy,
     ask: Mutex<Arc<dyn Ask>>,
@@ -33,7 +34,7 @@ pub struct Perms {
 }
 
 /// `fut`, unless the turn is cancelled first.
-async fn raced(fut: impl Future<Output = Decision>, mut cancel: watch::Receiver<bool>) -> Decision {
+pub(super) async fn raced(fut: impl Future<Output = Decision>, mut cancel: watch::Receiver<bool>) -> Decision {
     tokio::pin!(fut);
     loop {
         if *cancel.borrow() {
@@ -50,6 +51,7 @@ impl Perms {
     pub fn new(paths: &Paths, base: Policy) -> Self {
         Self {
             paths: paths.clone(),
+            operations: Mutex::new(Vec::new()),
             base,
             ask: Mutex::new(Arc::new(NoAsk)),
             grants: Mutex::new(Grants::default()),
@@ -67,7 +69,7 @@ impl Perms {
         *self.sink.lock().unwrap_or_else(|e| e.into_inner()) = Some((journal, tx.downgrade()));
     }
 
-    fn asker(&self) -> Arc<dyn Ask> {
+    pub(super) fn asker(&self) -> Arc<dyn Ask> {
         // A poisoned lock means a panic mid-assignment; the value is still usable.
         self.ask.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
@@ -76,7 +78,7 @@ impl Perms {
         self.grants.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    fn record(&self, ev: Event) {
+    pub(super) fn record(&self, ev: Event) {
         if let Some((journal, tx)) = &*self.sink.lock().unwrap_or_else(|e| e.into_inner())
             && let Some(tx) = tx.upgrade()
         {
@@ -271,6 +273,7 @@ impl Perms {
                 d
             }
             Request::Tool(t) => self.tool(&*ask, t).await,
+            Request::Operation(_) => Decision::DENY,
         }
     }
 

@@ -354,3 +354,12 @@ Issue 127: session browsing, safe switching and explicit crash recovery. Startup
 - `bench/results/tools-20261031-163911.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
 - `bench/results/memory-20261031-163958.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
 - `bench/results/size-issue-127-paired.json`: model None; bench 549797b dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+
+## 2026-10-31 23:24 note
+
+Issue #142 final release after private Git context and backing-path guards. Frame and read/shell tool comparisons all same. Memory suite remains unavailable (missing corpus/Linux RSS). Rust gates, 22 developer unit tests, 6 developer e2e, 23 permission e2e, 11 snapshots, and final developer-operations drive pass. Full local quick gate fails pre-existing macOS benchmark fixtures; release-signing sed failure reproduced on baseline. Live GitHub and Tier 2 pending.
+
+- `bench/results/size-20261031-224557.json`: model None; bench 894f847 dirty; construct 894f847 editor=replace router=local
+- `bench/results/size-20261031-232054.json`: model None; bench 894f847 dirty; construct 894f847 dirty editor=replace router=local
+- `bench/results/frame-20261031-232059.json`: model None; bench 894f847 dirty; before 894f847 editor=replace router=local; after 894f847 dirty editor=replace router=local
+- `bench/results/tools-20261031-232102.json`: model None; bench 894f847 dirty; before 894f847 editor=replace router=local; after 894f847 dirty editor=replace router=local

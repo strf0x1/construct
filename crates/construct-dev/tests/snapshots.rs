@@ -199,15 +199,39 @@ fn hybrid_reflection() {
     insta::assert_json_snapshot!(shaped(&env, &reflection));
 }
 
-/// Screen text with trailing spaces trimmed, durations masked and the env's
-/// paths normalised.
+/// Screen text with trailing spaces trimmed, durations, token counters and
+/// cache rates masked, and the env's paths normalised.
 fn screen(env: &Env, d: &drive::Driver) -> String {
-    let text = d.text();
-    let lines: Vec<String> = text
-        .lines()
-        .map(|l| l.trim_end().split(' ').map(|w| if is_duration(w) { "[T]" } else { w }).collect::<Vec<_>>().join(" "))
-        .collect();
+    let lines: Vec<String> = d.text().lines().map(masked).collect();
     normalize(env, &lines.join("\n"))
+}
+
+/// Token counts and cache rates come from request bytes, so they move with the
+/// length of this machine's temp paths; the status-line test proves them.
+fn masked(line: &str) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let (mut billed, mut cache) = (false, false);
+    for w in line.trim_end().split(' ') {
+        let token = if is_duration(w) {
+            "[T]"
+        } else if billed && (w.starts_with('↑') || w.starts_with('↓')) {
+            "[TOKENS]"
+        } else if cache && w.ends_with('%') {
+            cache = false;
+            "[CACHE]"
+        } else {
+            if w != "billed" {
+                billed = false;
+            }
+            cache = w == "cache";
+            w
+        };
+        if w == "billed" {
+            billed = true;
+        }
+        out.push(token.to_string());
+    }
+    out.join(" ")
 }
 
 /// `4ms`, `0.0s`, `12s`: timings that vary run to run.
@@ -244,7 +268,11 @@ fn screens() {
     };
     run(&mut d, &mut log, &format!("wait \"ask construct\" {short}\nsettle 300 {long}\n"));
     insta::assert_snapshot!("first_frame", screen(&env, &d));
-    run(&mut d, &mut log, &format!("type run it\nkey enter\nwait \"All good.\" {long}\nsettle 300 {long}\n"));
+    run(
+        &mut d,
+        &mut log,
+        &format!("type run it\nkey enter\nwait \"All good.\" {long}\nwait \"2 steps\" {long}\nsettle 300 {long}\n"),
+    );
     insta::assert_snapshot!("finished_turn", screen(&env, &d));
     d.kill();
 }
