@@ -345,3 +345,21 @@ Search suite, 10 rounds x 3 arms (grep, search, none) x 11 tasks on three models
 - `bench/results/task-20261028-221453.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
 - `bench/results/task-20261028-222858.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
 - `bench/results/task-20261028-225539.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
+
+## 2026-10-31 00:59 note
+
+#95 pilot, nemotron-3.5-lightning:free, --window 8192, 1 round x 3 compact tasks, arms main / new (no 8192 floor, results capped at a quarter of the budget) / newwide (new + threshold 0.85, target 0.6): 0/9 success, a fatal overflow in 8/9. Two causes, the same in every arm: (1) the model issues 8-10 parallel calls in one round, 41-72 kB of results (10-18k tokens), and the newest round is never cut, so one round is over the window; a per-result cap does not bound a round. (2) the summarizer writes 3.9k-8k-token summaries or hits its output limit (max_tokens = allowance + 8192 headroom is above the window), so a summary cut can grow the prompt. The arms cannot be told apart until both are fixed. gemma-4-31b-it:free was 0/20 on upstream 429s.
+
+- `bench/results/task-20261031-005924.json`: model nvidia/nemotron-3.5-lightning:free; bench b7f6e81 dirty; main b7f6e81 editor=replace router=local; new b7f6e81 dirty editor=replace router=local; newwide b7f6e81 dirty editor=replace router=local
+
+## 2026-10-31 13:30 note
+
+#95 pilot 2, after the round cap (a round's results share half the budget) and the summarizer limit (max_tokens <= a quarter of the budget); same model/window/tasks/arms as pilot 1. Fatal overflows: main 3/3 runs, new 1/3, newwide 0/3. Checks passed (long-fix/conventions/recall): main 1/8, 2/8, 0/6; new 1/8, 2/8, 0/6; newwide 1/8, 4/8, 2/6. Still 0/9 success. Surviving runs thrash: new long-fix 60 requests, 28 cuts, 67 stub re-runs, 0 edits; newwide 26-30 cuts and 33-36 re-runs on conventions/recall. Most summaries now hit the 1792-token limit and fall back to stubs (nemotron writes 4-5 kB). new's recall died on the token estimate: the planner thought 7.3k, the provider counted 13.8k (numeric telemetry at about 2 bytes a token against the ratio measured on prose), and the overflow recovery found nothing to cut, four turns in a row. n=1 per cell: directions only.
+
+- `bench/results/task-20261031-132928.json`: model nvidia/nemotron-3.5-lightning:free; bench b7f6e81 dirty; main b7f6e81 editor=replace router=local; new b7f6e81 dirty editor=replace router=local; newwide b7f6e81 dirty editor=replace router=local
+
+## 2026-11-01 01:05 note
+
+#95 pilot 3, after the last-resort stub of a newest round over the budget and the result cap at the measured bytes per token; same setup as pilots 1-2. Fatal overflows: main 2/3 runs, new 0/3, newwide 0/3 (pilot 2: 1/3 and 0/3). Checks (long-fix/conventions/recall): main 1/8, 2/8, 0/6; new 1/8, 2/8, 2/6 (recall was 0/6, the run the estimate killed); newwide 1/8, 3/8, 2/6. Still 0/9 success. Every branch run now survives and then thrashes: 90-140 requests, 38-54 cuts, 105-166 stub re-runs, 155-280 reads plus shell calls, 0-3 edits; two runs hit the 120-request budget. The model reads the whole package before editing, and 8k holds about two 8 kB files, so the stubs evict what it reads. Next: stub gists (#95 item 5), or a 16k pilot to see whether success separates the arms there.
+
+- `bench/results/task-20261101-010436.json`: model nvidia/nemotron-3.5-lightning:free; bench b7f6e81 dirty; main b7f6e81 editor=replace router=local; new b7f6e81 dirty editor=replace router=local; newwide b7f6e81 dirty editor=replace router=local

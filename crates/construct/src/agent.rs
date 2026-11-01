@@ -548,6 +548,8 @@ impl Agent {
         };
         let pending: Vec<(usize, llm::ToolCall)> =
             calls.iter().cloned().enumerate().filter(|(i, _)| results[*i].is_none()).collect();
+        let (budget, ratio) = (compact::budget(self.cfg_context_window(), self.cfg.max_tokens), self.bytes_per_token);
+        self.ctx.size_results(budget, pending.len(), ratio);
         if parallel {
             let outs = join_all(pending.iter().map(|(_, c)| run(c.clone()))).await;
             for ((i, _), o) in pending.iter().zip(outs) {
@@ -575,8 +577,7 @@ impl Agent {
     /// anything was cut.
     async fn compact(&mut self, defs: &[Value], reason: Reason, tx: &Events) -> bool {
         let started = Instant::now();
-        let budget = compact::budget(self.cfg_context_window(), self.cfg.max_tokens);
-        let ratio = self.bytes_per_token;
+        let (budget, ratio) = (compact::budget(self.cfg_context_window(), self.cfg.max_tokens), self.bytes_per_token);
         let (client, model, max_tokens, temperature) =
             (self.client.clone(), self.cfg.model.clone(), self.cfg.max_tokens, self.cfg.temperature);
         let size = move |messages: &[Message]| {
@@ -656,7 +657,7 @@ impl Agent {
                     model,
                     messages: &req,
                     tools: &[],
-                    max_tokens: Some(compact::summary_allowance(budget) as u32 + compact::REASONING_HEADROOM),
+                    max_tokens: Some(compact::summary_max_tokens(budget)),
                     temperature: None,
                 })
                 .await;
@@ -691,8 +692,7 @@ impl Agent {
     }
 
     fn cfg_context_window(&self) -> u64 {
-        let w = self.cfg.context_window.max(8192) as u64;
-        self.window_seen.map_or(w, |s| s.min(w))
+        self.window_seen.unwrap_or(u64::MAX).min(u64::from(self.cfg.context_window))
     }
 }
 

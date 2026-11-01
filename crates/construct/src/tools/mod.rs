@@ -11,6 +11,7 @@
 
 pub mod access;
 pub mod call;
+mod cap;
 pub mod delegate;
 pub mod edit;
 pub mod fs;
@@ -32,6 +33,7 @@ use crate::config::{Paths, ToolsConfig};
 use crate::skills::Library;
 use anyhow::{Result, bail};
 pub use call::Call;
+pub use cap::{OUTPUT_MAX, cap_output};
 pub use group::Group;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -39,8 +41,6 @@ use std::collections::{BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::watch;
-
-pub const OUTPUT_MAX: usize = 30_000;
 
 /// The switch the model uses to turn on a group the router missed. The agent
 /// answers it itself; it is not a catalog tool.
@@ -203,6 +203,9 @@ pub struct Ctx {
     read_files: Mutex<HashSet<PathBuf>>,
     /// Shell calls the sandbox blocked this turn (`shell::STOP_AFTER`).
     shell_blocked: std::sync::atomic::AtomicUsize,
+    /// What one result may hold now: `OUTPUT_MAX`, or less on a small
+    /// window (`size_results`).
+    output_max: std::sync::atomic::AtomicUsize,
 }
 
 impl Ctx {
@@ -240,6 +243,7 @@ impl Ctx {
             jobs: crate::jobs::Jobs::new(&Default::default()),
             read_files: Mutex::new(HashSet::new()),
             shell_blocked: Default::default(),
+            output_max: OUTPUT_MAX.into(),
         }
     }
     /// This session's jobs, under the limit its config sets.
@@ -495,24 +499,4 @@ fn blocking(ctx: &Ctx, f: impl FnOnce() -> Result<String, ToolError>) -> Result<
     // The walk borrows ctx, so use block_in_place rather than spawn_blocking.
     let r = tokio::task::block_in_place(f)?;
     Ok(Output::plain(cap_output(ctx, "out", &r)))
-}
-
-/// Keep tool output inside the context budget. Long output keeps its head and
-/// tail; the whole thing is spilled to a file the model can read or grep.
-pub fn cap_output(ctx: &Ctx, kind: &str, text: &str) -> String {
-    if text.len() <= OUTPUT_MAX {
-        return text.to_string();
-    }
-    let dir = ctx.paths.spill_dir();
-    let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join(format!("{kind}-{}-{}.txt", std::process::id(), crate::skills::now_nanos()));
-    let saved = std::fs::write(&path, text).is_ok();
-    let head = crate::llm::truncate(text, OUTPUT_MAX / 2);
-    let lines = text.lines().count();
-    format!(
-        "{head}\n\n[… {} bytes, {lines} lines total{} …]\n\n{}",
-        text.len(),
-        if saved { format!("; full output in {}", path.display()) } else { String::new() },
-        crate::text::tail(text, OUTPUT_MAX / 3)
-    )
 }
