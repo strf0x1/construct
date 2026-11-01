@@ -87,8 +87,11 @@ in a fresh home and keeps evidence under `.verify/evidence/`:
 The `map` gate in `cargo xtask check` keeps `docs/feature-map/` honest
 without running anything: every recipe directory and every `/command` in
 `tui/help.rs` must be named by an entry, every recipe and `expect-style`
-color an entry names must exist, `verified_at` must be a commit, and each
-entry has the sections its status needs. A new recipe or command fails the
+color an entry names must exist, a `verified` entry records the commit it
+was driven at (`verified_at`) and a fingerprint of its dependencies
+(`verified_deps`, which the gate prints for you), and each entry has the
+sections its status needs. Staleness is by content, so a squash merge keeps
+a proof made on the PR branch (ADR 0031). A new recipe or command fails the
 gate until its entry is written.
 
 `snap --style` shows colors and attributes as `⟦fg=#7aa2f7 bold⟧text⟦/⟧`,

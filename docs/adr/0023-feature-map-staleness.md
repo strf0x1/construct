@@ -1,6 +1,6 @@
 # 0023 — A verified feature goes stale when its code moves
 
-Status: accepted. 2026-10-28.
+Status: accepted. 2026-10-28. The `git log` staleness rule is superseded by 0031.
 
 ## Context
 

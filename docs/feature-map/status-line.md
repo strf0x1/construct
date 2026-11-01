@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/status.rs, crates/construct/src/journal/totals.rs, crates/construct/src/journal/show.rs]
 verified_at: f57b0ed
+verified_deps: 3cbaa0ea849fc981
 ---
 # Status line
 

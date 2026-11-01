@@ -246,19 +246,12 @@ pub fn check(quick: bool) -> Result<bool> {
     let root = workspace_root()?;
     let _lock = exclusive(&root)?;
     enable_hooks(&root);
-    let is_commit = |sha: &str| {
-        let rev = format!("{sha}^{{commit}}");
-        Command::new("git").args(["cat-file", "-e", &rev]).current_dir(&root).status().is_ok_and(|s| s.success())
+    use crate::feature_map as map;
+    let git = map::Git {
+        is_commit: &|sha| map::is_commit(&root, sha),
+        object: &|rev, path| map::object(&root, rev, path),
+        changed_since: &|sha, path| map::changed_since(&root, sha, path),
     };
-    let changed_since = |sha: &str, path: &str| {
-        let range = format!("{sha}..HEAD");
-        let out = Command::new("git")
-            .args(["log", "--no-merges", "--format=%H", &range, "--", path])
-            .current_dir(&root)
-            .output();
-        out.map(|o| String::from_utf8_lossy(&o.stdout).lines().map(String::from).collect()).unwrap_or_default()
-    };
-    let git = crate::feature_map::Git { is_commit: &is_commit, changed_since: &changed_since };
     let in_process: [(&str, &dyn Fn() -> Vec<String>); 3] = [
         ("docs", &|| [conventions(&root), crate::deps::unshared(&root)].concat()),
         ("map", &|| crate::feature_map::problems(&root, &git)),
