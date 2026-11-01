@@ -411,3 +411,38 @@ fn a_background_child_reaching_past_its_sandbox_is_refused_when_nobody_can_be_as
     assert_eq!(end["status"], "completed");
     assert!(end["tail"].as_str().unwrap().contains("could not read it"));
 }
+
+/// A job's end arrives whenever it does; one that lands while a reply streams
+/// must not split the reply on screen. The stream is slowed (`chunk_ms`) so
+/// the one-second job ends after its first words and before its last.
+#[test]
+fn a_job_ending_mid_reply_leaves_the_reply_whole_and_its_notice_after_it() {
+    let reply = "the job runs while this reply streams in one word at a time and stays one line";
+    let env = Env::new(
+        "jobs-mid-reply",
+        json!({ "chunk_ms": 250, "steps": [shell_bg("sleep 1 && echo early"), { "text": reply }, { "text": "it said early" }] }),
+    );
+    env.config("[router]\nmode = 'local'\n[learn]\nenabled = false\n");
+    let mut d = construct_dev::drive::Driver::spawn(
+        &[construct().display().to_string()],
+        &env.env(),
+        Some(env.work.to_str().unwrap()),
+        110,
+        34,
+    )
+    .unwrap();
+    let script = format!(
+        "wait \"ask construct\" 5000\ntype watch it\nkey enter\nwait \"{reply}\" 10000\nwait \"it said early\" 8000\n"
+    );
+    let mut log = vec![];
+    if let Err(e) = construct_dev::drive::run_script(&mut d, &script, &mut log) {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    // It really ended mid-reply: before the turn that streamed the reply.
+    let types: Vec<String> = env.journal().into_iter().map(|r| r.ty).collect();
+    let at = |t: &str| types.iter().position(|x| x == t).unwrap();
+    assert!(at("job_end") < at("turn_end"), "the job did not end mid-reply: {types:?}");
+    let screen = d.text();
+    let line = |s: &str| screen.lines().position(|l| l.contains(s)).unwrap_or_else(|| panic!("no {s:?} in\n{screen}"));
+    assert!(line("job j1 completed") > line(reply), "{screen}");
+}

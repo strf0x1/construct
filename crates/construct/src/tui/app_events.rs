@@ -144,6 +144,7 @@ impl App {
                         b.version += 1;
                     }
                 }
+                self.blocks.append(&mut self.held);
                 if self.active_user_turn { self.pending_turns = self.pending_turns.saturating_sub(1); }
                 self.active_user_turn = false;
                 self.busy = self.pending_turns > 0;

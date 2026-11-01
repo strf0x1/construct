@@ -42,6 +42,16 @@ Preconditions:
 - **Wake.** Drive: `wait "job j1 completed" 6000`, `wait "it said watched-done" 8000`, `gone "1 job running" 500`. Expect: the reply arrives with nothing typed, and the count is gone.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/background-job` (runs it after the drive). Expect: `ok: completion delivered once as jobs_delivered; two turns, one user row` — the last request holds the tagged completion and `watched-done`, and `journal.txt` has two `turn_start` rows, one `user` row and one `jobs_delivered` row.
 
+### A job ending mid-reply
+
+Preconditions:
+
+- Served with `--chunk-ms 250`. Model: a background `sleep 1 && echo early`, a seventeen-word reply that streams for about four seconds, then `it said early`. Recipe: `.agents/skills/verify-construct/recipes/background-job-mid-reply`.
+
+- **Held.** Drive: `type watch it`, `key enter`, `wait "the job runs"`, `sleep 1500`, `snap mid-reply`, `image {evidence}/mid-reply.png`. Expect: the job has ended but no `job j1 completed` line is drawn inside the half-streamed reply.
+- **Whole.** Drive: `wait "the job runs while this reply streams in one word at a time and stays one line"`, `wait "job j1 completed"`, `wait "it said early"`. Expect: the reply is one line and the notice comes after it.
+- **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/background-job-mid-reply`. Expect: `ok: job ended mid-reply; reply drawn whole, notice after it` — `job_end` precedes the first `turn_end` in `journal.txt`, so the job really ended during the stream.
+
 ### Background delegate
 
 Preconditions:
@@ -61,3 +71,4 @@ Preconditions:
 - A background child's permission questions are rejected where nobody can be asked (`construct run`), so it gets a refusal and the job still ends on its own (`jobs::a_background_child_reaching`).
 - A job dies with construct: quitting cancels it (journaled). Nothing survives a restart.
 - A completion that arrives while a turn runs waits for the next turn boundary; the recipe's job ends while the TUI is idle.
+- A job's start or end line that arrives while a reply (or reasoning) streams is held until the next block or the turn's end, so it never splits the reply (`App::aside`); the status-line count changes at once. Proven by `jobs::a_job_ending_mid_reply` and the `background-job-mid-reply` recipe.

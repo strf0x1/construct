@@ -105,6 +105,8 @@ pub(super) enum Cmd {
 pub(super) struct App {
     pub(super) cfg: Config,
     pub(super) blocks: Vec<Block>,
+    /// Notices from beside the turn, held while a reply streams (see `aside`).
+    pub(super) held: Vec<Block>,
     pub(super) cache: HashMap<usize, (u16, u64, bool, Vec<Line<'static>>)>,
     pub(super) input: String,
     pub(super) cursor: usize,
@@ -156,6 +158,7 @@ impl App {
         Self {
             cfg,
             blocks: vec![],
+            held: vec![],
             cache: HashMap::new(),
             input: String::new(),
             cursor: 0,
@@ -242,7 +245,20 @@ impl App {
     }
 
     pub(super) fn push(&mut self, b: Block) {
+        self.blocks.append(&mut self.held);
         self.blocks.push(b);
+    }
+
+    /// A notice from something running beside the turn (a background job).
+    /// Text extends only the last block, so one landing mid-reply would split
+    /// it: it waits until the next block or the turn's end instead.
+    pub(super) fn aside(&mut self, color: Color, text: impl Into<String>) {
+        let b = Block::new(Kind::Notice(color), text);
+        let streaming = self
+            .blocks
+            .last()
+            .is_some_and(|l| l.status == Status::Running && matches!(l.kind, Kind::Assistant | Kind::Reasoning));
+        if streaming { self.held.push(b) } else { self.push(b) }
     }
 
     pub(super) fn last_of(&mut self, kind: Kind) -> Option<&mut Block> {
