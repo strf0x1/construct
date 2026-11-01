@@ -7,6 +7,23 @@ use super::{SUMMARY_HEAD, is_summary};
 use crate::llm::{Message, truncate};
 use std::fmt::Write;
 
+/// Output tokens the summarizer may spend beyond the summary itself:
+/// reasoning models think before they write.
+const REASONING_HEADROOM: u64 = 8192;
+
+/// Tokens a summary is assumed to take while planning, before it exists.
+pub fn allowance(budget: u64) -> u64 {
+    (budget / 10).min(4000)
+}
+
+/// The summarizer's output limit: the allowance plus reasoning headroom,
+/// but never more than a quarter of the budget. A small model ignores "keep
+/// it under N words", and a summary the size of the window grows the prompt
+/// it was meant to shrink; one cut off here is refused and the cut stubs.
+pub fn max_tokens(budget: u64) -> u32 {
+    (allowance(budget) + REASONING_HEADROOM).min(budget / 4) as u32
+}
+
 pub const SYSTEM: &str = "You compact an agent's working context. The agent continues the task from your summary alone: the messages you are shown are removed from its context. Write these sections in Markdown, dense, no preamble:\n\
 ## Goal\nThe user's request and what counts as done. Copy every constraint and exact value the user gave (names, versions, numbers, paths, flags) verbatim.\n\
 ## Progress\nWhat has been done, in order. Every file created or changed, and its current state.\n\
@@ -74,4 +91,14 @@ fn render(m: &Message) -> String {
         _ => {}
     }
     s.trim().to_string()
+}
+
+#[cfg(test)]
+mod limit_tests {
+    #[test]
+    fn the_summarizer_never_gets_more_output_than_a_quarter_of_the_budget() {
+        assert_eq!(super::max_tokens(7168), 1792, "8k: a quarter of the budget, not 8192 + allowance");
+        assert_eq!(super::max_tokens(28_672), 7168);
+        assert_eq!(super::max_tokens(122_880), 4000 + 8192, "128k: allowance and headroom, as before");
+    }
 }

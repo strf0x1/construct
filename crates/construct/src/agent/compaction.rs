@@ -20,8 +20,7 @@ impl Agent {
     /// anything was cut.
     pub(super) async fn compact(&mut self, defs: &[Value], reason: Reason, tx: &Events) -> bool {
         let started = Instant::now();
-        let budget = compact::budget(self.cfg_context_window(), self.cfg.max_tokens);
-        let ratio = self.bytes_per_token;
+        let (budget, ratio) = (compact::budget(self.cfg_context_window(), self.cfg.max_tokens), self.bytes_per_token);
         let (client, model, max_tokens, temperature) =
             (self.client.clone(), self.cfg.wire_id(&self.cfg.model), self.cfg.max_tokens, self.cfg.temperature);
         let size = move |messages: &[Message]| {
@@ -108,7 +107,7 @@ impl Agent {
                     model: &model,
                     messages: &req,
                     tools: &[],
-                    max_tokens: Some(compact::summary_allowance(budget) as u32 + compact::REASONING_HEADROOM),
+                    max_tokens: Some(compact::summary_max_tokens(budget)),
                     temperature: None,
                 })
                 .await;

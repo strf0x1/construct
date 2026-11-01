@@ -8,6 +8,23 @@ use std::path::Path;
 
 pub(super) const READ_LINES: usize = 2000;
 pub(super) const LINE_MAX: usize = 2000;
+/// Room kept under the result cap for read's closing line.
+const FOOTER: usize = 120;
+
+/// Rows from line `offset` on, up to the result cap: a file bigger than a
+/// small window pages (offset) instead of losing its middle to `cap_output`.
+/// The first row always goes in. Returns the page and its last line number.
+pub(super) fn page(ctx: &Ctx, offset: usize, rows: impl Iterator<Item = String>) -> (String, usize) {
+    let (mut out, mut end) = (String::new(), offset - 1);
+    for row in rows {
+        if !out.is_empty() && out.len() + row.len() + FOOTER > ctx.output_max() {
+            break;
+        }
+        out.push_str(&row);
+        end += 1;
+    }
+    (out, end)
+}
 
 pub struct Read;
 
@@ -69,13 +86,12 @@ fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let offset = num(a, "offset").unwrap_or(1).max(1);
     let limit = num(a, "limit").unwrap_or(READ_LINES);
     let total = text.lines().count();
-    let mut out = String::with_capacity(bytes.len().min(256 * 1024));
-    for (i, line) in text.lines().enumerate().skip(offset - 1).take(limit) {
+    let rows = text.lines().enumerate().skip(offset - 1).take(limit).map(|(i, line)| {
         let line = line.strip_suffix('\r').unwrap_or(line);
         let line = if line.len() > LINE_MAX { crate::llm::truncate(line, LINE_MAX) } else { line.to_string() };
-        out.push_str(&format!("{:>5}\t{line}\n", i + 1));
-    }
-    let shown_end = (offset - 1 + limit).min(total);
+        format!("{:>5}\t{line}\n", i + 1)
+    });
+    let (mut out, shown_end) = page(ctx, offset, rows);
     if total == 0 {
         out.push_str("(empty file)");
     } else if shown_end < total {

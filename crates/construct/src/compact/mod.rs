@@ -9,9 +9,14 @@
 //! never separated from its result, and a single long user turn can be cut
 //! as well as a long conversation.
 
+mod overflow;
 mod summary;
 
-pub use summary::{SYSTEM as SUMMARY_SYSTEM, request as summary_request};
+pub use overflow::{is_overflow, overflow_limit, overflow_tokens};
+pub use summary::{
+    SYSTEM as SUMMARY_SYSTEM, allowance as summary_allowance, max_tokens as summary_max_tokens,
+    request as summary_request,
+};
 
 use crate::config::CompactionConfig;
 use crate::llm::Message;
@@ -108,15 +113,6 @@ pub fn budget(window: u64, max_tokens: Option<u32>) -> u64 {
     window.saturating_sub(reserve).max(1024)
 }
 
-/// Output tokens the summarizer may spend beyond the summary itself:
-/// reasoning models think before they write.
-pub const REASONING_HEADROOM: u32 = 8192;
-
-/// Tokens a summary is assumed to take while planning, before it exists.
-pub fn summary_allowance(budget: u64) -> u64 {
-    (budget / 10).min(4000)
-}
-
 /// Decide whether and how to cut. `size` estimates the request's prompt
 /// tokens for a candidate message list (tools and system included).
 /// `force` plans a cut even under the threshold (overflow recovery).
@@ -163,6 +159,15 @@ pub fn plan(
             elided = apply_elide(msgs, &all);
             after_a = size(&elided);
             ids = all;
+        }
+    }
+    // Last resort: the newest round alone is over the budget, so no cut that
+    // keeps it can be sent. Stub it too; the model re-reads in smaller pages.
+    if after_a > budget {
+        let all = elidable(msgs, &rounds, 0);
+        if all.len() > ids.len() {
+            (elided, ids) = (apply_elide(msgs, &all), all);
+            after_a = size(&elided);
         }
     }
     let plan_a = |reached| Plan {
@@ -230,41 +235,6 @@ pub fn apply(msgs: Vec<Message>, cut: &Cut) -> Vec<Message> {
     msgs
 }
 
-/// Whether an error from the endpoint says the prompt was too long.
-pub fn is_overflow(err: &str) -> bool {
-    let e = err.to_ascii_lowercase();
-    [
-        "context_length_exceeded",
-        "maximum context length",
-        "context window",
-        "prompt is too long",
-        "too many tokens",
-        "exceeds the context",
-        "input is too long",
-        "reduce the length",
-    ]
-    .iter()
-    .any(|p| e.contains(p))
-}
-
-/// The prompt size a provider reported in an overflow error ("resulted in
-/// 40123 tokens"), when it says.
-pub fn overflow_tokens(err: &str) -> Option<u64> {
-    number_after(err, "resulted in ")
-}
-
-/// The window a provider stated in an overflow error ("maximum context
-/// length is 32768 tokens"), when it says.
-pub fn overflow_limit(err: &str) -> Option<u64> {
-    number_after(err, "context length is ")
-}
-
-fn number_after(s: &str, prefix: &str) -> Option<u64> {
-    let (_, rest) = s.split_once(prefix)?;
-    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
-    digits.parse().ok()
-}
-
 /// Index of each assistant message: where rounds start.
 fn rounds(msgs: &[Message]) -> Vec<usize> {
     msgs.iter().enumerate().filter(|(_, m)| m.role == "assistant").map(|(i, _)| i).collect()
@@ -273,7 +243,13 @@ fn rounds(msgs: &[Message]) -> Vec<usize> {
 /// Call ids of results, not yet stubbed and worth stubbing, older than the
 /// last `keep` rounds.
 fn elidable(msgs: &[Message], rounds: &[usize], keep: usize) -> Vec<String> {
-    let Some(&edge) = rounds.len().checked_sub(keep).and_then(|i| rounds.get(i)) else { return vec![] };
+    let edge = match keep {
+        0 => msgs.len(),
+        k => match rounds.len().checked_sub(k).and_then(|i| rounds.get(i)) {
+            Some(&e) => e,
+            None => return vec![],
+        },
+    };
     msgs[..edge]
         .iter()
         .filter(|m| m.role == "tool")

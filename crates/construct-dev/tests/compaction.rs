@@ -92,6 +92,58 @@ fn a_long_single_turn_is_cut_by_eliding_and_resume_sees_the_cut() {
 }
 
 #[test]
+fn a_4k_window_is_planned_as_4k_and_reads_page_to_fit_it() {
+    // #95: the window was floored at 8192, so a 4k model overflowed once
+    // before construct learned its size; and one ~10 KB read was most of it.
+    let env = Env::with_window("compact-4k", reads(6), Some(4096));
+    env.config("context_window = 4096\n");
+    big_files(&env);
+    let out = env.run(&["run", "--no-learn", "read the big files"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("done reading"));
+    assert!(log(&env).iter().all(|r| r["window_rejected"].is_null()), "no request overflowed, the first included");
+
+    let reads: Vec<Value> = env.journal().into_iter().filter(|r| r.ty == "tool_end").map(|r| r.payload).collect();
+    assert!(!reads.is_empty());
+    for r in &reads {
+        let out = r["output"].as_str().unwrap();
+        assert!(out.len() < 4096, "a result fits a quarter of the budget: {} bytes", out.len());
+        assert!(out.contains("Use offset to read more"), "a read cut short says how to go on: {out}");
+    }
+    let cuts = compactions(&env);
+    assert!(!cuts.is_empty(), "the journal shows the cuts");
+    assert!(cuts.iter().all(|c| c["budget"] == 3584), "planned against 4096 less its reserve: {cuts:?}");
+}
+
+#[test]
+fn a_round_of_parallel_reads_shares_one_cap_and_fits_an_8k_window() {
+    // #95 pilot: models read a whole package in one round, and the newest
+    // round is never cut, so ten reads at one result's cap overflowed 8k.
+    let reads: Vec<Value> =
+        (0..10).map(|i| json!({ "call": "read", "args": { "path": format!("big{}.txt", i % 3) } })).collect();
+    let env = Env::with_window(
+        "compact-round",
+        json!({ "steps": [{ "calls": reads }, { "text": "done reading" }] }),
+        Some(8192),
+    );
+    env.config("context_window = 8192\n");
+    big_files(&env);
+    let out = env.run(&["run", "--no-learn", "read the big files"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("done reading"));
+    assert!(log(&env).iter().all(|r| r["window_rejected"].is_null()), "the round fit the window");
+    let outs: Vec<usize> = env
+        .journal()
+        .into_iter()
+        .filter(|r| r.ty == "tool_end")
+        .map(|r| r.payload["output"].as_str().unwrap().len())
+        .collect();
+    assert_eq!(outs.len(), 10);
+    // Half of a 7168-token budget, at four bytes a token, split ten ways.
+    assert!(outs.iter().all(|&n| n <= 1434), "each read paged to its share: {outs:?}");
+}
+
+#[test]
 fn overflow_is_recovered_by_a_forced_cut_and_one_resend() {
     // construct believes the window is 128k; the model's is 12k.
     let env = Env::with_window("compact-overflow", reads(10), Some(12_000));

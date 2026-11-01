@@ -1,0 +1,6912 @@
+{
+ "manifest": {
+  "harnesses": {
+   "main": {
+    "version": "0.1.0",
+    "git_sha": "b7f6e81d15207d5ea3d379d548046f59d6718e98",
+    "git_dirty": false,
+    "binary_sha256": "e94f5c0f896b787f6a95758994c4403315c91a6378a9478a745ed0f3138f81e3",
+    "config_sha256": "6f5e43a98a033a574f64880556f77d9cea2225881727b76cf9f986ceac26d444",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "router_mode": "local",
+    "context_window": 8192,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/tmp/claude-1000/-home-brandon-git-construct--claude-worktrees-github-issue-95-testing-ac78bd/07b46fb3-80da-4423-b304-172054b3eaa4/scratchpad/construct-main"
+   },
+   "new": {
+    "version": "0.1.0",
+    "git_sha": "b7f6e81d15207d5ea3d379d548046f59d6718e98",
+    "git_dirty": true,
+    "binary_sha256": "4f333fa47323bde441b77f9f6cdaf80a6e4fd7ef7a0fc26c563960b2c9bce85c",
+    "config_sha256": "9dd8428f815a3dd3ef6914716125b7c285a033a6b2b49ee479337c653d3be363",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "router_mode": "local",
+    "context_window": 8192,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/github-issue-95-testing-ac78bd/target/release/construct"
+   },
+   "newwide": {
+    "version": "0.1.0",
+    "git_sha": "b7f6e81d15207d5ea3d379d548046f59d6718e98",
+    "git_dirty": true,
+    "binary_sha256": "4f333fa47323bde441b77f9f6cdaf80a6e4fd7ef7a0fc26c563960b2c9bce85c",
+    "config_sha256": "6af52fd1e6194114ccaccfa260d505062efe5004e4315a5b4c8f32ff2db15170",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "nvidia/nemotron-3.5-lightning:free",
+    "router_mode": "local",
+    "context_window": 8192,
+    "compaction": {
+     "threshold": 0.85,
+     "target": 0.6,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openrouter",
+    "cache": "auto",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/github-issue-95-testing-ac78bd/target/release/construct"
+   }
+  },
+  "dev_git_sha": "b7f6e81d15207d5ea3d379d548046f59d6718e98",
+  "dev_dirty": true,
+  "model": "nvidia/nemotron-3.5-lightning:free",
+  "bench_py_sha256": "320d37ffedab571fd8bb589979c7ad9abd7c18ad03acbd01ac1bcdc160556b9f",
+  "host": "echo",
+  "started": "2026-10-31T06:33:44Z"
+ },
+ "model": "nvidia/nemotron-3.5-lightning:free",
+ "rounds": 1,
+ "tasks": {
+  "compact-long-fix": [
+   "The test suite of this repo fails (`python3 -m unittest`). Find and fix every bug in the `shop` package so the whole suite passes. Don't change the tests. When it passes, list each bug you fixed in one line."
+  ],
+  "compact-conventions": [
+   "Read docs/CONVENTIONS.md first. Then add quantity validation to every public function in the `inventory` package that takes a `quantity` parameter: quantity must be a positive int (bool doesn't count), otherwise the function raises InventoryError. Follow the conventions for error codes, tests and the changelog. Put the new tests in a new module tests/test_quantity.py, covering every function you changed, and run the whole suite."
+  ],
+  "compact-recall": [
+   "The files in telemetry/ are sensor dumps (timestamp, sensor id, reading in \u00b0C). Find the single highest reading across all of them and tell me the sensor id, the reading and the file it is in. Don't change any files.",
+   "telemetry/ has now been archived and removed from the repo; that is expected, leave it. Next: the test suite fails (`python3 -m unittest`). Fix every bug in the `shop` package so the whole suite passes, without changing the tests.",
+   "Write docs/API.md: one line per public function in shop/money.py, shop/pricing.py and shop/tax.py, saying what it does. Then add a test to tests/test_money.py that splits 1.00 into 7 parts and checks the shares, and run the suite.",
+   "Create ANSWER.txt with exactly one line, `<sensor id>,<reading>,<file name>`, for the peak reading you found in the first turn (e.g. `S-0a1b2c,12.34,dump-00.log`)."
+  ]
+ },
+ "raw": {
+  "main": [
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 13,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 13,
+    "reads": 13,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 1,
+     "cuts_elide": 0,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 1,
+     "cuts_unreached": 1,
+     "summary_fallbacks": 0,
+     "overflows": 2,
+     "overflow_errors": 1,
+     "peak_fill": 0.226806640625,
+     "compact_ms": 3505,
+     "summary_tokens": 967,
+     "summary_share": 0.1914851485148515,
+     "cache_hit": 0.0,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-long-fix",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 142.9541566889966,
+      "peak_mb": 22.58984375,
+      "stdout_tail": "",
+      "stderr_tail": "/shop/pricing.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-long-fix/r0/work/shop/reports.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-long-fix/r0/work/shop/shipping.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-long-fix/r0/work/shop/tax.py\"}\nerror: compaction failed: the summary hit the output limit after 32242 chars\nerror: model endpoint returned 400 Bad Request: {\"error\":{\"message\":\"This model's maximum context length is 8192 tokens. However, your messages resulted in 25534 tokens.\",\"type\":\"invalid_request_error\",\"code\":\"context_length_exceeded\"}}\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": false,
+     "tests_untouched": true,
+     "fixed_money": false,
+     "fixed_inventory": false,
+     "fixed_pricing": false,
+     "fixed_shipping": false,
+     "fixed_tax": false,
+     "fixed_reports": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 142.9541566889966,
+    "requests": 7,
+    "agent_requests": 7,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25539 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25534 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1554,
+     "bytes": 4481,
+     "n_tools": 7,
+     "system_chars": 1056,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 57489,
+    "completion_tokens": 9792,
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.0,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.8581099999998969,
+     0.8947550000000319,
+     3.2197190000001683
+    ],
+    "peak_mb": 22.58984375,
+    "learn_wait_s": 0.03532266616821289,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1056,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 527.166813,
+      "req_bytes": 4481,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1034.297231,
+      "t_end": 1034.789105,
+      "usage": {
+       "prompt_tokens": 1554,
+       "completion_tokens": 64,
+       "total_tokens": 1618,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 24,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1056,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1035.647215,
+      "req_bytes": 4905,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1690.057793,
+      "t_end": 1690.44749,
+      "usage": {
+       "prompt_tokens": 1638,
+       "completion_tokens": 94,
+       "total_tokens": 1732,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 14,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 7,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1056,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 1691.342245,
+      "req_bytes": 5923,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3908.936715,
+      "t_end": 3910.040552,
+      "usage": {
+       "prompt_tokens": 1858,
+       "completion_tokens": 442,
+       "total_tokens": 2300,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 17,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 10,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 4,
+      "t_arrive": 3913.260271,
+      "req_bytes": 2329,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 114994.626951,
+      "t_end": 115092.57188300001,
+      "usage": {
+       "prompt_tokens": 683,
+       "completion_tokens": 8908,
+       "total_tokens": 9591,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 18,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1056,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 115135.31254,
+      "req_bytes": 86087,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 120387.27474200001,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25539,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25539 tokens.",
+      "t_end": 120387.27474200001
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 6,
+      "t_arrive": 120388.182544,
+      "req_bytes": 2329,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 123886.232784,
+      "t_end": 123891.78356,
+      "usage": {
+       "prompt_tokens": 683,
+       "completion_tokens": 284,
+       "total_tokens": 967,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 21,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1056,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 123893.26783,
+      "req_bytes": 85818,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 142960.662992,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25534,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25534 tokens.",
+      "t_end": 142960.662992
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 13,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 13,
+    "reads": 13,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 2,
+     "cuts_elide": 1,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 1,
+     "cuts_unreached": 2,
+     "summary_fallbacks": 0,
+     "overflows": 2,
+     "overflow_errors": 1,
+     "peak_fill": 0.32373046875,
+     "compact_ms": 100221,
+     "summary_tokens": 7235,
+     "summary_share": 0.8108259553961672,
+     "cache_hit": 0.2348985767118682,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-conventions",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 147.12044879898895,
+      "peak_mb": 23.03515625,
+      "stdout_tail": "",
+      "stderr_tail": "t-bench/task/main/compact-conventions/r0/work/inventory/labels.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-conventions/r0/work/inventory/ledger.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-conventions/r0/work/inventory/returns.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-conventions/r0/work/inventory/transfers.py\"}\nerror: model endpoint returned 400 Bad Request: {\"error\":{\"message\":\"This model's maximum context length is 8192 tokens. However, your messages resulted in 23351 tokens.\",\"type\":\"invalid_request_error\",\"code\":\"context_length_exceeded\"}}\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": true,
+     "all_validated": false,
+     "valid_still_works": true,
+     "codes_follow_prefix": false,
+     "codes_unique_per_function": false,
+     "codes_not_reserved": false,
+     "suite_marker": false,
+     "changelog_heading": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 147.12044879898895,
+    "requests": 7,
+    "agent_requests": 7,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 17565 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 23351 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1592,
+     "bytes": 4709,
+     "n_tools": 7,
+     "system_chars": 1059,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 50815,
+    "completion_tokens": 6869,
+    "cached_tokens": 2096,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.04124766309160681,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.9238350000000537,
+     0.7032459999991261,
+     1.0015500000008615,
+     2.9551860000028682
+    ],
+    "peak_mb": 23.03515625,
+    "learn_wait_s": 0.03563833236694336,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 476.778351,
+      "req_bytes": 4709,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1363.488665,
+      "t_end": 1364.040393,
+      "usage": {
+       "prompt_tokens": 1592,
+       "completion_tokens": 72,
+       "total_tokens": 1664,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 27,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1364.964228,
+      "req_bytes": 7162,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 15179.801217,
+      "t_end": 15180.316252,
+      "usage": {
+       "prompt_tokens": 2295,
+       "completion_tokens": 56,
+       "total_tokens": 2351,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 17,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 15181.019498,
+      "req_bytes": 7618,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 17673.233281,
+      "t_end": 17673.801836,
+      "usage": {
+       "prompt_tokens": 2384,
+       "completion_tokens": 129,
+       "total_tokens": 2513,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 10,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 17674.803386,
+      "req_bytes": 8903,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 23042.629478,
+      "t_end": 23043.694878,
+      "usage": {
+       "prompt_tokens": 2652,
+       "completion_tokens": 353,
+       "total_tokens": 3005,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 19,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 8,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 23046.650064,
+      "req_bytes": 60477,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 30871.121384,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 17565,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 17565 tokens.",
+      "t_end": 30871.121384
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 6,
+      "t_arrive": 30872.16222,
+      "req_bytes": 3089,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 130995.55988700001,
+      "t_end": 131064.560255,
+      "usage": {
+       "prompt_tokens": 976,
+       "completion_tokens": 6259,
+       "total_tokens": 7235,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 11,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 131092.930925,
+      "req_bytes": 77281,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 147136.684986,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 23351,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 23351 tokens.",
+      "t_end": 147136.684986
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 11,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 11,
+    "reads": 10,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 1,
+     "cuts_elide": 0,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 0,
+     "cuts_unreached": 1,
+     "summary_fallbacks": 0,
+     "overflows": 4,
+     "overflow_errors": 3,
+     "peak_fill": 0.2088623046875,
+     "compact_ms": 49946,
+     "summary_tokens": 5840,
+     "summary_share": 1.7881200244947948,
+     "cache_hit": 0.0,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-recall",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 371.02728219900746,
+      "peak_mb": 24.45703125,
+      "stdout_tail": "",
+      "stderr_tail": "/tmp/construct-bench/task/main/compact-recall/r0/work/telemetry/dump-05.log\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-recall/r0/work/telemetry/dump-06.log\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-recall/r0/work/telemetry/dump-07.log\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-recall/r0/work/telemetry/dump-08.log\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/main/compact-recall/r0/work/telemetry/dump-09.log\"}\nerror: compaction failed: the summary hit the output limit after 0 chars\nerror: compaction failed: the summary hit the output limit after 0 chars\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 52.76297484303359,
+      "peak_mb": 15.671875,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 1.910089490993414,
+      "peak_mb": 14.62890625,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 13.680996821029112,
+      "peak_mb": 14.87890625,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     }
+    ],
+    "checks": {
+     "answer_exact": false,
+     "answer_sensor": false,
+     "answer_reading": false,
+     "tests_pass": false,
+     "api_doc": false,
+     "split7_test": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 439.3813433540636,
+    "requests": 9,
+    "agent_requests": 9,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 48037 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 48309 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 48377 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 48440 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1555,
+     "bytes": 4489,
+     "n_tools": 7,
+     "system_chars": 1054,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 197782,
+    "completion_tokens": 23763,
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.0,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     1.3217449999999644,
+     3.076208999999835
+    ],
+    "peak_mb": 24.45703125,
+    "learn_wait_s": 0.03959369659423828,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 749.81705,
+      "req_bytes": 4489,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1889.464704,
+      "t_end": 1890.559295,
+      "usage": {
+       "prompt_tokens": 1555,
+       "completion_tokens": 84,
+       "total_tokens": 1639,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 33,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1891.88104,
+      "req_bytes": 5066,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5341.688784000001,
+      "t_end": 5342.545308,
+      "usage": {
+       "prompt_tokens": 1711,
+       "completion_tokens": 474,
+       "total_tokens": 2185,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 21,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 10,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 3,
+      "t_arrive": 5345.621517,
+      "req_bytes": 1703,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 86771.80943800001,
+      "t_end": 86910.07322199999,
+      "usage": {
+       "prompt_tokens": 451,
+       "completion_tokens": 8908,
+       "total_tokens": 9359,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 8908,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 15,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 86961.401028,
+      "req_bytes": 60143,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 266448.350416,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 48037,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 48037 tokens.",
+      "t_end": 266448.350416
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 5,
+      "t_arrive": 266449.229858,
+      "req_bytes": 1703,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 370854.97089500003,
+      "t_end": 370990.272041,
+      "usage": {
+       "prompt_tokens": 451,
+       "completion_tokens": 8908,
+       "total_tokens": 9359,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 8908,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 6,
+      "t_arrive": 371067.992772,
+      "req_bytes": 1703,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 420915.727952,
+      "t_end": 420994.632066,
+      "usage": {
+       "prompt_tokens": 451,
+       "completion_tokens": 5389,
+       "total_tokens": 5840,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 4997,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 14,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 421014.120595,
+      "req_bytes": 61346,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 423818.54821000004,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 48309,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 48309 tokens.",
+      "t_end": 423818.54821000004
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 15,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 8,
+      "t_arrive": 423829.262734,
+      "req_bytes": 61605,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 425729.713692,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 48377,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 48377 tokens.",
+      "t_end": 425729.713692
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 16,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1054,
+      "tools_chars": 3020,
+      "i": 9,
+      "t_arrive": 425741.457933,
+      "req_bytes": 61797,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 439411.13570499996,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 48440,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 48440 tokens.",
+      "t_end": 439411.13570499996
+     }
+    ],
+    "invalid": false
+   }
+  ],
+  "new": [
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 13,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 13,
+    "reads": 13,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 1,
+     "cuts_elide": 0,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 0,
+     "cuts_unreached": 1,
+     "summary_fallbacks": 0,
+     "overflows": 1,
+     "overflow_errors": 1,
+     "peak_fill": 0.226806640625,
+     "compact_ms": 3862,
+     "summary_tokens": 1049,
+     "summary_share": 0.2077227722772277,
+     "cache_hit": 0.0,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-long-fix",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 11.666810582042672,
+      "peak_mb": 21.23828125,
+      "stdout_tail": "",
+      "stderr_tail": "inventory.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/money.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/orders.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/pricing.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/reports.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/shipping.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-long-fix/r0/work/shop/tax.py\"}\nerror: the prompt is too long and nothing is left to cut\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": false,
+     "tests_untouched": true,
+     "fixed_money": false,
+     "fixed_inventory": false,
+     "fixed_pricing": false,
+     "fixed_shipping": false,
+     "fixed_tax": false,
+     "fixed_reports": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 11.666810582042672,
+    "requests": 5,
+    "agent_requests": 5,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 20684 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1554,
+     "bytes": 4480,
+     "n_tools": 7,
+     "system_chars": 1055,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 26423,
+    "completion_tokens": 959,
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.0,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.8262419999996382,
+     0.8817480000002433,
+     3.1065559999997276
+    ],
+    "peak_mb": 21.23828125,
+    "learn_wait_s": 0.03420138359069824,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1055,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 583.733419,
+      "req_bytes": 4480,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1252.4189749999998,
+      "t_end": 1252.9161580000002,
+      "usage": {
+       "prompt_tokens": 1554,
+       "completion_tokens": 64,
+       "total_tokens": 1618,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 24,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1055,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1253.7423999999999,
+      "req_bytes": 4902,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1888.9092229999999,
+      "t_end": 1889.2168219999999,
+      "usage": {
+       "prompt_tokens": 1638,
+       "completion_tokens": 90,
+       "total_tokens": 1728,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 10,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 7,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1055,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 1890.09857,
+      "req_bytes": 5916,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6257.004374,
+      "t_end": 6257.740189,
+      "usage": {
+       "prompt_tokens": 1858,
+       "completion_tokens": 445,
+       "total_tokens": 2303,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 10,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 4,
+      "t_arrive": 6260.846745,
+      "req_bytes": 2323,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10117.352619,
+      "t_end": 10121.8936,
+      "usage": {
+       "prompt_tokens": 689,
+       "completion_tokens": 360,
+       "total_tokens": 1049,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 21,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1055,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 10123.202486,
+      "req_bytes": 70052,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 11682.505889,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 20684,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 20684 tokens.",
+      "t_end": 11682.505889
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 13,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 13,
+    "reads": 13,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 2,
+     "cuts_elide": 1,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 1,
+     "cuts_unreached": 2,
+     "summary_fallbacks": 0,
+     "overflows": 2,
+     "overflow_errors": 1,
+     "peak_fill": 0.323974609375,
+     "compact_ms": 70563,
+     "summary_tokens": 9050,
+     "summary_share": 1.0135513495352224,
+     "cache_hit": 0.23474073244484264,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-conventions",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 99.47208737395704,
+      "peak_mb": 22.8984375,
+      "stdout_tail": "",
+      "stderr_tail": "truct-bench/task/new/compact-conventions/r0/work/inventory/labels.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-conventions/r0/work/inventory/ledger.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-conventions/r0/work/inventory/returns.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-conventions/r0/work/inventory/transfers.py\"}\nerror: model endpoint returned 400 Bad Request: {\"error\":{\"message\":\"This model's maximum context length is 8192 tokens. However, your messages resulted in 23170 tokens.\",\"type\":\"invalid_request_error\",\"code\":\"context_length_exceeded\"}}\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": true,
+     "all_validated": false,
+     "valid_still_works": true,
+     "codes_follow_prefix": false,
+     "codes_unique_per_function": false,
+     "codes_not_reserved": false,
+     "suite_marker": false,
+     "changelog_heading": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 99.47208737395704,
+    "requests": 7,
+    "agent_requests": 7,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 15560 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 23170 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1592,
+     "bytes": 4708,
+     "n_tools": 7,
+     "system_chars": 1058,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 48633,
+    "completion_tokens": 8697,
+    "cached_tokens": 2096,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.04309830773343203,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.9080679999999575,
+     0.7626279999999497,
+     1.2027189999998882,
+     2.7238979999983712
+    ],
+    "peak_mb": 22.8984375,
+    "learn_wait_s": 0.03534245491027832,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 542.514811,
+      "req_bytes": 4708,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1472.415454,
+      "t_end": 1472.96049,
+      "usage": {
+       "prompt_tokens": 1592,
+       "completion_tokens": 71,
+       "total_tokens": 1663,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 26,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1473.868558,
+      "req_bytes": 7160,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2527.557289,
+      "t_end": 2528.064945,
+      "usage": {
+       "prompt_tokens": 2297,
+       "completion_tokens": 63,
+       "total_tokens": 2360,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 24,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 2528.827573,
+      "req_bytes": 7614,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6941.636549,
+      "t_end": 6942.030378,
+      "usage": {
+       "prompt_tokens": 2386,
+       "completion_tokens": 133,
+       "total_tokens": 2519,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 14,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 6943.233097,
+      "req_bytes": 8894,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9959.928446,
+      "t_end": 9960.871115,
+      "usage": {
+       "prompt_tokens": 2654,
+       "completion_tokens": 354,
+       "total_tokens": 3008,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 8,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 9963.595012999998,
+      "req_bytes": 53904,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 13082.872569,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 15560,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 15560 tokens.",
+      "t_end": 13082.872569
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 6,
+      "t_arrive": 13083.788072000001,
+      "req_bytes": 3081,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 83520.423335,
+      "t_end": 83607.943746,
+      "usage": {
+       "prompt_tokens": 974,
+       "completion_tokens": 8076,
+       "total_tokens": 9050,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 24,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 11,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 83647.736279,
+      "req_bytes": 79075,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 99488.05086500001,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 23170,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 23170 tokens.",
+      "t_end": 99488.05086500001
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 3,
+     "find": 0,
+     "tool_failed": 0,
+     "adoption": 0.0
+    },
+    "tool_failures": {
+     "calls": 18,
+     "failed": 1,
+     "rate": 0.05555555555555555
+    },
+    "failure_codes": {
+     "shell:exit": 1
+    },
+    "tool_calls": 18,
+    "reads": 14,
+    "shell": {
+     "calls": 4,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 1,
+     "cuts_elide": 0,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 0,
+     "cuts_unreached": 1,
+     "summary_fallbacks": 0,
+     "overflows": 3,
+     "overflow_errors": 3,
+     "peak_fill": 0.5732421875,
+     "compact_ms": 70136,
+     "summary_tokens": 7988,
+     "summary_share": 0.32592109021175897,
+     "cache_hit": 0.34207842017218165,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-recall",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 7.824068060959689,
+      "peak_mb": 21.3046875,
+      "stdout_tail": "Let me verify which file contains this highest reading:\nThe highest reading across all telemetry files is **97.31\u00b0C**, found in **dump-05.log** with **sensor id S-2dcf42**.\n\nVerification:\n- The maximum value from the grep across all files was 97.31\n- This reading appears in `dump-05.log`: `2026-10-14T03:07:00 S-2dcf42 97.31`\n- The other file containing \"97.31\" (dump-08.log) actually has `-3.31` for a different sensor, so it's not the same reading\n",
+      "stderr_tail": "r0/work\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/telemetry\"}\n\u00b7 shell {\"command\":\"grep -h '^[0-9]' /tmp/construct-bench/task/new/compact-recall/r0/work/telemetry/*.log | sort -k3 -n | tail -5\",\"workdir\":\"/tmp/construct-bench/task/\u2026\n\u00b7 shell {\"command\":\"grep -h '^[0-9]' /tmp/construct-bench/task/new/compact-recall/r0/work/telemetry/*.log | sort -k3 -n | tail -1\",\"workdir\":\"/tmp/construct-bench/task/\u2026\n\u00b7 shell {\"command\":\"grep '97.31' /tmp/construct-bench/task/new/compact-recall/r0/work/telemetry/*.log\",\"workdir\":\"/tmp/construct-bench/task/new/compact-recall/r0/work\"}\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 150.8612813819782,
+      "peak_mb": 44.89453125,
+      "stdout_tail": "Let me read all the source files to understand the bugs:\n",
+      "stderr_tail": "0/work/shop/tax.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/money.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/pricing.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/reports.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/shipping.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/errors.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/new/compact-recall/r0/work/shop/customers.py\"}\nerror: the prompt is too long and nothing is left to cut\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 31.46740826603491,
+      "peak_mb": 15.38671875,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 3.6673093200079165,
+      "peak_mb": 14.98828125,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     }
+    ],
+    "checks": {
+     "answer_exact": false,
+     "answer_sensor": false,
+     "answer_reading": false,
+     "tests_pass": false,
+     "api_doc": false,
+     "split7_test": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 193.8200670289807,
+    "requests": 15,
+    "agent_requests": 15,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25443 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25511 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25574 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1555,
+     "bytes": 4488,
+     "n_tools": 7,
+     "system_chars": 1053,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 105517,
+    "completion_tokens": 16318,
+    "cached_tokens": 8384,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.07945639091331255,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.8124880000000303,
+     0.811893999999711,
+     5.8279670000001715,
+     6.5931140000002415,
+     5.546879999999874,
+     1.3065800000022136,
+     1.3320169999988138,
+     55.816366000000926,
+     4.979696000009426
+    ],
+    "peak_mb": 44.89453125,
+    "learn_wait_s": 0.03622603416442871,
+    "final_message": "Let me read all the source files to understand the bugs:\n",
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 466.209899,
+      "req_bytes": 4488,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1147.259708,
+      "t_end": 1147.705028,
+      "usage": {
+       "prompt_tokens": 1555,
+       "completion_tokens": 59,
+       "total_tokens": 1614,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1148.5175160000001,
+      "req_bytes": 4918,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1743.559346,
+      "t_end": 1743.9323660000002,
+      "usage": {
+       "prompt_tokens": 1640,
+       "completion_tokens": 57,
+       "total_tokens": 1697,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 15,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 1744.74426,
+      "req_bytes": 5453,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2572.3227309999997,
+      "t_end": 2572.8946979999996,
+      "usage": {
+       "prompt_tokens": 1779,
+       "completion_tokens": 109,
+       "total_tokens": 1888,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 8,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 2578.722665,
+      "req_bytes": 6080,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3782.6445209999997,
+      "t_end": 3783.799567,
+      "usage": {
+       "prompt_tokens": 2046,
+       "completion_tokens": 127,
+       "total_tokens": 2173,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 38,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 3790.3926810000003,
+      "req_bytes": 6563,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4924.645688,
+      "t_end": 4926.086377,
+      "usage": {
+       "prompt_tokens": 2183,
+       "completion_tokens": 128,
+       "total_tokens": 2311,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 42,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 6,
+      "t_arrive": 4931.6332569999995,
+      "req_bytes": 7259,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 7835.081429,
+      "t_end": 7839.296168,
+      "usage": {
+       "prompt_tokens": 2400,
+       "completion_tokens": 309,
+       "total_tokens": 2709,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 164,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 14,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 7859.807073,
+      "req_bytes": 7954,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9106.021009999999,
+      "t_end": 9107.119687999999,
+      "usage": {
+       "prompt_tokens": 2610,
+       "completion_tokens": 101,
+       "total_tokens": 2711,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 62,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 16,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 8,
+      "t_arrive": 9108.426268000001,
+      "req_bytes": 8372,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10080.166103,
+      "t_end": 10080.859924,
+      "usage": {
+       "prompt_tokens": 2692,
+       "completion_tokens": 96,
+       "total_tokens": 2788,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 18,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 9,
+      "t_arrive": 10082.191941,
+      "req_bytes": 9378,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 10871.10579,
+      "t_end": 10871.789732,
+      "usage": {
+       "prompt_tokens": 2908,
+       "completion_tokens": 77,
+       "total_tokens": 2985,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 19,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 10,
+      "t_arrive": 10927.606098,
+      "req_bytes": 5063,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 79939.274473,
+      "t_end": 80038.799105,
+      "usage": {
+       "prompt_tokens": 1933,
+       "completion_tokens": 8908,
+       "total_tokens": 10841,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 106,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 11,
+      "t_arrive": 80071.03937700001,
+      "req_bytes": 16278,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 85363.31946299999,
+      "t_end": 85374.196723,
+      "usage": {
+       "prompt_tokens": 4696,
+       "completion_tokens": 906,
+       "total_tokens": 5602,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 522,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 9,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 12,
+      "t_arrive": 85379.17641900001,
+      "req_bytes": 7345,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 155425.945338,
+      "t_end": 155488.251385,
+      "usage": {
+       "prompt_tokens": 2547,
+       "completion_tokens": 5441,
+       "total_tokens": 7988,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 207,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 13,
+      "t_arrive": 155515.143809,
+      "req_bytes": 83099,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 158709.34657999998,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25443,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25443 tokens.",
+      "t_end": 158709.34657999998
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 14,
+      "t_arrive": 158722.329084,
+      "req_bytes": 83358,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 190177.09404499998,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25511,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25511 tokens.",
+      "t_end": 190177.09404499998
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 14,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1053,
+      "tools_chars": 3020,
+      "i": 15,
+      "t_arrive": 190190.238293,
+      "req_bytes": 83550,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 193845.717444,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25574,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25574 tokens.",
+      "t_end": 193845.717444
+     }
+    ],
+    "invalid": false
+   }
+  ],
+  "newwide": [
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 1,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 12,
+     "failed": 1,
+     "rate": 0.08333333333333333
+    },
+    "failure_codes": {
+     "shell:exit": 1
+    },
+    "tool_calls": 12,
+    "reads": 10,
+    "shell": {
+     "calls": 2,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 2,
+     "cuts_elide": 1,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 1,
+     "cuts_unreached": 2,
+     "summary_fallbacks": 0,
+     "overflows": 2,
+     "overflow_errors": 1,
+     "peak_fill": 0.4742431640625,
+     "compact_ms": 47356,
+     "summary_tokens": 6020,
+     "summary_share": 0.8023457283753166,
+     "cache_hit": 0.0,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-long-fix",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 141.76338870899053,
+      "peak_mb": 44.8125,
+      "stdout_tail": "Let me read all the source files and test files to understand the bugs.\n",
+      "stderr_tail": "th\":\"/tmp/construct-bench/task/newwide/compact-long-fix/r0/work/shop/reports.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-long-fix/r0/work/shop/errors.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-long-fix/r0/work/shop/customers.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-long-fix/r0/work/shop/__init__.py\"}\nerror: model endpoint returned 400 Bad Request: {\"error\":{\"message\":\"This model's maximum context length is 8192 tokens. However, your messages resulted in 25474 tokens.\",\"type\":\"invalid_request_error\",\"code\":\"context_length_exceeded\"}}\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": false,
+     "tests_untouched": true,
+     "fixed_money": false,
+     "fixed_inventory": false,
+     "fixed_pricing": false,
+     "fixed_shipping": false,
+     "fixed_tax": false,
+     "fixed_reports": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 141.76338870899053,
+    "requests": 6,
+    "agent_requests": 6,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 20578 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 25474 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1555,
+     "bytes": 4484,
+     "n_tools": 7,
+     "system_chars": 1059,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 54125,
+    "completion_tokens": 6091,
+    "cached_tokens": 0,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.0,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     5.120661000000382,
+     46.9286089999996,
+     3.373137000000497
+    ],
+    "peak_mb": 44.8125,
+    "learn_wait_s": 0.038927555084228516,
+    "final_message": "Let me read all the source files and test files to understand the bugs.\n",
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 628.6418639999999,
+      "req_bytes": 4484,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2713.306072,
+      "t_end": 2713.8102489999997,
+      "usage": {
+       "prompt_tokens": 1555,
+       "completion_tokens": 80,
+       "total_tokens": 1635,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 24,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 2718.93091,
+      "req_bytes": 6344,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4271.306227,
+      "t_end": 4271.800491,
+      "usage": {
+       "prompt_tokens": 2063,
+       "completion_tokens": 72,
+       "total_tokens": 2135,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 12,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 4318.7291,
+      "req_bytes": 13346,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9849.439043,
+      "t_end": 9850.614279,
+      "usage": {
+       "prompt_tokens": 3885,
+       "completion_tokens": 489,
+       "total_tokens": 4374,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 40,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 10,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 9853.987416,
+      "req_bytes": 69685,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 11734.19135,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 20578,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 20578 tokens.",
+      "t_end": 11734.19135
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 5,
+      "t_arrive": 11735.175336999999,
+      "req_bytes": 2007,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 59016.751022000004,
+      "t_end": 59077.948820000005,
+      "usage": {
+       "prompt_tokens": 570,
+       "completion_tokens": 5450,
+       "total_tokens": 6020,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 301,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1059,
+      "tools_chars": 3020,
+      "i": 6,
+      "t_arrive": 59091.333045,
+      "req_bytes": 87208,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 141779.412736,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 25474,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 25474 tokens.",
+      "t_end": 141779.412736
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 0,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 12,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 12,
+    "reads": 12,
+    "shell": {
+     "calls": 0,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 1,
+     "cuts_elide": 1,
+     "cuts_summarize": 0,
+     "cuts_legacy": 0,
+     "cuts_overflow": 0,
+     "cuts_unreached": 1,
+     "summary_fallbacks": 0,
+     "overflows": 1,
+     "overflow_errors": 0,
+     "peak_fill": 0.3138427734375,
+     "compact_ms": 0,
+     "summary_tokens": 0,
+     "summary_share": 0.0,
+     "cache_hit": 0.4736188001355779,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-conventions",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 105.92146010795841,
+      "peak_mb": 21.29296875,
+      "stdout_tail": "",
+      "stderr_tail": "entory/labels.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-conventions/r0/work/inventory/ledger.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-conventions/r0/work/inventory/picking.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-conventions/r0/work/inventory/returns.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-conventions/r0/work/inventory/stock.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-conventions/r0/work/inventory/transfers.py\"}\nerror: compaction failed: the summary hit the output limit after 26353 chars\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": true,
+     "all_validated": false,
+     "valid_still_works": true,
+     "codes_follow_prefix": false,
+     "codes_unique_per_function": false,
+     "codes_not_reserved": false,
+     "suite_marker": false,
+     "changelog_heading": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 105.92146010795841,
+    "requests": 6,
+    "agent_requests": 6,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 15486 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1593,
+     "bytes": 4712,
+     "n_tools": 7,
+     "system_chars": 1062,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 25172,
+    "completion_tokens": 9497,
+    "cached_tokens": 4192,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.16653424439853806,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     0.8340969999999288,
+     0.8283480000000054,
+     0.8987319999996544,
+     2.9350070000000414
+    ],
+    "peak_mb": 21.29296875,
+    "learn_wait_s": 0.03435206413269043,
+    "final_message": null,
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1062,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 594.377656,
+      "req_bytes": 4712,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1382.093462,
+      "t_end": 1382.636638,
+      "usage": {
+       "prompt_tokens": 1593,
+       "completion_tokens": 72,
+       "total_tokens": 1665,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 26,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1062,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1383.4707349999999,
+      "req_bytes": 7168,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2136.190327,
+      "t_end": 2136.848946,
+      "usage": {
+       "prompt_tokens": 2298,
+       "completion_tokens": 58,
+       "total_tokens": 2356,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 18,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1062,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 2137.677294,
+      "req_bytes": 7630,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3584.9620560000003,
+      "t_end": 3585.3827850000002,
+      "usage": {
+       "prompt_tokens": 2389,
+       "completion_tokens": 94,
+       "total_tokens": 2483,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 14,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 9,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1062,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 3586.281517,
+      "req_bytes": 8540,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6521.079556,
+      "t_end": 6522.241876,
+      "usage": {
+       "prompt_tokens": 2571,
+       "completion_tokens": 365,
+       "total_tokens": 2936,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 23,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 8,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 18,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1062,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 6525.176883,
+      "req_bytes": 53582,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 9469.136884,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 15486,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 15486 tokens.",
+      "t_end": 9469.136884
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 6,
+      "t_arrive": 9470.281511,
+      "req_bytes": 2815,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 105790.082753,
+      "t_end": 105887.136857,
+      "usage": {
+       "prompt_tokens": 835,
+       "completion_tokens": 8908,
+       "total_tokens": 9743,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 37,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     }
+    ],
+    "invalid": false
+   },
+   {
+    "search": {
+     "tool": 0,
+     "shell": 2,
+     "find": 0,
+     "tool_failed": 0,
+     "adoption": 0.0
+    },
+    "tool_failures": {
+     "calls": 17,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 17,
+    "reads": 12,
+    "shell": {
+     "calls": 5,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "compaction": {
+     "cuts": 3,
+     "cuts_elide": 2,
+     "cuts_summarize": 1,
+     "cuts_legacy": 0,
+     "cuts_overflow": 0,
+     "cuts_unreached": 2,
+     "summary_fallbacks": 1,
+     "overflows": 3,
+     "overflow_errors": 2,
+     "peak_fill": 0.9039306640625,
+     "compact_ms": 104564,
+     "summary_tokens": 18200,
+     "summary_share": 0.5469243020704991,
+     "cache_hit": 0.2519457883823662,
+     "cache_hit_after_cut": 0.0,
+     "stub_reruns": 0
+    },
+    "provider_failures": 0,
+    "task": "compact-recall",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 6.9041791259660386,
+      "peak_mb": 21.42578125,
+      "stdout_tail": "The highest reading across all telemetry files is **97.31\u00b0C** from sensor **S-33c548**, found in **dump-05.log**.\n\nThe relevant line from dump-05.log is:\n```\n2026-10-14T03:07:00 S-33c548 97.31\n```\n\nThis was confirmed by scanning all dump files and finding no reading higher than 97.31.\n",
+      "stderr_tail": "\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/telemetry\"}\n\u00b7 shell {\"workdir\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work\",\"command\":\"for f in /tmp/construct-bench/task/newwide/compact-recall/r0/work/telemetry/dum\u2026\n\u00b7 shell {\"workdir\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work\",\"command\":\"grep -h -v '^#' /tmp/construct-bench/task/newwide/compact-recall/r0/work/teleme\u2026\n\u00b7 shell {\"workdir\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work\",\"command\":\"grep \\\"97.31\\\" /tmp/construct-bench/task/newwide/compact-recall/r0/work/telemet\u2026\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 179.21363910200307,
+      "peak_mb": 47.49609375,
+      "stdout_tail": "Now let me read all the source files and test files to understand the bugs:\n",
+      "stderr_tail": "tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/money.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/orders.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/pricing.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/shipping.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/tax.py\"}\n\u00b7 read {\"path\":\"/tmp/construct-bench/task/newwide/compact-recall/r0/work/shop/reports.py\"}\nerror: compaction failed: the summary hit the output limit after 27825 chars\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 41.25342523603467,
+      "peak_mb": 15.8046875,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     },
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 10.316805142036173,
+      "peak_mb": 15.3828125,
+      "stdout_tail": "",
+      "stderr_tail": "error: the prompt is too long and nothing is left to cut\n"
+     }
+    ],
+    "checks": {
+     "answer_exact": false,
+     "answer_sensor": false,
+     "answer_reading": false,
+     "tests_pass": false,
+     "api_doc": false,
+     "split7_test": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 237.68804860603996,
+    "requests": 16,
+    "agent_requests": 16,
+    "errors": [
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 19496 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 21835 tokens.",
+     "This model's maximum context length is 8192 tokens. However, your messages resulted in 21898 tokens."
+    ],
+    "first_request": {
+     "prompt_tokens": 1556,
+     "bytes": 4492,
+     "n_tools": 7,
+     "system_chars": 1057,
+     "tools_chars": 3020
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 104051,
+    "completion_tokens": 23188,
+    "cached_tokens": 8384,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.08057587144765548,
+    "cost_usd": 0,
+    "tool_gaps_ms": [
+     1.5945029999995768,
+     10.217654999999922,
+     6.745646999999735,
+     4.67844999999943,
+     0.948127999999997,
+     0.9994490000008227,
+     63.80406700000094,
+     47.061728000000585,
+     3.2900169999993523
+    ],
+    "peak_mb": 47.49609375,
+    "learn_wait_s": 0.0419158935546875,
+    "final_message": "Now let me read all the source files and test files to understand the bugs:\n",
+    "records": [
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 1,
+      "t_arrive": 535.108474,
+      "req_bytes": 4492,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1508.512201,
+      "t_end": 1508.9523150000002,
+      "usage": {
+       "prompt_tokens": 1556,
+       "completion_tokens": 63,
+       "total_tokens": 1619,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 4,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 2,
+      "t_arrive": 1510.5468179999998,
+      "req_bytes": 5035,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2576.698912,
+      "t_end": 2577.186543,
+      "usage": {
+       "prompt_tokens": 1697,
+       "completion_tokens": 117,
+       "total_tokens": 1814,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 23,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 6,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 3,
+      "t_arrive": 2587.4041979999997,
+      "req_bytes": 11811,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4246.800376,
+      "t_end": 4247.4082339999995,
+      "usage": {
+       "prompt_tokens": 7405,
+       "completion_tokens": 141,
+       "total_tokens": 7546,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 30,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 8,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 4,
+      "t_arrive": 4254.153880999999,
+      "req_bytes": 6373,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5273.260923,
+      "t_end": 5273.9403600000005,
+      "usage": {
+       "prompt_tokens": 2157,
+       "completion_tokens": 118,
+       "total_tokens": 2275,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 36,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 10,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 5,
+      "t_arrive": 5278.61881,
+      "req_bytes": 7041,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6902.07371,
+      "t_end": 6906.988778999999,
+      "usage": {
+       "prompt_tokens": 2373,
+       "completion_tokens": 239,
+       "total_tokens": 2612,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 131,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 6,
+      "t_arrive": 6935.761649,
+      "req_bytes": 7627,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 7803.0756329999995,
+      "t_end": 7804.170664,
+      "usage": {
+       "prompt_tokens": 2546,
+       "completion_tokens": 75,
+       "total_tokens": 2621,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 35,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 14,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 7,
+      "t_arrive": 7805.118792,
+      "req_bytes": 8053,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 8614.192935000001,
+      "t_end": 8614.778441,
+      "usage": {
+       "prompt_tokens": 2630,
+       "completion_tokens": 93,
+       "total_tokens": 2723,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 13,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 8,
+      "t_arrive": 8615.777890000001,
+      "req_bytes": 9075,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 9471.802154,
+      "t_end": 9472.399517,
+      "usage": {
+       "prompt_tokens": 2850,
+       "completion_tokens": 102,
+       "total_tokens": 2952,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 2096,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 15,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 9,
+      "t_arrive": 9536.203584,
+      "req_bytes": 15715,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 11001.310344,
+      "t_end": 11002.013963,
+      "usage": {
+       "prompt_tokens": 4540,
+       "completion_tokens": 106,
+       "total_tokens": 4646,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 20,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 10,
+      "t_arrive": 11049.075691,
+      "req_bytes": 19361,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 14159.825998,
+      "t_end": 14160.871062,
+      "usage": {
+       "prompt_tokens": 5523,
+       "completion_tokens": 371,
+       "total_tokens": 5894,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 16,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 8,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 11,
+      "t_arrive": 14164.161079,
+      "req_bytes": 9614,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 80829.538696,
+      "t_end": 80927.80932300001,
+      "usage": {
+       "prompt_tokens": 3145,
+       "completion_tokens": 8908,
+       "total_tokens": 12053,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 301,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 30,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 12,
+      "t_arrive": 80971.359396,
+      "req_bytes": 66094,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 84285.156564,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 19496,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 19496 tokens.",
+      "t_end": 84285.156564
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 13,
+      "t_arrive": 84286.384166,
+      "req_bytes": 5803,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 185994.122276,
+      "t_end": 186094.832608,
+      "usage": {
+       "prompt_tokens": 2200,
+       "completion_tokens": 8908,
+       "total_tokens": 11108,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 117,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "length"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 0,
+      "tools": [],
+      "system_chars": 839,
+      "tools_chars": 4,
+      "i": 14,
+      "t_arrive": 186151.576215,
+      "req_bytes": 5803,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 223851.20310299998,
+      "t_end": 223895.796499,
+      "usage": {
+       "prompt_tokens": 2200,
+       "completion_tokens": 3947,
+       "total_tokens": 6147,
+       "cost": 0,
+       "is_byok": false,
+       "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+       },
+       "cost_details": {
+        "upstream_inference_cost": 0,
+        "upstream_inference_prompt_cost": 0,
+        "upstream_inference_completions_cost": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 56,
+        "image_tokens": 0,
+        "audio_tokens": 0
+       }
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 15,
+      "t_arrive": 223908.415305,
+      "req_bytes": 72606,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 227394.897398,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 21835,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 21835 tokens.",
+      "t_end": 227394.897398
+     },
+     {
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1057,
+      "tools_chars": 3020,
+      "i": 16,
+      "t_arrive": 227407.349471,
+      "req_bytes": 72798,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 400,
+      "t_first_byte": 237712.77122300002,
+      "window_rejected": true,
+      "usage": {
+       "prompt_tokens": 21898,
+       "completion_tokens": 0
+      },
+      "error": "This model's maximum context length is 8192 tokens. However, your messages resulted in 21898 tokens.",
+      "t_end": 237712.77122300002
+     }
+    ],
+    "invalid": false
+   }
+  ]
+ },
+ "summary": {
+  "main": {
+   "success_rate": 0.0,
+   "checks_passed": {
+    "n": 3,
+    "median": 1,
+    "p10": 0,
+    "p90": 2,
+    "min": 0,
+    "max": 2,
+    "mean": 1
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 3,
+    "median": 147.12044879898895,
+    "p10": 142.9541566889966,
+    "p90": 439.3813433540636,
+    "min": 142.9541566889966,
+    "max": 439.3813433540636,
+    "mean": 243.1519829473497
+   },
+   "requests": {
+    "n": 3,
+    "median": 7,
+    "p10": 7,
+    "p90": 9,
+    "min": 7,
+    "max": 9,
+    "mean": 7.666666666666667
+   },
+   "prompt_tokens": {
+    "n": 3,
+    "median": 57489,
+    "p10": 50815,
+    "p90": 197782,
+    "min": 50815,
+    "max": 197782,
+    "mean": 102028.66666666667
+   },
+   "completion_tokens": {
+    "n": 3,
+    "median": 9792,
+    "p10": 6869,
+    "p90": 23763,
+    "min": 6869,
+    "max": 23763,
+    "mean": 13474.666666666666
+   },
+   "first_request_tokens": {
+    "n": 3,
+    "median": 1555,
+    "p10": 1554,
+    "p90": 1592,
+    "min": 1554,
+    "max": 1592,
+    "mean": 1567
+   },
+   "cached_tokens": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 2096,
+    "min": 0,
+    "max": 2096,
+    "mean": 698.6666666666666
+   },
+   "cache_write_tokens": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 3,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.04124766309160681,
+    "min": 0.0,
+    "max": 0.04124766309160681,
+    "mean": 0.013749221030535603
+   },
+   "cost_usd": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "tool_gap_ms": {
+    "n": 9,
+    "median": 1.0015500000008615,
+    "p10": 0.8581099999998969,
+    "p90": 3.076208999999835,
+    "min": 0.7032459999991261,
+    "max": 3.2197190000001683,
+    "mean": 1.661595000000312
+   },
+   "peak_mb": {
+    "n": 3,
+    "median": 23.03515625,
+    "p10": 22.58984375,
+    "p90": 24.45703125,
+    "min": 22.58984375,
+    "max": 24.45703125,
+    "mean": 23.360677083333332
+   },
+   "search_tool_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_shell_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_adoption": null,
+   "tool_failure_rate": {
+    "n": 3,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "mean": 0.0
+   },
+   "edit_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  },
+  "new": {
+   "success_rate": 0.0,
+   "checks_passed": {
+    "n": 3,
+    "median": 1,
+    "p10": 0,
+    "p90": 2,
+    "min": 0,
+    "max": 2,
+    "mean": 1
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 3,
+    "median": 99.47208737395704,
+    "p10": 11.666810582042672,
+    "p90": 193.8200670289807,
+    "min": 11.666810582042672,
+    "max": 193.8200670289807,
+    "mean": 101.6529883283268
+   },
+   "requests": {
+    "n": 3,
+    "median": 7,
+    "p10": 5,
+    "p90": 15,
+    "min": 5,
+    "max": 15,
+    "mean": 9
+   },
+   "prompt_tokens": {
+    "n": 3,
+    "median": 48633,
+    "p10": 26423,
+    "p90": 105517,
+    "min": 26423,
+    "max": 105517,
+    "mean": 60191
+   },
+   "completion_tokens": {
+    "n": 3,
+    "median": 8697,
+    "p10": 959,
+    "p90": 16318,
+    "min": 959,
+    "max": 16318,
+    "mean": 8658
+   },
+   "first_request_tokens": {
+    "n": 3,
+    "median": 1555,
+    "p10": 1554,
+    "p90": 1592,
+    "min": 1554,
+    "max": 1592,
+    "mean": 1567
+   },
+   "cached_tokens": {
+    "n": 3,
+    "median": 2096,
+    "p10": 0,
+    "p90": 8384,
+    "min": 0,
+    "max": 8384,
+    "mean": 3493.3333333333335
+   },
+   "cache_write_tokens": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 3,
+    "median": 0.04309830773343203,
+    "p10": 0.0,
+    "p90": 0.07945639091331255,
+    "min": 0.0,
+    "max": 0.07945639091331255,
+    "mean": 0.04085156621558153
+   },
+   "cost_usd": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "tool_gap_ms": {
+    "n": 16,
+    "median": 1.3192985000005137,
+    "p10": 0.8124880000000303,
+    "p90": 6.5931140000002415,
+    "min": 0.7626279999999497,
+    "max": 55.816366000000926,
+    "mean": 5.839928812500574
+   },
+   "peak_mb": {
+    "n": 3,
+    "median": 22.8984375,
+    "p10": 21.23828125,
+    "p90": 44.89453125,
+    "min": 21.23828125,
+    "max": 44.89453125,
+    "mean": 29.677083333333332
+   },
+   "search_tool_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_shell_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 3,
+    "min": 0,
+    "max": 3,
+    "mean": 1
+   },
+   "search_adoption": {
+    "n": 1,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "mean": 0.0
+   },
+   "tool_failure_rate": {
+    "n": 3,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.05555555555555555,
+    "min": 0.0,
+    "max": 0.05555555555555555,
+    "mean": 0.018518518518518517
+   },
+   "edit_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  },
+  "newwide": {
+   "success_rate": 0.0,
+   "checks_passed": {
+    "n": 3,
+    "median": 1,
+    "p10": 0,
+    "p90": 2,
+    "min": 0,
+    "max": 2,
+    "mean": 1
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 3,
+    "median": 141.76338870899053,
+    "p10": 105.92146010795841,
+    "p90": 237.68804860603996,
+    "min": 105.92146010795841,
+    "max": 237.68804860603996,
+    "mean": 161.79096580766296
+   },
+   "requests": {
+    "n": 3,
+    "median": 6,
+    "p10": 6,
+    "p90": 16,
+    "min": 6,
+    "max": 16,
+    "mean": 9.333333333333334
+   },
+   "prompt_tokens": {
+    "n": 3,
+    "median": 54125,
+    "p10": 25172,
+    "p90": 104051,
+    "min": 25172,
+    "max": 104051,
+    "mean": 61116
+   },
+   "completion_tokens": {
+    "n": 3,
+    "median": 9497,
+    "p10": 6091,
+    "p90": 23188,
+    "min": 6091,
+    "max": 23188,
+    "mean": 12925.333333333334
+   },
+   "first_request_tokens": {
+    "n": 3,
+    "median": 1556,
+    "p10": 1555,
+    "p90": 1593,
+    "min": 1555,
+    "max": 1593,
+    "mean": 1568
+   },
+   "cached_tokens": {
+    "n": 3,
+    "median": 4192,
+    "p10": 0,
+    "p90": 8384,
+    "min": 0,
+    "max": 8384,
+    "mean": 4192
+   },
+   "cache_write_tokens": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 3,
+    "median": 0.08057587144765548,
+    "p10": 0.0,
+    "p90": 0.16653424439853806,
+    "min": 0.0,
+    "max": 0.16653424439853806,
+    "mean": 0.08237003861539785
+   },
+   "cost_usd": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "tool_gap_ms": {
+    "n": 16,
+    "median": 3.3315769999999247,
+    "p10": 0.8987319999996544,
+    "p90": 47.061728000000585,
+    "min": 0.8283480000000054,
+    "max": 63.80406700000094,
+    "mean": 12.51613968750003
+   },
+   "peak_mb": {
+    "n": 3,
+    "median": 44.8125,
+    "p10": 21.29296875,
+    "p90": 47.49609375,
+    "min": 21.29296875,
+    "max": 47.49609375,
+    "mean": 37.8671875
+   },
+   "search_tool_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_shell_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 2,
+    "min": 0,
+    "max": 2,
+    "mean": 0.6666666666666666
+   },
+   "search_adoption": {
+    "n": 1,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "mean": 0.0
+   },
+   "tool_failure_rate": {
+    "n": 3,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.08333333333333333,
+    "min": 0.0,
+    "max": 0.08333333333333333,
+    "mean": 0.027777777777777776
+   },
+   "edit_calls": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 3,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  }
+ },
+ "by_task": {
+  "compact-long-fix": {
+   "main": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 1,
+     "p10": 1,
+     "p90": 1,
+     "min": 1,
+     "max": 1,
+     "mean": 1
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 142.9541566889966,
+     "p10": 142.9541566889966,
+     "p90": 142.9541566889966,
+     "min": 142.9541566889966,
+     "max": 142.9541566889966,
+     "mean": 142.9541566889966
+    },
+    "requests": {
+     "n": 1,
+     "median": 7,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 57489,
+     "p10": 57489,
+     "p90": 57489,
+     "min": 57489,
+     "max": 57489,
+     "mean": 57489
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 9792,
+     "p10": 9792,
+     "p90": 9792,
+     "min": 9792,
+     "max": 9792,
+     "mean": 9792
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1554,
+     "p10": 1554,
+     "p90": 1554,
+     "min": 1554,
+     "max": 1554,
+     "mean": 1554
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 3,
+     "median": 0.8947550000000319,
+     "p10": 0.8581099999998969,
+     "p90": 3.2197190000001683,
+     "min": 0.8581099999998969,
+     "max": 3.2197190000001683,
+     "mean": 1.6575280000000323
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 22.58984375,
+     "p10": 22.58984375,
+     "p90": 22.58984375,
+     "min": 22.58984375,
+     "max": 22.58984375,
+     "mean": 22.58984375
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "new": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 1,
+     "p10": 1,
+     "p90": 1,
+     "min": 1,
+     "max": 1,
+     "mean": 1
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 11.666810582042672,
+     "p10": 11.666810582042672,
+     "p90": 11.666810582042672,
+     "min": 11.666810582042672,
+     "max": 11.666810582042672,
+     "mean": 11.666810582042672
+    },
+    "requests": {
+     "n": 1,
+     "median": 5,
+     "p10": 5,
+     "p90": 5,
+     "min": 5,
+     "max": 5,
+     "mean": 5
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 26423,
+     "p10": 26423,
+     "p90": 26423,
+     "min": 26423,
+     "max": 26423,
+     "mean": 26423
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 959,
+     "p10": 959,
+     "p90": 959,
+     "min": 959,
+     "max": 959,
+     "mean": 959
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1554,
+     "p10": 1554,
+     "p90": 1554,
+     "min": 1554,
+     "max": 1554,
+     "mean": 1554
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 3,
+     "median": 0.8817480000002433,
+     "p10": 0.8262419999996382,
+     "p90": 3.1065559999997276,
+     "min": 0.8262419999996382,
+     "max": 3.1065559999997276,
+     "mean": 1.6048486666665365
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 21.23828125,
+     "p10": 21.23828125,
+     "p90": 21.23828125,
+     "min": 21.23828125,
+     "max": 21.23828125,
+     "mean": 21.23828125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "newwide": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 1,
+     "p10": 1,
+     "p90": 1,
+     "min": 1,
+     "max": 1,
+     "mean": 1
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 141.76338870899053,
+     "p10": 141.76338870899053,
+     "p90": 141.76338870899053,
+     "min": 141.76338870899053,
+     "max": 141.76338870899053,
+     "mean": 141.76338870899053
+    },
+    "requests": {
+     "n": 1,
+     "median": 6,
+     "p10": 6,
+     "p90": 6,
+     "min": 6,
+     "max": 6,
+     "mean": 6
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 54125,
+     "p10": 54125,
+     "p90": 54125,
+     "min": 54125,
+     "max": 54125,
+     "mean": 54125
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 6091,
+     "p10": 6091,
+     "p90": 6091,
+     "min": 6091,
+     "max": 6091,
+     "mean": 6091
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1555,
+     "p10": 1555,
+     "p90": 1555,
+     "min": 1555,
+     "max": 1555,
+     "mean": 1555
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 3,
+     "median": 5.120661000000382,
+     "p10": 3.373137000000497,
+     "p90": 46.9286089999996,
+     "min": 3.373137000000497,
+     "max": 46.9286089999996,
+     "mean": 18.474135666666825
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 44.8125,
+     "p10": 44.8125,
+     "p90": 44.8125,
+     "min": 44.8125,
+     "max": 44.8125,
+     "mean": 44.8125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.08333333333333333,
+     "p10": 0.08333333333333333,
+     "p90": 0.08333333333333333,
+     "min": 0.08333333333333333,
+     "max": 0.08333333333333333,
+     "mean": 0.08333333333333333
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  },
+  "compact-conventions": {
+   "main": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 2,
+     "p10": 2,
+     "p90": 2,
+     "min": 2,
+     "max": 2,
+     "mean": 2
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 147.12044879898895,
+     "p10": 147.12044879898895,
+     "p90": 147.12044879898895,
+     "min": 147.12044879898895,
+     "max": 147.12044879898895,
+     "mean": 147.12044879898895
+    },
+    "requests": {
+     "n": 1,
+     "median": 7,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 50815,
+     "p10": 50815,
+     "p90": 50815,
+     "min": 50815,
+     "max": 50815,
+     "mean": 50815
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 6869,
+     "p10": 6869,
+     "p90": 6869,
+     "min": 6869,
+     "max": 6869,
+     "mean": 6869
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1592,
+     "p10": 1592,
+     "p90": 1592,
+     "min": 1592,
+     "max": 1592,
+     "mean": 1592
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 2096,
+     "p10": 2096,
+     "p90": 2096,
+     "min": 2096,
+     "max": 2096,
+     "mean": 2096
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.04124766309160681,
+     "p10": 0.04124766309160681,
+     "p90": 0.04124766309160681,
+     "min": 0.04124766309160681,
+     "max": 0.04124766309160681,
+     "mean": 0.04124766309160681
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 4,
+     "median": 0.9626925000004576,
+     "p10": 0.7032459999991261,
+     "p90": 2.9551860000028682,
+     "min": 0.7032459999991261,
+     "max": 2.9551860000028682,
+     "mean": 1.3959542500007274
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 23.03515625,
+     "p10": 23.03515625,
+     "p90": 23.03515625,
+     "min": 23.03515625,
+     "max": 23.03515625,
+     "mean": 23.03515625
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "new": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 2,
+     "p10": 2,
+     "p90": 2,
+     "min": 2,
+     "max": 2,
+     "mean": 2
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 99.47208737395704,
+     "p10": 99.47208737395704,
+     "p90": 99.47208737395704,
+     "min": 99.47208737395704,
+     "max": 99.47208737395704,
+     "mean": 99.47208737395704
+    },
+    "requests": {
+     "n": 1,
+     "median": 7,
+     "p10": 7,
+     "p90": 7,
+     "min": 7,
+     "max": 7,
+     "mean": 7
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 48633,
+     "p10": 48633,
+     "p90": 48633,
+     "min": 48633,
+     "max": 48633,
+     "mean": 48633
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 8697,
+     "p10": 8697,
+     "p90": 8697,
+     "min": 8697,
+     "max": 8697,
+     "mean": 8697
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1592,
+     "p10": 1592,
+     "p90": 1592,
+     "min": 1592,
+     "max": 1592,
+     "mean": 1592
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 2096,
+     "p10": 2096,
+     "p90": 2096,
+     "min": 2096,
+     "max": 2096,
+     "mean": 2096
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.04309830773343203,
+     "p10": 0.04309830773343203,
+     "p90": 0.04309830773343203,
+     "min": 0.04309830773343203,
+     "max": 0.04309830773343203,
+     "mean": 0.04309830773343203
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 4,
+     "median": 1.0553934999999228,
+     "p10": 0.7626279999999497,
+     "p90": 2.7238979999983712,
+     "min": 0.7626279999999497,
+     "max": 2.7238979999983712,
+     "mean": 1.3993282499995416
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 22.8984375,
+     "p10": 22.8984375,
+     "p90": 22.8984375,
+     "min": 22.8984375,
+     "max": 22.8984375,
+     "mean": 22.8984375
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "newwide": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 2,
+     "p10": 2,
+     "p90": 2,
+     "min": 2,
+     "max": 2,
+     "mean": 2
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 105.92146010795841,
+     "p10": 105.92146010795841,
+     "p90": 105.92146010795841,
+     "min": 105.92146010795841,
+     "max": 105.92146010795841,
+     "mean": 105.92146010795841
+    },
+    "requests": {
+     "n": 1,
+     "median": 6,
+     "p10": 6,
+     "p90": 6,
+     "min": 6,
+     "max": 6,
+     "mean": 6
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 25172,
+     "p10": 25172,
+     "p90": 25172,
+     "min": 25172,
+     "max": 25172,
+     "mean": 25172
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 9497,
+     "p10": 9497,
+     "p90": 9497,
+     "min": 9497,
+     "max": 9497,
+     "mean": 9497
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1593,
+     "p10": 1593,
+     "p90": 1593,
+     "min": 1593,
+     "max": 1593,
+     "mean": 1593
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 4192,
+     "p10": 4192,
+     "p90": 4192,
+     "min": 4192,
+     "max": 4192,
+     "mean": 4192
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.16653424439853806,
+     "p10": 0.16653424439853806,
+     "p90": 0.16653424439853806,
+     "min": 0.16653424439853806,
+     "max": 0.16653424439853806,
+     "mean": 0.16653424439853806
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 4,
+     "median": 0.8664144999997916,
+     "p10": 0.8283480000000054,
+     "p90": 2.9350070000000414,
+     "min": 0.8283480000000054,
+     "max": 2.9350070000000414,
+     "mean": 1.3740459999999075
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 21.29296875,
+     "p10": 21.29296875,
+     "p90": 21.29296875,
+     "min": 21.29296875,
+     "max": 21.29296875,
+     "mean": 21.29296875
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  },
+  "compact-recall": {
+   "main": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 439.3813433540636,
+     "p10": 439.3813433540636,
+     "p90": 439.3813433540636,
+     "min": 439.3813433540636,
+     "max": 439.3813433540636,
+     "mean": 439.3813433540636
+    },
+    "requests": {
+     "n": 1,
+     "median": 9,
+     "p10": 9,
+     "p90": 9,
+     "min": 9,
+     "max": 9,
+     "mean": 9
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 197782,
+     "p10": 197782,
+     "p90": 197782,
+     "min": 197782,
+     "max": 197782,
+     "mean": 197782
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 23763,
+     "p10": 23763,
+     "p90": 23763,
+     "min": 23763,
+     "max": 23763,
+     "mean": 23763
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1555,
+     "p10": 1555,
+     "p90": 1555,
+     "min": 1555,
+     "max": 1555,
+     "mean": 1555
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 2,
+     "median": 2.1989769999999,
+     "p10": 1.3217449999999644,
+     "p90": 3.076208999999835,
+     "min": 1.3217449999999644,
+     "max": 3.076208999999835,
+     "mean": 2.1989769999999
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 24.45703125,
+     "p10": 24.45703125,
+     "p90": 24.45703125,
+     "min": 24.45703125,
+     "max": 24.45703125,
+     "mean": 24.45703125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "new": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 193.8200670289807,
+     "p10": 193.8200670289807,
+     "p90": 193.8200670289807,
+     "min": 193.8200670289807,
+     "max": 193.8200670289807,
+     "mean": 193.8200670289807
+    },
+    "requests": {
+     "n": 1,
+     "median": 15,
+     "p10": 15,
+     "p90": 15,
+     "min": 15,
+     "max": 15,
+     "mean": 15
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 105517,
+     "p10": 105517,
+     "p90": 105517,
+     "min": 105517,
+     "max": 105517,
+     "mean": 105517
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 16318,
+     "p10": 16318,
+     "p90": 16318,
+     "min": 16318,
+     "max": 16318,
+     "mean": 16318
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1555,
+     "p10": 1555,
+     "p90": 1555,
+     "min": 1555,
+     "max": 1555,
+     "mean": 1555
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 8384,
+     "p10": 8384,
+     "p90": 8384,
+     "min": 8384,
+     "max": 8384,
+     "mean": 8384
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.07945639091331255,
+     "p10": 0.07945639091331255,
+     "p90": 0.07945639091331255,
+     "min": 0.07945639091331255,
+     "max": 0.07945639091331255,
+     "mean": 0.07945639091331255
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 9,
+     "median": 4.979696000009426,
+     "p10": 0.8124880000000303,
+     "p90": 6.5931140000002415,
+     "min": 0.811893999999711,
+     "max": 55.816366000000926,
+     "mean": 9.225222444445713
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 44.89453125,
+     "p10": 44.89453125,
+     "p90": 44.89453125,
+     "min": 44.89453125,
+     "max": 44.89453125,
+     "mean": 44.89453125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 3,
+     "p10": 3,
+     "p90": 3,
+     "min": 3,
+     "max": 3,
+     "mean": 3
+    },
+    "search_adoption": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.05555555555555555,
+     "p10": 0.05555555555555555,
+     "p90": 0.05555555555555555,
+     "min": 0.05555555555555555,
+     "max": 0.05555555555555555,
+     "mean": 0.05555555555555555
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   },
+   "newwide": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 237.68804860603996,
+     "p10": 237.68804860603996,
+     "p90": 237.68804860603996,
+     "min": 237.68804860603996,
+     "max": 237.68804860603996,
+     "mean": 237.68804860603996
+    },
+    "requests": {
+     "n": 1,
+     "median": 16,
+     "p10": 16,
+     "p90": 16,
+     "min": 16,
+     "max": 16,
+     "mean": 16
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 104051,
+     "p10": 104051,
+     "p90": 104051,
+     "min": 104051,
+     "max": 104051,
+     "mean": 104051
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 23188,
+     "p10": 23188,
+     "p90": 23188,
+     "min": 23188,
+     "max": 23188,
+     "mean": 23188
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1556,
+     "p10": 1556,
+     "p90": 1556,
+     "min": 1556,
+     "max": 1556,
+     "mean": 1556
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 8384,
+     "p10": 8384,
+     "p90": 8384,
+     "min": 8384,
+     "max": 8384,
+     "mean": 8384
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.08057587144765548,
+     "p10": 0.08057587144765548,
+     "p90": 0.08057587144765548,
+     "min": 0.08057587144765548,
+     "max": 0.08057587144765548,
+     "mean": 0.08057587144765548
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "tool_gap_ms": {
+     "n": 9,
+     "median": 4.67844999999943,
+     "p10": 0.9994490000008227,
+     "p90": 47.061728000000585,
+     "min": 0.948127999999997,
+     "max": 63.80406700000094,
+     "mean": 15.482182666666708
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 47.49609375,
+     "p10": 47.49609375,
+     "p90": 47.49609375,
+     "min": 47.49609375,
+     "max": 47.49609375,
+     "mean": 47.49609375
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 2,
+     "p10": 2,
+     "p90": 2,
+     "min": 2,
+     "max": 2,
+     "mean": 2
+    },
+    "search_adoption": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  }
+ },
+ "stalls": {},
+ "invalid_reruns": {},
+ "jev": false,
+ "arms": {
+  "main": {
+   "tools": "",
+   "cfg": "",
+   "bin": "/tmp/claude-1000/-home-brandon-git-construct--claude-worktrees-github-issue-95-testing-ac78bd/07b46fb3-80da-4423-b304-172054b3eaa4/scratchpad/construct-main"
+  },
+  "new": {
+   "tools": "",
+   "cfg": "",
+   "bin": ""
+  },
+  "newwide": {
+   "tools": "",
+   "cfg": "compaction = { threshold = 0.85, target = 0.6 }",
+   "bin": ""
+  }
+ },
+ "learn": false,
+ "window": 8192
+}

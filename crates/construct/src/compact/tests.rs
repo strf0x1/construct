@@ -59,6 +59,29 @@ fn a_single_long_turn_is_cut_by_eliding() {
 }
 
 #[test]
+fn a_newest_round_over_the_budget_is_stubbed_too() {
+    // #95: dense data counted at twice the estimate; the round just read is
+    // over the window, and keeping it means the resend fails the same way.
+    let mut msgs = single_turn(2, 500);
+    msgs.push(call("big"));
+    msgs.push(Message::tool("big", "9".repeat(20_000)));
+    let p = plan(&msgs, &chars, 8000, &CompactionConfig::default(), Reason::Overflow).expect("a cut");
+    assert_eq!(p.mode, Mode::Elide);
+    assert!(p.elide.contains(&"big".to_string()), "{:?}", p.elide);
+    assert!(p.tokens_after < 8000);
+    assert!(paired(&apply(msgs, &p.cut(None))));
+}
+
+#[test]
+fn a_newest_round_under_the_budget_is_kept_even_when_the_target_is_missed() {
+    let mut msgs = single_turn(2, 500);
+    msgs.push(call("big"));
+    msgs.push(Message::tool("big", "9".repeat(6000)));
+    let p = plan(&msgs, &chars, 8000, &CompactionConfig::default(), Reason::Overflow);
+    assert!(p.is_none_or(|p| !p.elide.contains(&"big".to_string())), "only a round that can't be sent is stubbed");
+}
+
+#[test]
 fn eliding_escalates_to_all_but_the_newest_round_before_summarizing() {
     // Two huge recent rounds: stubbing outside them misses the target.
     let mut msgs = single_turn(6, 1000);
