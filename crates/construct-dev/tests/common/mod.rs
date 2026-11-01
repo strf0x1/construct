@@ -172,31 +172,51 @@ impl Env {
         self.journal_in(&self.work)
     }
 
+    /// Like `journal`, for sessions run in `dir`. A journal construct is still
+    /// creating (file there, schema not yet, or locked by the writer) reads as
+    /// no rows, so a caller polling it keeps polling.
     pub fn journal_in(&self, dir: &Path) -> Vec<Row> {
         let path = self.journal_path(dir);
         if !path.exists() {
             return vec![];
         }
-        let db = rusqlite::Connection::open(path).unwrap();
-        let mut st = db.prepare("SELECT seq, session_id, type, v, at_ms, payload FROM events ORDER BY seq").unwrap();
-        st.query_map([], |r| {
-            Ok(Row {
-                seq: r.get(0)?,
-                session: r.get(1)?,
-                ty: r.get(2)?,
-                v: r.get(3)?,
-                at_ms: r.get(4)?,
-                payload: serde_json::from_str(&r.get::<_, String>(5)?).unwrap(),
-            })
-        })
-        .unwrap()
-        .map(Result::unwrap)
-        .collect()
+        match read_rows(&path) {
+            Ok(rows) => rows,
+            Err(e) if journal_not_ready(&e) => vec![],
+            Err(e) => panic!("reading {}: {e}", path.display()),
+        }
     }
 
     /// Session ids in the work dir's journal, in the order they started.
     pub fn sessions(&self) -> Vec<String> {
         self.journal().into_iter().filter(|r| r.ty == "head").map(|r| r.session).collect()
+    }
+}
+
+fn read_rows(path: &Path) -> rusqlite::Result<Vec<Row>> {
+    let db = rusqlite::Connection::open(path)?;
+    let mut st = db.prepare("SELECT seq, session_id, type, v, at_ms, payload FROM events ORDER BY seq")?;
+    st.query_map([], |r| {
+        Ok(Row {
+            seq: r.get(0)?,
+            session: r.get(1)?,
+            ty: r.get(2)?,
+            v: r.get(3)?,
+            at_ms: r.get(4)?,
+            payload: serde_json::from_str(&r.get::<_, String>(5)?).unwrap(),
+        })
+    })?
+    .collect()
+}
+
+/// The journal exists but its schema is not there yet, or the writer holds it.
+fn journal_not_ready(e: &rusqlite::Error) -> bool {
+    match e {
+        rusqlite::Error::SqliteFailure(f, msg) => {
+            matches!(f.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+                || msg.as_deref().is_some_and(|m| m.starts_with("no such table"))
+        }
+        _ => false,
     }
 }
 
