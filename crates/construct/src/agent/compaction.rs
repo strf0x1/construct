@@ -16,11 +16,17 @@ use std::time::Instant;
 const SUMMARY_FAILED: Kind = Kind { class: "compaction", name: "summary_failed", cap: 20 };
 
 impl Agent {
+    /// The prompt budget: the window as known now, less the output reserve.
+    pub(super) fn budget(&self) -> u64 {
+        compact::budget(self.cfg_context_window(), self.cfg.max_tokens)
+    }
+
     /// Cut history if the planner says so (see `compact`). Returns whether
     /// anything was cut.
     pub(super) async fn compact(&mut self, defs: &[Value], reason: Reason, tx: &Events) -> bool {
         let started = Instant::now();
-        let (budget, ratio) = (compact::budget(self.cfg_context_window(), self.cfg.max_tokens), self.bytes_per_token);
+        let budget = self.budget();
+        let ratio = self.bytes_per_token;
         let (client, model, max_tokens, temperature) =
             (self.client.clone(), self.cfg.wire_id(&self.cfg.model), self.cfg.max_tokens, self.cfg.temperature);
         let size = move |messages: &[Message]| {
