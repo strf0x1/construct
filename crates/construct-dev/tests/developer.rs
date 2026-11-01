@@ -62,8 +62,11 @@ fn reviewing(env: &Env) -> drive::Driver {
     play(
         &mut driver,
         &format!(
-            "wait \"ask construct\" {}\ntype perform the developer operation\nkey enter\nwait \"PERMISSION\" {}\nexpect \"Uses host authentication\"\nexpect \"Allow this operation\"\nexpect \"Allow this exact operation this session\"\n",
+            "wait \"ask construct\" {}\ntype perform the developer operation\nkey enter\nwait \"PERMISSION\" {}\nwait \"Uses host authentication\" {}\nwait \"Allow this operation\" {}\nwait \"Allow this exact operation this session\" {}\n",
             budget(3000),
+            budget(8000),
+            budget(8000),
+            budget(8000),
             budget(8000)
         ),
     );

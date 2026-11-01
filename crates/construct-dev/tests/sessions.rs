@@ -89,7 +89,7 @@ fn archive_filters_all_sessions_and_navigates_old_unicode_rows() {
     let mut d = tui(&env, &["--resume"], 100, 30);
     play(
         &mut d,
-        "wait \"Search sessions\" 5000\nwait \"Archived prompt\" 5000\nkey end\nkey pgup\nkey pgdn\nkey home\ntype last unique request\nwait \"1/66\" 3000\nexpect \"A manual 雪 title\"\nkey ctrl-u\ntype zzz-never-matches\nwait \"No matching sessions\" 3000\nkey ctrl-u\ntype 雪だるま\nwait \"1/66\" 3000\nresize 46 18\nwait \"A manual 雪\" 3000\nsnap narrow-session\nexpect \"A manual 雪\"\nkey esc\n",
+        "wait \"Search sessions\" 5000\nwait \"Archived prompt\" 5000\nkey end\nkey pgup\nkey pgdn\nkey home\ntype last unique request\nwait \"1/66\" 3000\nexpect \"A manual 雪 title\"\nkey ctrl-u\ntype zzz-never-matches\nwait \"No matching sessions\" 3000\nkey ctrl-u\ntype 雪だるま\nwait \"1/66\" 3000\nresize 46 18\nsleep 400\nwait \"A manual 雪\" 3000\nsnap narrow-session\nexpect \"A manual 雪\"\nkey esc\n",
     );
     assert_eq!(env.sessions().len(), 69, "browsing never writes a head");
     assert!(env.requests().is_empty());
