@@ -1,7 +1,9 @@
 //! Background jobs on screen: a line in the transcript when one starts and
 //! when it ends, and a count in the status line while any run. A job's
 //! output is not drawn here; the model gets it (or `/status` and the journal
-//! have it), so the screen only says that something is going on.
+//! have it), so the screen only says that something is going on. Those
+//! lines arrive whenever the job does, so they go through `aside`: never
+//! between two deltas of a streaming reply.
 
 use super::app::App;
 use super::theme;
@@ -17,7 +19,7 @@ impl App {
                 let (id, label) = (&s.id, &s.label);
                 self.dock.running += 1;
                 self.job_started(s);
-                self.notice(
+                self.aside(
                     theme::FAINT,
                     format!("◆ job {id} started · {}", crate::llm::truncate(&label.replace('\n', " ⏎ "), 80)),
                 );
@@ -31,7 +33,7 @@ impl App {
                     Status::Failed | Status::Timeout => theme::RED,
                     Status::Cancelled | Status::Running | Status::Interrupted => theme::YELLOW,
                 };
-                self.notice(color, format!("◆ job {id} {} · {:.1}s", status.label(), ms as f64 / 1000.0));
+                self.aside(color, format!("◆ job {id} {} · {:.1}s", status.label(), ms as f64 / 1000.0));
             }
             _ => {}
         }

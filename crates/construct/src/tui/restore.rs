@@ -9,6 +9,7 @@ use crate::event::Event;
 impl App {
     pub(super) fn restore(&mut self, mut ready: Ready) {
         let ack = ready.ack.take();
+        self.blocks.append(&mut self.held);
         // The first frame is interactive before initialization finishes.
         // Preserve everything the user has already typed or opened there.
         let initial = if !self.ready {

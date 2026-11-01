@@ -19,6 +19,9 @@
 //! tool calls and the harness's next request.
 
 mod models;
+mod script;
+
+pub use script::{Side, Step};
 
 use anyhow::Result;
 use axum::Router;
@@ -29,7 +32,6 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use futures::StreamExt;
-use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hasher};
@@ -38,50 +40,12 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum Step {
-    Text {
-        text: String,
-        #[serde(default)]
-        delay_ms: u64,
-        #[serde(default)]
-        reasoning: Option<String>,
-        /// Unparseable `data:` lines sent before the words, the way a flaky
-        /// proxy garbles a stream.
-        #[serde(default)]
-        bad_chunks: usize,
-        /// End the stream after the words: no finish reason, usage or `[DONE]`.
-        #[serde(default)]
-        cut: bool,
-    },
-    Call {
-        call: String,
-        #[serde(default)]
-        args: Value,
-        #[serde(default)]
-        delay_ms: u64,
-    },
-    Calls {
-        calls: Vec<Value>,
-    },
-    /// Answer with this HTTP status instead of a stream: 429 and 5xx are
-    /// retried by clients, 400 is a provider rejecting a parameter.
-    Fail {
-        status: u16,
-        #[serde(default)]
-        retry_after: Option<u64>,
-        #[serde(default)]
-        body: String,
-    },
-}
-
 pub struct Config {
     pub script: Vec<Step>,
     /// After the script: answer N more requests with this tool call before stopping.
     pub repeat_call: Option<(Step, usize)>,
     /// Replies to side calls (no tools), in order; "Side reply" after that.
-    pub side: Vec<String>,
+    pub side: Vec<Side>,
     pub upstream: Option<String>,
     pub key: Option<String>,
     pub log: Option<PathBuf>,
@@ -484,9 +448,14 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     }
     let step = if side {
         let mut n = lock(&s.side_next);
-        let text = s.cfg.side.get(*n).cloned().unwrap_or_else(|| "Side reply".into());
+        let reply = s.cfg.side.get(*n).cloned().unwrap_or_else(|| Side::Text("Side reply".into()));
         *n += 1;
-        Some(Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false })
+        Some(match reply {
+            Side::Text(text) => {
+                Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false, length: false }
+            }
+            Side::Step(st) => st,
+        })
     } else {
         let mut n = lock(&s.next);
         let st = s.cfg.script.get(*n).cloned();
@@ -504,7 +473,9 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     };
     let step = match step {
         Some(st) => st,
-        None => Step::Text { text: "done".into(), delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false },
+        None => {
+            Step::Text { text: "done".into(), delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false, length: false }
+        }
     };
     if let Step::Fail { status, retry_after, body } = &step {
         rec["status"] = json!(status);
@@ -535,7 +506,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let mut message = json!({ "role": "assistant", "content": Value::Null });
     let mut n_calls = 0;
     match &step {
-        Step::Text { text, delay_ms, reasoning, bad_chunks, cut: cut_here } => {
+        Step::Text { text, delay_ms, reasoning, bad_chunks, cut: cut_here, length } => {
             cut = *cut_here;
             let mut first = *delay_ms;
             for _ in 0..*bad_chunks {
@@ -553,7 +524,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
                 chunks.push((d, sse(base(json!({ "content": w }), Value::Null))));
             }
             if !cut {
-                chunks.push((0, sse(base(json!({}), json!("stop")))));
+                chunks.push((0, sse(base(json!({}), json!(if *length { "length" } else { "stop" })))));
             }
             message["content"] = json!(text);
         }
@@ -585,7 +556,14 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         rec["t_first_byte"] = json!(t);
         rec["t_end"] = json!(t);
         write_log(&s, &rec);
-        let finish = if n_calls > 0 { "tool_calls" } else { "stop" };
+        let length = matches!(step, Step::Text { length: true, .. });
+        let finish = if n_calls > 0 {
+            "tool_calls"
+        } else if length {
+            "length"
+        } else {
+            "stop"
+        };
         return axum::Json(json!({ "id": "chatcmpl-mock", "object": "chat.completion", "created": 0, "model": model, "choices": [{ "index": 0, "message": message, "finish_reason": finish }], "usage": usage })).into_response();
     }
     if !cut {

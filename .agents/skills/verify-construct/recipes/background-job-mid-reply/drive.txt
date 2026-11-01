@@ -1,0 +1,14 @@
+# A job ends while the reply is still streaming: its end notice waits for the
+# reply to finish instead of landing between two of its words.
+wait "ask construct" 5000
+type watch it
+key enter
+wait "the job runs" 8000
+sleep 1500
+snap mid-reply
+image {evidence}/mid-reply.png
+wait "the job runs while this reply streams in one word at a time and stays one line" 8000
+wait "job j1 completed" 3000
+wait "it said early" 8000
+image {evidence}/after.png
+snap after
