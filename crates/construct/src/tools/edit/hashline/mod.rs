@@ -13,7 +13,7 @@ pub mod hash;
 pub mod ops;
 
 use super::super::fs::{encoding_error, resolve};
-use super::super::read::{LINE_MAX, READ_LINES, list_dir};
+use super::super::read::{LINE_MAX, READ_LINES, list_dir, page};
 use super::super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
 use crate::config::{AnchorMode, HashlineConfig, Salt};
 use crate::sandbox::{Policy, open};
@@ -152,27 +152,21 @@ impl HashlineRead {
         let total = map.len();
         let offset = num(a, "offset").unwrap_or(1).max(1);
         let limit = num(a, "limit").unwrap_or(READ_LINES);
-        let mut out = String::with_capacity(len.min(256 * 1024));
-        let mut truncated = vec![];
-        for n in (offset..=total).take(limit) {
-            let line = &map.lines[n - 1];
-            if line.len() > LINE_MAX {
-                // Shown cut short, so it gets no anchor: a `set` built from it
-                // would drop the rest of the line.
-                out.push_str(&format!("{n}|{}\n", crate::llm::truncate(line, LINE_MAX)));
-                truncated.push(n.to_string());
-            } else {
-                out.push_str(&map.row(n));
-                out.push('\n');
-            }
-        }
+        // Over LINE_MAX a row is shown cut short, so it gets no anchor: a
+        // `set` built from it would drop the rest of the line.
+        let long = |n: usize| map.lines[n - 1].len() > LINE_MAX;
+        let rows = (offset..=total).take(limit).map(|n| match long(n) {
+            true => format!("{n}|{}\n", crate::llm::truncate(&map.lines[n - 1], LINE_MAX)),
+            false => format!("{}\n", map.row(n)),
+        });
+        let (mut out, shown_end) = page(ctx, offset, rows);
+        let truncated: Vec<String> = (offset..=shown_end).filter(|&n| long(n)).map(|n| n.to_string()).collect();
         if !truncated.is_empty() {
             out.push_str(&format!(
                 "(line {} is over {LINE_MAX} chars and shown cut short, so it has no anchor)\n",
                 truncated.join(", ")
             ));
         }
-        let shown_end = (offset - 1 + limit).min(total);
         if total == 0 {
             out.push_str("(empty file)");
         } else if shown_end < total {
