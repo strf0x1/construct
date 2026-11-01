@@ -1,0 +1,66 @@
+{
+ "a": "/Users/brandonbosch/.codex/worktrees/47d2/construct/bench/results/frame-20261031-232059.json",
+ "b": "/Users/brandonbosch/.codex/worktrees/47d2/construct/bench/results/frame-20261031-232059.json",
+ "comparisons": [
+  {
+   "a": "frame-20261031-232059:before",
+   "b": "frame-20261031-232059:after",
+   "rows": [
+    {
+     "metric": "first_frame_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 8.76675,
+     "b": 9.591417,
+     "delta": 0.8246669999999998,
+     "a_spread": [
+      6.9350000000000005,
+      9.938749999999999
+     ],
+     "b_spread": [
+      7.702666000000001,
+      10.527
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "first_output_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 8.369708,
+     "b": 9.048832999999998,
+     "delta": 0.6791249999999991,
+     "a_spread": [
+      6.6145830000000005,
+      9.396208
+     ],
+     "b_spread": [
+      7.114083,
+      9.979208999999999
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "ready_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 8.865917,
+     "b": 9.709667,
+     "delta": 0.84375,
+     "a_spread": [
+      7.0013749999999995,
+      10.053166000000001
+     ],
+     "b_spread": [
+      7.8271250000000006,
+      10.643334000000001
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

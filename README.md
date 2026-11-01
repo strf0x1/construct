@@ -128,6 +128,13 @@ credentials. By default the agent can touch the working directory, a private
 temp dir, and system paths and toolchains. Anything else asks you first; you
 can allow it once, for the session, or permanently in config.
 
+**Developer operations.** Ask construct to create a GitHub issue, commit staged
+changes, push a branch, or open a pull request. A dedicated approval shows the
+content and destination before using host authentication, without opening
+credential paths to shell commands. Each operation is approved separately.
+Commits are unsigned and skip hooks; PR creation never pushes. See
+[the operation boundary](docs/adr/0030-approved-developer-operations.md).
+
 **Providers.** Several endpoints side by side, each with its own url, key
 and models, selected as `provider/model` anywhere a model is accepted
 (`--model`, `/model`, compaction, learning, subagents). Context windows come

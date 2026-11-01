@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub type Events = tokio::sync::mpsc::UnboundedSender<Event>;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
@@ -237,6 +236,13 @@ pub enum Event {
         /// "read" or "write".
         access: String,
         paths: Vec<String>,
+        decision: String,
+    },
+    /// A decision about one frozen host-authenticated developer operation.
+    Operation {
+        operation: String,
+        scope: String,
+        detail: String,
         decision: String,
     },
     /// A delegated child asks its parent a question (`permission::Request`).

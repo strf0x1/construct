@@ -19,6 +19,7 @@ impl App {
             | Event::Permission { .. }
             // Shown when the prompt is answered, so a child's are too.
             | Event::Access { .. }
+            | Event::Operation { .. }
             | Event::Ask { .. }
             | Event::System { .. }
             | Event::User { .. }

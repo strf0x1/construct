@@ -1,9 +1,8 @@
 ---
 id: status-line
-status: verified
+status: built
 surfaces: [tui]
 depends: [crates/construct/src/tui/status.rs, crates/construct/src/journal/totals.rs, crates/construct/src/journal/show.rs]
-verified_at: 549797b
 ---
 # Status line
 

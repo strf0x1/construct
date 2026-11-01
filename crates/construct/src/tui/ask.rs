@@ -9,6 +9,7 @@
 use super::app::App;
 use crate::permission::{Ask, Decision, Request, Verdict};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::cell::Cell;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 
@@ -51,11 +52,21 @@ pub(super) struct Prompt {
     /// Grant the folder rather than the path (a path request that has one).
     pub(super) folder: bool,
     pub(super) selected: usize,
+    pub(super) scroll: usize,
+    pub(super) scroll_limit: Cell<usize>,
 }
 
 impl Prompt {
     pub(super) fn new(request: Request, reply: oneshot::Sender<Decision>) -> Self {
-        Self { request, reply: Some(reply), shown: Instant::now(), folder: false, selected: 0 }
+        Self {
+            request,
+            reply: Some(reply),
+            shown: Instant::now(),
+            folder: false,
+            selected: 0,
+            scroll: 0,
+            scroll_limit: Cell::new(0),
+        }
     }
 
     /// What can be answered, in the order shown. Nothing is offered that the
@@ -63,6 +74,7 @@ impl Prompt {
     /// remember, no allow where the agent offered no allow option.
     pub(super) fn choices(&self) -> Vec<Choice> {
         match &self.request {
+            Request::Operation(_) => vec![Choice::Once, Choice::Session, Choice::Deny],
             Request::Path(p) if p.no_always => vec![Choice::Once, Choice::Session, Choice::Deny],
             Request::Path(_) => vec![Choice::Once, Choice::Session, Choice::Always, Choice::Deny],
             Request::Tool(t) if !t.can_allow => vec![Choice::Deny],
@@ -75,7 +87,7 @@ impl Prompt {
     pub(super) fn folder_offered(&self) -> Option<&str> {
         match &self.request {
             Request::Path(p) => p.folder.as_deref(),
-            Request::Tool(_) => None,
+            Request::Tool(_) | Request::Operation(_) => None,
         }
     }
 
@@ -127,6 +139,7 @@ impl Prompt {
                 format!("{who}{} access to {target} for {}", p.access.word(), p.tool)
             }
             Request::Tool(t) => format!("{}: {}", t.agent, t.title),
+            Request::Operation(o) => format!("{} ({})", o.operation, o.scope),
         }
     }
 }
@@ -174,6 +187,22 @@ pub(super) fn prompt_key(app: &mut App, k: KeyEvent) -> bool {
         }
         KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Char('j') => {
             p.selected = (p.selected + 1) % choices.len();
+            None
+        }
+        KeyCode::PageUp => {
+            p.scroll = p.scroll.min(p.scroll_limit.get()).saturating_sub(5);
+            None
+        }
+        KeyCode::PageDown => {
+            p.scroll = p.scroll.min(p.scroll_limit.get()).saturating_add(5).min(p.scroll_limit.get());
+            None
+        }
+        KeyCode::Home => {
+            p.scroll = 0;
+            None
+        }
+        KeyCode::End => {
+            p.scroll = p.scroll_limit.get();
             None
         }
         KeyCode::Tab | KeyCode::BackTab => {

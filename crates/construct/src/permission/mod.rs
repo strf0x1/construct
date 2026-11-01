@@ -18,6 +18,7 @@
 
 mod grants;
 mod named;
+mod operation;
 mod paths;
 mod perms;
 mod persist;
@@ -25,6 +26,7 @@ mod upstream;
 
 pub use grants::protected;
 pub use named::{Outside, outside};
+pub use operation::OperationAsk;
 pub use paths::blocked_in;
 pub use perms::Perms;
 pub use upstream::Upstream;
@@ -107,6 +109,7 @@ impl ToolAsk {
 pub enum Request {
     Path(PathAsk),
     Tool(ToolAsk),
+    Operation(OperationAsk),
 }
 
 impl Request {
@@ -115,6 +118,7 @@ impl Request {
         match &mut self {
             Request::Path(p) => p.agent = name.to_string(),
             Request::Tool(t) => t.agent = name.to_string(),
+            Request::Operation(o) => o.agent = name.to_string(),
         }
         self
     }

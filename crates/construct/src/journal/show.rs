@@ -139,6 +139,9 @@ pub fn transcript(entries: &[Entry]) -> String {
                 let who = if agent.is_empty() { String::new() } else { format!(" [{agent}]") };
                 let _ = writeln!(out, "!! access {decision}: {tool}{who} wants {access} {}\n", paths.join(", "));
             }
+            Event::Operation { operation, scope, decision, .. } => {
+                let _ = writeln!(out, "!! operation {decision}: {operation} ({scope})\n");
+            }
             Event::Permission { title, decision, scope, .. } => {
                 let _ = writeln!(out, "!! permission {decision} ({scope}): {title}\n");
             }
