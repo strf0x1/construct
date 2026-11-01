@@ -3,7 +3,7 @@ id: developer-operations
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tools/developer, crates/construct/src/permission/operation.rs, crates/construct/src/tui/ask.rs, crates/construct/src/tui/prompt.rs, crates/construct-dev/tests/developer.rs]
-verified_at: 48a9438
+verified_at: 3895c72
 ---
 # Approved developer operations
 
