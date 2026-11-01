@@ -161,3 +161,49 @@ fn rounds_too_big_to_elide_are_summarized_with_the_request_pinned() {
     assert!(head.ends_with("write ten files of w"), "the request is pinned verbatim under the summary");
     assert!(log(&env).iter().all(|r| r["window_rejected"].is_null()));
 }
+
+/// Rounds of `writes_with_cut_off_summaries` that pass the threshold of a 16k
+/// window but still fit it.
+const N_FIT: usize = 6;
+
+/// `n` rounds whose calls (write contents) are big and whose results are too
+/// small to stub, then an answer; every summary hits the output limit.
+fn writes_with_cut_off_summaries(n: usize) -> Value {
+    let mut steps: Vec<Value> = (0..n)
+        .map(|i| json!({ "call": "write", "args": { "path": format!("out{i}.txt"), "content": "w".repeat(6000) } }))
+        .collect();
+    steps.push(json!({ "text": "all written" }));
+    let side: Vec<Value> = (0..10).map(|_| json!({ "text": "## Goal\nhalf a summ", "length": true })).collect();
+    json!({ "steps": steps, "side": side })
+}
+
+#[test]
+fn a_summary_cut_off_below_the_window_is_a_note_and_the_run_succeeds() {
+    let env = Env::with_window("compact-summary-limit", writes_with_cut_off_summaries(N_FIT), Some(16_384));
+    env.config("context_window = 16384\n");
+    let out = env.run(&["run", "--no-learn", "write the files of w"]);
+    assert!(out.status.success(), "a recovered compaction failure doesn't fail the run: {}", text(&out));
+    assert!(text(&out).contains("all written"));
+    assert!(log(&env).iter().all(|r| r["window_rejected"].is_null()), "the uncut prompt still fit");
+
+    let rows = env.journal();
+    assert!(rows.iter().all(|r| r.ty != "error"), "{:?}", rows.iter().map(|r| &r.ty).collect::<Vec<_>>());
+    let notes: Vec<&Value> =
+        rows.iter().filter(|r| r.ty == "note" && r.payload["class"] == "compaction").map(|r| &r.payload).collect();
+    assert!(!notes.is_empty(), "the failed summary is journaled");
+    assert!(notes.iter().all(|n| n["kind"] == "summary_failed"), "{notes:?}");
+    assert!(notes[0]["detail"].as_str().unwrap().contains("hit the output limit"), "{notes:?}");
+    assert!(rows.iter().any(|r| r.ty == "turn_end"));
+}
+
+#[test]
+fn a_summary_cut_off_on_overflow_still_fails_the_run() {
+    // construct believes the window is 128k; the model's is 12k, and with
+    // nothing to stub and no summary there is nothing left to cut.
+    let env = Env::with_window("compact-summary-limit-overflow", writes_with_cut_off_summaries(10), Some(12_000));
+    let out = env.run(&["run", "--no-learn", "write the files of w"]);
+    assert!(!out.status.success(), "{}", text(&out));
+    let errors: Vec<String> =
+        env.journal().into_iter().filter(|r| r.ty == "error").map(|r| r.payload["message"].to_string()).collect();
+    assert!(errors.iter().any(|e| e.contains("compaction failed: the summary hit the output limit")), "{errors:?}");
+}
