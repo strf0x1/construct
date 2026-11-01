@@ -1,0 +1,1 @@
+{"steps":[{"call":"shell","args":{"command":"sleep 1 && echo early","background":true}},{"text":"the job runs while this reply streams in one word at a time and stays one line"},{"text":"it said early"}]}
