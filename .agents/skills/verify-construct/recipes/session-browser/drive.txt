@@ -1,0 +1,55 @@
+wait "ask construct" 5000
+type First A prompt
+key enter
+wait "A historical answer" 5000
+type /rename Session A
+key enter
+wait "Session renamed" 3000
+type /new
+key enter
+gone "A historical answer" 3000
+type /model model-b
+key enter
+wait "model → model-b" 3000
+type First B prompt
+key enter
+wait "B isolated answer" 5000
+type /rename Session B
+key enter
+wait "Session renamed: Session B" 3000
+type /resume
+key enter
+wait "Resume session" 3000
+wait "Session A" 3000
+snap --style browser
+image {evidence}/browser.png
+type nothing-matches
+wait "No matching sessions" 3000
+key ctrl-u
+type Session A
+wait "1/2" 3000
+resize 50 22
+wait "Session A" 3000
+snap narrow
+image {evidence}/narrow.png
+resize 110 38
+key enter
+wait "A historical answer" 5000
+key ctrl-o
+wait "original A tool output" 3000
+type Continue A
+key enter
+wait "A continued answer" 5000
+snap restored-a
+image {evidence}/restored.png
+type /resume
+key enter
+wait "Resume session" 3000
+type Session B
+key enter
+wait "B isolated answer" 5000
+type Continue B
+key enter
+wait "B continued answer" 5000
+type /quit
+key enter

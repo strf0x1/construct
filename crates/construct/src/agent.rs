@@ -4,6 +4,7 @@
 //! runner and the tests all observe the same thing, and every durable event
 //! is journaled on the way out (`journal::Writer::emit`).
 
+mod restore;
 mod user_turn;
 mod wake;
 
@@ -55,109 +56,6 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, None)
-    }
-
-    /// The session of a delegated child: its own prompt, and a head row that
-    /// names who delegated.
-    pub fn child(cfg: Config, paths: Paths, cwd: std::path::PathBuf, origin: Origin) -> Result<Self> {
-        Self::build(cfg, paths, cwd, None, Some(origin))
-    }
-
-    fn build(
-        cfg: Config,
-        paths: Paths,
-        cwd: std::path::PathBuf,
-        resume: Option<String>,
-        origin: Option<Origin>,
-    ) -> Result<Self> {
-        let ep = cfg.endpoint();
-        let key = if origin.is_some() { ep.env_key() } else { ep.key() };
-        let client = llm::Client::new(&ep, ep.require(key)?)?;
-        let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
-        let (cancel_tx, cancel_rx) = watch::channel(false);
-        let mcp = if cfg.mcp.is_empty() {
-            None
-        } else {
-            Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
-        };
-        let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
-        if !cfg.agents.is_empty() {
-            catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
-        }
-        let manifest = Manifest::new(&cfg, &catalog);
-        let cwd_s = cwd.display().to_string();
-        let file = journal::path(&paths, &cwd);
-        let mut unsent = vec![];
-        let resume_id = resume.clone();
-        let (writer, mut messages) = match resume {
-            Some(id) => journal::Writer::resume(&file, &id)?,
-            None => {
-                let (w, head) = journal::Writer::create(&file, |id| Event::Head {
-                    id,
-                    harness: "construct".into(),
-                    version: env!("CARGO_PKG_VERSION").into(),
-                    cwd: cwd_s.clone(),
-                    model: cfg.model.clone(),
-                    manifest: manifest.clone(),
-                    parent_session: origin.as_ref().map(|o| o.parent_session.clone()),
-                    parent_call_id: origin.as_ref().map(|o| o.parent_call_id.clone()),
-                })?;
-                unsent.push(head);
-                (w, vec![])
-            }
-        };
-        let (system, sandbox) = match origin {
-            // The child's boundary was decided by its parent; `parent` is the
-            // pid the helper watches, and that is this process now.
-            Some(o) => (o.system, crate::sandbox::Policy { parent: std::process::id(), ..o.policy }),
-            None => (
-                crate::prompt::build(&cwd, &memory, &cfg.learn.strategy, cfg.tools.search_tool()),
-                crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
-            ),
-        };
-        match messages.first() {
-            Some(m) if m.role == "system" => messages[0] = Message::system(system),
-            _ => messages.insert(0, Message::system(system)),
-        }
-        let jobs = crate::jobs::Jobs::new(&cfg.jobs);
-        if let Some(id) = &resume_id {
-            jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
-        }
-        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox).with_jobs(jobs));
-        let mut groups = BTreeSet::new();
-        groups.insert(Group::Core);
-        let mut agent = Self {
-            cfg,
-            paths,
-            client,
-            ctx,
-            catalog,
-            manifest,
-            messages,
-            groups,
-            journal: Arc::new(writer),
-            unsent,
-            usage: Usage::default(),
-            last_prompt_tokens: 0,
-            window_seen: None,
-            bytes_per_token: 4.0,
-            turns_since_memory: 0,
-            tool_calls_since_skill: 0,
-            user_turns: 0,
-            tool_calls: 0,
-            cancel_tx,
-            notes: Coalescer::default(),
-        };
-        if agent.messages.len() == 1 {
-            let ev = Event::for_message(agent.messages[0].clone());
-            agent.journal.record(&ev);
-            agent.unsent.push(ev);
-        }
-        Ok(agent)
-    }
-
     /// Pre-connect to the model endpoint and to Jev in the background.
     pub fn warm(&self) {
         self.client.warm();
@@ -261,27 +159,14 @@ impl Agent {
         .await
     }
 
-    pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
-        self.run_turn(Some(text), None, tx).await
-    }
-
-    /// A turn the user started with `/<skill> text`: the skill's SKILL.md (as
-    /// the `skill` tool returns it) goes into the user message ahead of
-    /// `text`, and an `invoke` event records which skill it was. A skill that
-    /// is gone by now is an error and no turn.
-    pub async fn invoke(&mut self, skill: &str, text: &str, tx: &Events) -> Result<()> {
-        match crate::tools::skill::load(&self.ctx, skill, None) {
-            Ok(body) => self.run_turn(Some(text), Some((skill, body)), tx).await,
-            Err(e) => {
-                self.journal.emit(Event::Error { message: e }, tx);
-                Ok(())
-            }
-        }
-    }
-
     /// One turn. `text` is what the user typed; `None` is a turn that job
     /// completions start (`wake`), which has no user message to route or answer.
-    async fn run_turn(&mut self, text: Option<&str>, invoked: Option<(&str, String)>, tx: &Events) -> Result<()> {
+    async fn run_turn(
+        &mut self,
+        text: Option<&str>,
+        invoked: Option<(&str, String, String)>,
+        tx: &Events,
+    ) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
         self.ctx.turn_began();
@@ -294,6 +179,7 @@ impl Agent {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         if let Some(text) = text {
+            self.ctx.jobs.activate_recovered();
             self.begin_user_turn(text, invoked, tx).await;
         }
         self.deliver_jobs(tx);

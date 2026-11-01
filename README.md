@@ -168,3 +168,24 @@ To try a change interactively:
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+### Saved sessions
+
+Use `construct --resume` to browse conversations from this directory, or
+`/resume` inside Construct. Search by first/latest prompt, a manual name or
+ID; Enter opens it, Escape cancels. `/rename <title>` gives the current
+session a persistent local name. `construct --resume <id>` and `/resume <id>`
+open one directly. `-c` / `--continue` still selects the newest **started**
+session in the exact directory; the browser orders by conversation activity.
+
+Resuming restores the full transcript and effective compacted context,
+accounting and saved model/provider. `--model <id>` explicitly overrides that
+model. Unavailable credentials/providers require a model choice; history is
+never silently sent to a different provider. A session has one writer at a
+time, and switching requires idle turns and background jobs.
+
+Recovery retains committed journal events. Interrupted tool outcomes are
+reconciled or marked unknown without retrying; external effects may already
+have happened. Opening history never starts generation. Unrecorded streaming
+text, files, shell processes and provider caches are not restored. Bare
+`--resume` requires a terminal; use an ID for headless runs.

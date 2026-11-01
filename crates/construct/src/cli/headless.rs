@@ -15,6 +15,7 @@ pub(super) async fn run(
     text: String,
     json: bool,
     learn: bool,
+    model_override: Option<String>,
 ) -> Result<()> {
     let learn = learn && cfg.learn.enabled;
     let mut cfg = cfg;
@@ -23,7 +24,7 @@ pub(super) async fn run(
         eprintln!("construct: {w}");
     }
     let cwd = std::env::current_dir()?;
-    let mut agent = Agent::new(cfg, paths, cwd, resume)?;
+    let mut agent = Agent::new_with_model(cfg, paths, cwd, resume, model_override.as_deref())?;
     // Overlaps the model's TLS handshake with routing.
     agent.warm();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
@@ -56,6 +57,9 @@ pub(super) async fn run(
                 }
                 Event::ToolEnd { ok: false, output, .. } => {
                     let _ = writeln!(err, "  ✗ {}", llm::truncate(&output.replace('\n', " "), 200));
+                }
+                Event::Recovered { message } => {
+                    let _ = writeln!(err, "{message}");
                 }
                 Event::Error { message } => {
                     failed = true;

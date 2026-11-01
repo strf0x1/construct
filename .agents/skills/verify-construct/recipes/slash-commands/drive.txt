@@ -1,4 +1,5 @@
 # Built-in slash commands, typed at the prompt. No model request is made.
+resize 100 36
 wait "ask construct" 5000
 type /help
 key enter

@@ -19,6 +19,8 @@ const fn entry(name: &'static str, arg: &'static str, about: &'static str) -> En
 }
 
 pub(super) const COMMANDS: &[Entry] = &[
+    entry("/resume", "[id]", "browse saved sessions in this directory, or resume by id"),
+    entry("/rename", "<title>", "name the current session"),
     entry("/new", "", "fresh session (also /clear)"),
     entry("/model", "[id]", "pick from the catalog, or switch to any id"),
     entry("/models", "[query]", "search the endpoint's model list: window and price"),

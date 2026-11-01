@@ -1,0 +1,1 @@
+{"steps":[{"call":"read","args":{"path":"note.txt"}},{"text":"A historical answer"},{"text":"B isolated answer"},{"text":"A continued answer"},{"text":"B continued answer"}]}

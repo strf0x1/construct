@@ -1,0 +1,66 @@
+{
+ "a": "bench/results/frame-20261031-163910.json",
+ "b": "bench/results/frame-20261031-163910.json",
+ "comparisons": [
+  {
+   "a": "frame-20261031-163910:before",
+   "b": "frame-20261031-163910:after",
+   "rows": [
+    {
+     "metric": "first_frame_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.568332,
+     "b": 2.475328,
+     "delta": -0.09300399999999964,
+     "a_spread": [
+      2.363403,
+      2.655062
+     ],
+     "b_spread": [
+      2.008452,
+      2.583885
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "first_output_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.976773,
+     "b": 1.9119899999999999,
+     "delta": -0.06478300000000004,
+     "a_spread": [
+      1.869448,
+      2.126396
+     ],
+     "b_spread": [
+      1.570213,
+      2.033313
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "ready_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.640879,
+     "b": 2.5422079999999996,
+     "delta": -0.0986710000000004,
+     "a_spread": [
+      2.4303380000000003,
+      2.7547409999999997
+     ],
+     "b_spread": [
+      2.1268,
+      2.688216
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

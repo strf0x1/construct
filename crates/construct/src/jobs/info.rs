@@ -26,6 +26,8 @@ pub enum Kind {
 #[serde(rename_all = "snake_case")]
 pub enum Status {
     Running,
+    /// The previous process stopped before recording a completion.
+    Interrupted,
     /// Ended on its own and well: a command that exited 0, a child that answered.
     Completed,
     /// Ended on its own and badly: a nonzero exit, a child that errored.
@@ -42,13 +44,14 @@ impl Status {
     pub fn wakes(self) -> bool {
         match self {
             Status::Completed | Status::Failed | Status::Timeout => true,
-            Status::Running | Status::Cancelled => false,
+            Status::Running | Status::Cancelled | Status::Interrupted => false,
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
             Status::Running => "running",
+            Status::Interrupted => "interrupted",
             Status::Completed => "completed",
             Status::Failed => "failed",
             Status::Timeout => "timeout",

@@ -345,3 +345,12 @@ Search suite, 10 rounds x 3 arms (grep, search, none) x 11 tasks on three models
 - `bench/results/task-20261028-221453.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
 - `bench/results/task-20261028-222858.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
 - `bench/results/task-20261028-225539.json`: model anthropic/claude-haiku-5.5; bench d256af8 dirty; grep d501de0 dirty editor=replace router=local; search d501de0 dirty editor=replace router=local; none d501de0 dirty editor=replace router=local
+
+## 2026-10-31 16:41 note
+
+Issue 127: session browsing, safe switching and explicit crash recovery. Startup/tool latency compare as same. Release binary +178560 bytes (+0.823%). Median mean RSS +0.850 MiB is worse and accepted (ADR 0029); peak RSS and workload latency compare as same. Both memory arms complete 121 requests with exit 0; final request differs by one arm-path byte. See docs/issue-127-verification.md for driven TUI evidence and complete results.
+
+- `bench/results/frame-20261031-163910.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/tools-20261031-163911.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/memory-20261031-163958.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/size-issue-127-paired.json`: model None; bench 549797b dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
