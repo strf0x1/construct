@@ -1,0 +1,67 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.2.0",
+    "git_sha": "894f8472e08e8ac4c58393098beff940bcf8f853",
+    "git_dirty": false,
+    "binary_sha256": "e6977a2ae0a2422aca6f272f36d1d484aa5454edfb3d5a1786236ab7259852c3",
+    "config_sha256": "01c84ae449a8ecb205206819ce48ff0595b055451012c7bc06c3dabec0c46bce",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/Users/brandonbosch/.codex/worktrees/47d2/construct/target/release/construct"
+   }
+  },
+  "dev_git_sha": "894f8472e08e8ac4c58393098beff940bcf8f853",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "320d37ffedab571fd8bb589979c7ad9abd7c18ad03acbd01ac1bcdc160556b9f",
+  "host": "Brandons-M4.local",
+  "started": "2026-11-01T04:45:56Z"
+ },
+ "construct": {
+  "install": 14890320,
+  "parts": {
+   "binary": 14890320
+  },
+  "fresh_home_after_first_run": 37023,
+  "first_run_s": 0.33696387498639524,
+  "first_run_rc": 0
+ },
+ "opencode": {
+  "install": 137502434,
+  "parts": {
+   "binary": 137502434
+  }
+ }
+}

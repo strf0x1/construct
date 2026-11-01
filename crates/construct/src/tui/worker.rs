@@ -1,221 +1,251 @@
-//! The agent side of the TUI: builds the agent off the UI path, runs turns
-//! from commands, and starts the learning pass.
+//! The agent side of the TUI. Build a complete destination before replacing
+//! the active runtime, and tag asynchronous events with their owning session.
 
-use super::Cmd;
+use super::app::Cmd;
 use super::ask::{Prompt, TuiAsk};
-use crate::agent::{Agent, Event};
+use super::learning::{finish, maybe_learn};
+use crate::agent::{Agent, Event, Events};
 use crate::config::{Config, Paths};
-use crate::learn;
-use crate::tools::Catalog;
+use crate::journal::{Entry, Journal, Totals};
 use std::sync::Arc;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
-/// What the agent task hands the UI once it is built: session id, turn
-/// canceller, enabled groups, resumed history, the session's tools and its jobs
-/// (so the UI can cancel one while a turn runs).
-pub(super) type Ready = (
-    String,
-    watch::Sender<bool>,
-    Vec<String>,
-    Vec<crate::llm::Message>,
-    Arc<Catalog>,
-    crate::journal::Totals,
-    crate::jobs::Jobs,
-);
+pub(super) struct Ready {
+    pub session: String,
+    pub tag: String,
+    pub ack: Option<tokio::sync::oneshot::Sender<()>>,
+    pub canceller: tokio::sync::watch::Sender<bool>,
+    pub entries: Vec<Entry>,
+    pub catalog: Arc<crate::tools::Catalog>,
+    pub spent: Totals,
+    pub jobs: crate::jobs::Jobs,
+    pub cfg: Config,
+    pub groups: Vec<String>,
+}
+
+impl Ready {
+    fn of(a: &Agent) -> anyhow::Result<Self> {
+        let mut entries = a.journal.entries()?;
+        let db = Journal::read_only(&crate::journal::path(&a.paths, &a.ctx.cwd))?;
+        static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let tag = format!("{}:{}", a.journal.session, GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+        let spent = Totals::session(&db, &entries)?;
+        entries = super::restore::with_children(entries, &db)?;
+        Ok(Self {
+            ack: None,
+            tag,
+            session: a.journal.session.clone(),
+            canceller: a.canceller(),
+            catalog: a.catalog.clone(),
+            spent,
+            entries,
+            jobs: a.jobs(),
+            cfg: a.cfg.clone(),
+            groups: a
+                .groups
+                .iter()
+                .filter(|g| **g != crate::tools::Group::Core)
+                .map(crate::tools::Group::label)
+                .collect(),
+        })
+    }
+}
+
+pub(super) struct Out {
+    pub tx: mpsc::UnboundedSender<(String, Event)>,
+    pub ready: mpsc::UnboundedSender<Ready>,
+    pub prompts: mpsc::UnboundedSender<Prompt>,
+    pub landed: mpsc::UnboundedSender<()>,
+}
+
+fn session_events(id: String, out: mpsc::UnboundedSender<(String, Event)>) -> Events {
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        while let Some(ev) = rx.recv().await {
+            let _ = out.send((id.clone(), ev));
+        }
+    });
+    tx
+}
 
 pub(super) async fn agent_task(
     mut cfg: Config,
     paths: Paths,
     resume: Option<String>,
+    startup_browser: bool,
+    model_override: Option<String>,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
-    tx: mpsc::UnboundedSender<Event>,
-    ready: mpsc::UnboundedSender<Ready>,
-    prompts: mpsc::UnboundedSender<Prompt>,
+    out: Out,
 ) {
     let cwd = std::env::current_dir().unwrap_or_default();
-    // Off the UI path: the first frame is up, and this waits a few seconds at most.
-    crate::llm::catalog::prepare(&mut cfg, &paths).await;
-    let build = |resume: Option<String>, cfg: Config| Agent::new(cfg, paths.clone(), cwd.clone(), resume);
-    let mut agent = match build(resume, cfg.clone()) {
-        Ok(a) => a,
-        Err(e) => {
-            let _ = tx.send(Event::Error { message: format!("fatal: {e:#}") });
-            return;
-        }
-    };
-    crate::trace::mark("agent ready");
-    agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
-    agent.warm();
-    let history: Vec<crate::llm::Message> = agent.messages.iter().skip(1).cloned().collect();
-    // A resumed session's status line starts from what it has already spent.
-    let spent = if history.is_empty() { Default::default() } else { spent(&paths, &cwd, &agent.journal.session) };
-    let _ = ready.send((
-        agent.journal.session.clone(),
-        agent.canceller(),
-        vec![],
-        history,
-        agent.catalog.clone(),
-        spent,
-        agent.jobs(),
-    ));
-    // How far learning has seen: an index into the live conversation, and
-    // the journal seq the detached learner resumes from.
-    let mut reviewed = (agent.messages.len(), agent.journal.last_seq());
+    let mut active: Option<(Agent, Events)> = None;
+    let mut pending = resume.clone();
+    let mut reviewed = (0, 0);
+    let mut first = !startup_browser;
     loop {
-        // A command the user already typed goes first; a job that ended while
-        // idle starts a turn of its own (ADR 0026).
-        let jobs = agent.jobs();
-        let c = tokio::select! {
-            biased;
-            c = cmds.recv() => match c {
-                Some(c) => c,
-                None => break,
-            },
-            () = jobs.ready() => {
-                let _ = agent.wake(&tx).await;
-                maybe_learn(&mut agent, &tx, &mut reviewed, false);
-                continue;
+        // Startup browsing does not resolve credentials or ask providers.
+        let command = if first {
+            first = false;
+            Cmd::Resume(resume.clone())
+        } else {
+            let jobs = active.as_ref().map(|(a, _)| a.jobs());
+            tokio::select! {
+                biased;
+                c = cmds.recv() => match c { Some(c) => c, None => break },
+                () = async {
+                    match jobs { Some(j) => j.ready().await, None => std::future::pending().await }
+                } => {
+                    if let Some((a, tx)) = &mut active {
+                        let _ = a.wake(tx).await;
+                        maybe_learn(a, tx, &mut reviewed, false);
+                    }
+                    continue;
+                }
             }
         };
-        match c {
+        match command {
+            Cmd::Resume(id) => {
+                if active.as_ref().is_some_and(|(a, _)| id.as_deref() == Some(a.journal.session.as_str())) {
+                    continue;
+                }
+                if active.as_ref().is_some_and(|(a, _)| a.jobs().running() > 0) {
+                    error(&out, &active, "Cannot switch while a background job is active; wait or cancel it first.");
+                    continue;
+                }
+                pending = id.clone();
+                crate::llm::overlay::prepare(&mut cfg, &paths, Some(out.landed.clone())).await;
+                match prepare(&cfg, &paths, &cwd, id, model_override.as_deref()) {
+                    Ok((a, ready)) => {
+                        if let Some((old, _)) = &active {
+                            finish(old, reviewed);
+                        }
+                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        let tx = session_events(ready.tag.clone(), out.tx.clone());
+                        reviewed = (a.messages.len(), a.journal.last_seq());
+                        a.warm();
+                        publish(&out, ready).await;
+                        active = Some((a, tx));
+                        pending = None;
+                    }
+                    Err(e) => error(
+                        &out,
+                        &active,
+                        &format!(
+                            "Could not restore session: {e:#}. Use /model to choose a model if unavailable, then retry /resume."
+                        ),
+                    ),
+                }
+            }
+            Cmd::Model(m) if active.is_none() || pending.is_some() => {
+                match prepare(&cfg, &paths, &cwd, pending.clone(), Some(&m)) {
+                    Ok((a, ready)) => {
+                        if let Some((old, _)) = &active {
+                            finish(old, reviewed);
+                        }
+                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        let tx = session_events(ready.tag.clone(), out.tx.clone());
+                        reviewed = (a.messages.len(), a.journal.last_seq());
+                        a.warm();
+                        publish(&out, ready).await;
+                        active = Some((a, tx));
+                        pending = None;
+                    }
+                    Err(e) => error(&out, &active, &format!("Could not restore with model {m}: {e:#}")),
+                }
+            }
             Cmd::Prompt(text) => {
-                let _ = agent.turn(&text, &tx).await;
-                maybe_learn(&mut agent, &tx, &mut reviewed, false);
+                pending = None;
+                if let Some((a, tx)) = &mut active {
+                    let _ = a.turn(&text, tx).await;
+                    maybe_learn(a, tx, &mut reviewed, false);
+                } else {
+                    error(&out, &active, "No active session; use /model to choose an available model, or /resume.");
+                }
             }
-            Cmd::Skill { name, text } => {
-                let _ = agent.invoke(&name, &text, &tx).await;
-                maybe_learn(&mut agent, &tx, &mut reviewed, false);
+            Cmd::Skill { name, text, original } => {
+                if let Some((a, tx)) = &mut active {
+                    let _ = a.invoke_as(&name, &text, &original, tx).await;
+                    maybe_learn(a, tx, &mut reviewed, false);
+                }
             }
-            Cmd::LearnNow => maybe_learn(&mut agent, &tx, &mut reviewed, true),
+            Cmd::LearnNow => {
+                if let Some((a, tx)) = &mut active {
+                    maybe_learn(a, tx, &mut reviewed, true);
+                }
+            }
             Cmd::Model(m) => {
-                if let Err(e) = agent.set_model(&m, &tx) {
-                    let _ = tx.send(Event::Error { message: format!("model {m}: {e:#}") });
+                if let Some((a, tx)) = &mut active
+                    && let Err(e) = a.set_model(&m, tx)
+                {
+                    error(&out, &active, &format!("model {m}: {e:#}"));
+                }
+            }
+            Cmd::Rename(title) => {
+                if let Some((a, tx)) = &active {
+                    match a.journal.rename(&title) {
+                        Ok(()) => {
+                            let _ = tx.send(Event::Learn { status: format!("Session renamed: {}", title.trim()) });
+                        }
+                        Err(e) => error(&out, &active, &format!("Could not rename: {e:#}")),
+                    }
                 }
             }
             Cmd::New => {
-                agent.stop_jobs().await;
-                finish(&agent, reviewed);
-                match build(None, agent.cfg.clone()) {
-                    Ok(a) => {
-                        agent = a;
-                        agent.ctx.perms.set_ask(Arc::new(TuiAsk { tx: prompts.clone() }));
-                        reviewed = (agent.messages.len(), agent.journal.last_seq());
-                        let _ = ready.send((
-                            agent.journal.session.clone(),
-                            agent.canceller(),
-                            vec![],
-                            vec![],
-                            agent.catalog.clone(),
-                            Default::default(),
-                            agent.jobs(),
-                        ));
+                // Serialized through this worker just like resume.
+                if let Some((a, _)) = &active {
+                    a.stop_jobs().await;
+                }
+                let current_cfg = active.as_ref().map(|(a, _)| &a.cfg).unwrap_or(&cfg);
+                match prepare(current_cfg, &paths, &cwd, None, None) {
+                    Ok((a, ready)) => {
+                        if let Some((old, _)) = &active {
+                            finish(old, reviewed);
+                        }
+                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        let tx = session_events(ready.tag.clone(), out.tx.clone());
+                        reviewed = (a.messages.len(), a.journal.last_seq());
+                        a.warm();
+                        publish(&out, ready).await;
+                        active = Some((a, tx));
+                        pending = None;
                     }
-                    Err(e) => {
-                        let _ = tx.send(Event::Error { message: format!("{e:#}") });
-                    }
+                    Err(e) => error(&out, &active, &format!("Could not start session: {e:#}")),
                 }
             }
         }
     }
-    // Quitting cancels what is still running, and the journal says so; the
-    // helpers' own watchdog covers a process that is stopped before this ends.
-    let _ = tokio::time::timeout(std::time::Duration::from_millis(1200), agent.stop_jobs()).await;
-    finish(&agent, reviewed);
-}
-
-/// Hand any unreviewed tail of the session to a detached learning process.
-fn finish(agent: &Agent, (reviewed, seq): (usize, i64)) {
-    if !agent.cfg.learn.enabled || reviewed >= agent.messages.len() {
-        return;
-    }
-    let tail = &agent.messages[reviewed..];
-    let users = tail.iter().filter(|m| m.role == "user").count() as u32;
-    let calls = tail.iter().map(|m| m.tool_calls.len() as u32).sum();
-    if learn::kind_for(users, calls).is_some() {
-        let mut st = learn::state(&agent.paths);
-        st["reviewed_seq"][&agent.journal.session] = serde_json::json!(seq);
-        learn::save_state(&agent.paths, &st);
-        learn::spawn_detached(&agent.journal.session);
+    if let Some((a, _)) = &active {
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(1200), a.stop_jobs()).await;
+        finish(a, reviewed);
     }
 }
 
-fn maybe_learn(agent: &mut Agent, tx: &mpsc::UnboundedSender<Event>, reviewed: &mut (usize, i64), force: bool) {
-    if !agent.cfg.learn.enabled && !force {
-        return;
-    }
-    let mem = agent.turns_since_memory >= agent.cfg.learn.memory_every_turns;
-    let skill = agent.tool_calls_since_skill >= agent.cfg.learn.skill_every_tool_calls;
-    let kind = match (mem || force, skill || force) {
-        (true, true) => learn::Kind::Both,
-        (true, false) => learn::Kind::Memory,
-        (false, true) => learn::Kind::Skills,
-        _ => return,
-    };
-    if reviewed.0 >= agent.messages.len() {
-        return;
-    }
-    agent.turns_since_memory = 0;
-    agent.tool_calls_since_skill = 0;
-    let slice = agent.messages[reviewed.0..].to_vec();
-    *reviewed = (agent.messages.len(), agent.journal.last_seq());
-    let (cfg, paths, tx, id, upto) =
-        (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
-    tokio::spawn(async move {
-        let _ = tx.send(Event::Learn { status: "learning from this session".into() });
-        if let Some(r) = learn::distill(&cfg, &paths, &id, &slice).await {
-            let status = match r {
-                Ok(o) => {
-                    learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));
-                    if o.actions.is_empty() { "learned nothing new".to_string() } else { o.summary }
-                }
-                Err(e) => format!("learning failed: {e}"),
-            };
-            let mut st = learn::state(&paths);
-            st["reviewed_seq"][&id] = serde_json::json!(upto);
-            learn::save_state(&paths, &st);
-            let _ = tx.send(Event::Learn { status });
-            return;
-        }
-        let gate = learn::gate(&cfg, &slice).await;
-        learn::log_line(&paths, &format!("session {id} (live): gate {} {} -> {:?}", gate.source, gate.note, gate.kind));
-        // The counters said "time to look"; the gate says whether there's anything to see.
-        let kind = match (gate.kind, force) {
-            (Some(k), _) => k,
-            (None, true) => kind,
-            (None, false) => {
-                let mut st = learn::state(&paths);
-                st["reviewed_seq"][&id] = serde_json::json!(upto);
-                learn::save_state(&paths, &st);
-                let _ = tx.send(Event::Learn { status: "nothing new to learn".into() });
-                return;
-            }
-        };
-        let status = match learn::review(&cfg, &paths, &id, &slice, kind).await {
-            Ok(o) => {
-                learn::log_line(&paths, &format!("session {id} (live): {} | {}", o.summary, o.actions.join("; ")));
-                if o.actions.is_empty() {
-                    "learned nothing new".to_string()
-                } else {
-                    format!(
-                        "learned: {}",
-                        o.actions.iter().map(|a| a.split(':').next().unwrap_or("")).collect::<Vec<_>>().join(", ")
-                    )
-                }
-            }
-            Err(e) => format!("learning failed: {e}"),
-        };
-        let mut st = learn::state(&paths);
-        st["reviewed_seq"][&id] = serde_json::json!(upto);
-        learn::save_state(&paths, &st);
-        let _ = tx.send(Event::Learn { status });
-    });
+fn prepare(
+    cfg: &Config,
+    paths: &Paths,
+    cwd: &std::path::Path,
+    id: Option<String>,
+    model_override: Option<&str>,
+) -> anyhow::Result<(Agent, Ready)> {
+    let a = Agent::new_with_model(cfg.clone(), paths.clone(), cwd.to_path_buf(), id, model_override)?;
+    crate::trace::mark("agent ready");
+    let ready = Ready::of(&a)?;
+    Ok((a, ready))
 }
 
-/// What `session` has spent so far, summed from the journal as `/status` does.
-fn spent(paths: &Paths, cwd: &std::path::Path, session: &str) -> crate::journal::Totals {
-    let read = || -> anyhow::Result<_> {
-        let db = crate::journal::Journal::open(&crate::journal::path(paths, cwd))?;
-        crate::journal::Totals::session(&db, &db.since(session, 0)?)
-    };
-    read().unwrap_or_default()
+fn error(out: &Out, active: &Option<(Agent, Events)>, message: &str) {
+    let ev = Event::Error { message: message.to_string() };
+    if let Some((_, tx)) = active {
+        let _ = tx.send(ev);
+    } else {
+        let _ = out.tx.send((String::new(), ev));
+    }
+}
+
+async fn publish(out: &Out, mut ready: Ready) {
+    let (ack, landed) = tokio::sync::oneshot::channel();
+    ready.ack = Some(ack);
+    if out.ready.send(ready).is_ok() {
+        let _ = landed.await;
+    }
 }

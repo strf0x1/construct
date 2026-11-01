@@ -88,8 +88,9 @@ const MODEL_ROWS: usize = 50;
 /// would plan against. Matching is the picker's, so the two agree.
 pub(super) fn model_candidates(q: &str, cfg: &Config) -> Vec<Item> {
     let q = q.to_lowercase();
-    let ids = cfg.models.keys().chain(cfg.discovered.keys().filter(|id| !cfg.models.contains_key(*id)));
+    let ids = cfg.catalog_ids();
     let mut hits: Vec<((u8, usize), &String)> = ids
+        .iter()
         .filter_map(|id| {
             let e = cfg.lookup(id)?;
             let about = format!("{} {} {}", e.label, e.tags.join(" "), e.description);
@@ -300,7 +301,7 @@ mod tests {
             let e = ModelEntry { label: id.into(), context_window: Some(window), ..Default::default() };
             c.discovered.insert(id.into(), e);
         }
-        c.select_model("mine/local");
+        c.select_model("mine/local").unwrap();
         c
     }
 

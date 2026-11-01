@@ -142,7 +142,7 @@ h1.glitch{animation:glitch .38s steps(2) 1}
       <code id="cmd">curl -fsSL https://construct.sprawlcommons.com/install.sh | sh</code>
       <button id="copy" type="button">copy</button>
     </div>
-    <p class="install-links"><a href="/install.sh">read the installer</a><a href="https://github.com/strf0x1/construct/releases/latest">download manually</a><span>linux x86-64 · no sudo · checksum-verified</span></p>
+    <p class="install-links"><a href="/install.sh">read the installer</a><a href="https://github.com/strf0x1/construct/releases/latest">download manually</a><span>linux x86-64 · macos · no sudo · checksum-verified</span></p>
     <ul class="specs">
       <li><span>01</span>one binary, no runtime</li>
       <li><span>02</span>sandboxed tools</li>
@@ -266,12 +266,13 @@ $('#copy').onclick=async()=>{
 // ---------------------------------------------------------------- title scramble
 const GLYPHS='▓▒░<>/\\[]{}=+*^#_01';
 function scramble(el,ms=900){
-  const final=el.textContent,start=performance.now();
+  const text=el.firstChild,final=text?.textContent??el.textContent,start=performance.now();
   if(reduced)return;
   (function step(now){
     const k=Math.min(1,(now-start)/ms);let out='';
     for(let i=0;i<final.length;i++)out+=i<k*final.length?final[i]:GLYPHS[Math.random()*GLYPHS.length|0];
-    el.textContent=out;if(k<1)requestAnimationFrame(step);
+    if(text)text.data=out;else el.textContent=out;
+    if(k<1)requestAnimationFrame(step);
   })(start);
 }
 scramble(title);

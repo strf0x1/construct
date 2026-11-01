@@ -218,21 +218,22 @@ impl AgentDef {
         self.api_key_secret.is_empty()
             && self.base_url.is_empty()
             && self.command.is_empty()
-            && self.model_config(parent).base_url == parent.base_url
+            && self.model_config(parent).endpoint().base_url == parent.endpoint().base_url
     }
 
     /// `parent` with this definition's model selected.
     fn model_config(&self, parent: &Config) -> Config {
         let mut cfg = parent.clone();
         if !self.model.is_empty() {
-            cfg.select_model(&self.model);
+            // Checked at load (`Config::check_providers`).
+            let _ = cfg.select_model(&self.model);
         }
         cfg
     }
 
     fn key_secret(&self, parent: &Config) -> String {
         match (self.api_key_secret.as_str(), self.base_url.is_empty() && self.command.is_empty()) {
-            ("", true) => self.model_config(parent).api_key_secret,
+            ("", true) => self.model_config(parent).endpoint().api_key_secret,
             (s, _) => s.to_string(),
         }
     }
@@ -261,16 +262,15 @@ impl AgentDef {
         // The model's catalog entry supplies its window and endpoint; what
         // this definition says itself, below, comes after and wins.
         if !self.model.is_empty() {
-            cfg.select_model(&self.model);
+            cfg.select_model(&self.model).with_context(|| format!("[agents.{name}] model"))?;
         }
+        let mut ep = cfg.endpoint();
         if !self.base_url.is_empty() {
-            cfg.base_url = self.base_url.trim_end_matches('/').to_string();
-            // Headers may carry the parent's credential, and a dialect is
-            // about the parent's host; both stay with it.
-            cfg.headers.clear();
-            cfg.provider = Default::default();
+            ep = ep.moved(&self.base_url, "");
         }
-        cfg.api_key_secret = self.key_secret(parent);
+        ep.api_key_secret = self.key_secret(parent);
+        // The child runs on exactly this endpoint, whatever its model's entry says.
+        cfg.pin_endpoint(ep);
         cfg.tools.disabled = table
             .iter()
             .filter(|(n, g)| !names.contains(n) && !matches!(g, Group::Mcp(_)))
@@ -328,7 +328,7 @@ mod tests {
              [models.remote]\nbase_url = \"http://other/v1\"\napi_key_secret = \"REMOTE_KEY\"\n",
         )
         .unwrap();
-        cfg.select_model(&cfg.model.clone());
+        cfg.select_model(&cfg.model.clone()).unwrap();
         let child = |def: AgentDef| def.child_config("c", &cfg, &table).unwrap();
         let small = child(AgentDef { model: "small".into(), ..Default::default() });
         assert_eq!((small.context_window, small.max_tokens), (32768, Some(2048)));
@@ -345,7 +345,7 @@ mod tests {
              [models.bare]\nbase_url = \"http://local/v1\"\n",
         )
         .unwrap();
-        cfg.select_model(&cfg.model.clone());
+        cfg.select_model(&cfg.model.clone()).unwrap();
         let remote = AgentDef { model: "remote".into(), ..Default::default() };
         assert_eq!(remote.secret_names(&cfg), vec!["REMOTE_KEY"]);
         assert!(!remote.inherits_key(&cfg), "no fallback key for another host");
@@ -354,6 +354,7 @@ mod tests {
         let (table, plain) = (parent().1, AgentDef::default());
         let c = remote.child_config("c", &cfg, &table).unwrap();
         assert_eq!((c.base_url.as_str(), c.api_key_secret.as_str()), ("http://other/v1", "REMOTE_KEY"));
+        assert_eq!(c.endpoint().base_url, "http://other/v1", "the child resolves to what it was handed");
         assert!(plain.inherits_key(&cfg), "a child on the parent's own endpoint still inherits");
     }
 
@@ -361,7 +362,7 @@ mod tests {
     fn the_endpoint_key_follows_the_endpoint() {
         let (cfg, _) = parent();
         let same = AgentDef::default();
-        assert_eq!(same.secret_names(&cfg), vec![cfg.api_key_secret.clone()]);
+        assert_eq!(same.secret_names(&cfg), vec![cfg.endpoint().api_key_secret]);
         let elsewhere = AgentDef { base_url: "http://other/v1".into(), ..Default::default() };
         assert!(elsewhere.secret_names(&cfg).is_empty());
         let keyed =

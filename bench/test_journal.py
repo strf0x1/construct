@@ -68,6 +68,17 @@ class Errors(unittest.TestCase):
         self.assertEqual(found[("openai", "a/one")]["turns"], 1)
         self.assertEqual(dict(found[("openai", "a/two")]["notes"]), {"provider/truncated": 1})
 
+    def test_a_named_provider_labels_its_rows_and_default_keeps_the_dialect(self):
+        start = {"event": "head", "id": "s", "harness": "construct", "version": "0", "cwd": "/w", "model": "local/m", "manifest": {"dialect": "openai", "provider": "local"}}
+        back = {"event": "model", "model": "anthropic/x", "context_window": 1}
+        again = {"event": "manifest", "dialect": "openrouter", "model": "anthropic/x"}
+        home = home_with(self, [start] + turn("local/m") + [note("retry", 1), back, again] + turn("anthropic/x"))
+        found = journal.errors(home)
+        self.assertEqual(dict(found[("local", "local/m")]["notes"]), {"provider/retry": 1})
+        self.assertEqual(found[("openrouter", "anthropic/x")]["turns"], 1)
+        self.assertEqual(list(journal.errors(home, provider="local")), [("local", "local/m")])
+        self.assertEqual(sorted(found), [("local", "local/m"), ("openrouter", "anthropic/x")], "no group for a switch alone")
+
     def test_filters_and_the_window(self):
         home = home_with(self, [head("a/one", "openrouter")] + turn("a/one"), [head("b/two", "openai")] + turn("b/two"))
         self.assertEqual(list(journal.errors(home, provider="openai")), [("openai", "b/two")])

@@ -2,12 +2,12 @@
 id: slash-commands
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/skills.rs]
-verified_at: 066a40d
+depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/skills.rs]
+verified_at: 37ef7fc
 ---
 # Slash commands
 
-Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model` opens the model picker (see [Model picker](./model-picker.md)) and `/model <id>` switches the model for the next turn, `/models [query]` searches the model list, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. Each prints a notice in the transcript; the listing commands (`/models`, `/memory`, `/skills`, `/status`) draw rounded boxes like `/help`. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
+Typing a line that starts with `/` at the prompt runs a built-in command instead of sending a message: `/help` lists commands and keys, `/skills` lists the skill library, `/memory` shows memory, `/model` opens the model picker (see [Model picker](./model-picker.md)) and `/model <id>` switches the model for the next turn, `/models [query]` searches the model list, `/learn` runs the learning pass, `/new` starts a fresh session, `/quit` exits. `/resume [id]` browses or switches saved conversations and `/rename <title>` names the active session (see [Resume saved sessions](./session-browser.md)). Each prints a notice in the transcript; the listing commands (`/models`, `/memory`, `/skills`, `/status`) draw rounded boxes like `/help`. `/<skill-name> <request>` runs a skill from the library: the model gets the skill's SKILL.md and the request in one user message. Typing `/` opens a palette under the input that lists commands and skills and narrows as you type. A word that is neither a command nor a skill prints a yellow hint to try `/help`.
 
 ## Sub-features
 

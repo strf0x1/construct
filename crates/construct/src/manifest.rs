@@ -47,6 +47,14 @@ pub struct Manifest {
     pub dialect: String,
     #[serde(default)]
     pub cache: CacheMode,
+    /// The named provider serving `model`; absent for `default` (ADR 0027).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Which layer set `context_window` (`models::WindowSource::code`):
+    /// `catalog`, `provider`, `discovered`, `config` or `default`. A window a
+    /// provider states in an overflow error is the session's, not this.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub window_source: String,
 }
 
 impl Manifest {
@@ -71,6 +79,8 @@ impl Manifest {
             compaction: Default::default(),
             dialect: String::new(),
             cache: Default::default(),
+            provider: None,
+            window_source: String::new(),
         }
     }
 
@@ -91,8 +101,10 @@ impl Manifest {
             context_window: cfg.context_window,
             max_tokens: cfg.max_tokens,
             compaction: cfg.compaction.clone(),
-            dialect: crate::llm::Provider::new(&cfg.provider, &cfg.base_url).name().into(),
-            cache: cfg.provider.cache,
+            dialect: crate::llm::Provider::of(&cfg.endpoint()).name().into(),
+            cache: cfg.endpoint().provider.cache,
+            provider: cfg.provider_name(),
+            window_source: cfg.window_source().code().into(),
         }
     }
 

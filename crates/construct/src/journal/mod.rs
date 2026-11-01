@@ -10,22 +10,26 @@
 //! readers skip what they don't understand. The parent process is the only
 //! writer, and the file sits outside every sandbox root.
 
-use crate::event::{Event, Events};
+use crate::event::Event;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
+mod browser;
 mod export;
 pub mod notes;
 mod read;
+mod recovery;
 mod show;
 mod totals;
+mod writer;
 
+pub use browser::{Session, browse, prompts, saved_model, validate_directory};
 pub use export::export;
 pub use read::{Entry, project};
 pub use show::{find, human, rows_text, share, status_rows, transcript};
 pub use totals::Totals;
+pub use writer::Writer;
 
 /// The table shape this build writes. Bump it with a new arm in `migrate`.
 const VERSION: i64 = 1;
@@ -71,6 +75,7 @@ pub fn path(paths: &crate::config::Paths, cwd: &Path) -> PathBuf {
 
 pub struct Journal {
     conn: Connection,
+    file: PathBuf,
 }
 
 impl Journal {
@@ -83,7 +88,7 @@ impl Journal {
         }
         let conn = Connection::open(file).with_context(|| format!("opening {}", file.display()))?;
         conn.busy_timeout(std::time::Duration::from_secs(10))?;
-        let mut j = Self { conn };
+        let mut j = Self { conn, file: file.to_path_buf() };
         // Switching a new file to WAL, and the first migration, can report
         // busy without waiting when several sessions create it at once.
         let mut tries = 0;
@@ -141,64 +146,6 @@ impl Journal {
     }
 }
 
-/// The agent's handle on its session: appends every event it emits, in the
-/// order the UI sees them.
-pub struct Writer {
-    pub session: String,
-    db: Mutex<Journal>,
-}
-
-impl Writer {
-    /// Start a new session: a fresh id and its head row.
-    pub fn create(file: &Path, head: impl FnOnce(String) -> Event) -> Result<(Self, Event)> {
-        let db = Journal::open(file)?;
-        let session = new_id();
-        let head = head(session.clone());
-        db.append(&session, &head)?;
-        Ok((Self { session, db: Mutex::new(db) }, head))
-    }
-
-    /// Reopen `session` and project its conversation.
-    pub fn resume(file: &Path, session: &str) -> Result<(Self, Vec<crate::llm::Message>)> {
-        let db = Journal::open(file)?;
-        let entries = db.since(session, 0)?;
-        anyhow::ensure!(!entries.is_empty(), "no session {session} in {}", file.display());
-        let msgs = project(entries.iter().map(|e| &e.event));
-        Ok((Self { session: session.to_string(), db: Mutex::new(db) }, msgs))
-    }
-
-    /// Journal `ev`, then send it. The lock spans both so the rows and the
-    /// stream agree on order even when tools finish in parallel. A journal
-    /// that can't be written never stops the turn.
-    pub fn emit(&self, ev: Event, tx: &Events) {
-        // A poisoned lock means a panic mid-append; the connection is still usable.
-        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = db.append(&self.session, &ev);
-        let _ = tx.send(ev);
-    }
-
-    /// Journal a child session's event under the child's own session id, then
-    /// send it wrapped as `Event::Child` so the UI and `--json` see the tree.
-    /// The parent is the only writer: the child never holds this file.
-    pub fn relay(&self, call_id: &str, child_session: &str, ev: Event, tx: &Events) {
-        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = db.append(child_session, &ev);
-        let _ = tx.send(Event::Child { id: call_id.to_string(), inner: Box::new(ev) });
-    }
-
-    /// Journal without sending: events from before there was a UI to send to.
-    pub fn record(&self, ev: &Event) {
-        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = db.append(&self.session, ev);
-    }
-
-    /// The last seq this session wrote, for "learned up to here".
-    pub fn last_seq(&self) -> i64 {
-        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
-        db.last_seq(&self.session).unwrap_or(0)
-    }
-}
-
 fn is_busy(e: &rusqlite::Error) -> bool {
     matches!(e.sqlite_error_code(), Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked))
 }
@@ -210,7 +157,20 @@ pub fn now_ms() -> u64 {
 /// `YYYYMMDD-HHMMSS-xxxx` (UTC): sorts by start time, and stays the shape
 /// chatstrata and old session files know.
 fn new_id() -> String {
-    let ms = now_ms();
+    let (y, m, d, hour, minute, second) = utc_parts(now_ms());
+    format!(
+        "{y:04}{m:02}{d:02}-{hour:02}{minute:02}{second:02}-{:04x}",
+        (crate::skills::now_nanos() as u64 ^ std::process::id() as u64) & 0xffff
+    )
+}
+
+/// Exact UTC timestamp for saved activity, retaining millisecond precision.
+pub fn timestamp(ms: u64) -> String {
+    let (y, m, d, h, min, sec) = utc_parts(ms);
+    format!("{y:04}-{m:02}-{d:02} {h:02}:{min:02}:{sec:02}.{:03} UTC", ms % 1000)
+}
+
+fn utc_parts(ms: u64) -> (i64, i64, i64, i64, i64, i64) {
     let secs = (ms / 1000) as i64;
     // Civil date from unix seconds (UTC), Howard Hinnant's algorithm.
     let days = secs.div_euclid(86_400);
@@ -224,13 +184,7 @@ fn new_id() -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + if m <= 2 { 1 } else { 0 };
-    format!(
-        "{y:04}{m:02}{d:02}-{:02}{:02}{:02}-{:04x}",
-        rem / 3600,
-        (rem / 60) % 60,
-        rem % 60,
-        (crate::skills::now_nanos() as u64 ^ std::process::id() as u64) & 0xffff
-    )
+    (y, m, d, rem / 3600, (rem / 60) % 60, rem % 60)
 }
 
 #[cfg(test)]

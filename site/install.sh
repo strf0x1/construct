@@ -5,7 +5,7 @@
 #   curl -fsSL https://construct.sprawlcommons.com/install.sh | sh -s -- --version v0.1.0
 #
 # What it does, and nothing else:
-#   1. checks this is a supported platform (Linux x86-64, for now)
+#   1. checks this is a supported platform (Linux x86-64, macOS arm64 or x86-64)
 #   2. resolves one release version: the latest, or the one you ask for
 #   3. downloads that release's archive and its SHA-256 checksum from GitHub
 #   4. verifies the checksum, and that the binary runs here, before touching
@@ -85,13 +85,19 @@ sha256() {
 
 check_platform() {
     os=$(uname -s)
-    [ "$os" = Linux ] ||
-        err "construct runs on Linux only for now (its sandbox is built on Landlock); this is $os"
+    arch=$(uname -m)
+    case "$os" in
+        Linux) check_linux ;;
+        Darwin) check_macos ;;
+        *) err "construct runs on Linux and macOS; this is $os" ;;
+    esac
+}
 
-    case "$(uname -m)" in
+check_linux() {
+    case "$arch" in
         x86_64 | amd64) target=x86_64-unknown-linux-gnu ;;
         aarch64 | arm64) err "Linux ARM64 builds aren't published yet; build from source: https://github.com/$REPO" ;;
-        *) err "no build for $(uname -m) yet; build from source: https://github.com/$REPO" ;;
+        *) err "no build for $arch yet; build from source: https://github.com/$REPO" ;;
     esac
 
     if ldd --version 2>&1 | grep -qi musl; then
@@ -111,6 +117,19 @@ check_platform() {
                 say "warning: kernel $kernel predates Landlock (5.13); the tool sandbox won't be available"
             fi
             ;;
+    esac
+}
+
+check_macos() {
+    # A shell running under Rosetta reports x86_64 on an Apple silicon Mac;
+    # the native build is what you want there.
+    if [ "$arch" = x86_64 ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = 1 ]; then
+        arch=arm64
+    fi
+    case "$arch" in
+        arm64 | aarch64) target=aarch64-apple-darwin ;;
+        x86_64 | amd64) target=x86_64-apple-darwin ;;
+        *) err "no build for $arch yet; build from source: https://github.com/$REPO" ;;
     esac
 }
 
@@ -181,9 +200,9 @@ main() {
     [ -f "$bin" ] || err "$asset doesn't contain construct-$target/construct; nothing was installed"
 
     # Run it before installing: a binary this system can't load (an older
-    # glibc, usually) should fail here, not after replacing a working copy.
+    # glibc on Linux, usually) should fail here, not after replacing a working copy.
     built=$("$bin" --version 2>/dev/null) ||
-        err "the downloaded binary doesn't run on this system (often: a glibc older than the build's); nothing was installed"
+        err "the downloaded binary doesn't run on this system (on Linux, often a glibc older than the build's); nothing was installed"
 
     mkdir -p "$dir" || err "couldn't create $dir"
     staged="$dir/.construct.install.$$"

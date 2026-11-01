@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub type Events = tokio::sync::mpsc::UnboundedSender<Event>;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
@@ -42,6 +41,18 @@ pub enum Event {
     /// What the model was sent as the user's turn (with any skill reminder).
     User {
         message: Message,
+    },
+    /// Original user text, committed before routing or skill injection.
+    Submitted {
+        text: String,
+    },
+    /// A local, manually chosen session name. Does not count as activity.
+    SessionName {
+        title: String,
+    },
+    /// Idempotent recovery boundary; no execution is resumed by opening it.
+    Recovered {
+        message: String,
     },
     /// The model's answer, with any tool calls.
     Assistant {
@@ -125,6 +136,8 @@ pub enum Event {
     /// catalog entry (or the defaults) gave it. The head row has the first.
     Model {
         model: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider: Option<String>,
         context_window: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_tokens: Option<u32>,
@@ -225,6 +238,13 @@ pub enum Event {
         paths: Vec<String>,
         decision: String,
     },
+    /// A decision about one frozen host-authenticated developer operation.
+    Operation {
+        operation: String,
+        scope: String,
+        detail: String,
+        decision: String,
+    },
     /// A delegated child asks its parent a question (`permission::Request`).
     /// Child to parent on the wire only: the parent answers it itself and
     /// neither journals nor shows it.
@@ -250,43 +270,4 @@ pub enum Event {
     },
 }
 
-impl Event {
-    /// Whether the journal keeps it. Stream deltas are not kept: the
-    /// assistant message that follows holds the whole text, and a row per
-    /// token would be most of the journal.
-    pub fn durable(&self) -> bool {
-        !matches!(
-            self,
-            Event::Opened
-                | Event::Text { .. }
-                | Event::Reasoning { .. }
-                | Event::ToolPending { .. }
-                | Event::Learn { .. }
-                | Event::Child { .. }
-                | Event::Ask { .. }
-        )
-    }
-
-    /// The model-facing message this event carries, if any. This is the
-    /// whole projector's vocabulary: resume rebuilds context from these.
-    pub fn message(&self) -> Option<&Message> {
-        match self {
-            Event::System { message }
-            | Event::User { message }
-            | Event::Assistant { message }
-            | Event::ToolResult { message, .. } => Some(message),
-            Event::JobsDelivered(d) => d.message.as_ref(),
-            _ => None,
-        }
-    }
-
-    /// The event for a message the agent appends to the conversation.
-    pub fn for_message(message: Message) -> Event {
-        match message.role.as_str() {
-            "system" => Event::System { message },
-            "assistant" => Event::Assistant { message },
-            "tool" => Event::ToolResult { id: message.tool_call_id.clone().unwrap_or_default(), message },
-            _ => Event::User { message },
-        }
-    }
-}
+mod projection;

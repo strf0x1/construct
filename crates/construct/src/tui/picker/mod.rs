@@ -28,6 +28,8 @@ pub(super) struct Row {
     pub(super) compacts_at: u64,
     pub(super) pricing: Option<Pricing>,
     pub(super) endpoint: String,
+    /// The provider serving it (`default` for the top-level endpoint).
+    pub(super) provider: String,
     pub(super) dialect: &'static str,
     pub(super) key: String,
     pub(super) current: bool,
@@ -38,10 +40,11 @@ pub(super) struct Row {
 impl Row {
     pub(super) fn of(cfg: &Config, id: &str) -> Self {
         let mut c = cfg.clone();
-        c.select_model(id);
+        let _ = c.select_model(id);
         let e = c.entry().cloned().unwrap_or_default();
         let window = c.context_window as u64;
         let budget = compact::budget(window, c.max_tokens);
+        let ep = c.endpoint();
         Self {
             id: id.to_string(),
             label: e.label,
@@ -51,9 +54,10 @@ impl Row {
             max_tokens: c.max_tokens,
             compacts_at: (budget as f64 * cfg.compaction.threshold as f64) as u64,
             pricing: e.pricing,
-            endpoint: c.base_url.clone(),
-            dialect: crate::llm::Provider::new(&c.provider, &c.base_url).name(),
-            key: c.api_key_secret.clone(),
+            dialect: crate::llm::Provider::of(&ep).name(),
+            endpoint: ep.base_url,
+            key: ep.api_key_secret,
+            provider: ep.name,
             current: id == cfg.model,
             catalogued: c.entry().is_some(),
         }
@@ -73,6 +77,10 @@ pub(super) struct Picker {
     /// Position in `shown`.
     pub(super) selected: usize,
     pub(super) table: TableState,
+    /// Per provider: its heading, shown above its rows while nothing is
+    /// typed, and what it has and how it was reached, shown beside a row.
+    /// Empty when there is only `default`, which needs neither.
+    pub(super) groups: std::collections::BTreeMap<String, Group>,
 }
 
 /// What a key did to the picker.
@@ -84,24 +92,102 @@ pub(super) enum Outcome {
     Pick(String),
 }
 
+/// One provider's part of the box: its heading, what it has, and how the
+/// last fetch of its list went.
+pub(super) struct Group {
+    /// `name · host`, or `name · unreachable` when the last fetch failed.
+    pub(super) title: String,
+    /// `1 catalogued · 26 listed`, or `· no list`.
+    pub(super) has: String,
+    /// `listed 3m ago`, or `unreachable 20s ago: Connection refused`; none
+    /// for a provider nobody has asked yet.
+    pub(super) reach: Option<String>,
+    /// The last fetch failed: the heading and the reach line are a warning.
+    pub(super) down: bool,
+}
+
+/// Each provider's [`Group`], built from what is in memory (the lists and
+/// what the cache recorded of the fetches): opening the box asks no server.
+fn headers(cfg: &Config) -> std::collections::BTreeMap<String, Group> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let ago = |at: u64| match now.saturating_sub(at) {
+        s @ 0..60 => format!("{s}s ago"),
+        s @ 60..3600 => format!("{}m ago", s / 60),
+        s @ 3600..86_400 => format!("{}h ago", s / 3600),
+        s => format!("{}d ago", s / 86_400),
+    };
+    let mut out = std::collections::BTreeMap::new();
+    for name in cfg.provider_names() {
+        let Some((ep, ids)) = cfg.provider(&name) else { continue };
+        let listed = cfg.listed(&name);
+        let host = ep.base_url.split_once("://").map_or(ep.base_url.as_str(), |(_, r)| r);
+        let host = host.split('/').next().unwrap_or_default();
+        let list = if listed == 0 { "no list".to_string() } else { format!("{listed} listed") };
+        let reach = cfg.providers.get(&name).map(|p| p.reach.clone()).unwrap_or_default();
+        let down = reach.failed.is_some();
+        let reach = match (reach.failed, reach.fetched_at) {
+            (Some((at, why)), _) => Some(format!("unreachable {}: {why}", ago(at))),
+            (None, Some(at)) => Some(format!("listed {}", ago(at))),
+            (None, None) => None,
+        };
+        // The column is narrow: a down provider's heading says so instead of its host.
+        let title = if down { format!("{name} · unreachable") } else { format!("{name} · {host}") };
+        out.insert(name.clone(), Group { title, has: format!("{} catalogued · {list}", ids.len()), reach, down });
+    }
+    out
+}
+
 impl Picker {
     /// The catalog as rows, the running model selected; none when the
     /// catalog is empty, since a list of one is no choice.
     pub(super) fn open(cfg: &Config) -> Option<Self> {
-        if cfg.models.is_empty() && cfg.discovered.is_empty() {
+        // The user's entries first, each provider's, then the endpoint's list.
+        let mut ids = cfg.catalog_ids();
+        if ids.is_empty() {
             return None;
         }
-        // The user's entries first, then the endpoint's list.
-        let mut ids: Vec<&str> = cfg.models.keys().map(String::as_str).collect();
-        ids.extend(cfg.discovered.keys().map(String::as_str).filter(|id| !cfg.models.contains_key(*id)));
-        if !ids.contains(&cfg.model.as_str()) {
-            ids.insert(0, &cfg.model);
+        if !ids.contains(&cfg.model) {
+            ids.insert(0, cfg.model.clone());
         }
-        let rows: Vec<Row> = ids.into_iter().map(|id| Row::of(cfg, id)).collect();
-        let mut p = Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default() };
+        let rows: Vec<Row> = ids.iter().map(|id| Row::of(cfg, id)).collect();
+        let groups = if cfg.providers.is_empty() { Default::default() } else { headers(cfg) };
+        let mut p =
+            Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default(), groups };
         p.refilter();
         p.selected = p.shown.iter().position(|&i| p.rows[i].current).unwrap_or(0);
         Some(p)
+    }
+
+    /// Where each row of the table is: a provider's header, or `shown[n]`.
+    pub(super) fn lines(&self) -> Vec<Result<&str, usize>> {
+        let mut out = vec![];
+        let mut last = None;
+        for (n, &i) in self.shown.iter().enumerate() {
+            let p = self.rows[i].provider.as_str();
+            if !self.groups.is_empty() && self.query.is_empty() && last != Some(p) {
+                out.push(Ok(p));
+                last = Some(p);
+            }
+            out.push(Err(n));
+        }
+        out
+    }
+
+    /// Rebuild the rows from `cfg`, keeping what is typed and the highlighted
+    /// model. Startup discovery can lay a provider's list under the catalog
+    /// after the box opened; without this the box would show the windows
+    /// and models from before it until reopened.
+    pub(super) fn refresh(&mut self, cfg: &Config) {
+        let keep = self.current().map(|r| r.id.clone());
+        let Some(mut fresh) = Self::open(cfg) else { return };
+        fresh.query = std::mem::take(&mut self.query);
+        if !fresh.query.is_empty() {
+            fresh.refilter();
+        }
+        if let Some(n) = keep.and_then(|id| fresh.shown.iter().position(|&i| fresh.rows[i].id == id)) {
+            fresh.selected = n;
+        }
+        *self = fresh;
     }
 
     pub(super) fn current(&self) -> Option<&Row> {
@@ -188,7 +274,7 @@ mod tests {
             "#,
         )
         .unwrap();
-        c.select_model("b/two");
+        c.select_model("b/two").unwrap();
         c
     }
 
@@ -203,6 +289,28 @@ mod tests {
     }
 
     #[test]
+    fn a_list_that_lands_while_open_refreshes_the_rows_and_keeps_query_and_highlight() {
+        let mut p = Picker::open(&cfg()).unwrap();
+        typed(&mut p, "o");
+        p.key(key(KeyCode::Down));
+        let before = p.current().unwrap().id.clone();
+        let mut later = cfg();
+        let entry = |w: u32| crate::models::ModelEntry { context_window: Some(w), ..Default::default() };
+        later.discovered.insert("a/one".into(), entry(1));
+        later.discovered.insert("d/four".into(), entry(64_000));
+        later.select_model("b/two").unwrap();
+        p.refresh(&later);
+        assert_eq!(p.query, "o", "what was typed stays");
+        assert_eq!(p.current().unwrap().id, before, "the highlight stays on the same model");
+        assert!(p.rows.iter().any(|r| r.id == "d/four" && r.window == 64_000), "the list's model is a row now");
+
+        let mut idle = Picker::open(&cfg()).unwrap();
+        idle.refresh(&later);
+        assert_eq!(idle.current().unwrap().id, "b/two", "with nothing typed, still on the running model");
+        assert_eq!(idle.shown.len(), 4);
+    }
+
+    #[test]
     fn opens_on_the_running_model_and_an_empty_catalog_does_not_open() {
         let p = Picker::open(&cfg()).unwrap();
         assert_eq!(p.current().unwrap().id, "b/two");
@@ -213,7 +321,7 @@ mod tests {
     #[test]
     fn an_uncatalogued_running_model_is_listed_first() {
         let mut c = cfg();
-        c.select_model("x/adhoc");
+        c.select_model("x/adhoc").unwrap();
         let p = Picker::open(&c).unwrap();
         assert_eq!(p.rows[0].id, "x/adhoc");
         assert!(!p.rows[0].catalogued && p.rows[0].current);

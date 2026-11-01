@@ -53,7 +53,7 @@ A recipe is a directory named after the feature id:
 scratch space, edit it, and pass that path.
 
 Existing recipes, in `recipes/`: `permission-prompt`, `delegation`,
-`delegate-progress`, `slash-commands`, `status-line`.
+`delegate-progress`, `slash-commands`, `status-line`, `long-text`.
 
 ## Drive script commands
 

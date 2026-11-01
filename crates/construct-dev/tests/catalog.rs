@@ -116,9 +116,11 @@ fn model_by_id_takes_any_id_and_an_empty_catalog_explains_itself() {
     run(
         &mut d,
         &mut log,
-        &format!("type /model some/other-id\nkey enter\nwait \"model → some/other-id · 50k ctx\" {short}\n"),
+        &format!(
+            "type /model some/other-id\nkey enter\nwait \"model → some/other-id · 50k ctx\" {short}\nsettle 700 5000\n"
+        ),
     );
-    assert!(last_line(&d.text()).contains("some/other-id"));
+    assert!(last_line(&d.text()).contains("some/other-id"), "{}", d.text());
     d.kill();
 }
 

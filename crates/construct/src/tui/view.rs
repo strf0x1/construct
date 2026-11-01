@@ -2,7 +2,7 @@
 //! bars, and the frame layout.
 
 use super::app::{App, Kind, Phase, Status};
-use super::{boxed, help, markdown, picker, prompt, theme};
+use super::{boxed, help, markdown, prompt, theme};
 use crate::tools::OutputKind;
 use anyhow::Result;
 use crossterm::queue;
@@ -207,7 +207,7 @@ impl App {
             Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())])
         };
         lines.push(row("model", self.cfg.model.clone()));
-        lines.push(row("endpoint", self.cfg.base_url.clone()));
+        lines.push(row("endpoint", self.cfg.endpoint().base_url));
         lines.push(row("router", self.cfg.router.mode.clone()));
         if !self.session.is_empty() {
             lines.push(row("session", self.session.clone()));
@@ -313,7 +313,7 @@ impl App {
         let palette = self.palette.as_ref().map(|p| p.lines(width as usize, rows)).unwrap_or_default();
         let palette_h = palette.len() as u16;
         // A question takes the place of the activity line, rule, input and palette.
-        let panel_h = self.prompts.front().map(|p| prompt::height(p, width).min(area.height.saturating_sub(4)));
+        let panel_h = self.prompts.front().map(|p| prompt::height(p, width, area.height.saturating_sub(4)));
         // Running children sit above the activity line; a question has no room for them.
         let dock = if panel_h.is_none() { self.dock_lines(width as usize, phase) } else { vec![] };
         let dock_h = dock.len() as u16;
@@ -368,10 +368,7 @@ impl App {
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), low + 2 + cy));
             self.render_peek(f, Rect::new(0, 0, width, main_h), phase);
-            if let Some(p) = self.picker.as_mut() {
-                // Everything above the status line: the box needs the room for its details.
-                picker::render(f, Rect::new(0, 0, width, area.height.saturating_sub(1)), p);
-            }
+            self.render_modal(f, Rect::new(0, 0, width, area.height.saturating_sub(1)));
         })?;
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;

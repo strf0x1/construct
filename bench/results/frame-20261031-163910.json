@@ -1,0 +1,209 @@
+{
+ "manifest": {
+  "harnesses": {
+   "before": {
+    "version": "0.2.0",
+    "git_sha": "169938e8ed504aa913b2989018d871ac05f8de6b",
+    "git_dirty": false,
+    "binary_sha256": "160ae5238f6fd1a7a0d290061b8303dca918eee6abfa107674b0324d07f8c263",
+    "config_sha256": "3d0827e0f0459d198189f3d76e8ea95fb3d2f49943a4e3e02e9171447793a8c8",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/tmp/construct-127-before/construct"
+   },
+   "after": {
+    "version": "0.2.0",
+    "git_sha": "29be36580bc293a758541f4570040e35d234dbd9",
+    "git_dirty": false,
+    "binary_sha256": "51a80dfac4b08cb95ef92f46586016522432cc56736b457ee69a278856d8a4e3",
+    "config_sha256": "3d0827e0f0459d198189f3d76e8ea95fb3d2f49943a4e3e02e9171447793a8c8",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/home/brandon/git/construct-worktrees/issue-127/target/release/construct"
+   }
+  },
+  "dev_git_sha": "3cfd30f42ffe793d30ac4500e6e2af27b2c06d19",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "320d37ffedab571fd8bb589979c7ad9abd7c18ad03acbd01ac1bcdc160556b9f",
+  "host": "echo",
+  "started": "2026-10-31T22:39:06Z"
+ },
+ "rounds": 5,
+ "raw": {
+  "before": [
+   {
+    "first_output_ms": 1.869448,
+    "first_frame_ms": 2.363403,
+    "ready_ms": 2.4303380000000003
+   },
+   {
+    "first_output_ms": 1.9592289999999999,
+    "first_frame_ms": 2.408924,
+    "ready_ms": 2.477237
+   },
+   {
+    "first_output_ms": 1.976773,
+    "first_frame_ms": 2.568332,
+    "ready_ms": 2.640879
+   },
+   {
+    "first_output_ms": 2.0759049999999997,
+    "first_frame_ms": 2.607776,
+    "ready_ms": 2.7084650000000003
+   },
+   {
+    "first_output_ms": 2.126396,
+    "first_frame_ms": 2.655062,
+    "ready_ms": 2.7547409999999997
+   }
+  ],
+  "after": [
+   {
+    "first_output_ms": 1.774434,
+    "first_frame_ms": 2.230522,
+    "ready_ms": 2.300029
+   },
+   {
+    "first_output_ms": 1.9119899999999999,
+    "first_frame_ms": 2.494916,
+    "ready_ms": 2.597995
+   },
+   {
+    "first_output_ms": 1.9992109999999998,
+    "first_frame_ms": 2.475328,
+    "ready_ms": 2.5422079999999996
+   },
+   {
+    "first_output_ms": 2.033313,
+    "first_frame_ms": 2.583885,
+    "ready_ms": 2.688216
+   },
+   {
+    "first_output_ms": 1.570213,
+    "first_frame_ms": 2.008452,
+    "ready_ms": 2.1268
+   }
+  ]
+ },
+ "summary": {
+  "before": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 1.976773,
+    "p10": 1.869448,
+    "p90": 2.126396,
+    "min": 1.869448,
+    "max": 2.126396,
+    "mean": 2.0015502
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 2.568332,
+    "p10": 2.363403,
+    "p90": 2.655062,
+    "min": 2.363403,
+    "max": 2.655062,
+    "mean": 2.5206994
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 2.640879,
+    "p10": 2.4303380000000003,
+    "p90": 2.7547409999999997,
+    "min": 2.4303380000000003,
+    "max": 2.7547409999999997,
+    "mean": 2.602332
+   }
+  },
+  "after": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 1.9119899999999999,
+    "p10": 1.570213,
+    "p90": 2.033313,
+    "min": 1.570213,
+    "max": 2.033313,
+    "mean": 1.8578322
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 2.475328,
+    "p10": 2.008452,
+    "p90": 2.583885,
+    "min": 2.008452,
+    "max": 2.583885,
+    "mean": 2.3586206
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 2.5422079999999996,
+    "p10": 2.1268,
+    "p90": 2.688216,
+    "min": 2.1268,
+    "max": 2.688216,
+    "mean": 2.4510495999999997
+   }
+  }
+ }
+}

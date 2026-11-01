@@ -3,7 +3,7 @@ source: crates/construct-dev/tests/snapshots.rs
 expression: "shaped(&env, &reflection)"
 ---
 {
-  "bytes": 3405,
+  "bytes": 3543,
   "n_tools": 0,
   "request": {
     "model": "openrouter/free",
@@ -14,7 +14,7 @@ expression: "shaped(&env, &reflection)"
       },
       {
         "role": "user",
-        "content": "<session>\nUSER: release the crate. I always do this on Fridays.\n\n\nTOOL CALL shell: {\"command\":\"ls /nonexistent-release-dir\"}\n\nTOOL RESULT: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n\nASSISTANT: released\n</session>\n\nFAILED CALLS, each with the next call of the same tool that worked:\n- failed: shell {\"command\":\"ls /nonexistent-release-dir\"}\n  error: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n  (no later call of that tool worked)\n\nCURRENT PLAYBOOK:\n(empty)\n\nThis session wasn't in a repo: only global bullets can be added.\n\nNot in a repo: write no skills.\n"
+        "content": "<session>\nUSER: release the crate. I always do this on Fridays.\n\n\nTOOL CALL shell: {\"command\":\"echo \\\"ls: cannot access '/nonexistent-release-dir': No such file or directory\\\" >&2; exit 2\"}\n\nTOOL RESULT: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n\nASSISTANT: released\n</session>\n\nFAILED CALLS, each with the next call of the same tool that worked:\n- failed: shell {\"command\":\"echo \\\"ls: cannot access '/nonexistent-release-dir': No such file or directory\\\" >&2; exit 2\"}\n  error: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n  (no later call of that tool worked)\n\nCURRENT PLAYBOOK:\n(empty)\n\nThis session wasn't in a repo: only global bullets can be added.\n\nNot in a repo: write no skills.\n"
       }
     ],
     "stream": true,

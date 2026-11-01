@@ -1,0 +1,1 @@
+{"steps": [{"call": "read", "args": {"path": "{outside}/nested/directories/that/go/on/and/on/until/the/path/is/wider/than/the/screen/a.txt"}}, {"text": "Kept in sync\n\n| Aspect | How it is enforced |\n|---|---|\n| CI integration | The cargo xtask check command runs the arch gate on every change and fails when a count grows |\n| Docs | Short |\n"}]}

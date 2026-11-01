@@ -50,6 +50,7 @@ struct Job {
     cancel: watch::Sender<bool>,
     /// The model has the ending, from a delivery or a `check`.
     delivered: bool,
+    deferred: bool,
 }
 
 impl State {
@@ -57,7 +58,11 @@ impl State {
         self.jobs.iter().filter(|j| j.info.status == Status::Running).count()
     }
     fn pending(&self) -> Vec<Info> {
-        self.jobs.iter().filter(|j| j.info.status.wakes() && !j.delivered).map(|j| j.info.clone()).collect()
+        self.jobs
+            .iter()
+            .filter(|j| j.info.status.wakes() && !j.delivered && !j.deferred)
+            .map(|j| j.info.clone())
+            .collect()
     }
 }
 
@@ -83,17 +88,31 @@ impl Jobs {
     pub fn resume(&self, events: &[Event]) {
         let mut st = self.state();
         st.next = highest_id(events);
-        for info in unconsumed(events) {
+        let pending = unconsumed(events);
+        for info in events.iter().filter_map(|e| match e {
+            Event::JobEnd(i) => Some(i.clone()),
+            _ => None,
+        }) {
+            let delivered = !pending.iter().any(|p| p.id == info.id);
             st.jobs.push(Job {
                 info,
                 started: Instant::now(),
                 tail: Tail::default(),
                 cancel: watch::channel(false).0,
-                delivered: false,
+                delivered,
+                deferred: true,
             });
         }
         drop(st);
         self.0.changed.notify_waiters();
+    }
+
+    /// Opening history never wakes the model. A user explicitly continuing
+    /// releases recovered completions for exactly-once delivery.
+    pub fn activate_recovered(&self) {
+        for j in &mut self.state().jobs {
+            j.deferred = false;
+        }
     }
 
     /// Start a job and return its id. Refused over the limit.
@@ -119,7 +138,14 @@ impl Jobs {
                 ms: 0,
                 tail: String::new(),
             };
-            st.jobs.push(Job { info, started: Instant::now(), tail: tail.clone(), cancel, delivered: false });
+            st.jobs.push(Job {
+                info,
+                started: Instant::now(),
+                tail: tail.clone(),
+                cancel,
+                delivered: false,
+                deferred: false,
+            });
             id
         };
         let (journal, tx) = spec.sink;

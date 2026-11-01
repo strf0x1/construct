@@ -117,6 +117,7 @@ fn main() -> Result<()> {
                     log,
                     dump_dir: dump,
                     chunk_ms,
+                    models_ms: 0,
                     cache,
                     window,
                 };

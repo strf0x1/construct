@@ -1,0 +1,102 @@
+{
+ "a": "bench/results/size-issue-127-paired.json",
+ "b": "bench/results/size-issue-127-paired.json",
+ "comparisons": [
+  {
+   "a": "size-issue-127-paired:before",
+   "b": "size-issue-127-paired:after",
+   "rows": [
+    {
+     "metric": "first_run_rc",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "first_run_s",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.007930638967081904,
+     "b": 0.007437451044097543,
+     "delta": -0.0004931879229843616,
+     "a_spread": [
+      0.007930638967081904,
+      0.007930638967081904
+     ],
+     "b_spread": [
+      0.007437451044097543,
+      0.007437451044097543
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "fresh_home_after_first_run",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 37271.0,
+     "b": 37271.0,
+     "delta": 0.0,
+     "a_spread": [
+      37271.0,
+      37271.0
+     ],
+     "b_spread": [
+      37271.0,
+      37271.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "install",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 21702152.0,
+     "b": 21880712.0,
+     "delta": 178560.0,
+     "a_spread": [
+      21702152.0,
+      21702152.0
+     ],
+     "b_spread": [
+      21880712.0,
+      21880712.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "parts.binary",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 21702152.0,
+     "b": 21880712.0,
+     "delta": 178560.0,
+     "a_spread": [
+      21702152.0,
+      21702152.0
+     ],
+     "b_spread": [
+      21880712.0,
+      21880712.0
+     ],
+     "verdict": "inconclusive"
+    }
+   ]
+  }
+ ]
+}

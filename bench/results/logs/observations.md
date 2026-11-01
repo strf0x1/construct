@@ -363,3 +363,20 @@ Search suite, 10 rounds x 3 arms (grep, search, none) x 11 tasks on three models
 #95 pilot 3, after the last-resort stub of a newest round over the budget and the result cap at the measured bytes per token; same setup as pilots 1-2. Fatal overflows: main 2/3 runs, new 0/3, newwide 0/3 (pilot 2: 1/3 and 0/3). Checks (long-fix/conventions/recall): main 1/8, 2/8, 0/6; new 1/8, 2/8, 2/6 (recall was 0/6, the run the estimate killed); newwide 1/8, 3/8, 2/6. Still 0/9 success. Every branch run now survives and then thrashes: 90-140 requests, 38-54 cuts, 105-166 stub re-runs, 155-280 reads plus shell calls, 0-3 edits; two runs hit the 120-request budget. The model reads the whole package before editing, and 8k holds about two 8 kB files, so the stubs evict what it reads. Next: stub gists (#95 item 5), or a 16k pilot to see whether success separates the arms there.
 
 - `bench/results/task-20261101-010436.json`: model nvidia/nemotron-3.5-lightning:free; bench b7f6e81 dirty; main b7f6e81 editor=replace router=local; new b7f6e81 dirty editor=replace router=local; newwide b7f6e81 dirty editor=replace router=local
+## 2026-10-31 16:41 note
+
+Issue 127: session browsing, safe switching and explicit crash recovery. Startup/tool latency compare as same. Release binary +178560 bytes (+0.823%). Median mean RSS +0.850 MiB is worse and accepted (ADR 0029); peak RSS and workload latency compare as same. Both memory arms complete 121 requests with exit 0; final request differs by one arm-path byte. See docs/issue-127-verification.md for driven TUI evidence and complete results.
+
+- `bench/results/frame-20261031-163910.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/tools-20261031-163911.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/memory-20261031-163958.json`: model None; bench 3cfd30f dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+- `bench/results/size-issue-127-paired.json`: model None; bench 549797b dirty; before 169938e editor=replace router=local; after 29be365 editor=replace router=local
+
+## 2026-10-31 23:24 note
+
+Issue #142 final release after private Git context and backing-path guards. Frame and read/shell tool comparisons all same. Memory suite remains unavailable (missing corpus/Linux RSS). Rust gates, 22 developer unit tests, 6 developer e2e, 23 permission e2e, 11 snapshots, and final developer-operations drive pass. Full local quick gate fails pre-existing macOS benchmark fixtures; release-signing sed failure reproduced on baseline. Live GitHub and Tier 2 pending.
+
+- `bench/results/size-20261031-224557.json`: model None; bench 894f847 dirty; construct 894f847 editor=replace router=local
+- `bench/results/size-20261031-232054.json`: model None; bench 894f847 dirty; construct 894f847 dirty editor=replace router=local
+- `bench/results/frame-20261031-232059.json`: model None; bench 894f847 dirty; before 894f847 editor=replace router=local; after 894f847 dirty editor=replace router=local
+- `bench/results/tools-20261031-232102.json`: model None; bench 894f847 dirty; before 894f847 editor=replace router=local; after 894f847 dirty editor=replace router=local

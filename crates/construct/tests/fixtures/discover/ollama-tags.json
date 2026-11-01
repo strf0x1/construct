@@ -1,0 +1,6 @@
+{
+ "models": [
+  { "name": "qwen3:8b", "model": "qwen3:8b", "size": 5225388164, "details": { "family": "qwen3", "parameter_size": "8.2B" } },
+  { "name": "llama3.2:latest", "model": "llama3.2:latest", "size": 2019393189, "details": { "family": "llama", "parameter_size": "3.2B" } }
+ ]
+}

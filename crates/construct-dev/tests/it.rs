@@ -22,6 +22,8 @@ mod child;
 mod compaction;
 #[path = "delegate.rs"]
 mod delegate;
+#[path = "developer.rs"]
+mod developer;
 #[path = "e2e.rs"]
 mod e2e;
 #[path = "jobs.rs"]
@@ -32,6 +34,12 @@ mod models;
 mod notes;
 #[path = "permission.rs"]
 mod permission;
+#[path = "providers.rs"]
+mod providers;
+#[path = "recovery.rs"]
+mod recovery;
+#[path = "sessions.rs"]
+mod sessions;
 #[path = "slash.rs"]
 mod slash;
 #[path = "snapshots.rs"]

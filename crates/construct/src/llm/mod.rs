@@ -6,14 +6,17 @@
 
 pub mod catalog;
 pub mod dialect;
+pub mod discover;
 pub mod notes;
+pub mod overlay;
 mod stream;
+mod switch;
 mod usage;
 
 pub use dialect::Provider;
 pub use usage::Usage;
 
-use crate::config::Config;
+use crate::endpoint::Endpoint;
 use crate::journal::notes::Coalescer;
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
@@ -119,6 +122,7 @@ pub struct Client {
     pub api_key: Option<String>,
     pub headers: BTreeMap<String, String>,
     pub provider: Provider,
+    prefix: String, // `Endpoint::error_prefix`, before every error
 }
 
 pub struct Request<'a> {
@@ -130,7 +134,7 @@ pub struct Request<'a> {
 }
 
 impl Client {
-    pub fn new(cfg: &Config, api_key: Option<String>) -> Result<Self> {
+    pub fn new(ep: &Endpoint, api_key: Option<String>) -> Result<Self> {
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(20))
             .pool_idle_timeout(Duration::from_secs(90))
@@ -139,10 +143,11 @@ impl Client {
             .build()?;
         Ok(Self {
             http,
-            base_url: cfg.base_url.trim_end_matches('/').to_string(),
+            base_url: ep.base_url.clone(),
             api_key,
-            headers: cfg.headers.clone(),
-            provider: Provider::new(&cfg.provider, &cfg.base_url),
+            headers: ep.headers.clone(),
+            provider: Provider::of(ep),
+            prefix: ep.error_prefix(),
         })
     }
 
@@ -170,7 +175,7 @@ impl Client {
     /// The request body exactly as it goes on the wire, shaped for this
     /// endpoint's provider.
     pub fn body(&self, req: &Request<'_>) -> Vec<u8> {
-        let mut body = standard_body(req);
+        let mut body = dialect::standard_body(req);
         self.provider.shape(req.model, &mut body);
         serde_json::to_vec(&body).unwrap_or_default()
     }
@@ -223,7 +228,7 @@ impl Client {
                 tokio::time::sleep(Duration::from_millis(wait)).await;
                 continue;
             }
-            let r = res.context("model request failed")?;
+            let r = res.with_context(|| format!("{}model request failed", self.prefix))?;
             if !r.status().is_success() {
                 let status = r.status();
                 let text = r.text().await.unwrap_or_default();
@@ -232,7 +237,7 @@ impl Client {
                 {
                     notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
                 }
-                bail!("model endpoint returned {status}: {}", truncate(&text, 600));
+                bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
             }
             break r;
         };
@@ -267,26 +272,6 @@ impl Client {
     pub async fn complete(&self, req: Request<'_>) -> Result<Completion> {
         self.stream(req, None).await
     }
-}
-
-/// The body every OpenAI-compatible endpoint accepts.
-fn standard_body(req: &Request<'_>) -> Value {
-    let mut body = json!({
-        "model": req.model,
-        "messages": req.messages.iter().map(Message::wire).collect::<Vec<_>>(),
-        "stream": true,
-        "stream_options": { "include_usage": true },
-    });
-    if !req.tools.is_empty() {
-        body["tools"] = json!(req.tools);
-    }
-    if let Some(m) = req.max_tokens {
-        body["max_tokens"] = json!(m);
-    }
-    if let Some(t) = req.temperature {
-        body["temperature"] = json!(t);
-    }
-    body
 }
 
 pub fn truncate(s: &str, max: usize) -> String {

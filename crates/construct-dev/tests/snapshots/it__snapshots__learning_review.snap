@@ -3,7 +3,7 @@ source: crates/construct-dev/tests/snapshots.rs
 expression: "shaped(&env, &review)"
 ---
 {
-  "bytes": 3044,
+  "bytes": 3113,
   "n_tools": 1,
   "request": {
     "model": "openrouter/free",
@@ -14,7 +14,7 @@ expression: "shaped(&env, &review)"
       },
       {
         "role": "user",
-        "content": "<session>\nUSER: release the crate. I always do this on Fridays.\n\n\nTOOL CALL shell: {\"command\":\"ls /nonexistent-release-dir\"}\n\nTOOL RESULT: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n\n\nTOOL CALL shell: {\"command\":\"exit 2\"}\n\nTOOL RESULT: Error: (no output)\n[exit 2]\n\n\nTOOL CALL shell: {\"command\":\"false\"}\n\nTOOL RESULT: Error: (no output)\n[exit 1]\n\nASSISTANT: released\n</session>\n\nCurrent memory: (empty)\n\nSkill library: empty.\n\nMEMORY — who the user is and what their machine is like.\n- Save only what the user said about how they want you to work (\"I prefer…\", \"always…\", \"don't…\", a correction of your approach), facts about them, and stable facts about the machine (OS quirks, toolchains, paths, services).\n- A task request is not a preference. \"Document X in the README\" or \"fix it in the library, not the tests\" describe one task; never record them as standing preferences or habits.\n- Use target 'user' for the person, 'memory' for the machine and its tools in general, and 'project' for how the current repo works (build and test steps, landmines, conventions): project notes only show up in this repo. All are capped: batch your changes in one call and remove or merge stale entries to make room.\n- Skip task progress, one-off details, anything easy to rediscover, and secrets.\n\nIf nothing in the session meets the bar, reply 'Nothing to save.' and stop. A routine session that went smoothly usually has nothing to save.\n"
+        "content": "<session>\nUSER: release the crate. I always do this on Fridays.\n\n\nTOOL CALL shell: {\"command\":\"echo \\\"ls: cannot access '/nonexistent-release-dir': No such file or directory\\\" >&2; exit 2\"}\n\nTOOL RESULT: Error: ls: cannot access '/nonexistent-release-dir': No such file or directory\n\n[exit 2]\n\n\nTOOL CALL shell: {\"command\":\"exit 2\"}\n\nTOOL RESULT: Error: (no output)\n[exit 2]\n\n\nTOOL CALL shell: {\"command\":\"false\"}\n\nTOOL RESULT: Error: (no output)\n[exit 1]\n\nASSISTANT: released\n</session>\n\nCurrent memory: (empty)\n\nSkill library: empty.\n\nMEMORY — who the user is and what their machine is like.\n- Save only what the user said about how they want you to work (\"I prefer…\", \"always…\", \"don't…\", a correction of your approach), facts about them, and stable facts about the machine (OS quirks, toolchains, paths, services).\n- A task request is not a preference. \"Document X in the README\" or \"fix it in the library, not the tests\" describe one task; never record them as standing preferences or habits.\n- Use target 'user' for the person, 'memory' for the machine and its tools in general, and 'project' for how the current repo works (build and test steps, landmines, conventions): project notes only show up in this repo. All are capped: batch your changes in one call and remove or merge stale entries to make room.\n- Skip task progress, one-off details, anything easy to rediscover, and secrets.\n\nIf nothing in the session meets the bar, reply 'Nothing to save.' and stop. A routine session that went smoothly usually has nothing to save.\n"
       }
     ],
     "stream": true,

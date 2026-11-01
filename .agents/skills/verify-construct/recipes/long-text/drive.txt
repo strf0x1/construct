@@ -1,0 +1,15 @@
+# Text the user has to read is wrapped, never cut with an ellipsis: a long path
+# in the permission panel and a long cell in a table, on a narrow screen.
+resize 60 30
+wait "ask construct" 5000
+type read it
+key enter
+wait "PERMISSION" 8000
+sleep 600
+snap prompt
+image {evidence}/prompt.png
+key enter
+wait "Docs" 5000
+settle 300 5000
+snap --style table
+image {evidence}/table.png

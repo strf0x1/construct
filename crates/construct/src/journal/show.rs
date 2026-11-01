@@ -5,7 +5,7 @@
 //! choice: nothing is kept in memory by the UI for this; the journal is asked.
 
 use super::{Entry, Journal, Totals};
-use crate::config::Paths;
+use crate::config::{Config, Paths};
 use crate::event::Event;
 use crate::llm::truncate;
 use anyhow::{Result, bail};
@@ -31,14 +31,15 @@ fn tilde(p: &Path) -> String {
 }
 
 /// The `/status` rows: a label and its value.
-pub fn status_rows(session: &str, journal: &Path, model: &str, window: u32, t: &Totals) -> Vec<(&'static str, String)> {
-    let u = &t.usage;
-    let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, crate::models::is_router(model));
+pub fn status_rows(session: &str, journal: &Path, cfg: &Config, t: &Totals) -> Vec<(&'static str, String)> {
+    let (u, window) = (&t.usage, cfg.context_window);
+    let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, cfg.on_router());
     let mut rows = vec![
         ("session", session.to_string()),
         ("journal", tilde(journal)),
-        ("model", model.to_string()),
-        ("context", format!("{} ({used} used)", human(window as u64))),
+        ("model", cfg.qualified_model()),
+        ("endpoint", cfg.endpoint_label()),
+        ("context", format!("{} ({used} used) · from {}", human(window as u64), cfg.window_source())),
         ("requests", t.requests.to_string()),
         (
             "input",
@@ -91,7 +92,7 @@ pub fn find(paths: &Paths, id: &str) -> Result<(PathBuf, Vec<Entry>)> {
         .collect();
     files.sort();
     for f in files {
-        let Ok(db) = Journal::open(&f) else { continue };
+        let Ok(db) = Journal::read_only(&f) else { continue };
         let entries = db.since(id, 0)?;
         if !entries.is_empty() {
             return Ok((f, entries));
@@ -137,6 +138,9 @@ pub fn transcript(entries: &[Entry]) -> String {
             Event::Access { tool, access, paths, decision, agent } => {
                 let who = if agent.is_empty() { String::new() } else { format!(" [{agent}]") };
                 let _ = writeln!(out, "!! access {decision}: {tool}{who} wants {access} {}\n", paths.join(", "));
+            }
+            Event::Operation { operation, scope, decision, .. } => {
+                let _ = writeln!(out, "!! operation {decision}: {operation} ({scope})\n");
             }
             Event::Permission { title, decision, scope, .. } => {
                 let _ = writeln!(out, "!! permission {decision} ({scope}): {title}\n");

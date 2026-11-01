@@ -1,13 +1,14 @@
 //! The boundary around what the model can touch.
 //!
 //! Two layers, one policy:
-//! - shell commands run under Linux Landlock. construct re-executes itself as
-//!   `construct __sandbox <policy> -- <shell> -c <cmd>`; that small process is
-//!   single-threaded, restricts itself, then forks the shell and supervises it
-//!   (`supervise.rs`), so everything the command starts inherits the
-//!   restriction and nothing it starts outlives the call. Landlock also blocks
-//!   ptrace-style access to processes outside the sandbox, so
-//!   /proc/<construct>/environ is out of reach.
+//! - shell commands run under Landlock on Linux (`landlock.rs`) or a Seatbelt
+//!   profile on macOS (`seatbelt.rs`, ADR 0028). construct re-executes itself
+//!   as `construct __sandbox <policy> -- <shell> -c <cmd>`; that small process
+//!   is single-threaded, restricts itself, then forks the shell and supervises
+//!   it (`supervise.rs`, `supervise_macos.rs`), so everything the command
+//!   starts inherits the restriction and nothing it starts outlives the call.
+//!   On Linux, Landlock also blocks ptrace-style access to processes outside
+//!   the sandbox, so /proc/<construct>/environ is out of reach.
 //! - the in-process file tools (read, write, edit, grep, glob) check every
 //!   path, after resolving symlinks, against the same roots.
 //!
@@ -24,9 +25,18 @@ use crate::config::{McpServer, Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+mod beneath;
+#[cfg(target_os = "linux")]
+mod landlock;
 pub mod open;
 pub mod report;
+#[cfg(target_os = "macos")]
+mod seatbelt;
 mod stop;
+#[cfg(target_os = "linux")]
+mod supervise;
+#[cfg(target_os = "macos")]
+#[path = "supervise_macos.rs"]
 mod supervise;
 pub use stop::{GRACE, StopOnDrop};
 
@@ -60,6 +70,7 @@ pub struct Policy {
 }
 
 /// Read-only, executable everywhere a shell needs to look.
+#[cfg(target_os = "linux")]
 const SYSTEM: &[&str] = &[
     "/dev/fd",
     "/usr",
@@ -73,6 +84,27 @@ const SYSTEM: &[&str] = &[
     "/run/current-system",
     "/sys",
     "/proc",
+];
+/// `/opt` covers Homebrew on Apple silicon; `/usr/local` (inside `/usr`) the
+/// Intel prefix. `/etc` and `/var` are symlinks into `/private`, resolved
+/// when the policy is built.
+#[cfg(target_os = "macos")]
+const SYSTEM: &[&str] = &[
+    "/dev/fd",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/etc",
+    "/opt",
+    "/System",
+    "/Library/Developer",
+    "/Library/Frameworks",
+    "/Library/Apple",
+    "/Library/Preferences/com.apple.networkd.plist",
+    "/Library/Preferences/SystemConfiguration",
+    "/Applications/Xcode.app",
+    "/private/var/db",
+    "/private/var/select",
 ];
 /// Writable devices the shell can't work without. Not all of /dev: /dev/shm
 /// would be a shared scratch space outside the workspace.
@@ -91,7 +123,11 @@ const HOME_RO: &[&str] = &[
     ".bun/bin",
     "go/bin",
 ];
+#[cfg(target_os = "linux")]
 const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg"];
+/// `Library/Caches` is where macOS tools keep what `.cache` holds on Linux.
+#[cfg(target_os = "macos")]
+const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg", "Library/Caches"];
 
 impl Policy {
     pub fn new(cfg: &SandboxConfig, cwd: &Path, paths: &Paths) -> Self {
@@ -316,8 +352,8 @@ pub fn scrub_env(cmd: &mut tokio::process::Command) {
 }
 
 /// `construct __sandbox <policy-json> -- <program> [args...]`: restrict this
-/// process with Landlock (unless the policy is off), then run the program
-/// under supervision and exit with its status.
+/// process with the platform's sandbox (unless the policy is off), then run
+/// the program under supervision and exit with its status.
 pub fn exec_child(args: &[String]) -> ! {
     let fail = |msg: String| -> ! {
         eprintln!("construct sandbox: {msg}");
@@ -331,49 +367,10 @@ pub fn exec_child(args: &[String]) -> ! {
         fail("nothing to run".into());
     }
     if !policy.off {
-        restrict(&policy).unwrap_or_else(|e| fail(e));
+        #[cfg(target_os = "linux")]
+        landlock::restrict(&policy).unwrap_or_else(|e| fail(e));
+        #[cfg(target_os = "macos")]
+        seatbelt::restrict(&policy).unwrap_or_else(|e| fail(e));
     }
     supervise::run(policy.parent, prog, !policy.own_stderr)
-}
-
-/// Apply the Landlock ruleset to this process and everything it will start.
-fn restrict(policy: &Policy) -> Result<(), String> {
-    use landlock::{
-        ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, NetPort, Ruleset, RulesetAttr, RulesetCreatedAttr,
-        RulesetStatus, Scope, path_beneath_rules,
-    };
-    let abi = ABI::V6;
-    let ro = AccessFs::from_read(abi);
-    let rw = AccessFs::from_all(abi);
-    // A grant for a place that doesn't exist (yet) has nothing to restrict,
-    // and a rule for it would fail the whole ruleset.
-    let live = |v: &[PathBuf]| v.iter().filter(|p| p.exists()).cloned().collect::<Vec<_>>();
-    let (system, read, write) = if policy.net_only {
-        Default::default()
-    } else {
-        (live(&policy.system), live(&policy.read), live(&policy.write))
-    };
-    let base = Ruleset::default().set_compatibility(CompatLevel::BestEffort);
-    // A delegated child's process handles no filesystem access at all.
-    let status = Ok(base)
-        .and_then(|r: Ruleset| if policy.net_only { Ok(r) } else { r.handle_access(rw) })
-        // Handling TCP access with no rule allowing a port denies it all.
-        .and_then(|r| if policy.no_network { r.handle_access(AccessNet::from_all(abi)) } else { Ok(r) })
-        .and_then(|r| r.scope(Scope::Signal))
-        .and_then(|r| r.create())
-        // A port rule for access the ruleset doesn't handle is an error, so
-        // the exceptions exist only when TCP is denied.
-        .and_then(|r| {
-            let ports = if policy.no_network { policy.connect_ports.as_slice() } else { &[] };
-            r.add_rules(ports.iter().map(|p| Ok(NetPort::new(*p, AccessNet::ConnectTcp))))
-        })
-        .and_then(|r| r.add_rules(path_beneath_rules(&system, ro)))
-        .and_then(|r| r.add_rules(path_beneath_rules(&read, ro)))
-        .and_then(|r| r.add_rules(path_beneath_rules(&write, rw)))
-        .and_then(|r| r.restrict_self())
-        .map_err(|e| format!("landlock: {e}"))?;
-    if status.ruleset == RulesetStatus::NotEnforced {
-        return Err("Landlock isn't available on this kernel, so commands can't be sandboxed. Set [sandbox] mode = \"off\" in config.toml to run without it.".into());
-    }
-    Ok(())
 }

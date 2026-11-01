@@ -16,7 +16,7 @@ accepted = [
     "Zlib",
     "MPL-2.0", # colored only; see deny.toml
 ]
-targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-apple-darwin"]
 ignore-build-dependencies = false
 ignore-dev-dependencies = true
 private = { ignore = true }

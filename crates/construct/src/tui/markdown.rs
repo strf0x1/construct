@@ -1,8 +1,9 @@
 //! Markdown to wrapped, styled lines. We wrap ourselves (rather than letting
 //! a Paragraph do it) so scrolling knows exact line counts.
 
+use super::table::{self, Table};
 use super::theme;
-use pulldown_cmark::{Alignment, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
@@ -97,14 +98,6 @@ struct Ctx {
     table: Option<Table>,
 }
 
-#[derive(Default)]
-struct Table {
-    align: Vec<Alignment>,
-    rows: Vec<Vec<String>>,
-    cell: String,
-    row: Vec<String>,
-}
-
 impl Ctx {
     fn style(&self) -> Style {
         self.styles.iter().fold(Style::default(), |a, s| a.patch(*s))
@@ -179,7 +172,7 @@ pub fn render(text: &str, width: usize) -> Vec<Line<'static>> {
                 }
                 Event::End(TagEnd::Table) => {
                     if let Some(t) = c.table.take() {
-                        render_table(&mut c, t);
+                        c.out.extend(table::render(&t, c.width));
                     }
                     continue;
                 }
@@ -319,7 +312,7 @@ pub fn render(text: &str, width: usize) -> Vec<Line<'static>> {
         render_code(&mut c, &lang, &code);
     }
     if let Some(t) = c.table.take() {
-        render_table(&mut c, t);
+        c.out.extend(table::render(&t, c.width));
     }
     c.flush_para();
     while c.out.last().is_some_and(|l| l.width() == 0) {
@@ -341,48 +334,6 @@ fn render_code(c: &mut Ctx, lang: &str, code: &str) {
     c.out.push(Line::default());
 }
 
-fn render_table(c: &mut Ctx, t: Table) {
-    let cols = t.rows.iter().map(Vec::len).max().unwrap_or(0);
-    if cols == 0 {
-        return;
-    }
-    let mut widths = vec![0usize; cols];
-    for r in &t.rows {
-        for (i, cell) in r.iter().enumerate() {
-            widths[i] = widths[i].max(cell.width());
-        }
-    }
-    // Squeeze to fit: shrink the widest column first.
-    let sep = 3;
-    while widths.iter().sum::<usize>() + sep * (cols - 1) > c.width && widths.iter().any(|w| *w > 6) {
-        let Some(i) = (0..cols).max_by_key(|i| widths[*i]) else { break };
-        widths[i] -= 1;
-    }
-    for (ri, r) in t.rows.iter().enumerate() {
-        let mut spans = Vec::new();
-        for (i, &w) in widths.iter().enumerate().take(cols) {
-            let cell = r.get(i).map(String::as_str).unwrap_or("");
-            let cell = super::view::fit(cell, w);
-            let pad = w.saturating_sub(cell.width());
-            let padded = match t.align.get(i) {
-                Some(Alignment::Right) => format!("{}{cell}", " ".repeat(pad)),
-                Some(Alignment::Center) => format!("{}{cell}{}", " ".repeat(pad / 2), " ".repeat(pad - pad / 2)),
-                _ => format!("{cell}{}", " ".repeat(pad)),
-            };
-            let st = if ri == 0 { theme::bold().fg(theme::ACCENT) } else { Style::default() };
-            spans.push(Span::styled(padded, st));
-            if i + 1 < cols {
-                spans.push(Span::styled(" │ ", theme::faint()));
-            }
-        }
-        c.out.push(Line::from(spans));
-        if ri == 0 {
-            let rule: Vec<String> = widths.iter().map(|w| "─".repeat(*w)).collect();
-            c.out.push(Line::from(Span::styled(rule.join("─┼─"), theme::faint())));
-        }
-    }
-    c.out.push(Line::default());
-}
 #[cfg(test)]
 mod tests {
     use super::*;

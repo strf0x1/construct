@@ -87,7 +87,7 @@ impl App {
     /// the toast and then the group labels give way first, then the model
     /// name is cut. The counters are `status::counters`.
     pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
-        let router = crate::models::is_router(&self.cfg.model);
+        let router = self.cfg.on_router();
         let compact = width < super::status::COMPACT_BELOW;
         let mut must = super::status::counters(&self.totals, self.context_pct, router, compact);
         if self.scroll > 0 {
@@ -132,11 +132,12 @@ impl App {
         }
         let right_w = w(&extras) + must_w;
         let model_room = width.saturating_sub(right_w + 3 + 1);
-        let model = if self.cfg.model.width() <= model_room {
-            self.cfg.model.clone()
+        let model = self.cfg.qualified_model();
+        let model = if model.width() <= model_room {
+            model
         } else {
             let keep = model_room.saturating_sub(1);
-            let mut m: String = self.cfg.model.chars().take(keep).collect();
+            let mut m: String = model.chars().take(keep).collect();
             m.push('…');
             m
         };

@@ -2,7 +2,7 @@ name: release
 
 # Push a version tag to build a draft GitHub Release:
 #
-#   check  ->  build (Linux x86-64)  ->  smoke (clean distros)  ->  draft release
+#   check  ->  build (Linux x86-64, macOS arm64 and x86-64)  ->  smoke  ->  draft release
 #
 # Nothing is public until you review the draft and press Publish. The steps
 # are in docs/releasing.md.
@@ -43,11 +43,20 @@ jobs:
 
   build:
     needs: check
-    # The oldest supported runner: the binary links against this image's
-    # glibc (2.35), so it also runs on distros at least that new.
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported runner: the binary links against this image's
+          # glibc (2.35), so it also runs on distros at least that new.
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04 }
+          # Both Mac builds come from the Apple silicon runner; the Intel one
+          # is cross-compiled, and smoke-tested on an Intel runner below.
+          - { target: aarch64-apple-darwin, os: macos-15 }
+          - { target: x86_64-apple-darwin, os: macos-15 }
+    runs-on: ${{ matrix.os }}
     env:
-      TARGET: x86_64-unknown-linux-gnu
+      TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -66,7 +75,8 @@ jobs:
             -c about.toml about.hbs -o "dist/$name/THIRD-PARTY-LICENSES.txt"
           echo "$GITHUB_REF_NAME" > "dist/$name/VERSION"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
-          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+          # shasum is on every runner; sha256sum is not on macOS.
+          (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
           cat "dist/$name.tar.gz.sha256"
       - uses: actions/upload-artifact@v4
         with:
@@ -98,8 +108,44 @@ jobs:
           ./construct-x86_64-unknown-linux-gnu/construct --version
           ./construct-x86_64-unknown-linux-gnu/construct --help > /dev/null
 
+  # Unpack the archive the way the installer does (no build tree, no
+  # toolchain on the path), run it, and check the Seatbelt sandbox holds:
+  # the helper must refuse a read outside its workspace and allow one inside.
+  smoke-macos:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, os: macos-15 }
+          - { target: x86_64-apple-darwin, os: macos-15-intel }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: "dist-${{ matrix.target }}", path: dist }
+      - name: Checksum, unpack, run
+        working-directory: dist
+        run: |
+          shasum -a 256 -c "construct-${{ matrix.target }}.tar.gz.sha256"
+          tar -xzf "construct-${{ matrix.target }}.tar.gz"
+          ./construct-${{ matrix.target }}/construct --version
+          ./construct-${{ matrix.target }}/construct --help > /dev/null
+      - name: The sandbox holds
+        run: |
+          bin="$PWD/dist/construct-${{ matrix.target }}/construct"
+          work=$(cd "$(mktemp -d)" && pwd -P)
+          outside=$(cd "$(mktemp -d)" && pwd -P)
+          echo secret > "$outside/secret.txt"
+          policy=$(printf '{"off":false,"read":["%s"],"write":["%s"],"system":["/usr","/bin","/sbin","/System","/private/etc","/private/var/db","/private/var/select"],"tmp":"%s","parent":0}' "$work" "$work" "$work")
+          cd "$work"
+          "$bin" __sandbox "$policy" -- /bin/sh -c 'echo ok > inside.txt && cat inside.txt'
+          if "$bin" __sandbox "$policy" -- /bin/sh -c "cat '$outside/secret.txt'"; then
+            echo "::error::the sandbox let a command read outside its workspace"
+            exit 1
+          fi
+
   release:
-    needs: smoke
+    needs: [smoke, smoke-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write

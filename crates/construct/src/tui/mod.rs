@@ -4,22 +4,28 @@
 //! visibly in progress.
 
 mod app;
+mod app_events;
 mod args;
 mod ask;
 mod boxed;
 mod children;
 mod clip;
+mod commands;
 mod dock;
 mod help;
 mod input;
 mod jobs;
+mod learning;
 mod listing;
 mod markdown;
 mod palette;
 mod peek;
 mod picker;
 mod prompt;
+mod restore;
+mod sessions;
 mod status;
+mod table;
 mod theme;
 mod view;
 mod worker;
@@ -27,7 +33,7 @@ mod worker;
 use crate::agent::Event;
 use crate::config::{Config, Paths};
 use anyhow::Result;
-use app::{App, Block, Cmd, Kind};
+use app::{App, Cmd};
 use crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event as CEvent, EventStream, KeyEventKind, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -95,14 +101,26 @@ fn restore_stderr(saved: Option<i32>) {
     }
 }
 
-pub async fn run(cfg: Config, paths: Paths, resume: Option<String>) -> Result<()> {
+pub async fn run(
+    cfg: Config,
+    paths: Paths,
+    resume: Option<String>,
+    startup_browser: bool,
+    model_override: Option<String>,
+) -> Result<()> {
     let saved_stderr = quiet_stderr(&paths);
-    let r = run_inner(cfg, paths, resume).await;
+    let r = run_inner(cfg, paths, resume, startup_browser, model_override).await;
     restore_stderr(saved_stderr);
     r
 }
 
-async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<()> {
+async fn run_inner(
+    cfg: Config,
+    paths: Paths,
+    resume: Option<String>,
+    startup_browser: bool,
+    model_override: Option<String>,
+) -> Result<()> {
     crate::trace::mark("tui start");
     terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
@@ -123,15 +141,22 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
     // trip), and a freshly entered alternate screen is already blank.
     let mut term = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
     let mut app = App::new(cfg.clone());
+    if startup_browser {
+        app.browser = Some(sessions::Browser::open(paths.clone(), std::env::current_dir()?, String::new(), true));
+    }
     app.draw(&mut term)?;
     crate::trace::mark("first frame");
 
     // Build the agent off the UI path; the first frame is already up.
-    let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<Event>();
+    let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<(String, Event)>();
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
     let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
     let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<ask::Prompt>();
-    let worker = tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, cmd_rx, ev_tx, ready_tx, prompt_tx));
+    // A provider's model list landing, maybe after the session started.
+    let (landed_tx, mut landed_rx) = mpsc::unbounded_channel::<()>();
+    let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx };
+    let worker =
+        tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, startup_browser, model_override, cmd_rx, out));
 
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
@@ -145,44 +170,27 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
         let animating = app.animating();
         let docked = app.dock.active();
         tokio::select! {
-            Some(ready) = ready_rx.recv() => {
-                let (session, canceller, groups, history, catalog, spent, jobs) = ready;
-                app.dock.jobs = Some(jobs);
-                app.ready = true;
-                app.totals = spent;
-                app.session = session;
-                app.canceller = Some(canceller);
-                app.groups = groups;
-                app.catalog = Some(catalog);
-                // The worker warmed the list before building the agent; this is a file read.
-                crate::llm::catalog::overlay(&mut app.cfg, &paths);
-                // A `/model …` typed before now was matched without the catalog.
-                app.palette = None;
-                app.refresh_palette();
-                for m in history {
-                    match m.role.as_str() {
-                        "user" => app.push(Block::new(Kind::User, m.content.unwrap_or_default().split("\n\n<system-reminder>").next().unwrap_or("").to_string())),
-                        "assistant" if m.content.is_some() => app.push(Block::new(Kind::Assistant, m.content.unwrap_or_default())),
-                        _ => {}
-                    }
+            Some(()) = landed_rx.recv() => {
+                // A file read: the fetch is done. The running model's window stays the agent's.
+                crate::llm::overlay::lay_lists(&mut app.cfg, &paths);
+                if let Some(p) = app.picker.as_mut() {
+                    p.refresh(&app.cfg);
                 }
+                dirty = true;
+            }
+            Some(ready) = ready_rx.recv() => {
+                app.restore(ready);
                 dirty = true;
             }
             Some(prompt) = prompt_rx.recv() => {
                 app.prompts.push_back(prompt);
                 dirty = true;
             }
-            Some(ev) = ev_rx.recv() => {
-                if let Event::Error { message } = &ev
-                    && message.starts_with("fatal:") {
-                        app.notice(theme::RED, message.clone());
-                    }
-                if let Event::Route { groups, .. } = &ev {
-                    for g in groups { if !app.groups.contains(g) { app.groups.push(g.clone()); } }
+            Some((session, ev)) = ev_rx.recv() => {
+                if session == app.generation { app.on_event(ev); }
+                while let Ok((session, ev)) = ev_rx.try_recv() {
+                    if session == app.generation { app.on_event(ev); }
                 }
-                app.on_event(ev);
-                // batch whatever else is already queued before drawing
-                while let Ok(ev) = ev_rx.try_recv() { app.on_event(ev); }
                 dirty = true;
             }
             Some(Ok(ev)) = events.next() => {
@@ -190,7 +198,7 @@ async fn run_inner(cfg: Config, paths: Paths, resume: Option<String>) -> Result<
                     CEvent::Key(k) if k.kind != KeyEventKind::Release => {
                         if handle_key(&mut app, k, &cmd_tx) { break; }
                     }
-                    CEvent::Paste(s) => { let s = s.replace("\r\n", "\n").replace('\r', "\n"); app.insert(&s); }
+                    CEvent::Paste(s) => { let s = s.replace("\r\n", "\n").replace('\r', "\n"); if let Some(p) = app.browser.as_mut() { p.paste(&s); } else { app.insert(&s); } }
                     CEvent::Resize(..) => { app.cache.clear(); }
                     _ => continue,
                 }

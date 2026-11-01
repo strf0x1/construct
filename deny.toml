@@ -2,9 +2,9 @@
 # the network for the advisory DB, so it is not part of `cargo xtask check`).
 
 [graph]
-# Only what construct ships on: Linux. Windows- and mac-only crates in the
-# lockfile (keyring stores, winapi, ...) are not checked.
-targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+# Only what construct ships on: Linux and macOS. Windows-only crates in the
+# lockfile (winapi, ...) are not checked.
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-apple-darwin"]
 
 [advisories]
 # A vulnerability advisory always fails. cargo-deny has no warn level for
