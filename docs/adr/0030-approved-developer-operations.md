@@ -92,16 +92,21 @@ behavior to the reviewed action is harder than providing fixed operations.
 
 ## Evidence
 
-Issue #142 documents the host-authentication failure. Tier 0 Rust gates,
-seven developer-operation e2e tests, 23 existing permission e2e tests, and 11
-golden snapshot tests pass. The optional group adds 106 bytes to the plain
+Issue #142 documents the host-authentication failure. After rebasing onto
+`37ef7fc` (#140), Tier 0 Rust gates and the full e2e binary pass (170 passed,
+1 ignored), including the seven developer-operation tests, 23 permission
+tests and 11 golden snapshots. The optional group adds 106 bytes to the plain
 first request, with the same seven tools enabled; snapshots were regenerated
 with `cargo xtask snapshots`.
 
-Tier 0 drive: `developer-operations`, run `20261031-232010`, PASS. The captured
+Tier 0 drive: `developer-operations`, run `20261101-000432`, PASS. The captured
 frame was inspected. The recipe verifies the real commit, file content,
 approval event, and model-facing tool result. Evidence is under
-`.verify/evidence/20261031-232010/developer-operations/`.
+`.verify/evidence/20261101-000432/developer-operations/`. The recipes whose
+dependencies this change touches were driven again at the same tree:
+`permission-prompt` (`20261101-000707`), `long-text` (`20261101-000711`),
+`status-line` (`20261101-000715`) and `session-browser` (`20261101-000719`),
+all PASS.
 
 Push tests use a trusted host SSH helper connected to a temporary bare
 repository. Issue and PR executor tests use recording executables. No live
