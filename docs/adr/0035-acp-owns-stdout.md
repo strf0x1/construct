@@ -24,12 +24,15 @@ later would silently corrupt a frame.
 
 1. It duplicates fd 1 into a private `OwnedFd` and hands that to the single
    writer thread, which is the only producer of protocol frames.
-2. It points fd 1 at fd 2 (`libc::dup2`) before any session work starts.
+2. It points fd 1 at fd 2 (`libc::dup2`) before any session work starts and
+   checks the return.
 
 Everything else that writes to stdout — a `println!`, a library with logging
 configured to stdout, a diagnostic from a spawned helper that inherits the
-descriptor — therefore lands on stderr. If the duplication fails, fd 1 keeps
-its old meaning and the writer falls back to it: no worse than before.
+descriptor — therefore lands on stderr. If either step fails, fd 1 keeps its
+old meaning and the writer falls back to it: the result is the pre-change
+behaviour, a warning naming the error goes to stderr, and the protocol still
+works.
 
 This applies to both `construct acp` (user mode) and `construct __child --acp`
 (child mode); both speak the same protocol and both keep stderr for
@@ -59,6 +62,7 @@ diagnostics.
   `docs/vm-spike.md` for the merged-descriptor observation.
 - e2e `acp::acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr` drives
   `initialize`, `session/new` and a scripted prompt with a fresh secretspec
-  state directory (forcing the first-run audit note). `Client::call` parses
-  every stdout line and rejects a non-`jsonrpc` line; the test asserts the note
-  is present in the captured stderr.
+  state directory (forcing the first-run audit note) and an unreachable D-Bus
+  address (forcing the keyring provider failure on Linux). `Client::call`
+  parses every stdout line and rejects a non-`jsonrpc` line; the test asserts
+  both diagnostics are present in the captured stderr.

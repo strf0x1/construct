@@ -210,10 +210,9 @@ fn a_completed_turn_is_on_disk_after_a_kill_without_close() {
 
 #[test]
 fn acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr() {
-    // #162: a strict ACP client parses every stdout line as JSON-RPC, so a
-    // diagnostic (here secretspec's first-run audit note, forced by a fresh
-    // state dir) must go to stderr. `Client::call` parses every line it reads
-    // and rejects anything that is not a `jsonrpc` frame.
+    // #162: a strict ACP client parses every stdout line as JSON-RPC, so the
+    // diagnostics from the issue must go to stderr. `Client::call` parses
+    // every line it reads and rejects anything that is not a `jsonrpc` frame.
     let env = Env::new("acp-stdout", json!({ "steps": [{ "text": "clean" }] }));
     let state = env.dir.join("secretspec-state");
     let config = env.dir.join("secretspec-config");
@@ -221,7 +220,14 @@ fn acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr() {
     std::fs::create_dir_all(&config).unwrap();
     let mut c = Client::start_with(
         &env,
-        &[("XDG_STATE_HOME", state.to_str().unwrap()), ("XDG_CONFIG_HOME", config.to_str().unwrap())],
+        &[
+            // A fresh state dir forces secretspec's first-run audit note.
+            ("XDG_STATE_HOME", state.to_str().unwrap()),
+            ("XDG_CONFIG_HOME", config.to_str().unwrap()),
+            // An unreachable bus forces the keyring provider to fail, so the
+            // provider-chain warning is deterministic on Linux.
+            ("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent-construct-test"),
+        ],
     );
     c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": {} }));
     let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
@@ -229,9 +235,11 @@ fn acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr() {
     let (done, _) = c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "hi" }] }));
     assert_eq!(done["result"]["stopReason"], "end_turn");
     // The router resolves TYPESAFE_API_KEY inside the turn, which is the first
-    // secret resolution; the note is a diagnostic, not a protocol frame.
+    // secret resolution; both diagnostics are prose, not protocol frames.
     let err = c.stderr_text();
     assert!(err.contains("note: secretspec is now recording"), "stderr: {err}");
+    #[cfg(target_os = "linux")]
+    assert!(err.contains("provider keyring failed for TYPESAFE_API_KEY"), "stderr: {err}");
     c.finish();
 }
 
