@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui]
 depends: [crates/construct/src/permission, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/ask.rs, crates/construct-dev/tests/permission.rs]
 verified_at: b4ca333
+verified_deps: eaa2fc4d4d57c779
 ---
 # Permission prompt
 
