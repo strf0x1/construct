@@ -1,12 +1,14 @@
 //! The Agent Client Protocol (agentclientprotocol.com), both ways. `server`
 //! is `construct acp`: construct as an agent an editor or another harness
 //! drives. `client` runs any ACP agent as a delegated child. `rpc` is the
-//! framing they share; `map` is `Event` to ACP updates and back.
+//! framing they share; `map` is `Event` to ACP updates and back; `ask` puts
+//! the server's permission questions to its client.
 //!
 //! The design choice: ACP is a translation at the process edge. The agent
 //! loop, the journal and the delegate tool know nothing of it; what crosses
 //! the wire is `Event`s, as it does on the JSONL child transport.
 
+pub mod ask;
 pub mod client;
 pub mod map;
 pub mod rpc;

@@ -3,8 +3,11 @@
 //! The design choice: one reader loop owns the sessions and never blocks on a
 //! turn. A `session/prompt` runs as its own task so `session/cancel` (and
 //! stdin closing) can interrupt it; every line out goes through one writer
-//! task, so a turn's updates always precede its response.
+//! task, so a turn's updates always precede its response. A session's
+//! permission questions go to the client (`ask`), whose responses this same
+//! loop reads, so a question never waits on a turn.
 
+use super::ask::{ClientAsk, Questions};
 use super::map::{self, EVENT_METHOD, META_KEY};
 use super::{Start, VERSION, rpc};
 use crate::agent::Agent;
@@ -45,12 +48,14 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
             }
         }
     });
-    let mut srv = Server { cfg, paths, mode, out, sessions: HashMap::new(), lossless: false };
+    let questions = Questions::new(&out);
+    let mut srv = Server { cfg, paths, mode, out, questions, sessions: HashMap::new(), lossless: false };
     let mut turns = JoinSet::new();
     let mut input = BufReader::new(tokio::io::stdin()).lines();
     while let Some(line) = input.next_line().await? {
         match rpc::parse(&line) {
             Some(Incoming::Request { id, method, params }) => srv.request(id, &method, params, &mut turns).await,
+            Some(Incoming::Response { id, result }) => srv.questions.answer(&id, result),
             Some(Incoming::Notification { method, params }) if method == "session/cancel" => {
                 if let Some(s) = params["sessionId"].as_str().and_then(|id| srv.sessions.get(id)) {
                     s.cancel.send_replace(true);
@@ -63,6 +68,7 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
     for s in srv.sessions.values() {
         s.cancel.send_replace(true);
     }
+    srv.questions.close();
     while turns.join_next().await.is_some() {}
     if srv.mode == Mode::User && srv.cfg.learn.enabled {
         for s in srv.sessions.values() {
@@ -82,6 +88,7 @@ struct Server {
     paths: Paths,
     mode: Mode,
     out: Out,
+    questions: Arc<Questions>,
     sessions: HashMap<String, Session>,
     /// The client asked for every `Event` whole (see `map`).
     lossless: bool,
@@ -151,6 +158,11 @@ impl Server {
         // The journal's session id is the ACP session id, so the record and
         // the wire name a session the same way.
         let sid = agent.journal.session.clone();
+        // The user's own session asks its client. A delegated child over ACP
+        // still has nobody to ask (ADR 0016) and keeps denying.
+        if self.mode == Mode::User {
+            agent.ctx.perms.set_ask(Arc::new(ClientAsk::new(sid.clone(), self.questions.clone())));
+        }
         let cancel = agent.canceller();
         self.sessions.insert(sid.clone(), Session { agent: Arc::new(Mutex::new(agent)), cancel });
         Ok(sid)

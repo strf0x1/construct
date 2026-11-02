@@ -3,6 +3,7 @@
 
 use crate::common::*;
 use serde_json::{Value, json};
+use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
@@ -12,6 +13,8 @@ struct Client {
     stdin: Option<ChildStdin>,
     out: BufReader<ChildStdout>,
     next: u64,
+    /// The option ids to pick, in order, when construct asks permission.
+    answers: VecDeque<&'static str>,
 }
 
 impl Client {
@@ -27,7 +30,7 @@ impl Client {
         }
         let mut child = c.spawn().unwrap();
         let (stdin, out) = (child.stdin.take(), BufReader::new(child.stdout.take().unwrap()));
-        Self { child, stdin, out, next: 0 }
+        Self { child, stdin, out, next: 0, answers: VecDeque::new() }
     }
 
     fn send(&mut self, v: Value) {
@@ -40,7 +43,8 @@ impl Client {
         self.send(json!({ "jsonrpc": "2.0", "method": method, "params": params }));
     }
 
-    /// Send a request; collect the notifications that arrive before its response.
+    /// Send a request; collect the notifications (and permission requests,
+    /// answered from `answers`) that arrive before its response.
     fn call(&mut self, method: &str, params: Value) -> (Value, Vec<Value>) {
         self.next += 1;
         let id = self.next;
@@ -51,8 +55,13 @@ impl Client {
             assert!(self.out.read_line(&mut l).unwrap() > 0, "construct acp closed its output");
             let v: Value = serde_json::from_str(&l).unwrap_or_else(|e| panic!("not JSON ({e}): {l}"));
             assert_eq!(v["jsonrpc"], "2.0", "{l}");
-            if v["id"] == json!(id) {
+            if v["id"] == json!(id) && v["method"].is_null() {
                 return (v, notes);
+            }
+            if v["method"] == "session/request_permission" {
+                let pick = self.answers.pop_front().expect("an unexpected permission request");
+                let outcome = json!({ "outcome": "selected", "optionId": pick });
+                self.send(json!({ "jsonrpc": "2.0", "id": v["id"], "result": { "outcome": outcome } }));
             }
             notes.push(v);
         }
@@ -116,6 +125,37 @@ fn an_acp_client_initializes_prompts_and_gets_the_streamed_turn() {
     assert_eq!(bad["error"]["code"], -32602);
     let (unknown, _) = c.call("session/frobnicate", json!({}));
     assert_eq!(unknown["error"]["code"], -32601);
+    c.finish();
+}
+
+#[test]
+fn a_blocked_path_is_asked_of_the_client_and_its_answer_applies() {
+    let outside = Env::dir_for("acp-ask").join("outside").join("secret.txt");
+    let read = json!({ "call": "read", "args": { "path": outside.display().to_string() } });
+    let env = Env::new("acp-ask", json!({ "steps": [read.clone(), read, { "text": "done" }] }));
+    std::fs::create_dir_all(outside.parent().unwrap()).unwrap();
+    std::fs::write(&outside, "hidden\n").unwrap();
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string() }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+
+    // Once lets the first read through; the second asks again and is denied.
+    c.answers = VecDeque::from(["once", "deny"]);
+    let (done, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "read it" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn", "{done}");
+    let asks: Vec<&Value> = notes.iter().filter(|n| n["method"] == "session/request_permission").collect();
+    assert_eq!(asks.len(), 2, "{asks:?}");
+    let p = &asks[0]["params"];
+    assert_eq!((p["sessionId"].as_str(), p["toolCall"]["kind"].as_str()), (Some(sid.as_str()), Some("read")));
+    assert!(p["toolCall"]["title"].as_str().unwrap().contains("secret.txt"), "{p}");
+    let offered: Vec<&str> = p["options"].as_array().unwrap().iter().filter_map(|o| o["optionId"].as_str()).collect();
+    for want in ["once", "session", "always", "deny"] {
+        assert!(offered.contains(&want), "{want} missing from {offered:?}");
+    }
+    let ends: Vec<&str> = updates(&notes, "tool_call_update").iter().filter_map(|u| u["status"].as_str()).collect();
+    assert_eq!(ends, ["completed", "failed"]);
     c.finish();
 }
 
