@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/skills.rs]
 verified_at: 37ef7fc
+verified_deps: cbf29da408be903b
 ---
 # Slash commands
 

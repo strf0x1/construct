@@ -7,12 +7,16 @@
 //! the theme's `Rgb` constants); nothing runs the app. Whether an entry is
 //! *true* is the recipe's job, not this one's, but a `verified` entry whose
 //! recipe or `depends:` paths changed after its `verified_at` is no longer
-//! proven, and says so (ADR 0023).
+//! proven, and says so (ADR 0023). "Changed" is by content (`verified_deps`),
+//! so a squash merge that drops `verified_at` from history keeps the proof
+//! (ADR 0031).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+mod git;
 mod stale;
+pub use git::{changed_since, is_commit, object};
 pub use stale::Git;
 
 const MAP: &str = "docs/feature-map";
@@ -67,7 +71,8 @@ pub fn problems(root: &Path, git: &Git) -> Vec<String> {
 }
 
 /// Frontmatter: the id is the filename, the status is known, `verified_at`
-/// is present exactly when verified and names a real commit, and every
+/// is present exactly when verified and names a real commit (or a commit id
+/// a squash merge left out, when `verified_deps` records what it drove), and every
 /// surface is declared in the README. Body: the status's sections, in order,
 /// and every step a `Drive:` / `Expect:` pair.
 fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) -> bool, bad: &mut Vec<String>) {
@@ -83,7 +88,9 @@ fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) ->
     match (status == "verified", field("verified_at")) {
         (true, "") => bad.push(at("verified with no verified_at".into())),
         (false, sha) if !sha.is_empty() => bad.push(at(format!("verified_at on a `{status}` entry"))),
-        (true, sha) if !is_commit(sha) => bad.push(at(format!("verified_at `{sha}` is not a commit in this repo"))),
+        (true, sha) if !is_commit(sha) && !(e.front.contains_key("verified_deps") && is_sha(sha)) => {
+            bad.push(at(format!("verified_at `{sha}` is not a commit in this repo")))
+        }
         _ => {}
     }
     for s in listed(e, "surfaces").iter().filter(|s| !surfaces.contains(*s)) {
@@ -108,6 +115,10 @@ fn structure(e: &Entry, surfaces: &BTreeSet<String>, is_commit: &dyn Fn(&str) ->
             bad.push(at(format!("step `{name}` needs both Drive: and Expect:")));
         }
     }
+}
+
+fn is_sha(s: &str) -> bool {
+    (7..=40).contains(&s.len()) && s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 /// What an entry names must exist: each path it depends on, each recipe it
@@ -288,10 +299,14 @@ pub(super) mod tests {
 
     /// A repo where `abc1234` is the only commit and nothing changed since.
     fn quiet(root: &Path) -> Vec<String> {
-        problems(root, &Git { is_commit: &|sha| sha == "abc1234", changed_since: &|_, _| Vec::new() })
+        let object = |_: &str, path: &str| Some(format!("old {path}"));
+        problems(root, &Git { is_commit: &|sha| sha == "abc1234", object: &object, changed_since: &|_, _| Vec::new() })
     }
 
-    pub(super) const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\ndepends: [crates/construct/src/tui/theme.rs]\n---\n# Turn\n\n\
+    /// `GOOD`'s dependencies fingerprinted with `quiet`'s objects.
+    pub(super) const GOOD_DEPS: &str = "514887902ddb6349";
+
+    pub(super) const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\nverified_deps: 514887902ddb6349\ndepends: [crates/construct/src/tui/theme.rs]\n---\n# Turn\n\n\
         ## Sub-features\n\n- `turn-new` `/new` clears.\n\n## How to get to it (user POV)\n\n- Type.\n\n\
         ## Done when\n\n- Cleared.\n\n## Driving it\n\nRecipe: `.agents/skills/verify-construct/recipes/turn`.\n\n\
         - **Look.** Drive: `expect-style \"ok\" fg=#9ECE6A`. Expect: green.\n\n## Gotchas\n\n- None.\n";
@@ -308,6 +323,7 @@ pub(super) mod tests {
     fn drift_in_either_direction_is_named() {
         let root = tree("bad");
         let entry = GOOD
+            .replace(&format!("verified_deps: {GOOD_DEPS}\n"), "")
             .replace("recipes/turn`", "recipes/gone`")
             .replace("#9ECE6A", "#123456")
             .replace("[tui]", "[tui, web]")
@@ -321,8 +337,14 @@ pub(super) mod tests {
             &format!("{MAP}/extra.md"),
             "---\nid: other\nstatus: done\n---\n## Sub-features\n\n- `turn-new` x\n",
         );
-        let bad =
-            problems(&root, &Git { is_commit: &|_| false, changed_since: &|_, _| panic!("asked about a non-commit") });
+        let bad = problems(
+            &root,
+            &Git {
+                is_commit: &|_| false,
+                object: &|_, _| panic!("asked about a non-commit"),
+                changed_since: &|_, _| panic!("asked about a non-commit"),
+            },
+        );
         for want in [
             "turn.md: verified_at `abc1234` is not a commit",
             "turn.md: surface `web` is not declared",
@@ -350,7 +372,8 @@ pub(super) mod tests {
             ## Sub-features\n\n- `turn-new` x\n\n## How to get to it (user POV)\n\n- x\n\n\
             Recipe: `.agents/skills/verify-construct/recipes/turn`.\n";
         write(&root, &format!("{MAP}/turn.md"), entry);
-        let bad = problems(&root, &Git { is_commit: &|_| true, changed_since: &|_, _| Vec::new() });
+        let bad =
+            problems(&root, &Git { is_commit: &|_| true, object: &|_, _| None, changed_since: &|_, _| Vec::new() });
         assert_eq!(bad.len(), 1, "{bad:#?}");
         assert!(bad[0].contains("sections out of order"), "{bad:#?}");
         let _ = std::fs::remove_dir_all(&root);
@@ -371,7 +394,6 @@ pub(super) mod tests {
         let root = tree("nodeps");
         write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("depends: [crates/construct/src/tui/theme.rs]\n", ""));
         let bad = quiet(&root);
-        assert_eq!(bad.len(), 1, "{bad:#?}");
         assert!(bad[0].contains("verified with no depends"), "{bad:#?}");
         let _ = std::fs::remove_dir_all(&root);
     }

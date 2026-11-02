@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui, cli]
 depends: [crates/construct/src/jobs, crates/construct/src/cli/headless.rs, crates/construct/src/agent/wake.rs, crates/construct/src/tools/shell_job.rs, crates/construct/src/tools/job.rs, crates/construct/src/tools/delegate/background.rs, crates/construct/src/tui/jobs.rs, crates/construct-dev/tests/jobs.rs]
 verified_at: 6796d22
+verified_deps: 2da9952511b9f8b2
 ---
 # Background jobs
 

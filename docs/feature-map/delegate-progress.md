@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/children.rs, crates/construct/src/tui/dock.rs, crates/construct/src/tui/peek.rs, crates/construct/src/tui/jobs.rs, crates/construct/src/tools/call.rs, crates/construct/src/journal/mod.rs]
 verified_at: 6796d22
+verified_deps: dc41690bcba06b1d
 ---
 # Delegate progress
 

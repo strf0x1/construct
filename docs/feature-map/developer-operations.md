@@ -4,6 +4,7 @@ status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tools/developer, crates/construct/src/permission/operation.rs, crates/construct/src/tui/ask.rs, crates/construct/src/tui/prompt.rs, crates/construct-dev/tests/developer.rs]
 verified_at: b4ca333
+verified_deps: dc1d4db36e481192
 ---
 # Approved developer operations
 
