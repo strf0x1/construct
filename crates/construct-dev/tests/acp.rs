@@ -8,19 +8,19 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 /// An ACP client on the other end of `construct acp`.
-struct Client {
+pub(super) struct Client {
     child: Child,
     stdin: Option<ChildStdin>,
     out: BufReader<ChildStdout>,
-    next: u64,
+    pub(super) next: u64,
     /// Responses that arrived while waiting for another id.
-    pending: std::collections::HashMap<u64, Value>,
+    pub(super) pending: std::collections::HashMap<u64, Value>,
     /// The option ids to pick, in order, when construct asks permission.
-    answers: VecDeque<&'static str>,
+    pub(super) answers: VecDeque<&'static str>,
 }
 
 impl Client {
-    fn start(env: &Env) -> Self {
+    pub(super) fn start(env: &Env) -> Self {
         let mut c = Command::new(construct());
         c.arg("acp").current_dir(&env.work).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
         for (k, v) in env.env() {
@@ -35,19 +35,25 @@ impl Client {
         Self { child, stdin, out, next: 0, pending: Default::default(), answers: VecDeque::new() }
     }
 
-    fn send(&mut self, v: Value) {
+    pub(super) fn read(&mut self) -> Value {
+        let mut line = String::new();
+        assert!(self.out.read_line(&mut line).unwrap() > 0, "construct acp closed");
+        serde_json::from_str(&line).unwrap()
+    }
+
+    pub(super) fn send(&mut self, v: Value) {
         let w = self.stdin.as_mut().unwrap();
         writeln!(w, "{v}").unwrap();
         w.flush().unwrap();
     }
 
-    fn notify(&mut self, method: &str, params: Value) {
+    pub(super) fn notify(&mut self, method: &str, params: Value) {
         self.send(json!({ "jsonrpc": "2.0", "method": method, "params": params }));
     }
 
     /// Send a request and return its id, for a response that may arrive after
     /// another one (a cancelled prompt and the close that cancelled it).
-    fn request(&mut self, method: &str, params: Value) -> u64 {
+    pub(super) fn request(&mut self, method: &str, params: Value) -> u64 {
         self.next += 1;
         let id = self.next;
         self.send(json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
@@ -56,12 +62,12 @@ impl Client {
 
     /// Send a request; collect the notifications (and permission requests,
     /// answered from `answers`) that arrive before its response.
-    fn call(&mut self, method: &str, params: Value) -> (Value, Vec<Value>) {
+    pub(super) fn call(&mut self, method: &str, params: Value) -> (Value, Vec<Value>) {
         let id = self.request(method, params);
         self.await_response(id)
     }
 
-    fn await_response(&mut self, id: u64) -> (Value, Vec<Value>) {
+    pub(super) fn await_response(&mut self, id: u64) -> (Value, Vec<Value>) {
         if let Some(v) = self.pending.remove(&id) {
             return (v, vec![]);
         }
@@ -95,13 +101,13 @@ impl Client {
         let _ = self.child.wait();
     }
 
-    fn finish(mut self) {
+    pub(super) fn finish(mut self) {
         drop(self.stdin.take());
         assert!(self.child.wait().unwrap().success());
     }
 }
 
-fn updates<'a>(notes: &'a [Value], kind: &str) -> Vec<&'a Value> {
+pub(super) fn updates<'a>(notes: &'a [Value], kind: &str) -> Vec<&'a Value> {
     notes
         .iter()
         .filter(|n| n["method"] == "session/update" && n["params"]["update"]["sessionUpdate"] == kind)
@@ -252,6 +258,7 @@ fn session_load_capabilities_and_refusals_are_clear() {
     let (init, _) = first.call("initialize", json!({ "protocolVersion": 1 }));
     let caps = &init["result"]["agentCapabilities"];
     assert_eq!(caps["loadSession"], true);
+    assert_eq!(caps["_meta"]["construct"]["liveAttach"], true);
     assert_eq!(caps["sessionCapabilities"], json!({ "resume": {}, "close": {} }));
     let (new, _) = first.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
     let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
@@ -277,7 +284,7 @@ fn session_load_capabilities_and_refusals_are_clear() {
     // A second agent on one journal is refused.
     let (loaded, _) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
-    assert_eq!(loaded["result"], json!({}), "{loaded}");
+    assert_eq!(loaded["result"]["_meta"]["construct"]["turn"]["state"], "idle", "{loaded}");
     let (again, _) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
     assert_eq!(again["error"]["code"], -32602, "{again}");
@@ -331,7 +338,7 @@ fn a_killed_session_loads_its_history_and_the_unknown_tool_is_not_rerun() {
     c.call("initialize", json!({ "protocolVersion": 1 }));
     let (loaded, notes) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
-    assert_eq!(loaded["result"], json!({}), "{loaded}");
+    assert_eq!(loaded["result"]["_meta"]["construct"]["turn"]["state"], "idle", "{loaded}");
     assert!(notes.iter().all(|n| n["params"]["sessionId"] == json!(sid)));
     let users: String =
         updates(&notes, "user_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
