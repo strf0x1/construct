@@ -148,9 +148,19 @@ impl Env {
 
     /// What each request's `Authorization` header looked like, in arrival order:
     /// null, or the scheme and the token's first four characters.
+    /// The endpoint appends this file while it runs, so a line can be caught
+    /// half-written; read until every line parses.
     pub fn auth_seen(&self) -> Vec<Value> {
-        let log = std::fs::read_to_string(self.dir.join("log.jsonl")).unwrap_or_default();
-        log.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()["auth"].clone()).collect()
+        let path = self.dir.join("log.jsonl");
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            let log = std::fs::read_to_string(&path).unwrap_or_default();
+            match log.lines().map(serde_json::from_str::<Value>).collect::<Result<Vec<_>, _>>() {
+                Ok(rows) => return rows.into_iter().map(|v| v["auth"].clone()).collect(),
+                Err(e) if std::time::Instant::now() >= deadline => panic!("reading {}: {e}", path.display()),
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            }
+        }
     }
 
     /// Every request body the harness sent, in order.
