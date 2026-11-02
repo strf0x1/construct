@@ -3,9 +3,16 @@
 //! The design choice: one reader loop owns the sessions and never blocks on a
 //! turn. A `session/prompt` runs as its own task so `session/cancel` (and
 //! stdin closing) can interrupt it; every line out goes through one writer
-//! task, so a turn's updates always precede its response. A session's
-//! permission questions go to the client (`ask`), whose responses this same
-//! loop reads, so a question never waits on a turn.
+//! task, so a turn's updates always precede its response.
+//!
+//! A session outlives the process: `session/load` and `session/resume` build
+//! the agent through the same `Agent::new(..., Some(id))` path `--resume`
+//! uses, so ownership, recovery, the directory check and the saved model are
+//! decided once. `load` replays the recorded conversation first; `resume`
+//! does not, because the client still has it.
+//!
+//! A session's permission questions go to the client (`ask`), whose responses
+//! this same loop reads, so a question never waits on a turn.
 
 use super::ask::{ClientAsk, Questions};
 use super::map::{self, EVENT_METHOD, META_KEY};
@@ -103,18 +110,27 @@ impl Server {
     }
 
     async fn request(&mut self, id: Value, method: &str, params: Value, turns: &mut JoinSet<()>) {
+        // A delegated child has one session, set up by its parent; loading
+        // another would build a user-config agent inside its boundary.
+        if self.mode == Mode::Child && matches!(method, "session/load" | "session/resume" | "session/close") {
+            return self.reply(&id, Err((rpc::METHOD_NOT_FOUND, format!("unknown method {method}"))));
+        }
         match method {
             "initialize" => {
                 self.lossless = params["clientCapabilities"]["_meta"][META_KEY]["events"] == json!(true);
+                let mut caps = json!({
+                    "loadSession": self.mode == Mode::User,
+                    "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
+                    "mcpCapabilities": { "http": false, "sse": false },
+                    "_meta": { META_KEY: { "events": true } },
+                });
+                if self.mode == Mode::User {
+                    caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
+                }
                 let result = json!({
                     "protocolVersion": VERSION,
                     "agentInfo": { "name": "construct", "title": "construct", "version": env!("CARGO_PKG_VERSION") },
-                    "agentCapabilities": {
-                        "loadSession": false,
-                        "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
-                        "mcpCapabilities": { "http": false, "sse": false },
-                        "_meta": { META_KEY: { "events": true } },
-                    },
+                    "agentCapabilities": caps,
                     "authMethods": [],
                 });
                 self.reply(&id, Ok(result));
@@ -122,6 +138,15 @@ impl Server {
             "session/new" => {
                 let r = self.new_session(&params).map(|sid| json!({ "sessionId": sid }));
                 self.reply(&id, r.map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}"))));
+            }
+            "session/load" => self.load(&id, &params, true),
+            "session/resume" => self.load(&id, &params, false),
+            "session/close" => {
+                // Idempotent: a session this connection never had is closed.
+                if let Some(s) = self.sessions.remove(params["sessionId"].as_str().unwrap_or_default()) {
+                    s.cancel.send_replace(true);
+                }
+                self.reply(&id, Ok(json!({})));
             }
             "session/prompt" => {
                 let sid = params["sessionId"].as_str().unwrap_or_default();
@@ -143,8 +168,7 @@ impl Server {
     }
 
     fn new_session(&mut self, params: &Value) -> Result<String> {
-        let cwd = params["cwd"].as_str().filter(|c| !c.is_empty()).map(PathBuf::from);
-        let Some(cwd) = cwd else { anyhow::bail!("cwd is required") };
+        let cwd = cwd(params)?;
         let agent = match self.mode {
             Mode::User => Agent::new(self.cfg.clone(), self.paths.clone(), cwd, None)?,
             Mode::Child => {
@@ -155,8 +179,54 @@ impl Server {
                 Agent::child(*config, self.paths.clone(), cwd, *origin)?
             }
         };
-        // The journal's session id is the ACP session id, so the record and
-        // the wire name a session the same way.
+        Ok(self.register(agent))
+    }
+
+    /// `session/load` replays the recorded conversation before it answers;
+    /// `session/resume` is for a client that still has it.
+    fn load(&mut self, id: &Value, params: &Value, replay: bool) {
+        let r = self.try_load(params, replay);
+        let _ = self.out.send(match r {
+            Ok(v) => rpc::ok(id, v),
+            Err((rpc::NOT_FOUND, m)) => {
+                rpc::err_data(id, rpc::NOT_FOUND, &m, json!({ "sessionId": params["sessionId"] }))
+            }
+            Err((code, m)) => rpc::err(id, code, &m),
+        });
+    }
+
+    fn try_load(&mut self, params: &Value, replay: bool) -> Result<Value, (i64, String)> {
+        let Some(sid) = params["sessionId"].as_str().filter(|s| !s.is_empty()) else {
+            return Err((rpc::INVALID_PARAMS, "sessionId is required".into()));
+        };
+        let cwd = cwd(params).map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
+        if self.sessions.contains_key(sid) {
+            return Err((rpc::INVALID_PARAMS, format!("session {sid} is already loaded on this connection")));
+        }
+        if crate::journal::find(&self.paths, sid).is_err() {
+            return Err((rpc::NOT_FOUND, format!("no session {sid}")));
+        }
+        // Ownership, recovery, the directory check and the saved model are
+        // the resume path's, so `--resume` and ACP cannot disagree. The
+        // client's `mcpServers` are ignored, as in `session/new`: construct's
+        // servers come from config, and their credentials never reach a log.
+        let agent = Agent::new(self.cfg.clone(), self.paths.clone(), cwd, Some(sid.to_string()))
+            .map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
+        if replay {
+            let entries = agent.journal.entries().map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
+            let catalog = agent.catalog.clone();
+            for update in map::history(&entries, &|name| catalog.kind_of(name)) {
+                let line = rpc::notification("session/update", json!({ "sessionId": sid, "update": update }));
+                let _ = self.out.send(line);
+            }
+        }
+        self.register(agent);
+        Ok(json!({}))
+    }
+
+    /// Take a built agent into the session table. The journal's session id is
+    /// the ACP session id, so the record and the wire name it the same way.
+    fn register(&mut self, agent: Agent) -> String {
         let sid = agent.journal.session.clone();
         // The user's own session asks its client. A delegated child over ACP
         // still has nobody to ask (ADR 0016) and keeps denying.
@@ -165,8 +235,16 @@ impl Server {
         }
         let cancel = agent.canceller();
         self.sessions.insert(sid.clone(), Session { agent: Arc::new(Mutex::new(agent)), cancel });
-        Ok(sid)
+        sid
     }
+}
+
+fn cwd(params: &Value) -> Result<PathBuf> {
+    params["cwd"]
+        .as_str()
+        .filter(|c| !c.is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| anyhow::anyhow!("cwd is required"))
 }
 
 /// Run one turn, stream it, then answer the request.

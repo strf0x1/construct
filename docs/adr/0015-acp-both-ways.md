@@ -13,9 +13,10 @@ said ACP would replace the wire and keep the rest.
 
 - `construct acp` serves construct as an ACP agent (`acp/server.rs`):
   `initialize`, `session/new`, `session/prompt` (streamed `session/update`s,
-  then a stop reason), `session/cancel`. The ACP session id is the journal
-  session id. construct has no approval flow (the sandbox is the boundary), so
-  the server never sends `session/request_permission`.
+  then a stop reason), `session/cancel`; `session/load`, `session/resume` and
+  `session/close` are 0032. The ACP session id is the journal session id. A
+  user session asks its client for permission (0016); a delegated child has
+  nobody to ask and keeps denying.
 - A definition with `protocol = "acp"` and no `command` runs
   `construct __child --acp`; with `command = [...]` it runs that program. Both
   run under the same sandbox helper, environment scrub and timeout as a JSONL

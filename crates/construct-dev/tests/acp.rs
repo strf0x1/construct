@@ -13,6 +13,8 @@ struct Client {
     stdin: Option<ChildStdin>,
     out: BufReader<ChildStdout>,
     next: u64,
+    /// Responses that arrived while waiting for another id.
+    pending: std::collections::HashMap<u64, Value>,
     /// The option ids to pick, in order, when construct asks permission.
     answers: VecDeque<&'static str>,
 }
@@ -30,7 +32,7 @@ impl Client {
         }
         let mut child = c.spawn().unwrap();
         let (stdin, out) = (child.stdin.take(), BufReader::new(child.stdout.take().unwrap()));
-        Self { child, stdin, out, next: 0, answers: VecDeque::new() }
+        Self { child, stdin, out, next: 0, pending: Default::default(), answers: VecDeque::new() }
     }
 
     fn send(&mut self, v: Value) {
@@ -43,12 +45,26 @@ impl Client {
         self.send(json!({ "jsonrpc": "2.0", "method": method, "params": params }));
     }
 
-    /// Send a request; collect the notifications (and permission requests,
-    /// answered from `answers`) that arrive before its response.
-    fn call(&mut self, method: &str, params: Value) -> (Value, Vec<Value>) {
+    /// Send a request and return its id, for a response that may arrive after
+    /// another one (a cancelled prompt and the close that cancelled it).
+    fn request(&mut self, method: &str, params: Value) -> u64 {
         self.next += 1;
         let id = self.next;
         self.send(json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
+        id
+    }
+
+    /// Send a request; collect the notifications (and permission requests,
+    /// answered from `answers`) that arrive before its response.
+    fn call(&mut self, method: &str, params: Value) -> (Value, Vec<Value>) {
+        let id = self.request(method, params);
+        self.await_response(id)
+    }
+
+    fn await_response(&mut self, id: u64) -> (Value, Vec<Value>) {
+        if let Some(v) = self.pending.remove(&id) {
+            return (v, vec![]);
+        }
         let mut notes = vec![];
         loop {
             let mut l = String::new();
@@ -63,8 +79,20 @@ impl Client {
                 let outcome = json!({ "outcome": "selected", "optionId": pick });
                 self.send(json!({ "jsonrpc": "2.0", "id": v["id"], "result": { "outcome": outcome } }));
             }
+            if v["method"].is_null()
+                && let Some(other) = v["id"].as_u64()
+            {
+                self.pending.insert(other, v.clone());
+            }
             notes.push(v);
         }
+    }
+
+    /// Stop the agent the way a crash or a stopped VM does: no shutdown, no
+    /// closing the journal by hand.
+    fn kill(mut self) {
+        self.child.kill().unwrap();
+        let _ = self.child.wait();
     }
 
     fn finish(mut self) {
@@ -214,5 +242,183 @@ fn session_cancel_ends_a_running_turn_as_cancelled() {
     };
     assert_eq!(resp["result"]["stopReason"], "cancelled", "{resp}");
     assert!(started.elapsed().as_millis() < budget(10_000) as u128);
+    c.finish();
+}
+
+#[test]
+fn session_load_capabilities_and_refusals_are_clear() {
+    let env = Env::new("acp-load-refusals", json!({ "steps": [{ "text": "hi" }] }));
+    let mut first = Client::start(&env);
+    let (init, _) = first.call("initialize", json!({ "protocolVersion": 1 }));
+    let caps = &init["result"]["agentCapabilities"];
+    assert_eq!(caps["loadSession"], true);
+    assert_eq!(caps["sessionCapabilities"], json!({ "resume": {}, "close": {} }));
+    let (new, _) = first.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    first.finish();
+
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    // Unknown: ACP's resource-not-found, naming the session.
+    let (none, _) =
+        c.call("session/load", json!({ "sessionId": "nope", "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(none["error"]["code"], -32002, "{none}");
+    assert_eq!(none["error"]["data"]["sessionId"], "nope");
+    assert!(none["error"]["message"].as_str().unwrap().contains("no session"), "{none}");
+
+    // Another directory: the journal knows the session, this cwd does not.
+    let elsewhere = env.dir.join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let (wrong, _) =
+        c.call("session/load", json!({ "sessionId": sid, "cwd": elsewhere.display().to_string(), "mcpServers": [] }));
+    assert_eq!(wrong["error"]["code"], -32602, "{wrong}");
+    assert!(wrong["error"]["message"].as_str().unwrap().contains("belongs to"), "{wrong}");
+
+    // A second agent on one journal is refused.
+    let (loaded, _) =
+        c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(loaded["result"], json!({}), "{loaded}");
+    let (again, _) =
+        c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(again["error"]["code"], -32602, "{again}");
+    assert!(again["error"]["message"].as_str().unwrap().contains("already loaded"), "{again}");
+    c.finish();
+}
+
+#[test]
+fn a_session_owned_by_another_process_is_refused() {
+    let env = Env::new("acp-load-owned", json!({ "steps": [{ "text": "hi" }] }));
+    let mut first = Client::start(&env);
+    first.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = first.call("session/new", json!({ "cwd": env.work.display().to_string() }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+
+    let mut second = Client::start(&env);
+    second.call("initialize", json!({ "protocolVersion": 1 }));
+    let (busy, _) = second
+        .call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(busy["error"]["code"], -32602, "{busy}");
+    assert!(busy["error"]["message"].as_str().unwrap().contains("in use by another process"), "{busy}");
+    second.finish();
+    first.finish();
+}
+
+#[test]
+fn a_killed_session_loads_its_history_and_the_unknown_tool_is_not_rerun() {
+    let env = Env::new(
+        "acp-load",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "sleep 30" } },
+            { "text": "back" }
+        ] }),
+    );
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    c.request("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "wait for it" }] }));
+    // Kill the agent once the tool is running, as a crash or a stopped VM would.
+    loop {
+        let mut l = String::new();
+        assert!(c.out.read_line(&mut l).unwrap() > 0);
+        if l.contains("\"tool_call\"") {
+            break;
+        }
+    }
+    c.kill();
+
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (loaded, notes) =
+        c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(loaded["result"], json!({}), "{loaded}");
+    assert!(notes.iter().all(|n| n["params"]["sessionId"] == json!(sid)));
+    let users: String =
+        updates(&notes, "user_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
+    assert_eq!(users, "wait for it");
+    let calls = updates(&notes, "tool_call");
+    assert_eq!(calls.len(), 1, "{calls:?}");
+    assert_eq!((calls[0]["status"].as_str(), calls[0]["kind"].as_str()), (Some("failed"), Some("execute")));
+    let output = calls[0]["content"][0]["content"]["text"].as_str().unwrap_or_default();
+    assert!(output.contains("outcome is unknown"), "{output}");
+    let said: String =
+        updates(&notes, "agent_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
+    assert!(said.contains("Previous turn was interrupted"), "{said}");
+
+    // The session continues, and the interrupted call was never retried.
+    let (done, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "again" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn", "{done}");
+    let said: String =
+        updates(&notes, "agent_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
+    assert_eq!(said, "back");
+    let rows = env.journal();
+    let starts = rows.iter().filter(|r| r.session == sid && r.ty == "tool_start").count();
+    assert_eq!(starts, 1, "the unknown call was not re-run");
+    let ends: Vec<&Value> =
+        rows.iter().filter(|r| r.session == sid && r.ty == "tool_end").map(|r| &r.payload).collect();
+    assert_eq!(ends.len(), 1, "{ends:?}");
+    assert_eq!(ends[0]["code"], "interrupted_unknown");
+    c.finish();
+}
+
+#[test]
+fn session_resume_reattaches_without_history_and_can_prompt() {
+    let env = Env::new("acp-resume", json!({ "steps": [{ "text": "first" }, { "text": "second" }] }));
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let (done, _) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "one" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn", "{done}");
+    c.finish();
+
+    let mut c = Client::start(&env);
+    let (init, _) = c.call("initialize", json!({ "protocolVersion": 1 }));
+    assert_eq!(init["result"]["agentCapabilities"]["sessionCapabilities"]["resume"], json!({}));
+    let (resumed, notes) =
+        c.call("session/resume", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    assert_eq!(resumed["result"], json!({}), "{resumed}");
+    assert!(notes.is_empty(), "resume replays nothing: {notes:?}");
+    let (done, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "two" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn", "{done}");
+    let said: String =
+        updates(&notes, "agent_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
+    assert_eq!(said, "second");
+    c.finish();
+}
+
+#[test]
+fn session_close_ends_the_turn_and_is_idempotent() {
+    let env = Env::new(
+        "acp-close",
+        json!({ "steps": [{ "call": "shell", "args": { "command": "sleep 30" } }, { "text": "late" }] }),
+    );
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let prompt =
+        c.request("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "wait" }] }));
+    loop {
+        let mut l = String::new();
+        assert!(c.out.read_line(&mut l).unwrap() > 0);
+        if l.contains("\"tool_call\"") {
+            break;
+        }
+    }
+    let started = std::time::Instant::now();
+    let (closed, _) = c.call("session/close", json!({ "sessionId": sid }));
+    assert_eq!(closed["result"], json!({}), "{closed}");
+    let (done, _) = c.await_response(prompt);
+    assert_eq!(done["result"]["stopReason"], "cancelled", "{done}");
+    assert!(started.elapsed().as_millis() < budget(10_000) as u128);
+    // Closing again, or closing what was never open, still succeeds.
+    let (again, _) = c.call("session/close", json!({ "sessionId": sid }));
+    assert_eq!(again["result"], json!({}), "{again}");
+    let (unknown, _) = c.call("session/close", json!({ "sessionId": "nope" }));
+    assert_eq!(unknown["result"], json!({}), "{unknown}");
     c.finish();
 }
