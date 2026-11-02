@@ -5,7 +5,9 @@ use crate::common::*;
 use serde_json::{Value, json};
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// An ACP client on the other end of `construct acp`.
 pub(super) struct Client {
@@ -17,12 +19,22 @@ pub(super) struct Client {
     pub(super) pending: std::collections::HashMap<u64, Value>,
     /// The option ids to pick, in order, when construct asks permission.
     pub(super) answers: VecDeque<&'static str>,
+    /// Where the agent's diagnostics go (`Stdio::piped` would risk a full pipe).
+    stderr: PathBuf,
 }
+
+static NEXT_CLIENT: AtomicUsize = AtomicUsize::new(0);
 
 impl Client {
     pub(super) fn start(env: &Env) -> Self {
+        Self::start_with(env, &[])
+    }
+
+    pub(super) fn start_with(env: &Env, extra: &[(&str, &str)]) -> Self {
+        let stderr = env.dir.join(format!("acp-stderr-{}.log", NEXT_CLIENT.fetch_add(1, Ordering::Relaxed)));
         let mut c = Command::new(construct());
-        c.arg("acp").current_dir(&env.work).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
+        c.arg("acp").current_dir(&env.work).stdin(Stdio::piped()).stdout(Stdio::piped());
+        c.stderr(Stdio::from(std::fs::File::create(&stderr).unwrap()));
         for (k, v) in env.env() {
             if v.is_empty() {
                 c.env_remove(k);
@@ -30,9 +42,16 @@ impl Client {
                 c.env(k, v);
             }
         }
+        c.envs(extra.iter().copied());
         let mut child = c.spawn().unwrap();
         let (stdin, out) = (child.stdin.take(), BufReader::new(child.stdout.take().unwrap()));
-        Self { child, stdin, out, next: 0, pending: Default::default(), answers: VecDeque::new() }
+        Self { child, stdin, out, next: 0, pending: Default::default(), answers: VecDeque::new(), stderr }
+    }
+
+    /// Everything the agent wrote to stderr so far. Call after the turn that
+    /// produced the diagnostic, or after the process exited.
+    pub(super) fn stderr_text(&self) -> String {
+        std::fs::read_to_string(&self.stderr).unwrap_or_default()
     }
 
     pub(super) fn read(&mut self) -> Value {
@@ -187,6 +206,41 @@ fn a_completed_turn_is_on_disk_after_a_kill_without_close() {
     assert!(types.contains(&"turn_end"), "{types:?}");
     let assistant = rows.iter().find(|r| r.ty == "assistant").expect("the final message was journaled");
     assert_eq!(assistant.payload["message"]["content"], json!(said));
+}
+
+#[test]
+fn acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr() {
+    // #162: a strict ACP client parses every stdout line as JSON-RPC, so the
+    // diagnostics from the issue must go to stderr. `Client::call` parses
+    // every line it reads and rejects anything that is not a `jsonrpc` frame.
+    let env = Env::new("acp-stdout", json!({ "steps": [{ "text": "clean" }] }));
+    let state = env.dir.join("secretspec-state");
+    let config = env.dir.join("secretspec-config");
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::create_dir_all(&config).unwrap();
+    let mut c = Client::start_with(
+        &env,
+        &[
+            // A fresh state dir forces secretspec's first-run audit note.
+            ("XDG_STATE_HOME", state.to_str().unwrap()),
+            ("XDG_CONFIG_HOME", config.to_str().unwrap()),
+            // An unreachable bus forces the keyring provider to fail, so the
+            // provider-chain warning is deterministic on Linux.
+            ("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent-construct-test"),
+        ],
+    );
+    c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": {} }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let (done, _) = c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "hi" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn");
+    // The router resolves TYPESAFE_API_KEY inside the turn, which is the first
+    // secret resolution; both diagnostics are prose, not protocol frames.
+    let err = c.stderr_text();
+    assert!(err.contains("note: secretspec is now recording"), "stderr: {err}");
+    #[cfg(target_os = "linux")]
+    assert!(err.contains("provider keyring failed for TYPESAFE_API_KEY"), "stderr: {err}");
+    c.finish();
 }
 
 #[test]

@@ -3,7 +3,11 @@
 //! The design choice: one reader loop owns the sessions and never blocks on a
 //! turn. A `session/prompt` runs as its own task so `session/cancel` (and
 //! stdin closing) can interrupt it; every line out goes through one writer
-//! task, so a turn's updates always precede its response.
+//! thread, so a turn's updates always precede its response.
+//!
+//! The protocol owns stdout: the writer keeps a private duplicate of fd 1 and
+//! fd 1 itself is pointed at stderr, so a `println!` or a dependency's log line
+//! becomes a diagnostic instead of a frame a strict client cannot parse (#162).
 //!
 //! Disk sessions outlive the process: `session/load` and `session/resume` build
 //! the agent through the same `Agent::new(..., Some(id))` path `--resume`
@@ -30,9 +34,10 @@ use anyhow::Result;
 use rpc::Incoming;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinSet;
 
@@ -48,10 +53,16 @@ type Out = mpsc::UnboundedSender<String>;
 
 pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
     let (out, mut lines_out) = mpsc::unbounded_channel::<String>();
-    let writer = tokio::spawn(async move {
-        let mut w = tokio::io::stdout();
-        while let Some(l) = lines_out.recv().await {
-            if w.write_all(l.as_bytes()).await.is_err() || w.flush().await.is_err() {
+    // Only this loop writes protocol frames; diagnostic writes go to stderr
+    // because `claim_stdout` points fd 1 there (ADR 0035).
+    let protocol = super::claim_stdout();
+    let writer = std::thread::spawn(move || {
+        let mut w: Box<dyn Write> = match protocol {
+            Some(fd) => Box::new(std::fs::File::from(fd)),
+            None => Box::new(std::io::stdout()),
+        };
+        while let Some(l) = lines_out.blocking_recv() {
+            if w.write_all(l.as_bytes()).and_then(|_| w.flush()).is_err() {
                 break;
             }
         }
@@ -118,7 +129,7 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
         }
     }
     drop(srv);
-    let _ = writer.await;
+    let _ = writer.join();
     Ok(())
 }
 
