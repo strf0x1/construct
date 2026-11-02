@@ -37,7 +37,7 @@ impl Server {
                 return Err((rpc::INVALID_PARAMS, format!("session {sid} is already loaded on this connection")));
             }
             if replay {
-                for update in s.transcript.updates(true, &|name| s.catalog.kind_of(name)) {
+                for update in s.replay() {
                     let _ = self
                         .out
                         .send(rpc::notification("session/update", json!({ "sessionId": sid, "update": update })));

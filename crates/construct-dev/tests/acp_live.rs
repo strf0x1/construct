@@ -394,3 +394,43 @@ fn cancelled_partial_text_survives_the_next_turn_and_a_later_attachment() {
     );
     c.finish();
 }
+
+#[test]
+fn a_replayed_pending_call_starts_with_an_update_instead_of_a_second_creation() {
+    let env = Env::new(
+        "acp-live-pending-start",
+        json!({ "steps": [ { "calls": [
+            { "call": "shell", "args": { "command": "while [ ! -f release ]; do sleep 0.02; done; printf shell-done" } },
+            { "call": "read", "args": { "path": "note.txt" } }
+        ] }, { "text": "done" } ] }),
+    );
+    std::fs::write(env.work.join("note.txt"), "hello from the queued read\n").unwrap();
+    let (mut c, sid) = start(&env);
+    prompt(&mut c, &sid);
+    loop {
+        if c.read()["params"]["update"]["sessionUpdate"] == "tool_call" {
+            break;
+        }
+    }
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (_, replay) = load(&mut c, &env, &sid);
+    let calls = updates(&replay, "tool_call");
+    assert_eq!(calls.len(), 2, "{replay:?}");
+    assert_eq!(calls.iter().filter(|c| c["status"] == "in_progress").count(), 1);
+    let pending: Vec<_> = calls.iter().filter(|c| c["status"] == "pending").collect();
+    assert_eq!(pending.len(), 1, "{replay:?}");
+    let pending_id = pending[0]["toolCallId"].as_str().unwrap().to_string();
+
+    std::fs::write(env.work.join("release"), "go").unwrap();
+    let later = idle(&mut c, &sid);
+    assert!(updates(&later, "tool_call").is_empty(), "replay already created both calls: {later:?}");
+    let transitions = updates(&later, "tool_call_update");
+    let statuses: Vec<_> =
+        transitions.iter().filter(|u| u["toolCallId"] == pending_id).map(|u| u["status"].as_str().unwrap()).collect();
+    assert_eq!(statuses, ["in_progress", "completed"]);
+    let ends: Vec<_> = env.journal().into_iter().filter(|r| r.ty == "tool_end").collect();
+    assert_eq!(ends.len(), 2);
+    assert!(ends.iter().all(|r| r.payload["ok"] == true));
+    assert!(ends.iter().any(|r| r.payload["output"].as_str().unwrap().contains("hello from the queued read")));
+    c.finish();
+}

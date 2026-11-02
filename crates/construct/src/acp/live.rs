@@ -13,7 +13,7 @@ use crate::event::Event;
 use crate::permission::Request;
 use crate::tools::Catalog;
 use serde_json::{Value, json};
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, oneshot, watch};
@@ -36,6 +36,7 @@ pub(super) struct Session {
     pub catalog: Arc<Catalog>,
     pub cwd: PathBuf,
     pub transcript: Transcript,
+    pub announced: BTreeSet<String>,
     pub turn: Turn,
     pub attached: u64,
     pub prompts: VecDeque<Prompt>,
@@ -65,6 +66,26 @@ impl Turn {
             value["stopReason"] = json!(reason);
         }
         value
+    }
+}
+
+impl Session {
+    /// Replay replaces the client's view, including its known tool calls.
+    pub fn replay(&mut self) -> Vec<Value> {
+        let updates = self.transcript.updates(true, &|name| self.catalog.kind_of(name));
+        self.announced = updates.iter().filter_map(|u| u["toolCallId"].as_str().map(str::to_string)).collect();
+        updates
+    }
+
+    /// A call created by replay already has a client row when execution starts.
+    pub fn update(&mut self, event: &Event) -> Option<Value> {
+        let mut update = map::update(event, &|name| self.catalog.kind_of(name))?;
+        if let Event::ToolStart { id, .. } = event
+            && !self.announced.insert(id.clone())
+        {
+            update["sessionUpdate"] = json!("tool_call_update");
+        }
+        Some(update)
     }
 }
 
@@ -124,7 +145,7 @@ impl Server {
                 }
                 let line = if self.lossless {
                     rpc::notification(EVENT_METHOD, json!({ "sessionId": session, "event": event }))
-                } else if let Some(update) = map::update(&event, &|name| s.catalog.kind_of(name)) {
+                } else if let Some(update) = s.update(&event) {
                     rpc::notification("session/update", json!({ "sessionId": session, "update": update }))
                 } else {
                     return;

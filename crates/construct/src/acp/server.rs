@@ -264,6 +264,7 @@ impl Server {
                 generation: self.next_session,
                 cancel,
                 transcript,
+                announced: Default::default(),
                 turn,
                 catalog: agent.catalog.clone(),
                 cwd: agent.ctx.cwd.clone(),
