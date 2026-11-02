@@ -1612,8 +1612,29 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     let (short, long) = (budget(3000), budget(5000));
     let script = format!(
         "wait \"ask construct\" {short}\ntype one\nkey enter\nwait \"first-reply\" {long}\n\
-         type two\nkey enter\nwait \"second-reply\" {long}\ntype /status\nkey enter\nwait \"requests\" {short}\n"
+         type two\nkey enter\nwait \"second-reply\" {long}\n"
     );
+    if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
+        panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
+    }
+    // A reply's text is drawn before its usage event reaches the TUI, and the
+    // status line's counters come from those events while `/status` reads the
+    // journal. Wait for the journal to hold both turns' usage, then for the
+    // status line to catch up, so the two cannot disagree in the snapshot.
+    let deadline = std::time::Instant::now() + Duration::from_millis(long);
+    let mut usage = Vec::new();
+    while usage.len() < 2 && std::time::Instant::now() < deadline {
+        usage = env.journal().into_iter().filter(|r| r.ty == "usage").collect();
+        if usage.len() < 2 {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+    assert_eq!(usage.len(), 2, "both turns' usage rows\n{}", String::from_utf8_lossy(&log));
+    let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
+    // Totals on screen are the journal's own sums, formatted the same way.
+    let human = construct::journal::human;
+    let billed = format!("billed ↑{} ↓{}", human(sum("prompt")), human(sum("completion")));
+    let script = format!("type /status\nkey enter\nwait \"requests\" {short}\nwait \"{billed}\" {short}\n");
     if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
         panic!("{e:#}\n{}", String::from_utf8_lossy(&log));
     }
@@ -1622,11 +1643,6 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     let head = rows.iter().find(|r| r.ty == "head").expect("head row");
     assert!(screen.contains(&format!("session   {}", head.session)), "session id on screen\n{screen}");
     assert!(screen.contains("journal   ") && screen.contains("journal.sqlite"), "{screen}");
-    let usage: Vec<_> = rows.iter().filter(|r| r.ty == "usage").collect();
-    assert_eq!(usage.len(), 2);
-    let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
-    // Totals on screen are the journal's own sums, formatted the same way.
-    let human = construct::journal::human;
     let row = |label: &str| {
         screen.lines().find(|l| l.contains(label)).unwrap_or_else(|| panic!("{label} row\n{screen}")).to_string()
     };
