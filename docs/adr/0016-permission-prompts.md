@@ -44,7 +44,18 @@ call, in a process that may not be the one with the terminal.
   are the real ones; the child's `Always` is returned to it as `Session`. What
   was lent to an agent for the session is added to its policy at its next
   delegation, and to the call that asked at once (ADR 0017). A child over ACP transport has no question channel yet and keeps
-  denying; that, and `construct acp` asking its client, are separate decisions.
+  denying; that is a separate decision.
+- `construct acp` asks its client (2026-11-01, deck#13): a question goes out as
+  `session/request_permission` (`acp::ask`) with the same answers the TUI
+  offers, as options whose ids are the verdicts (`once`, `session`, `always`,
+  `deny`, and `folder-session`/`folder-always`). An unknown option, an error,
+  or a client that goes away is a deny; `cancelled` is a cancel. The request's
+  `toolCallId` names the question (`ask-N`), not the tool call, because
+  `Perms` is not told which call is asking; the request is in `rawInput`.
+  "Always" writes the user's own `config.toml`, as in the TUI: a client the
+  user runs `construct acp` under is the user at the keyboard. This is
+  cooperative (ACP's security model): it changes who is asked, not what
+  the sandbox enforces.
 - ACP agents: `[agents.x] on_permission` is now `ask` (default), `reject` or
   `allow`; `ask` with nobody to ask is a reject, which is what the default was
   (ADR 0015). `allow_kinds = ["read", ...]` answers those ACP tool kinds with an
@@ -68,7 +79,9 @@ Hard: a rerun repeats a command's side effects up to the point it failed; the
 panel says so, and the command text is shown. The path heuristic for shell
 output is prose parsing: a miss gives the model the plain sandbox hint, as
 before. Revisit if models use an up-front escalation field instead (Codex), or
-when a child over ACP should be able to ask.
+when a child over ACP should be able to ask. An ACP client that wants to show
+the question on the call that asked has only the title to go on until `Perms`
+carries the call id.
 
 ## Evidence
 

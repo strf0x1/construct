@@ -35,6 +35,16 @@ impl Choice {
         }
     }
 
+    fn of(v: Verdict) -> Option<Choice> {
+        match v {
+            Verdict::Once => Some(Choice::Once),
+            Verdict::Session => Some(Choice::Session),
+            Verdict::Always => Some(Choice::Always),
+            Verdict::Deny => Some(Choice::Deny),
+            Verdict::Cancel => None,
+        }
+    }
+
     fn verdict(self) -> Verdict {
         match self {
             Choice::Once => Verdict::Once,
@@ -69,26 +79,14 @@ impl Prompt {
         }
     }
 
-    /// What can be answered, in the order shown. Nothing is offered that the
-    /// answer couldn't deliver: no "always" for a call with no kind to
-    /// remember, no allow where the agent offered no allow option.
+    /// What can be answered, in the order shown (`Request::offers`).
     pub(super) fn choices(&self) -> Vec<Choice> {
-        match &self.request {
-            Request::Operation(_) => vec![Choice::Once, Choice::Session, Choice::Deny],
-            Request::Path(p) if p.no_always => vec![Choice::Once, Choice::Session, Choice::Deny],
-            Request::Path(_) => vec![Choice::Once, Choice::Session, Choice::Always, Choice::Deny],
-            Request::Tool(t) if !t.can_allow => vec![Choice::Deny],
-            Request::Tool(t) if t.kind.is_none() => vec![Choice::Once, Choice::Session, Choice::Deny],
-            Request::Tool(_) => vec![Choice::Once, Choice::Session, Choice::Always, Choice::Deny],
-        }
+        self.request.offers().into_iter().filter_map(Choice::of).collect()
     }
 
     /// The folder on offer, if there is one.
     pub(super) fn folder_offered(&self) -> Option<&str> {
-        match &self.request {
-            Request::Path(p) => p.folder.as_deref(),
-            Request::Tool(_) | Request::Operation(_) => None,
-        }
+        self.request.folder()
     }
 
     pub(super) fn ready(&self) -> bool {

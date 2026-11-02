@@ -122,6 +122,29 @@ impl Request {
         }
         self
     }
+
+    /// The answers on offer, in the order shown. Nothing is offered that the
+    /// answer couldn't deliver: no "always" for a call with no kind to
+    /// remember, no allow where the agent offered no allow option.
+    pub fn offers(&self) -> Vec<Verdict> {
+        use Verdict::{Always, Deny, Once, Session};
+        match self {
+            Request::Operation(_) => vec![Once, Session, Deny],
+            Request::Path(p) if p.no_always => vec![Once, Session, Deny],
+            Request::Path(_) => vec![Once, Session, Always, Deny],
+            Request::Tool(t) if !t.can_allow => vec![Deny],
+            Request::Tool(t) if t.kind.is_none() => vec![Once, Session, Deny],
+            Request::Tool(_) => vec![Once, Session, Always, Deny],
+        }
+    }
+
+    /// The folder on offer, if there is one.
+    pub fn folder(&self) -> Option<&str> {
+        match self {
+            Request::Path(p) => p.folder.as_deref(),
+            Request::Tool(_) | Request::Operation(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
