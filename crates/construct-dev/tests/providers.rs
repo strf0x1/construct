@@ -310,7 +310,7 @@ fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
     ));
     let mut d = picker_driver(&a);
     let mut log = Vec::new();
-    let short = budget(3000);
+    let (short, slow) = (budget(3000), budget(10_000));
     run(
         &mut d,
         &mut log,
@@ -318,7 +318,10 @@ fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
             "wait \"ask construct\" {short}\nsleep 1500\ntype /model\nkey enter\nwait \"search models…\" {short}\n"
         ),
     );
-    run(&mut d, &mut log, &format!("wait \"down · unreachable\" {short}\nwait \"Reach       listed\" {short}\n"));
+    // Startup discovery is the only thing that asks a server, and on a loaded
+    // runner it can still be running when the box opens; the box fills in as
+    // each provider answers.
+    run(&mut d, &mut log, &format!("wait \"down · unreachable\" {slow}\nwait \"Reach       listed\" {short}\n"));
     run(
         &mut d,
         &mut log,
