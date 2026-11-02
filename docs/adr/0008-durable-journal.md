@@ -36,8 +36,9 @@ landed and what it cost.
   at_ms, payload)`; indexes on `(session_id, seq)`, `type` and
   `json_extract(payload, '$.id')`; an FTS5 external-content table over the
   `user`, `assistant` and `tool_result` text (not the system prompt, which
-  repeats per session), kept in step by triggers. WAL, `synchronous=NORMAL`,
-  a 10 s busy timeout, and a retry around the first WAL switch and migration,
+  repeats per session), kept in step by triggers. WAL, `synchronous=NORMAL`
+  (amended by ADR 0034: `FULL`, one fsync per commit), a 10 s busy timeout,
+  and a retry around the first WAL switch and migration,
   which can report busy without waiting when sessions create the file at once.
 - **Every durable event is journaled on the way out.** `journal::Writer::emit`
   appends the row and sends the event under one lock, so rows and the stream
@@ -81,7 +82,8 @@ landed and what it cost.
   and `tool_result.message` hold the same text twice. Acceptable now; since
   dropping a field is not additive, changing that is a new ADR.
 - Rows are written synchronously on the agent's task. Each is one small
-  insert in WAL mode with no fsync; the tier 1 numbers below are the check.
+  insert in WAL mode with no fsync (ADR 0034 amended this to one fsync per
+  commit for VM/host durability); the tier 1 numbers below are the check.
 - `sessions/` is no longer written. Anything that read it must use the
   export or the journal.
 - Revisit if: payloads need a breaking change (bump `v`, upcast in

@@ -14,6 +14,7 @@ use crate::event::Event;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 mod browser;
 mod export;
@@ -76,6 +77,9 @@ pub fn path(paths: &crate::config::Paths, cwd: &Path) -> PathBuf {
 pub struct Journal {
     conn: Connection,
     file: PathBuf,
+    /// The first commit may create `-wal`/`-shm`; their directory entries are
+    /// synced once, after that commit (see `append`).
+    dir_synced: AtomicBool,
 }
 
 impl Journal {
@@ -84,11 +88,11 @@ impl Journal {
     /// for each other instead of failing.
     pub fn open(file: &Path) -> Result<Self> {
         if let Some(dir) = file.parent() {
-            std::fs::create_dir_all(dir)?;
+            create_dir_all_synced(dir)?;
         }
         let conn = Connection::open(file).with_context(|| format!("opening {}", file.display()))?;
         conn.busy_timeout(std::time::Duration::from_secs(10))?;
-        let mut j = Self { conn, file: file.to_path_buf() };
+        let mut j = Self { conn, file: file.to_path_buf(), dir_synced: AtomicBool::new(false) };
         // Switching a new file to WAL, and the first migration, can report
         // busy without waiting when several sessions create it at once.
         let mut tries = 0;
@@ -105,9 +109,11 @@ impl Journal {
 
     fn setup(&mut self) -> rusqlite::Result<()> {
         self.conn.pragma_update(None, "journal_mode", "wal")?;
-        // WAL + NORMAL: a crash of construct loses nothing; only power loss
-        // can lose the last commits. No fsync per row.
-        self.conn.pragma_update(None, "synchronous", "normal")?;
+        // WAL + FULL: every commit fsyncs the WAL before `append` returns, so
+        // a row is on disk before `Writer::emit` sends its event. NORMAL only
+        // survives the death of this process; it leaves the commit in the page
+        // cache, which dies with the machine or the VM holding it (#161).
+        self.conn.pragma_update(None, "synchronous", "full")?;
         self.migrate()
     }
 
@@ -136,6 +142,15 @@ impl Journal {
         self.conn
             .prepare_cached("INSERT INTO events (session_id, type, v, at_ms, payload) VALUES (?1, ?2, ?3, ?4, ?5)")?
             .execute(params![session, ty, PAYLOAD_V, now_ms() as i64, v.to_string()])?;
+        if !self.dir_synced.load(Ordering::Relaxed) {
+            // SQLite fsyncs the WAL file, never the directory entry that makes
+            // it findable. Without this, a VMM death drops the entry even
+            // though the commit's contents reached the disk (#163).
+            if let Some(dir) = self.file.parent() {
+                sync_dir(dir)?;
+            }
+            self.dir_synced.store(true, Ordering::Relaxed);
+        }
         Ok(())
     }
 
@@ -144,6 +159,32 @@ impl Journal {
     pub fn rewind(&self, session: &str, seq: i64) -> Result<usize> {
         Ok(self.conn.execute("DELETE FROM events WHERE session_id = ?1 AND seq > ?2", params![session, seq])?)
     }
+}
+
+/// fsync a directory, so an entry just added to it (a project directory, the
+/// journal, its WAL) survives the loss of the page cache that held it. SQLite
+/// fsyncs the files it writes, never their directory (#163).
+fn sync_dir(dir: &Path) -> Result<()> {
+    std::fs::File::open(dir)?.sync_all().with_context(|| format!("syncing {}", dir.display()))?;
+    Ok(())
+}
+
+/// `create_dir_all`, then fsync the parent of every directory it created, so
+/// each new entry is on disk before anything is written below it. Fsyncing
+/// only the deepest would leave its ancestors' entries in the page cache,
+/// which is exactly what a VMM death drops (#163).
+fn create_dir_all_synced(dir: &Path) -> Result<()> {
+    let missing: Vec<&Path> = dir.ancestors().take_while(|a| !a.is_dir()).collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(dir)?;
+    for created in missing.iter().rev() {
+        if let Some(parent) = created.parent() {
+            sync_dir(parent)?;
+        }
+    }
+    Ok(())
 }
 
 fn is_busy(e: &rusqlite::Error) -> bool {
