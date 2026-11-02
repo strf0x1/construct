@@ -155,6 +155,13 @@ fn live_load_of_running_tool_never_recovers_its_outcome() {
         }
     }
     c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (wrong, _) = c.call(
+        "session/load",
+        json!({
+            "sessionId": sid, "cwd": format!("{}/.", env.work.display())
+        }),
+    );
+    assert_eq!(wrong["error"]["code"], -32602, "live and disk loads both require the exact original cwd");
     let (attached, replay) = load(&mut c, &env, &sid);
     assert_eq!(attached["result"]["_meta"]["construct"]["turn"]["state"], "working");
     assert_eq!(updates(&replay, "tool_call")[0]["status"], "in_progress");

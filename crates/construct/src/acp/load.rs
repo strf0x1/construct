@@ -27,7 +27,7 @@ impl Server {
         };
         let cwd = cwd(params).map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
         if let Some(s) = self.sessions.get_mut(sid) {
-            if s.cwd != cwd {
+            if s.cwd.as_os_str() != cwd.as_os_str() {
                 return Err((
                     rpc::INVALID_PARAMS,
                     format!("session {sid} belongs to {}, not {}", s.cwd.display(), cwd.display()),
