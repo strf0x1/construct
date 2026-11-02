@@ -1,6 +1,7 @@
 # 0032 — ACP session load, resume and close
 
-Status: accepted. 2026-11-01. Implements #153.
+Status: accepted. 2026-11-01. Implements #153. Live attachment and the
+already-loaded refusal after initialize are superseded by ADR 0033.
 
 ## Context
 

@@ -1,7 +1,7 @@
 //! `construct acp` asking its client: a permission question goes out as
 //! `session/request_permission`, and the option the client picks comes back
-//! as the [`Decision`]. One [`Questions`] per server holds the requests in
-//! flight; each session's `Perms` asks through a [`ClientAsk`] naming it.
+//! as the [`Decision`]. The server actor holds requests in flight. Each
+//! session's `Perms` asks through a `ClientAsk` naming it.
 //!
 //! The design choice: every option id is a verdict (`once`, `session`,
 //! `always`, `deny`, and `folder-session`/`folder-always` when a folder is on
@@ -9,82 +9,46 @@
 //! error, a client gone) denies. The request's `toolCallId` names the
 //! question, not the tool call: `Perms` is not told which call is asking.
 
-use super::rpc::{self, RpcError};
+use super::live::Command;
+use super::rpc::RpcError;
 use crate::permission::{Access, Ask, Decision, Request, Verdict};
 use serde_json::{Value, json};
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc::{UnboundedSender, WeakUnboundedSender};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
-type Answer = Result<Value, RpcError>;
+pub(super) type Answer = Result<Value, RpcError>;
+static NEXT_QUESTION: AtomicU64 = AtomicU64::new(1);
 
-/// The server's requests to its client that wait for a response.
-pub struct Questions {
-    /// Weak, as `Upstream`'s is: the writer ends when the server's sender goes.
-    out: WeakUnboundedSender<String>,
-    next: AtomicU64,
-    waiting: Mutex<HashMap<u64, oneshot::Sender<Answer>>>,
-}
+/// A stable internal question key survives replacement of its wire id.
+struct Forget(mpsc::UnboundedSender<Command>, u64);
 
-impl Questions {
-    pub fn new(out: &UnboundedSender<String>) -> Arc<Self> {
-        Arc::new(Self { out: out.downgrade(), next: AtomicU64::new(1), waiting: Mutex::new(HashMap::new()) })
-    }
-
-    fn waiting(&self) -> std::sync::MutexGuard<'_, HashMap<u64, oneshot::Sender<Answer>>> {
-        // A poisoned lock means a panic mid-insert; the map is still usable.
-        self.waiting.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
-    /// The client's response to request `id`. One nobody waits for (the
-    /// question was cancelled, or the id was never ours) is dropped.
-    pub fn answer(&self, id: &Value, result: Answer) {
-        let tx = id.as_u64().and_then(|n| self.waiting().remove(&n));
-        if let Some(tx) = tx {
-            let _ = tx.send(result);
-        }
-    }
-
-    /// The client is gone: everything still waiting is denied.
-    pub fn close(&self) {
-        self.waiting().clear();
-    }
-}
-
-/// Takes a question off the waiting list however its asker ends, including
-/// being dropped when the turn is cancelled.
-struct Forget<'a>(&'a Questions, u64);
-
-impl Drop for Forget<'_> {
+impl Drop for Forget {
     fn drop(&mut self) {
-        self.0.waiting().remove(&self.1);
+        let _ = self.0.send(Command::Forget(self.1));
     }
 }
 
-/// One session's way of asking the client.
-pub struct ClientAsk {
+/// One session's way of asking the server actor to question its client.
+pub(super) struct ClientAsk {
     session: String,
-    questions: Arc<Questions>,
+    generation: u64,
+    commands: mpsc::UnboundedSender<Command>,
 }
 
 impl ClientAsk {
-    pub fn new(session: String, questions: Arc<Questions>) -> Self {
-        Self { session, questions }
+    pub fn new(session: String, generation: u64, commands: mpsc::UnboundedSender<Command>) -> Self {
+        Self { session, generation, commands }
     }
 }
 
 #[async_trait::async_trait]
 impl Ask for ClientAsk {
-    async fn ask(&self, req: Request) -> Decision {
-        let q = &*self.questions;
-        let id = q.next.fetch_add(1, Ordering::Relaxed);
-        let (tx, rx) = oneshot::channel();
-        q.waiting().insert(id, tx);
-        let _forget = Forget(q, id);
-        let line = rpc::request(id, "session/request_permission", params(&self.session, id, &req));
-        if q.out.upgrade().is_none_or(|out| out.send(line).is_err()) {
+    async fn ask(&self, request: Request) -> Decision {
+        let key = NEXT_QUESTION.fetch_add(1, Ordering::Relaxed);
+        let (answer, rx) = oneshot::channel();
+        let _forget = Forget(self.commands.clone(), key);
+        let command = Command::Ask { key, session: self.session.clone(), generation: self.generation, request, answer };
+        if self.commands.send(command).is_err() {
             return Decision::DENY;
         }
         match rx.await {
@@ -184,7 +148,6 @@ pub fn decision(result: &Value) -> Decision {
 mod tests {
     use super::*;
     use crate::permission::{PathAsk, ToolAsk};
-    use tokio::sync::mpsc;
 
     fn path(folder: Option<&str>, no_always: bool) -> Request {
         Request::Path(PathAsk {
@@ -236,36 +199,5 @@ mod tests {
         assert_eq!(picked("y"), Decision::DENY);
         assert_eq!(decision(&json!({ "outcome": { "outcome": "cancelled" } })), Decision::CANCEL);
         assert_eq!(decision(&json!({})), Decision::DENY);
-    }
-
-    #[tokio::test]
-    async fn a_question_waits_for_its_response_and_is_forgotten_when_dropped() {
-        let (out, mut lines) = mpsc::unbounded_channel();
-        let q = Questions::new(&out);
-        let ask = ClientAsk::new("s1".into(), q.clone());
-        let asking = tokio::spawn(async move { ask.ask(path(None, false)).await });
-        let sent: Value = serde_json::from_str(&lines.recv().await.unwrap()).unwrap();
-        assert_eq!(
-            (sent["method"].as_str(), sent["params"]["sessionId"].as_str()),
-            (Some("session/request_permission"), Some("s1"))
-        );
-        q.answer(&sent["id"], Ok(json!({ "outcome": { "outcome": "selected", "optionId": "session" } })));
-        assert_eq!(asking.await.unwrap().verdict, Verdict::Session);
-
-        // Cancelled mid-question: nothing is left waiting, and a late answer is dropped.
-        let ask = ClientAsk::new("s1".into(), q.clone());
-        let asking = tokio::spawn(async move { ask.ask(path(None, false)).await });
-        let sent: Value = serde_json::from_str(&lines.recv().await.unwrap()).unwrap();
-        asking.abort();
-        let _ = asking.await;
-        assert!(q.waiting().is_empty());
-        q.answer(&sent["id"], Ok(json!({})));
-
-        // The client going away denies what was still waiting.
-        let ask = ClientAsk::new("s1".into(), q.clone());
-        let asking = tokio::spawn(async move { ask.ask(path(None, false)).await });
-        lines.recv().await.unwrap();
-        q.close();
-        assert_eq!(asking.await.unwrap(), Decision::DENY);
     }
 }

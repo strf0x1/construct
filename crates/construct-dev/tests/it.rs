@@ -14,6 +14,8 @@ mod common;
 
 #[path = "acp.rs"]
 mod acp;
+#[path = "acp_live.rs"]
+mod acp_live;
 #[path = "catalog.rs"]
 mod catalog;
 #[path = "child.rs"]

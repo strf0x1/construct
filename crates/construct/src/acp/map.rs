@@ -14,10 +14,10 @@
 //! journals those and ignores the lossy updates; any other client never sees
 //! them.
 
+use super::replay::Transcript;
 use crate::event::Event;
 use crate::tools::ToolKind;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
 
 /// The extension notification that carries one `Event` verbatim.
 pub const EVENT_METHOD: &str = "_construct/event";
@@ -55,55 +55,21 @@ pub fn update(ev: &Event, kind_of: &dyn Fn(&str) -> ToolKind) -> Option<Value> {
 /// notices are not history. A call with no recorded outcome is `failed`,
 /// never `pending`: recovery already told the model its outcome was unknown.
 pub fn history(entries: &[crate::journal::Entry], kind_of: &dyn Fn(&str) -> ToolKind) -> Vec<Value> {
-    let mut out = vec![];
-    let mut raw = false;
-    let mut starts = BTreeMap::new();
-    for e in entries {
-        match &e.event {
-            Event::Submitted { text } => {
-                out.push(chunk("user_message_chunk", text));
-                raw = true;
-            }
-            Event::User { message } => {
-                if !raw {
-                    let text = message.content.as_deref().unwrap_or("");
-                    let text = text.split("\n\n<system-reminder>").next().unwrap_or("");
-                    if !text.is_empty() {
-                        out.push(chunk("user_message_chunk", text));
-                    }
-                }
-                raw = false;
-            }
-            Event::Assistant { message } => {
-                if let Some(text) = message.content.as_deref().filter(|s| !s.is_empty()) {
-                    out.push(chunk("agent_message_chunk", text));
-                }
-                // A call the model asked for before the tool ever started is
-                // still a call the client should see.
-                for call in &message.tool_calls {
-                    starts
-                        .entry(call.id.clone())
-                        .or_insert_with(|| (call.function.name.clone(), call.function.arguments.clone()));
-                }
-            }
-            Event::ToolStart { id, name, args } => {
-                starts.insert(id.clone(), (name.clone(), args.clone()));
-            }
-            Event::ToolEnd { id, name, ok, output, .. } => {
-                let (name, args) = starts.remove(id).unwrap_or_else(|| (name.clone(), String::new()));
-                out.push(call(id, &name, &args, if *ok { "completed" } else { "failed" }, output, kind_of));
-            }
-            Event::Recovered { message } => out.push(chunk("agent_message_chunk", message)),
-            _ => {}
-        }
+    let mut transcript = Transcript::default();
+    for entry in entries {
+        transcript.observe(&entry.event, kind_of);
     }
-    for (id, (name, args)) in starts {
-        out.push(call(&id, &name, &args, "failed", "", kind_of));
-    }
-    out
+    transcript.updates(false, kind_of)
 }
 
-fn call(id: &str, name: &str, args: &str, status: &str, output: &str, kind_of: &dyn Fn(&str) -> ToolKind) -> Value {
+pub(super) fn call(
+    id: &str,
+    name: &str,
+    args: &str,
+    status: &str,
+    output: &str,
+    kind_of: &dyn Fn(&str) -> ToolKind,
+) -> Value {
     let mut v = json!({
         "sessionUpdate": "tool_call",
         "toolCallId": id,
@@ -120,7 +86,7 @@ fn call(id: &str, name: &str, args: &str, status: &str, output: &str, kind_of: &
     v
 }
 
-fn chunk(kind: &str, text: &str) -> Value {
+pub(super) fn chunk(kind: &str, text: &str) -> Value {
     json!({ "sessionUpdate": kind, "content": { "type": "text", "text": text } })
 }
 

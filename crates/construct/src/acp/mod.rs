@@ -10,9 +10,14 @@
 
 pub mod ask;
 pub mod client;
+mod live;
+mod load;
 pub mod map;
+mod questions;
+mod replay;
 pub mod rpc;
 pub mod server;
+mod turn;
 
 use crate::child::Origin;
 use crate::config::Config;
