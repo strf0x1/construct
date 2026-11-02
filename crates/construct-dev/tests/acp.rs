@@ -163,6 +163,32 @@ fn an_acp_client_initializes_prompts_and_gets_the_streamed_turn() {
 }
 
 #[test]
+fn a_completed_turn_is_on_disk_after_a_kill_without_close() {
+    // #161: the last thing the client sees is the turn's final update; its
+    // rows must already be on disk, because a stopped VMM never sends
+    // `session/close` to checkpoint or flush the journal.
+    let env = Env::new("acp-durable", json!({ "steps": [{ "text": "written before the kill" }] }));
+    env.config("[router]\nmode = \"local\"\n");
+    let mut c = Client::start(&env);
+    c.call("initialize", json!({ "protocolVersion": 1 }));
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let (done, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "write it" }] }));
+    assert_eq!(done["result"]["stopReason"], "end_turn");
+    let said: String =
+        updates(&notes, "agent_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();
+    // SIGKILL, not `session/close`: the crash or VM death in the issue.
+    c.kill();
+    assert_eq!(env.sessions(), vec![sid.clone()]);
+    let rows = env.journal();
+    let types: Vec<&str> = rows.iter().map(|r| r.ty.as_str()).collect();
+    assert!(types.contains(&"turn_end"), "{types:?}");
+    let assistant = rows.iter().find(|r| r.ty == "assistant").expect("the final message was journaled");
+    assert_eq!(assistant.payload["message"]["content"], json!(said));
+}
+
+#[test]
 fn a_blocked_path_is_asked_of_the_client_and_its_answer_applies() {
     let outside = Env::dir_for("acp-ask").join("outside").join("secret.txt");
     let read = json!({ "call": "read", "args": { "path": outside.display().to_string() } });

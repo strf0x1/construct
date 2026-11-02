@@ -56,6 +56,24 @@ fn readers_skip_unknown_types_and_fields() {
 }
 
 #[test]
+fn wal_commits_are_fsynced_before_append_returns() {
+    // `synchronous=FULL` is the promise `Writer::emit` relies on: the row is
+    // on disk before the event is sent, so a VMM or host death cannot return a
+    // session missing what the client already saw (construct#161).
+    let f = tmp("durable");
+    let db = Journal::open(&f).unwrap();
+    let sync: i64 = db.conn.query_row("PRAGMA synchronous", [], |r| r.get(0)).unwrap();
+    let mode: String = db.conn.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
+    assert_eq!((mode.as_str(), sync), ("wal", 2), "WAL with FULL synchronous");
+    db.append("s", &Event::User { message: Message::user("written") }).unwrap();
+    // Reopening reads the row back from the file, not from this connection.
+    let path = f.clone();
+    drop(db);
+    let db = Journal::open(&path).unwrap();
+    assert_eq!(db.since("s", 0).unwrap().len(), 1);
+}
+
+#[test]
 fn open_migrates_once_and_reopens() {
     let f = tmp("migrate");
     drop(Journal::open(&f).unwrap());

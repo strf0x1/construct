@@ -105,9 +105,11 @@ impl Journal {
 
     fn setup(&mut self) -> rusqlite::Result<()> {
         self.conn.pragma_update(None, "journal_mode", "wal")?;
-        // WAL + NORMAL: a crash of construct loses nothing; only power loss
-        // can lose the last commits. No fsync per row.
-        self.conn.pragma_update(None, "synchronous", "normal")?;
+        // WAL + FULL: every commit fsyncs the WAL before `append` returns, so
+        // a row is on disk before `Writer::emit` sends its event. NORMAL only
+        // survives the death of this process; it leaves the commit in the page
+        // cache, which dies with the machine or the VM holding it (#161).
+        self.conn.pragma_update(None, "synchronous", "full")?;
         self.migrate()
     }
 
