@@ -12,6 +12,8 @@ use serde_json::{Value, json};
 pub const METHOD_NOT_FOUND: i64 = -32601;
 pub const INVALID_PARAMS: i64 = -32602;
 pub const INTERNAL: i64 = -32603;
+/// A referenced session or file does not exist (ACP's `Resource not found`).
+pub const NOT_FOUND: i64 = -32002;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Incoming {
@@ -84,6 +86,11 @@ pub fn ok(id: &Value, result: Value) -> String {
 
 pub fn err(id: &Value, code: i64, message: &str) -> String {
     line(json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }))
+}
+
+/// An error with `data`, which is where ACP names the resource that was missing.
+pub fn err_data(id: &Value, code: i64, message: &str, data: Value) -> String {
+    line(json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message, "data": data } }))
 }
 
 #[cfg(test)]

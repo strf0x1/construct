@@ -13,7 +13,7 @@
 # are not edges. lib.rs declares every module; declarations are not edges.
 
 [modules.acp]
-may_use = ["agent", "agents", "child", "config", "event", "learn", "llm", "manifest", "permission", "tools"]
+may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
 
 [modules.agent]
 may_use = ["child", "compact", "config", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
