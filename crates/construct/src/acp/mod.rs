@@ -26,6 +26,19 @@ use serde::{Deserialize, Serialize};
 /// The protocol version construct speaks.
 pub const VERSION: u64 = 1;
 
+/// Take the protocol's own handle on stdout, then point fd 1 at stderr, so a
+/// `println!` or a dependency's log becomes a diagnostic instead of a frame
+/// (ADR 0035). `None` when stdout could not be duplicated; fd 1 is unchanged
+/// then and the caller falls back to it.
+pub(crate) fn claim_stdout() -> Option<std::os::fd::OwnedFd> {
+    use std::os::fd::AsFd;
+    let protocol = std::io::stdout().as_fd().try_clone_to_owned().ok()?;
+    // SAFETY: both descriptors are open for the life of the process; on
+    // failure fd 1 keeps its old meaning, which is what it had before.
+    unsafe { libc::dup2(libc::STDERR_FILENO, libc::STDOUT_FILENO) };
+    Some(protocol)
+}
+
 /// What a parent hands a built-in child in `session/new`'s
 /// `_meta.construct.start`: the setup the JSONL transport sends as `start`.
 /// Only `construct __child --acp` honours it; the public `construct acp`
