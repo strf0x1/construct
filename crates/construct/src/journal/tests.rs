@@ -74,6 +74,26 @@ fn wal_commits_are_fsynced_before_append_returns() {
 }
 
 #[test]
+fn a_new_project_directory_and_its_wal_are_linked() {
+    // #163: FULL fsyncs the WAL file, not the directory entry that names it.
+    // A VMM death drops the entry, so opening a missing path syncs the
+    // directories it creates and the first commit syncs the one holding the
+    // database and WAL. This asserts the files are there; the page-cache loss
+    // itself needs Deck's VM run.
+    let base = std::env::temp_dir().join(format!("construct-journal-dirs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let projects = base.join("home").join("projects");
+    let f = projects.join("p1").join("journal.sqlite");
+    let db = Journal::open(&f).unwrap();
+    db.append("s", &Event::User { message: Message::user("x") }).unwrap();
+    assert!(projects.is_dir(), "the missing directory chain was created");
+    assert!(f.exists());
+    assert!(PathBuf::from(format!("{}-wal", f.display())).exists(), "the first commit created the WAL");
+    // The same handle the journal uses accepts fsync on this platform.
+    sync_dir(f.parent().unwrap()).unwrap();
+}
+
+#[test]
 fn open_migrates_once_and_reopens() {
     let f = tmp("migrate");
     drop(Journal::open(&f).unwrap());

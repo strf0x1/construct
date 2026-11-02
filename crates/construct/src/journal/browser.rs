@@ -30,7 +30,7 @@ impl Journal {
         let conn = Connection::open_with_flags(file, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
             .with_context(|| format!("reading {}", file.display()))?;
         conn.busy_timeout(std::time::Duration::from_secs(10))?;
-        Ok(Self { conn, file: file.to_path_buf() })
+        Ok(Self { conn, file: file.to_path_buf(), dir_synced: std::sync::atomic::AtomicBool::new(false) })
     }
 
     /// Restoration must fail on unknown, incompatible or malformed rows,

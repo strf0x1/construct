@@ -164,9 +164,10 @@ fn an_acp_client_initializes_prompts_and_gets_the_streamed_turn() {
 
 #[test]
 fn a_completed_turn_is_on_disk_after_a_kill_without_close() {
-    // #161: the last thing the client sees is the turn's final update; its
-    // rows must already be on disk, because a stopped VMM never sends
-    // `session/close` to checkpoint or flush the journal.
+    // #161: every row the client saw is journaled when it sees it. This kills
+    // the process, so the host page cache survives; a VM/host death also needs
+    // the directory syncs in `Journal::open` and the first commit (#163),
+    // which no in-process test can drop.
     let env = Env::new("acp-durable", json!({ "steps": [{ "text": "written before the kill" }] }));
     env.config("[router]\nmode = \"local\"\n");
     let mut c = Client::start(&env);
