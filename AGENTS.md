@@ -197,7 +197,12 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 9. Formatting is `cargo fmt`'s opinion, never hand-tuned.
 10. A decision that constrains future work gets an ADR (`docs/adr/`); check
     there before changing a settled behaviour.
-11. Module boundaries live in `docs/architecture.toml`: a new dependency
+11. ACP extension names and payloads are the shared Deck-Construct contract
+    in `strf0x1/sprawlcommons-acp`, pinned by `CONTRACT.lock`. Change the
+    contract first (semver, matrix, schemas), then both implementations in
+    the same wave; `cargo xtask check`'s `contract` gate and
+    `crates/construct/tests/acp_contract.rs` keep this repo honest.
+12. Module boundaries live in `docs/architecture.toml`: a new dependency
     between top-level modules is a one-line `may_use` edit there, so it shows
     in the diff, and a new module needs an entry. Deny rules (`must_not_use`,
     `used_only_by`) must give a `reason`; never widen one to get a change in.

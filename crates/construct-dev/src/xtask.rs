@@ -3,9 +3,8 @@
 //! `check` runs each gate in order and stops at the first failure, printing one
 //! line per gate and a last line of `ok` or `FAILED <gate>`, so an agent never
 //! has to read cargo's output to know whether it is done. A failing gate's
-//! output is printed above that last line. A test failure caused by a golden
-//! snapshot is reported as `FAILED snapshots`. `docs`, `map` and `arch` run
-//! in process, before cargo: they read files and take milliseconds.
+//! output is printed above that last line; a golden-snapshot failure reports
+//! `FAILED snapshots`. `docs`, `map`, `contract` and `arch` read files in process.
 //!
 //! One run at a time per repository, however many worktrees and agents ask
 //! (`exclusive`): a build links every test binary at once and a second one
@@ -252,9 +251,10 @@ pub fn check(quick: bool) -> Result<bool> {
         object: &|rev, path| map::object(&root, rev, path),
         changed_since: &|sha, path| map::changed_since(&root, sha, path),
     };
-    let in_process: [(&str, &dyn Fn() -> Vec<String>); 3] = [
+    let in_process: [(&str, &dyn Fn() -> Vec<String>); 4] = [
         ("docs", &|| [conventions(&root), crate::deps::unshared(&root)].concat()),
         ("map", &|| crate::feature_map::problems(&root, &git)),
+        ("contract", &|| crate::contract::problems(&root)),
         ("arch", &|| crate::arch::problems(&root)),
     ];
     for (name, gate) in in_process {

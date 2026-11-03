@@ -7,6 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 mod arch;
+mod contract;
 mod deps;
 mod feature_map;
 mod scratch;
