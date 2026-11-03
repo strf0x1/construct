@@ -78,6 +78,10 @@ impl Choice {
                 let secret = b.secret().unwrap_or_default();
                 match key(secret) {
                     Some(k) => Ok(vec![(b, Some(k))]),
+                    None if crate::secrets::managed() => Err(format!(
+                        "web_search is set to {} but {secret} is not set; this Deck task's credentials are host-owned",
+                        b.name()
+                    )),
                     None => Err(format!(
                         "web_search is set to {} but {secret} is not set; run `construct secrets set {secret}`",
                         b.name()

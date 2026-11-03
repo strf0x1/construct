@@ -123,7 +123,7 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
         format!("{}: {} (fix: {})", o.problem_class, llm::truncate(&o.summary, 160), llm::truncate(&o.fix, 160))
     };
     if let Some(key) =
-        crate::secrets::get("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
+        crate::secrets::optional("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
     {
         let mut criteria = serde_json::Map::new();
         // "none" first: Jev favours the first option (see src/router.rs).
@@ -167,7 +167,7 @@ pub async fn gate_parts(cfg: &Config, users: &[String], errors: &[String], loade
     }
     if cfg.router.mode != "local"
         && cfg.router.mode != "off"
-        && let Some(key) = crate::secrets::get("TYPESAFE_API_KEY")
+        && let Some(key) = crate::secrets::optional("TYPESAFE_API_KEY")
     {
         match jev_gate(cfg, &key, users, errors, loaded).await {
             Ok(g) => return g,

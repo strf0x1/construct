@@ -98,7 +98,7 @@ pub(super) async fn recurrences(
         if others.is_empty() {
             continue;
         }
-        let jev = match crate::secrets::get("TYPESAFE_API_KEY")
+        let jev = match crate::secrets::optional("TYPESAFE_API_KEY")
             .filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
         {
             Some(key) => same_problem_jev(cfg, &key, o, &others).await.ok(),

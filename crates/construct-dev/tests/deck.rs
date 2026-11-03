@@ -407,6 +407,46 @@ fn a_notification_without_the_capability_is_ignored() {
     c.finish();
 }
 
+#[test]
+fn a_managed_guest_ignores_a_guest_search_key() {
+    let env = Env::new(
+        "deck-optional-search",
+        json!({ "steps": [
+            { "call": "web_search", "args": { "query": "rust" } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config("[router]\nmode = \"off\"\n\n[tools.web]\nsearch = \"exa\"\n");
+    let out = env.run_with(
+        &[("DECK_MANAGED", "1"), ("OPENAI_API_KEY", "deck-placeholder"), ("EXA_API_KEY", "guest-supplied")],
+        &["run", "--no-learn", "search the web"],
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    let tool = last_tool_result(&env.requests()[1]);
+    assert!(tool.contains("EXA_API_KEY is not set"), "a guest key is not a grant: {tool}");
+    assert!(tool.contains("credentials are host-owned"), "the error tells the truth: {tool}");
+    assert!(!tool.contains("guest-supplied"), "the value never reaches the model: {tool}");
+}
+
+#[test]
+fn a_managed_guest_ignores_a_guest_jev_key() {
+    let env = Env::new("deck-optional-jev", json!({ "steps": [{ "text": "local route" }] }));
+    env.config(&format!("[router]\nmode = \"auto\"\njev_url = \"http://127.0.0.1:{}/v1/systemone\"\n", env.port));
+    let out = env.run_with(
+        &[("DECK_MANAGED", "1"), ("OPENAI_API_KEY", "deck-placeholder"), ("TYPESAFE_API_KEY", "guest-supplied")],
+        &["run", "--json", "--no-learn", "hi"],
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    let route: serde_json::Value = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .find(|e: &serde_json::Value| e["event"] == "route")
+        .expect("route event");
+    assert_eq!(route["source"], "local");
+    assert!(!route["note"].as_str().unwrap_or_default().contains("jev failed"), "{route}");
+    assert!(!env.home.join("jev.log").exists(), "no Jev call was made with a guest key");
+}
+
 /// Whether any file under `dir` holds `needle`: a guest credential must not
 /// land in the task's writable disk, whatever the command prints.
 fn holds(dir: &std::path::Path, needle: &str) -> bool {
