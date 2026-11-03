@@ -4,6 +4,8 @@
 //! In a Deck-managed guest (`DECK_MANAGED`) the host owns every credential: the
 //! environment holds placeholders the host gateway replaces, the keyring is
 //! never consulted or written, and status says which values are placeholders.
+//! An optional feature (web search, the Jev router, an MCP secret) resolves
+//! nothing there even if the guest environment holds a value (ADR 0039).
 
 use anyhow::{Result, anyhow};
 use secretspec::{NamedResolution, Secret, Secrets, Spec};
@@ -80,6 +82,15 @@ pub fn get(name: &str) -> Option<String> {
         return None;
     }
     keyring(name)
+}
+
+/// Resolve a secret an optional feature asked for: a web search backend, the
+/// Jev router, or an MCP server's declared secret. A Deck guest resolves
+/// none: the host owns every credential, and a key that happens to be in the
+/// guest environment is not a grant (Deck ADR 0004 §10). The endpoint key is
+/// not optional and goes through `get`.
+pub fn optional(name: &str) -> Option<String> {
+    if managed() { None } else { get(name) }
 }
 
 /// Resolve through secretspec's keyring provider, once per process.

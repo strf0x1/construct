@@ -210,7 +210,7 @@ pub(super) async fn start(cfg: &McpServer, policy: &Policy) -> Result<Conn> {
     // A named secret that isn't set is left out: many keys are optional
     // (Context7 works without one, with lower rate limits).
     for name in &cfg.secrets {
-        if let Some(v) = crate::secrets::get(name) {
+        if let Some(v) = crate::secrets::optional(name) {
             cmd.env(name, v);
         }
     }

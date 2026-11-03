@@ -283,7 +283,7 @@ fn mcp_policies(cfg: &Config, paths: &Paths, cwd: &std::path::Path) -> String {
         let secrets: Vec<String> = server
             .secrets
             .iter()
-            .map(|s| format!("{s} ({})", if crate::secrets::get(s).is_some() { "set" } else { "not set" }))
+            .map(|s| format!("{s} ({})", if crate::secrets::optional(s).is_some() { "set" } else { "not set" }))
             .collect();
         out.push_str(&format!(
             "\n# mcp.{name} runs sandboxed{}\n#   read: {}\n#   write: {}\n#   plus system paths and toolchains, read-only\n#   network: {}\n#   secrets: {}\n",

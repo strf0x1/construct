@@ -37,7 +37,7 @@ pub async fn route(cfg: &RouterConfig, http: &reqwest::Client, input: Input<'_>)
     let mut route = match mode {
         "off" => Route { groups: all_groups(&input), source: "off".into(), ..Default::default() },
         "local" => local(cfg, &input),
-        _ => match (mode, crate::secrets::get("TYPESAFE_API_KEY")) {
+        _ => match (mode, crate::secrets::optional("TYPESAFE_API_KEY")) {
             (_, Some(key)) => match jev(cfg, http, &key, &input).await {
                 Ok(r) => r,
                 Err(e) => {
@@ -66,7 +66,7 @@ pub fn warm(cfg: &RouterConfig, http: &reqwest::Client) {
     }
     let (http, url) = (http.clone(), cfg.jev_url.clone());
     tokio::spawn(async move {
-        if crate::secrets::get("TYPESAFE_API_KEY").is_some() {
+        if crate::secrets::optional("TYPESAFE_API_KEY").is_some() {
             let _ = http.head(url).timeout(Duration::from_secs(5)).send().await;
         }
     });

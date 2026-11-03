@@ -1,7 +1,8 @@
 # 0037 — A Deck guest owns no secrets
 
 Status: accepted. 2026-11-03. Implements #169. Implements the construct side
-of Deck ADR 0004 §4 and §10.
+of Deck ADR 0004 §4 and §10. Its optional-secret consequence is superseded by
+ADR 0039.
 
 ## Context
 

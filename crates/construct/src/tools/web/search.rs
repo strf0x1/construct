@@ -50,7 +50,7 @@ pub(super) async fn run(ctx: &Ctx, a: &Value, choice: Choice) -> Result<String, 
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
     let n = a.get("limit").and_then(Value::as_u64).unwrap_or(8).clamp(1, 20) as usize;
     let f = Filter::from_args(a);
-    let plan = choice.plan(crate::secrets::get)?;
+    let plan = choice.plan(crate::secrets::optional)?;
     let answer = first_answer(&plan, |backend, key| call(ctx, backend, key, q, n, &f)).await?;
     Ok(render(&answer))
 }
