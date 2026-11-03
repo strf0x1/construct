@@ -23,6 +23,10 @@ use serde_json::{Value, json};
 pub const EVENT_METHOD: &str = "_construct/event";
 /// Where construct's extensions live in `_meta` objects.
 pub const META_KEY: &str = "construct";
+/// Deck's boundary extension: its `_meta` namespace and the informational
+/// notification Deck sends after a late decision (ADR 0004 §6).
+pub const DECK_KEY: &str = "deck";
+pub const BOUNDARY_METHOD: &str = "_deck/boundary";
 
 /// The `update` payload of a `session/update` for this event, if ACP has a
 /// shape for it. `kind_of` names a tool's category (its `Tool::kind`).

@@ -5,6 +5,7 @@
 //! any provider's accounting.
 
 pub mod catalog;
+pub mod deck;
 pub mod dialect;
 pub mod discover;
 pub mod notes;
@@ -203,43 +204,50 @@ impl Client {
                 rb = rb.header(k, v);
             }
             let res = rb.send().await;
-            let retryable = match &res {
-                Ok(r) => r.status().as_u16() == 429 || r.status().is_server_error(),
-                Err(e) => e.is_connect() || e.is_timeout(),
+            let r = match res {
+                Ok(r) => r,
+                Err(e) => {
+                    // A transport error has no body to classify.
+                    if (e.is_connect() || e.is_timeout()) && attempt < 4 {
+                        attempt += 1;
+                        notes.record(notes::RETRY, if e.is_timeout() { "timeout" } else { "connect error" });
+                        tokio::time::sleep(Duration::from_millis(500 * 2u64.pow(attempt))).await;
+                        continue;
+                    }
+                    return Err(e).with_context(|| format!("{}model request failed", self.prefix));
+                }
             };
+            let status = r.status();
+            if status.is_success() {
+                break r;
+            }
+            // The body decides retryability for a Deck gateway: a 503
+            // `deck_credential_missing` is policy and must not be retried,
+            // while a provider 503 still is (ADR 0004 §5, #166).
+            let retry_after =
+                r.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok());
+            let approval = r.headers().get("x-deck-approval").and_then(|v| v.to_str().ok()).map(str::to_string);
+            let text = r.text().await.unwrap_or_default();
+            let denial = deck::Denial::parse(status.as_u16(), approval.as_deref(), &text);
+            let retryable = denial.as_ref().is_some_and(deck::Denial::retryable)
+                || (denial.is_none() && (status.as_u16() == 429 || status.is_server_error()));
             if retryable && attempt < 4 {
                 attempt += 1;
-                notes.record(
-                    notes::RETRY,
-                    &match &res {
-                        Ok(r) => format!("status {}", r.status()),
-                        Err(e) if e.is_timeout() => "timeout".into(),
-                        Err(_) => "connect error".into(),
-                    },
-                );
-                let wait = res
-                    .as_ref()
-                    .ok()
-                    .and_then(|r| r.headers().get("retry-after"))
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .map(|s| s.min(30) * 1000)
-                    .unwrap_or(500 * 2u64.pow(attempt));
+                notes.record(notes::RETRY, &format!("status {status}"));
+                let wait = retry_after.map(|s| s.min(30) * 1000).unwrap_or_else(|| 500 * 2u64.pow(attempt));
                 tokio::time::sleep(Duration::from_millis(wait)).await;
                 continue;
             }
-            let r = res.with_context(|| format!("{}model request failed", self.prefix))?;
-            if !r.status().is_success() {
-                let status = r.status();
-                let text = r.text().await.unwrap_or_default();
-                if status.as_u16() == 400
-                    && let Some(p) = notes::PARAMS.iter().find(|p| text.contains(**p))
-                {
-                    notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
-                }
-                bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
+            if status.as_u16() == 400
+                && let Some(p) = notes::PARAMS.iter().find(|p| text.contains(**p))
+            {
+                notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
             }
-            break r;
+            if let Some(d) = denial {
+                let d = anyhow::Error::new(d);
+                return Err(if self.prefix.is_empty() { d } else { d.context(self.prefix.clone()) });
+            }
+            bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
         };
         if let Some(tx) = tx {
             let _ = tx.send(Delta::Opened);

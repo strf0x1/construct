@@ -1,9 +1,10 @@
 //! Loading a disk session uses normal recovery; attaching an existing live
 //! session reads only actor-owned state, without the agent lock or recovery.
 
+use super::cwd;
 use super::map::{self, META_KEY};
 use super::rpc;
-use super::server::{Server, cwd};
+use super::server::Server;
 use crate::agent::Agent;
 use serde_json::{Value, json};
 

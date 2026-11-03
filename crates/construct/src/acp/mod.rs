@@ -10,6 +10,7 @@
 
 pub mod ask;
 pub mod client;
+mod deck;
 mod live;
 mod load;
 pub mod map;
@@ -55,4 +56,14 @@ pub(crate) fn claim_stdout() -> Option<std::os::fd::OwnedFd> {
 pub struct Start {
     pub config: Box<Config>,
     pub origin: Box<Origin>,
+}
+
+/// The `cwd` every session method requires: an absolute-enough path the agent
+/// resolves against the process's working directory.
+pub fn cwd(params: &serde_json::Value) -> anyhow::Result<std::path::PathBuf> {
+    params["cwd"]
+        .as_str()
+        .filter(|c| !c.is_empty())
+        .map(std::path::PathBuf::from)
+        .ok_or_else(|| anyhow::anyhow!("cwd is required"))
 }

@@ -22,6 +22,8 @@ mod catalog;
 mod child;
 #[path = "compaction.rs"]
 mod compaction;
+#[path = "deck.rs"]
+mod deck;
 #[path = "delegate.rs"]
 mod delegate;
 #[path = "developer.rs"]

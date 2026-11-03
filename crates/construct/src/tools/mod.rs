@@ -10,9 +10,11 @@
 //! only ever grows, which keeps provider prefix caches warm.
 
 pub mod access;
+pub mod boundary;
 pub mod call;
 mod cap;
 mod catalog;
+mod ctx;
 pub mod delegate;
 pub mod developer;
 pub mod edit;
@@ -31,19 +33,14 @@ pub mod skill;
 pub mod web;
 pub mod write;
 
-use crate::config::Paths;
-use crate::skills::Library;
 use anyhow::Result;
 pub use call::Call;
 pub use cap::{OUTPUT_MAX, cap_output};
 pub use catalog::Catalog;
+pub use ctx::Ctx;
 pub use group::Group;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use tokio::sync::watch;
 
 /// The switch the model uses to turn on a group the router missed. The agent
 /// answers it itself; it is not a catalog tool.
@@ -185,107 +182,6 @@ impl From<&str> for ToolError {
 impl std::fmt::Display for ToolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.message)
-    }
-}
-
-pub struct Ctx {
-    pub cwd: PathBuf,
-    pub paths: Paths,
-    pub http: reqwest::Client,
-    pub cancel: watch::Receiver<bool>,
-    pub memory: crate::memory::Store,
-    pub skills: Library,
-    /// The current repo's kit skills, when construct runs inside a repo.
-    pub project_skills: Option<Library>,
-    pub mcp: Option<Arc<crate::mcp::Manager>>,
-    pub sandbox: crate::sandbox::Policy,
-    /// Who may be asked, and what has been approved (`permission`).
-    pub perms: Arc<crate::permission::Perms>,
-    /// Work that outlives a call and reports when it ends.
-    pub jobs: crate::jobs::Jobs,
-    read_files: Mutex<HashSet<PathBuf>>,
-    /// Shell calls the sandbox blocked this turn (`shell::STOP_AFTER`).
-    shell_blocked: std::sync::atomic::AtomicUsize,
-    /// What one result may hold now: `OUTPUT_MAX`, or less on a small
-    /// window (`size_results`).
-    output_max: std::sync::atomic::AtomicUsize,
-}
-
-impl Ctx {
-    pub fn new(
-        cwd: PathBuf,
-        paths: Paths,
-        memory: crate::memory::Store,
-        cancel: watch::Receiver<bool>,
-        mcp: Option<Arc<crate::mcp::Manager>>,
-        sandbox: crate::sandbox::Policy,
-    ) -> Self {
-        #[expect(
-            clippy::expect_used,
-            reason = "fails only when the TLS backend can't start, and no tool works without it"
-        )]
-        let http = reqwest::Client::builder()
-            .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
-            .connect_timeout(std::time::Duration::from_secs(15))
-            .build()
-            .expect("http client");
-        let skills = Library::new(&paths);
-        let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
-        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()));
-        Self {
-            cwd,
-            paths,
-            http,
-            cancel,
-            memory,
-            skills,
-            project_skills,
-            mcp,
-            sandbox,
-            perms,
-            jobs: crate::jobs::Jobs::new(&Default::default()),
-            read_files: Mutex::new(HashSet::new()),
-            shell_blocked: Default::default(),
-            output_max: OUTPUT_MAX.into(),
-        }
-    }
-    /// This session's jobs, under the limit its config sets.
-    pub fn with_jobs(mut self, jobs: crate::jobs::Jobs) -> Self {
-        self.jobs = jobs;
-        self
-    }
-    /// The project kit (when there is one) and then the global library: the
-    /// order a name is looked up in, so a kit skill hides a global one.
-    pub fn skill_libs(&self) -> Vec<&Library> {
-        self.project_skills.iter().chain(std::iter::once(&self.skills)).collect()
-    }
-    /// The library that holds `name`, kit first.
-    pub fn skill_lib(&self, name: &str) -> Option<&Library> {
-        self.skill_libs().into_iter().find(|l| l.get(name).is_some())
-    }
-    /// Every skill the model or the user can reach, read from disk now.
-    pub fn all_skills(&self) -> Vec<crate::skills::Skill> {
-        crate::skills::merged(&self.skill_libs())
-    }
-    /// A new user turn: per-turn counts start over.
-    pub fn turn_began(&self) {
-        self.shell_blocked.store(0, std::sync::atomic::Ordering::Relaxed);
-    }
-    /// Shell calls blocked so far this turn.
-    pub fn shell_blocks(&self) -> usize {
-        self.shell_blocked.load(std::sync::atomic::Ordering::Relaxed)
-    }
-    /// Count one more blocked shell call; the new total.
-    pub fn shell_blocked(&self) -> usize {
-        self.shell_blocked.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1
-    }
-    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
-    pub fn mark_read(&self, p: &Path) {
-        self.read_files.lock().unwrap().insert(p.to_path_buf());
-    }
-    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
-    pub fn was_read(&self, p: &Path) -> bool {
-        self.read_files.lock().unwrap().contains(p)
     }
 }
 

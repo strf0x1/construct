@@ -1,6 +1,10 @@
-//! Shared harness for the end-to-end tests: build the real binary once, give
-//! each test a fresh home and its own scripted model endpoint, and read back
+//! Shared test helpers: the scripted endpoint harness (`Env`), and a fake Deck
+//! boundary endpoint for the boundary tests.
+//!
+//! Every e2e test gets a fresh home and its own scripted model, and reads back
 //! what the harness sent.
+
+pub mod boundary;
 
 use construct_dev::serve;
 use serde_json::Value;
@@ -115,6 +119,7 @@ impl Env {
             ("CONSTRUCT_ROUTER".into(), String::new()),
             ("CONSTRUCT_SANDBOX".into(), String::new()),
             ("CONSTRUCT_TOOLS_EDITOR".into(), String::new()),
+            ("DECK_BOUNDARY_URL".into(), String::new()),
             ("CONSTRUCT_TRACE".into(), String::new()),
         ]
     }

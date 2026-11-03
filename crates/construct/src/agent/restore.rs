@@ -87,7 +87,14 @@ impl Agent {
         } else {
             Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
         };
-        let catalog = Arc::new(Catalog::build(&cfg.tools, mcp.clone())?);
+        let is_child = origin.is_some();
+        // A delegated child shares the task but not the boundary tools or the
+        // notification capability: the parent's time-based note already covers
+        // blocks its delegates cause.
+        if is_child {
+            cfg.deck = None;
+        }
+        let catalog = Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), cfg.deck.is_some())?);
         if !cfg.agents.is_empty() {
             catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
         }
@@ -130,11 +137,22 @@ impl Agent {
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
         }
-        let ctx = Arc::new(Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox).with_jobs(jobs));
+        // A delegated child shares the task but not the boundary tools: the
+        // parent's time-based note already covers blocks its delegates cause.
+        let boundary =
+            cfg.deck.as_ref().map(|deck| Arc::new(crate::tools::boundary::Boundary::new(&deck.boundary_url)));
+        let ctx = Arc::new(
+            crate::tools::Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox)
+                .with_jobs(jobs)
+                .with_boundary(boundary),
+        );
         let entries = writer.entries()?;
         let totals = journal::Totals::session(&journal::Journal::read_only(&file)?, &entries)?;
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
+        if ctx.boundary.is_some() {
+            groups.insert(Group::Boundary);
+        }
         for e in &entries {
             match &e.event {
                 Event::Route { groups: saved, .. } => groups.extend(saved.iter().filter_map(|g| Group::parse(g))),

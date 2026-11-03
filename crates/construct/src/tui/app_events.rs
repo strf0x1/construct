@@ -30,6 +30,7 @@ impl App {
             | Event::Assistant { .. }
             | Event::ToolResult { .. }
             | Event::Note { .. }
+            | Event::DeckBoundary { .. }
             | Event::Request { .. } => {}
             Event::Submitted { .. } => self.active_user_turn = true,
             Event::TurnStart => {
