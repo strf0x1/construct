@@ -76,7 +76,7 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
         commands,
         questions: Questions::default(),
         sessions: HashMap::new(),
-        lossless: false,
+        wire: map::Wire::legacy(),
         attachment: 0,
         next_session: 0,
         closing: false,
@@ -97,7 +97,9 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
                             s.cancel.send_replace(true);
                         }
                     }
-                    Some(Incoming::Notification { method, params }) if method == map::BOUNDARY_METHOD => {
+                    Some(Incoming::Notification { method, params })
+                        if matches!(method.as_str(), map::BOUNDARY_METHOD | map::LEGACY_BOUNDARY_METHOD) =>
+                    {
                         srv.boundary_notice(params);
                     }
                     _ => {}
@@ -147,8 +149,8 @@ pub(super) struct Server {
     next_session: u64,
     pub(super) closing: bool,
     pub(super) sessions: HashMap<String, Session>,
-    /// The client asked for every `Event` whole (see `map`).
-    pub(super) lossless: bool,
+    /// What this attachment's client parses (see `map::Wire`).
+    pub(super) wire: map::Wire,
 }
 
 impl Server {
@@ -169,7 +171,7 @@ impl Server {
             "initialize" => {
                 self.attachment += 1;
                 self.questions.retire();
-                self.lossless = params["clientCapabilities"]["_meta"][META_KEY]["events"] == json!(true);
+                self.wire = map::Wire::for_client(&params["clientCapabilities"]["_meta"]);
                 let caps = self.capabilities();
                 let result = json!({
                     "protocolVersion": VERSION,
@@ -222,9 +224,14 @@ impl Server {
             Mode::User => Agent::new(self.cfg.clone(), self.paths.clone(), cwd, None)?,
             Mode::Child => {
                 anyhow::ensure!(self.sessions.is_empty(), "a delegated child has one session");
-                let start = params["_meta"][META_KEY]["start"].clone();
+                let meta = &params["_meta"];
+                let start = if meta[META_KEY]["start"].is_null() {
+                    meta[map::LEGACY_META_KEY]["start"].clone()
+                } else {
+                    meta[META_KEY]["start"].clone()
+                };
                 let Start { config, origin } = serde_json::from_value(start)
-                    .map_err(|e| anyhow::anyhow!("session/new needs _meta.{META_KEY}.start: {e}"))?;
+                    .map_err(|e| anyhow::anyhow!("session/new needs _meta[\"{META_KEY}\"].start: {e}"))?;
                 Agent::child(*config, self.paths.clone(), cwd, *origin)?
             }
         };

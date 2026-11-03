@@ -278,6 +278,30 @@ fn a_blocked_path_is_asked_of_the_client_and_its_answer_applies() {
 fn a_client_that_asks_gets_every_event_whole() {
     let env = Env::new("acp-lossless", json!({ "steps": [{ "text": "hi" }] }));
     let mut c = Client::start(&env);
+    let caps = json!({ "_meta": { "com.sprawlcommons/construct": { "events": true } } });
+    let (init, _) = c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": caps }));
+    assert_eq!(init["result"]["agentCapabilities"]["_meta"]["com.sprawlcommons/construct"]["events"], true);
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string() }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let (_, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "go" }] }));
+    let kinds: Vec<&str> = notes
+        .iter()
+        .filter(|n| n["method"] == "_com.sprawlcommons/construct/event")
+        .filter_map(|n| n["params"]["event"]["event"].as_str())
+        .collect();
+    for k in ["head", "system", "user", "request", "assistant", "usage", "turn_end"] {
+        assert!(kinds.contains(&k), "{k} missing from {kinds:?}");
+    }
+    assert!(notes.iter().all(|n| n["method"] != "session/update"), "no duplicate lossy stream");
+    assert!(notes.iter().all(|n| n["method"] != "_construct/event"), "a new client gets only the new name");
+    c.finish();
+}
+
+#[test]
+fn a_released_client_still_gets_the_bare_event_method() {
+    let env = Env::new("acp-lossless-legacy", json!({ "steps": [{ "text": "hi" }] }));
+    let mut c = Client::start(&env);
     let caps = json!({ "_meta": { "construct": { "events": true } } });
     let (init, _) = c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": caps }));
     assert_eq!(init["result"]["agentCapabilities"]["_meta"]["construct"]["events"], true);
@@ -285,15 +309,11 @@ fn a_client_that_asks_gets_every_event_whole() {
     let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
     let (_, notes) =
         c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "go" }] }));
-    let kinds: Vec<&str> = notes
-        .iter()
-        .filter(|n| n["method"] == "_construct/event")
-        .filter_map(|n| n["params"]["event"]["event"].as_str())
-        .collect();
-    for k in ["head", "system", "user", "request", "assistant", "usage", "turn_end"] {
-        assert!(kinds.contains(&k), "{k} missing from {kinds:?}");
-    }
-    assert!(notes.iter().all(|n| n["method"] != "session/update"), "no duplicate lossy stream");
+    assert!(notes.iter().any(|n| n["method"] == "_construct/event"), "the released name is still sent");
+    assert!(
+        notes.iter().all(|n| n["method"] != "_com.sprawlcommons/construct/event"),
+        "the client asked with the bare key, so it gets the bare method"
+    );
     c.finish();
 }
 
@@ -340,6 +360,7 @@ fn session_load_capabilities_and_refusals_are_clear() {
     let caps = &init["result"]["agentCapabilities"];
     assert_eq!(caps["loadSession"], true);
     assert_eq!(caps["_meta"]["construct"]["liveAttach"], true);
+    assert_eq!(caps["_meta"]["com.sprawlcommons/construct"]["liveAttach"], true);
     assert_eq!(caps["sessionCapabilities"], json!({ "resume": {}, "close": {} }));
     let (new, _) = first.call("session/new", json!({ "cwd": env.work.display().to_string(), "mcpServers": [] }));
     let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
@@ -366,6 +387,7 @@ fn session_load_capabilities_and_refusals_are_clear() {
     let (loaded, _) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
     assert_eq!(loaded["result"]["_meta"]["construct"]["turn"]["state"], "idle", "{loaded}");
+    assert_eq!(loaded["result"]["_meta"]["com.sprawlcommons/construct"]["turn"]["state"], "idle", "{loaded}");
     let (again, _) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
     assert_eq!(again["error"]["code"], -32602, "{again}");
@@ -420,6 +442,7 @@ fn a_killed_session_loads_its_history_and_the_unknown_tool_is_not_rerun() {
     let (loaded, notes) =
         c.call("session/load", json!({ "sessionId": sid, "cwd": env.work.display().to_string(), "mcpServers": [] }));
     assert_eq!(loaded["result"]["_meta"]["construct"]["turn"]["state"], "idle", "{loaded}");
+    assert_eq!(loaded["result"]["_meta"]["com.sprawlcommons/construct"]["turn"]["state"], "idle", "{loaded}");
     assert!(notes.iter().all(|n| n["params"]["sessionId"] == json!(sid)));
     let users: String =
         updates(&notes, "user_message_chunk").iter().filter_map(|u| u["content"]["text"].as_str()).collect();

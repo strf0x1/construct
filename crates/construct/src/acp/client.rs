@@ -4,14 +4,14 @@
 //!
 //! The design choice: the child's session id is the ACP session id, and the
 //! parent journals what the child's stream says. A construct child streams its
-//! events whole (`_construct/event`, see `map`), so the record matches the
-//! JSONL transport row for row. Any other agent only has ACP's vocabulary, so
-//! the parent writes the closest honest record from it: a synthetic head, the
-//! task, the text, the tool calls and their results, and the end of the turn.
-//! Anything the child asks of the client that construct doesn't advertise
-//! (files, terminals) is refused as an unknown method.
+//! events whole (`_com.sprawlcommons/construct/event`, see `map`), so the
+//! record matches the JSONL transport row for row. Any other agent only has
+//! ACP's vocabulary, so the parent writes the closest honest record from it: a
+//! synthetic head, the task, the text, the tool calls and their results, and
+//! the end of the turn. Anything the child asks of the client that construct
+//! doesn't advertise (files, terminals) is refused as an unknown method.
 
-use super::map::{EVENT_METHOD, META_KEY};
+use super::map::{self, EVENT_METHOD, LEGACY_EVENT_METHOD, META_KEY};
 use super::rpc::{self, Incoming};
 use super::{Start, VERSION};
 use crate::agents::{Gate, OnPermission};
@@ -33,7 +33,7 @@ const NEW: u64 = 2;
 const PROMPT: u64 = 3;
 
 enum Kind {
-    /// `construct __child --acp`: set up by `_meta.construct.start`.
+    /// `construct __child --acp`: set up by `_meta["com.sprawlcommons/construct"].start`.
     Construct(Box<Start>),
     /// Another vendor's agent: journaled from ACP updates alone.
     Foreign { harness: String, manifest: Box<Manifest> },
@@ -118,7 +118,7 @@ impl Client {
         match id {
             INIT => {
                 self.lossless = matches!(self.kind, Kind::Construct(_))
-                    && value["agentCapabilities"]["_meta"][META_KEY]["events"] == json!(true);
+                    && map::Wire::for_client(&value["agentCapabilities"]["_meta"]).lossless;
                 self.version = value["agentInfo"]["version"].as_str().unwrap_or_default().to_string();
                 let mut params = json!({ "cwd": self.cwd.display().to_string(), "mcpServers": [] });
                 if let Kind::Construct(start) = &self.kind {
@@ -371,7 +371,7 @@ impl Wire for Client {
                 _ => vec![],
             },
             Some(Incoming::Notification { method, params }) => {
-                if method == EVENT_METHOD && self.lossless {
+                if matches!(method.as_str(), EVENT_METHOD | LEGACY_EVENT_METHOD) && self.lossless {
                     if let Ok(ev) = serde_json::from_value::<Event>(params["event"].clone()) {
                         self.emit(call, out, ev);
                     }

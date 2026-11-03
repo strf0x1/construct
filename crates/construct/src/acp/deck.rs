@@ -4,7 +4,9 @@
 //!
 //! The design choice: the capability is advertised only when this process has
 //! a boundary endpoint. An agent without one would have nowhere to put the
-//! note, and Deck only sends to an agent that advertised it.
+//! note, and Deck only sends to an agent that advertised it. Both the
+//! reverse-DNS names and the bare ones are advertised for one release, so a
+//! released Deck still finds them (issue #171).
 
 use super::map;
 use super::server::{Mode, Server};
@@ -17,14 +19,19 @@ impl Server {
             "loadSession": self.mode == Mode::User,
             "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
             "mcpCapabilities": { "http": false, "sse": false },
-            "_meta": { map::META_KEY: { "events": true } },
+            "_meta": {
+                map::META_KEY: { "events": true },
+                map::LEGACY_META_KEY: { "events": true },
+            },
         });
         if self.mode == Mode::User && self.cfg.deck.is_some() {
             caps["_meta"][map::DECK_KEY] = json!({ "boundary": true });
+            caps["_meta"][map::LEGACY_DECK_KEY] = json!({ "boundary": true });
         }
         if self.mode == Mode::User {
             caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
             caps["_meta"][map::META_KEY]["liveAttach"] = json!(true);
+            caps["_meta"][map::LEGACY_META_KEY]["liveAttach"] = json!(true);
         }
         caps
     }

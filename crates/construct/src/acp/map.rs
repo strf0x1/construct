@@ -8,25 +8,65 @@
 //! The design choice: standard `session/update`s carry only what ACP can say
 //! (text, thoughts, tool calls and their results). The rest of construct's
 //! vocabulary (messages, usage, requests, compaction) has no ACP shape, so
-//! a client that asks for it (`clientCapabilities._meta.construct.events`)
-//! also gets every event whole as an `_construct/event` notification, the
-//! extension mechanism ACP reserves for underscore methods. A construct parent
-//! journals those and ignores the lossy updates; any other client never sees
-//! them.
+//! a client that asks for it (`clientCapabilities._meta["com.sprawlcommons/construct"].events`)
+//! also gets every event whole as a `_com.sprawlcommons/construct/event`
+//! notification, the extension mechanism ACP reserves for underscore methods.
+//! A construct parent journals those and ignores the lossy updates; any other
+//! client never sees them.
 
 use super::replay::Transcript;
 use crate::event::Event;
 use crate::tools::ToolKind;
 use serde_json::{Value, json};
 
-/// The extension notification that carries one `Event` verbatim.
-pub const EVENT_METHOD: &str = "_construct/event";
+/// The reverse-DNS namespace ACP documents for extension methods and `_meta`
+/// keys (issue #171). The bare names below are accepted for one release.
+pub const EVENT_METHOD: &str = "_com.sprawlcommons/construct/event";
 /// Where construct's extensions live in `_meta` objects.
-pub const META_KEY: &str = "construct";
+pub const META_KEY: &str = "com.sprawlcommons/construct";
+/// The turn state notification a client with live attach reads.
+pub const TURN_METHOD: &str = "_com.sprawlcommons/construct/turn";
 /// Deck's boundary extension: its `_meta` namespace and the informational
 /// notification Deck sends after a late decision (ADR 0004 §6).
-pub const DECK_KEY: &str = "deck";
-pub const BOUNDARY_METHOD: &str = "_deck/boundary";
+pub const DECK_KEY: &str = "com.sprawlcommons/deck";
+pub const BOUNDARY_METHOD: &str = "_com.sprawlcommons/deck/boundary";
+
+/// The bare names released builds use. Construct advertises both capability
+/// keys and accepts both notification names for one release, so an old Deck
+/// and an old construct still work; it sends the names the client asked for
+/// (issue #171). Remove these next release.
+pub const LEGACY_EVENT_METHOD: &str = "_construct/event";
+pub const LEGACY_META_KEY: &str = "construct";
+pub const LEGACY_TURN_METHOD: &str = "_construct/turn";
+pub const LEGACY_DECK_KEY: &str = "deck";
+pub const LEGACY_BOUNDARY_METHOD: &str = "_deck/boundary";
+
+/// The notification names this client parses, chosen from what it put in
+/// `clientCapabilities._meta`: the reverse-DNS names when it named them,
+/// otherwise the bare names released builds use (issue #171).
+#[derive(Clone, Copy)]
+pub struct Wire {
+    pub lossless: bool,
+    pub event: &'static str,
+    pub turn: &'static str,
+}
+
+impl Wire {
+    /// `meta` is `clientCapabilities._meta`.
+    pub fn for_client(meta: &Value) -> Self {
+        let new = |field: &str| meta[META_KEY][field] == json!(true);
+        Self {
+            lossless: new("events") || meta[LEGACY_META_KEY]["events"] == json!(true),
+            event: if new("events") { EVENT_METHOD } else { LEGACY_EVENT_METHOD },
+            turn: if new("turn") { TURN_METHOD } else { LEGACY_TURN_METHOD },
+        }
+    }
+
+    /// Before `initialize`, nothing has been negotiated.
+    pub const fn legacy() -> Self {
+        Self { lossless: false, event: LEGACY_EVENT_METHOD, turn: LEGACY_TURN_METHOD }
+    }
+}
 
 /// The `update` payload of a `session/update` for this event, if ACP has a
 /// shape for it. `kind_of` names a tool's category (its `Tool::kind`).
