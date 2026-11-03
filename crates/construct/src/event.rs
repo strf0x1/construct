@@ -259,7 +259,7 @@ pub enum Event {
     JobEnd(crate::jobs::Info),
     /// The model was given these endings (`jobs::Delivered`).
     JobsDelivered(crate::jobs::Delivered),
-    /// A boundary decision Deck pushed over ACP (`_deck/boundary`), put on
+    /// A boundary decision Deck pushed over ACP (either boundary method), put on
     /// the next model request. It informs; it grants nothing, and the agent
     /// cannot answer it with a decision.
     DeckBoundary {

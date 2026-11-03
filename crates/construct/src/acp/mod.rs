@@ -49,9 +49,11 @@ pub(crate) fn claim_stdout() -> Option<std::os::fd::OwnedFd> {
 }
 
 /// What a parent hands a built-in child in `session/new`'s
-/// `_meta.construct.start`: the setup the JSONL transport sends as `start`.
-/// Only `construct __child --acp` honours it; the public `construct acp`
-/// ignores it, so a client cannot widen what the user configured.
+/// `_meta["com.sprawlcommons/construct"].start`, or under the bare
+/// `_meta.construct.start` a released parent sends: the setup the JSONL
+/// transport sends as `start`. Only `construct __child --acp` honours it; the
+/// public `construct acp` ignores it, so a client cannot widen what the user
+/// configured.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Start {
     pub config: Box<Config>,

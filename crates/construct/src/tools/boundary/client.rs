@@ -123,7 +123,7 @@ impl Boundary {
     }
 
     /// What was blocked after `after`, as the note the model reads. Marks a
-    /// terminal state seen so a later `_deck/boundary` does not repeat it.
+    /// terminal state seen so a later boundary notice does not repeat it.
     pub async fn tool_note(&self, after: u64) -> Option<String> {
         if self.down() {
             return None;
