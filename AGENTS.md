@@ -197,15 +197,38 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 9. Formatting is `cargo fmt`'s opinion, never hand-tuned.
 10. A decision that constrains future work gets an ADR (`docs/adr/`); check
     there before changing a settled behaviour.
-11. ACP extension names and payloads are the shared Deck-Construct contract
-    in `strf0x1/sprawlcommons-acp`, pinned by `CONTRACT.lock`. Change the
-    contract first (semver, matrix, schemas), then both implementations in
-    the same wave; `cargo xtask check`'s `contract` gate and
-    `crates/construct/tests/acp_contract.rs` keep this repo honest.
+11. ACP extension names and payloads are a shared contract
+    (`strf0x1/sprawlcommons-acp`, pinned by `CONTRACT.lock`); see
+    "The ACP extension contract" below.
 12. Module boundaries live in `docs/architecture.toml`: a new dependency
     between top-level modules is a one-line `may_use` edit there, so it shows
     in the diff, and a new module needs an entry. Deny rules (`must_not_use`,
     `used_only_by`) must give a `reason`; never widen one to get a change in.
+
+## The ACP extension contract
+
+Construct and Deck's shared ACP wire lives in one private, versioned
+repository: `strf0x1/sprawlcommons-acp`. Its `SPEC.md`, `schema/` and
+`conformance/matrix.json` are normative; the prose is not vendored here.
+`CONTRACT.lock` names the release, and
+`crates/construct/tests/fixtures/acp-contract/<version>/` holds the vendored
+matrix and schemas. ADR 0038 records the names; ADR 0040 records the pin.
+
+1. A change to an extension method, `_meta` key, capability flag or payload
+   starts in the contract repo, not here. Add the matrix/schema/CHANGELOG
+   entry and bump `VERSION` by semver (patch = prose/fixture, minor =
+   additive, major = rename/removal or changed meaning).
+2. Tag `v<VERSION>` there; here, run `scripts/acp-contract.sh update <version>`
+   and extend `crates/construct/tests/acp_contract.rs` if the matrix grew.
+3. Deck pins the same release in the same wave. Never land a wire change in one
+   implementation only.
+4. `cargo xtask check`'s `contract` gate fails on a stale vendored copy or a
+   hand edit; `scripts/acp-contract.sh verify` is the same check offline.
+5. The bare names are removed in contract 2.0.0, one released pair after both
+   speak 1.x.
+
+Read `SPEC.md` before changing `crates/construct/src/acp/`: its §4 negotiation
+table is what `Wire::for_client` must implement.
 
 ## Rules of thumb
 
