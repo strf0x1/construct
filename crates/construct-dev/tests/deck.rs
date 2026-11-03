@@ -207,6 +207,11 @@ fn initialize_advertises_the_deck_boundary_capability() {
     let mut c = Client::start_with(&env, &[("DECK_BOUNDARY_URL", server.url().as_str())]);
     let (init, _) = c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": {} }));
     assert_eq!(init["result"]["agentCapabilities"]["_meta"]["deck"]["boundary"], json!(true), "{init}");
+    assert_eq!(
+        init["result"]["agentCapabilities"]["_meta"]["com.sprawlcommons/deck"]["boundary"],
+        json!(true),
+        "{init}"
+    );
     c.finish();
 }
 
@@ -244,6 +249,27 @@ fn a_late_decision_reaches_the_next_request_exactly_once() {
     let text = reqs.last().unwrap().to_string();
     assert_eq!(text.matches("[deck boundary]").count(), 1, "{text}");
     assert!(text.contains("a1f3") && text.contains("allowed"), "{text}");
+    c.finish();
+}
+
+#[test]
+fn a_late_decision_on_the_reverse_dns_method_is_accepted() {
+    let env = Env::new("deck-push-new", json!({ "steps": [{ "text": "one" }, { "text": "two" }] }));
+    env.config("[router]\nmode = \"local\"\n");
+    let server = boundary::Server::start();
+    let (mut c, sid) = acp(&env, &[("DECK_BOUNDARY_URL", server.url().as_str())]);
+    let (first, _) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "first" }] }));
+    assert_eq!(first["result"]["stopReason"], "end_turn");
+    c.notify(
+        "_com.sprawlcommons/deck/boundary",
+        json!({ "approval_id": "a1f3", "destination": "index.crates.io:443", "outcome": "allowed", "scope": "task" }),
+    );
+    let (second, _) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "second" }] }));
+    assert_eq!(second["result"]["stopReason"], "end_turn");
+    let text = env.requests().last().unwrap().to_string();
+    assert!(text.contains("[deck boundary]") && text.contains("a1f3"), "{text}");
     c.finish();
 }
 
@@ -364,6 +390,7 @@ fn a_notification_without_the_capability_is_ignored() {
     let (mut c, sid) = acp(&env, &[]);
     let (init, _) = c.call("initialize", json!({ "protocolVersion": 1, "clientCapabilities": {} }));
     assert!(init["result"]["agentCapabilities"]["_meta"]["deck"].is_null(), "{init}");
+    assert!(init["result"]["agentCapabilities"]["_meta"]["com.sprawlcommons/deck"].is_null(), "{init}");
     c.notify(
         "_deck/boundary",
         json!({ "approval_id": "a1f3", "destination": "index.crates.io:443", "outcome": "allowed", "scope": "task" }),

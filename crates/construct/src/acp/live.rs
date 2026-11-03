@@ -3,7 +3,7 @@
 //! replay, question reissue and response relative to live delivery.
 
 use super::ask::Answer;
-use super::map::{self, EVENT_METHOD};
+use super::map;
 use super::replay::Transcript;
 use super::rpc;
 use super::server::{Mode, Server};
@@ -18,8 +18,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, oneshot, watch};
 use tokio::task::JoinSet;
-
-pub(super) const TURN_METHOD: &str = "_construct/turn";
 
 pub(super) enum Command {
     Event { session: String, generation: u64, event: Box<Event> },
@@ -97,7 +95,7 @@ impl Server {
         if self.mode == Mode::User
             && let Some(s) = self.sessions.get(sid)
         {
-            let _ = self.out.send(rpc::notification(TURN_METHOD, s.turn.value(sid)));
+            let _ = self.out.send(rpc::notification(self.wire.turn, s.turn.value(sid)));
         }
     }
 
@@ -146,8 +144,8 @@ impl Server {
                 if s.attached != self.attachment {
                     return;
                 }
-                let line = if self.lossless {
-                    rpc::notification(EVENT_METHOD, json!({ "sessionId": session, "event": event }))
+                let line = if self.wire.lossless {
+                    rpc::notification(self.wire.event, json!({ "sessionId": session, "event": event }))
                 } else if let Some(update) = s.update(&event) {
                     rpc::notification("session/update", json!({ "sessionId": session, "update": update }))
                 } else {

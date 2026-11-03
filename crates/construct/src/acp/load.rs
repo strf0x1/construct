@@ -2,11 +2,20 @@
 //! session reads only actor-owned state, without the agent lock or recovery.
 
 use super::cwd;
-use super::map::{self, META_KEY};
+use super::map::{self, LEGACY_META_KEY, META_KEY};
 use super::rpc;
 use super::server::Server;
 use crate::agent::Agent;
 use serde_json::{Value, json};
+
+/// The load snapshot under both the reverse-DNS key and the bare one, so a
+/// released Deck still finds it (issue #171).
+fn snapshot(turn: Value) -> Value {
+    json!({ "_meta": {
+        META_KEY: { "turn": turn.clone() },
+        LEGACY_META_KEY: { "turn": turn },
+    } })
+}
 
 impl Server {
     /// `session/load` replays the recorded conversation before it answers;
@@ -48,7 +57,7 @@ impl Server {
             let turn = s.turn.value(sid);
             self.questions.send(sid, &self.out);
             self.turn_notice(sid);
-            return Ok(json!({ "_meta": { META_KEY: { "turn": turn } } }));
+            return Ok(snapshot(turn));
         }
         if crate::journal::find(&self.paths, sid).is_err() {
             return Err((rpc::NOT_FOUND, format!("no session {sid}")));
@@ -71,7 +80,7 @@ impl Server {
         if replay {
             let turn = self.sessions[sid].turn.value(sid);
             self.turn_notice(sid);
-            Ok(json!({ "_meta": { META_KEY: { "turn": turn } } }))
+            Ok(snapshot(turn))
         } else {
             Ok(json!({}))
         }

@@ -434,3 +434,43 @@ fn a_replayed_pending_call_starts_with_an_update_instead_of_a_second_creation() 
     assert!(ends.iter().any(|r| r.payload["output"].as_str().unwrap().contains("hello from the queued read")));
     c.finish();
 }
+
+#[test]
+fn a_client_naming_the_reverse_dns_namespace_gets_the_new_turn_method() {
+    let env = Env::new("acp-live-new-names", json!({ "steps": [{ "text": "hi" }] }));
+    let mut c = Client::start(&env);
+    let (init, _) = c.call(
+        "initialize",
+        json!({
+            "protocolVersion": 1,
+            "clientCapabilities": { "_meta": { "com.sprawlcommons/construct": { "turn": true } } }
+        }),
+    );
+    let caps = &init["result"]["agentCapabilities"]["_meta"];
+    assert_eq!(caps["com.sprawlcommons/construct"]["liveAttach"], true);
+    assert_eq!(caps["construct"]["liveAttach"], true, "a released Deck still finds the old key");
+    let (new, _) = c.call("session/new", json!({ "cwd": env.work.display().to_string() }));
+    let sid = new["result"]["sessionId"].as_str().unwrap().to_string();
+    let (_, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "go" }] }));
+    assert!(
+        notes.iter().any(|n| n["method"] == "_com.sprawlcommons/construct/turn"),
+        "the new name is used: {notes:?}"
+    );
+    assert!(notes.iter().all(|n| n["method"] != "_construct/turn"), "only the new name: {notes:?}");
+    c.finish();
+}
+
+#[test]
+fn a_released_client_keeps_the_bare_turn_method() {
+    let env = Env::new("acp-live-old-names", json!({ "steps": [{ "text": "hi" }] }));
+    let (mut c, sid) = start(&env);
+    let (_, notes) =
+        c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "go" }] }));
+    assert!(notes.iter().any(|n| n["method"] == "_construct/turn"), "the released name is still sent");
+    assert!(
+        notes.iter().all(|n| n["method"] != "_com.sprawlcommons/construct/turn"),
+        "a client that named nothing new gets the bare name: {notes:?}"
+    );
+    c.finish();
+}
