@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+mod mcp;
+pub use mcp::McpServer;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -33,6 +36,12 @@ pub struct Config {
     pub router: RouterConfig,
     pub sandbox: SandboxConfig,
     pub tools: ToolsConfig,
+    /// Deck's boundary status endpoint, set by the VM runtime
+    /// (`DECK_BOUNDARY_URL`). Absent outside a Deck task, which is what keeps
+    /// the boundary tools out of the catalog. Skipped when absent so an
+    /// ordinary session's config hash does not change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deck: Option<DeckConfig>,
     pub jobs: crate::jobs::JobsConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Agents the model can delegate to, each run as a sandboxed child.
@@ -123,48 +132,6 @@ pub struct RouterConfig {
     pub threshold: f32,
 }
 
-/// An MCP server runs inside the sandbox like a shell command: the workspace
-/// policy plus what its entry adds, a credential-free environment plus the
-/// secrets it names.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct McpServer {
-    pub command: String,
-    pub args: Vec<String>,
-    /// Literal variables set for the server.
-    pub env: BTreeMap<String, String>,
-    /// One line on what the server is for; the router reads it.
-    pub description: String,
-    /// Extra paths this server may read (`~/` expands), on top of [sandbox].
-    pub allow_read: Vec<String>,
-    /// Extra paths this server may read and write.
-    pub allow_write: Vec<String>,
-    /// TCP connect and bind. On by default: most servers are API clients.
-    pub network: bool,
-    /// Secret names resolved like construct's own (environment, then the
-    /// keyring) and passed to this server only. No other credential reaches it.
-    pub secrets: Vec<String>,
-    /// Seconds a tool call may go without a response or a progress
-    /// notification before it is cancelled.
-    pub timeout: u64,
-}
-
-impl Default for McpServer {
-    fn default() -> Self {
-        Self {
-            command: String::new(),
-            args: vec![],
-            env: BTreeMap::new(),
-            description: String::new(),
-            allow_read: vec![],
-            allow_write: vec![],
-            network: true,
-            secrets: vec![],
-            timeout: 300,
-        }
-    }
-}
-
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -182,6 +149,7 @@ impl Default for Config {
             router: RouterConfig::default(),
             sandbox: SandboxConfig::default(),
             tools: ToolsConfig::default(),
+            deck: None,
             jobs: Default::default(),
             mcp: BTreeMap::new(),
             agents: BTreeMap::new(),
@@ -273,6 +241,13 @@ impl Default for ToolsConfig {
             shell: Default::default(),
         }
     }
+}
+
+/// What Deck tells a guest agent about its host boundary (ADR 0004 §6). The
+/// URL is a base: construct appends `/events` and `/approvals/<id>`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DeckConfig {
+    pub boundary_url: String,
 }
 
 /// Knobs for `editor = "hashline"`, the ones a bench sweeps.
@@ -419,6 +394,12 @@ impl Config {
         }
         if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_WEB_SEARCH") {
             cfg.tools.web.search = v;
+        }
+        if let Ok(v) = std::env::var("DECK_BOUNDARY_URL") {
+            let v = v.trim().trim_end_matches('/');
+            if !v.is_empty() {
+                cfg.deck = Some(DeckConfig { boundary_url: v.to_string() });
+            }
         }
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         cfg.load_catalog(&paths.models())?;

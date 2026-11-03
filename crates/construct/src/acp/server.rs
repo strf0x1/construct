@@ -22,6 +22,7 @@
 //! A session's permission questions go to the client (`ask`), whose responses
 //! this same loop reads, so a question never waits on a turn.
 
+use super::cwd;
 use super::live::{Command, Phase, Session, Turn};
 use super::map::{self, META_KEY};
 use super::questions::Questions;
@@ -35,7 +36,6 @@ use rpc::Incoming;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::Write;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
@@ -96,6 +96,9 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
                         if let Some(s) = params["sessionId"].as_str().and_then(|id| srv.sessions.get(id)) {
                             s.cancel.send_replace(true);
                         }
+                    }
+                    Some(Incoming::Notification { method, params }) if method == map::BOUNDARY_METHOD => {
+                        srv.boundary_notice(params);
                     }
                     _ => {}
                 }
@@ -167,16 +170,7 @@ impl Server {
                 self.attachment += 1;
                 self.questions.retire();
                 self.lossless = params["clientCapabilities"]["_meta"][META_KEY]["events"] == json!(true);
-                let mut caps = json!({
-                    "loadSession": self.mode == Mode::User,
-                    "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
-                    "mcpCapabilities": { "http": false, "sse": false },
-                    "_meta": { META_KEY: { "events": true } },
-                });
-                if self.mode == Mode::User {
-                    caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
-                    caps["_meta"][META_KEY]["liveAttach"] = json!(true);
-                }
+                let caps = self.capabilities();
                 let result = json!({
                     "protocolVersion": VERSION,
                     "agentInfo": { "name": "construct", "title": "construct", "version": env!("CARGO_PKG_VERSION") },
@@ -268,6 +262,7 @@ impl Server {
             }
         }
         let cancel = agent.canceller();
+        let boundary = agent.ctx.boundary.clone();
         self.next_session += 1;
         self.sessions.insert(
             sid.clone(),
@@ -278,6 +273,7 @@ impl Server {
                 announced: Default::default(),
                 turn,
                 catalog: agent.catalog.clone(),
+                boundary,
                 cwd: agent.ctx.cwd.clone(),
                 agent: Arc::new(Mutex::new(agent)),
                 attached: self.attachment,
@@ -286,12 +282,4 @@ impl Server {
         );
         Ok(sid)
     }
-}
-
-pub(super) fn cwd(params: &Value) -> Result<PathBuf> {
-    params["cwd"]
-        .as_str()
-        .filter(|c| !c.is_empty())
-        .map(PathBuf::from)
-        .ok_or_else(|| anyhow::anyhow!("cwd is required"))
 }

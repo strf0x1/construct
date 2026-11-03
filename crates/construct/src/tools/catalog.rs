@@ -4,8 +4,8 @@
 use super::*;
 use crate::config::ToolsConfig;
 use anyhow::bail;
-use std::collections::BTreeSet;
-use std::sync::RwLock;
+use std::collections::{BTreeSet, HashSet};
+use std::sync::{Arc, RwLock};
 
 /// The tools this session has. Definition order in requests is the order
 /// tools are pushed in `build` (then MCP tools in discovery order), grouped
@@ -22,6 +22,12 @@ pub struct Catalog {
 impl Catalog {
     /// The one place implementations are chosen.
     pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>) -> Result<Catalog> {
+        Self::build_with(cfg, mcp, false)
+    }
+
+    /// `build` for a process that also has a Deck boundary endpoint; the three
+    /// boundary tools exist only there.
+    pub fn build_with(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>, deck: bool) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         match cfg.editor.as_str() {
             "replace" => {
@@ -52,6 +58,11 @@ impl Catalog {
         tools.push(Arc::new(history::JournalQuery));
         tools.push(Arc::new(job::JobTool));
         tools.push(Arc::new(developer::Developer));
+        if deck {
+            tools.push(Arc::new(boundary::Wait));
+            tools.push(Arc::new(boundary::Status));
+            tools.push(Arc::new(boundary::Withdraw));
+        }
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
             bail!("tools.search_name: {:?} is already a tool", t.name());

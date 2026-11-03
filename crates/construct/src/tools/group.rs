@@ -13,6 +13,9 @@ pub enum Group {
     /// Checking and cancelling background jobs; on once the session has one.
     Jobs,
     Developer,
+    /// Deck's boundary tools; present only when the VM runtime set an
+    /// endpoint, so it is never offered by the router.
+    Boundary,
     Mcp(String),
 }
 
@@ -26,6 +29,7 @@ impl Group {
             Group::SkillWrite => "skill-write".into(),
             Group::History => "history".into(),
             Group::Developer => "developer".into(),
+            Group::Boundary => "boundary".into(),
             Group::Jobs => "jobs".into(),
             Group::Mcp(s) => format!("mcp:{s}"),
         }

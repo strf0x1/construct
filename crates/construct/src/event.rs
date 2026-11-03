@@ -259,6 +259,15 @@ pub enum Event {
     JobEnd(crate::jobs::Info),
     /// The model was given these endings (`jobs::Delivered`).
     JobsDelivered(crate::jobs::Delivered),
+    /// A boundary decision Deck pushed over ACP (`_deck/boundary`), put on
+    /// the next model request. It informs; it grants nothing, and the agent
+    /// cannot answer it with a decision.
+    DeckBoundary {
+        /// The approval ids this note consumed.
+        ids: Vec<String>,
+        /// What the model was sent, verbatim.
+        message: Message,
+    },
     /// An event from a child session a tool is running, as the parent sees
     /// it. `id` is the delegating call's id, so a UI nests it under that call.
     /// Wire only: the parent journals the inner event under the child's own

@@ -5,6 +5,8 @@
 //! is journaled on the way out (`journal::Writer::emit`).
 
 mod compaction;
+mod deck;
+mod limits;
 mod restore;
 mod user_turn;
 mod wake;
@@ -201,6 +203,9 @@ impl Agent {
                 break;
             }
             let defs = self.tool_defs();
+            // A late boundary decision rides in before this request, whether
+            // it arrived mid-turn or between turns (ADR 0004 §6).
+            self.deliver_boundary(tx);
             if !overflowed {
                 self.compact(&defs, Reason::Threshold, tx).await;
             }
@@ -398,14 +403,18 @@ impl Agent {
                     },
                     &tx,
                 );
+                // Attribution is by time: the cursor before the call, the
+                // gateway's events after it.
+                let before = deck::before_tool(&ctx).await;
                 let t = Instant::now();
                 let call = Call::new(&c.id, journal.clone(), tx.clone());
                 let r = catalog.call_with(&ctx, &call, &c.function.name, &c.function.arguments).await;
                 let ms = t.elapsed().as_millis() as u64;
-                let (ok, out, kind, data, code) = match r {
+                let (ok, mut out, kind, data, code) = match r {
                     Ok(o) => (true, o.text, o.kind, o.data, None),
                     Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code.to_string())),
                 };
+                deck::after_tool(&ctx, before, &mut out).await;
                 // What scorers read back from the journal: codes and data,
                 // never the prose.
                 journal.emit(
@@ -448,19 +457,6 @@ impl Agent {
             self.tool_calls_since_skill += 1;
         }
         self.offer_job_tool();
-    }
-
-    /// The catalog's price for `model` stands in when the provider sent none.
-    fn price(&self, model: &str, u: &mut Usage) {
-        if u.cost.is_none()
-            && let Some(p) = self.cfg.lookup(model).and_then(|e| e.pricing)
-        {
-            u.cost = Some(p.cost(u.prompt_tokens, u.completion_tokens));
-        }
-    }
-
-    fn cfg_context_window(&self) -> u64 {
-        self.window_seen.unwrap_or(u64::MAX).min(u64::from(self.cfg.context_window))
     }
 }
 
