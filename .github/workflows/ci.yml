@@ -23,6 +23,11 @@ jobs:
     runs-on: macos-15
     env:
       CONSTRUCT_E2E_SLOW: "1"
+      # The TUI e2e tests drive a real pty and wait on rendered text. Three
+      # concurrent drivers on a hosted runner's cores miss 3-6 s waits with
+      # no bug in the test (each retry lands on a different test), so cap
+      # libtest's parallelism here; the `it` suite alone is ~80 s at 3.
+      RUST_TEST_THREADS: "2"
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
