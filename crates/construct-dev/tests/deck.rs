@@ -379,3 +379,80 @@ fn a_notification_without_the_capability_is_ignored() {
     assert!(!env.requests().last().unwrap().to_string().contains("[deck boundary]"));
     c.finish();
 }
+
+/// Whether any file under `dir` holds `needle`: a guest credential must not
+/// land in the task's writable disk, whatever the command prints.
+fn holds(dir: &std::path::Path, needle: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    entries.flatten().any(|entry| {
+        let path = entry.path();
+        if path.is_dir() {
+            holds(&path, needle)
+        } else {
+            std::fs::read(&path).is_ok_and(|bytes| String::from_utf8_lossy(&bytes).contains(needle))
+        }
+    })
+}
+
+#[test]
+fn a_managed_guest_reports_environment_values_as_placeholders() {
+    let env = Env::new("deck-secrets-status", json!({ "steps": [] }));
+    let state = env.dir.join("secretspec-state");
+    let config = env.dir.join("secretspec-config");
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::create_dir_all(&config).unwrap();
+    let out = env.run_with(
+        &[
+            ("DECK_MANAGED", "1"),
+            ("OPENAI_API_KEY", "deck-placeholder"),
+            // If anything reaches for a keyring, Linux fails the provider
+            // loudly here instead of silently finding a store.
+            ("XDG_STATE_HOME", state.to_str().unwrap()),
+            ("XDG_CONFIG_HOME", config.to_str().unwrap()),
+            ("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent-construct-test"),
+        ],
+        &["secrets", "status"],
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        stdout,
+        "✓ OPENAI_API_KEY (placeholder from environment)\n\
+         · OPENROUTER_API_KEY\n\
+         · TYPESAFE_API_KEY\n\
+         · EXA_API_KEY\n\
+         · BRAVE_API_KEY\n\
+         · TAVILY_API_KEY\n",
+        "name and source only, never the value: {stdout}"
+    );
+    let shown = text(&out);
+    assert!(!shown.contains("deck-placeholder"), "a value must never be printed: {shown}");
+    assert!(!shown.contains("keyring"), "no keyring in a managed guest: {shown}");
+    assert!(!shown.contains("secretspec"), "no secretspec diagnostics in a managed guest: {shown}");
+}
+
+#[test]
+fn a_managed_guest_refuses_to_store_a_secret() {
+    let env = Env::new("deck-secrets-set", json!({ "steps": [] }));
+    let out = env.run_with(
+        &[("DECK_MANAGED", "1"), ("OPENAI_API_KEY", "deck-placeholder")],
+        &["secrets", "set", "OPENAI_API_KEY", "hunter2"],
+    );
+    assert!(!out.status.success(), "secrets set must fail in a guest: {}", text(&out));
+    let shown = text(&out);
+    assert!(shown.contains("host-owned in this Deck task"), "{}", shown);
+    assert!(shown.contains("Deck's host-side credential"), "{}", shown);
+    assert!(!shown.contains("stored"), "nothing was stored: {shown}");
+    assert!(!shown.contains("keyring"), "the keyring must not be touched: {shown}");
+    assert!(!holds(&env.home, "hunter2"), "a guest must not persist the value");
+}
+
+#[test]
+fn a_host_still_reports_an_environment_secret_without_a_source_suffix() {
+    let env = Env::new("deck-secrets-host", json!({ "steps": [] }));
+    let out = env.run(&["secrets", "status"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.lines().any(|line| line == "✓ OPENAI_API_KEY"), "host output is unchanged: {stdout}");
+    assert!(!stdout.contains("placeholder"), "a host has no Deck placeholder: {stdout}");
+}

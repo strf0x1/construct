@@ -50,7 +50,7 @@ enum Cmd {
         #[arg(long)]
         curate: bool,
     },
-    /// Store or inspect secrets (secretspec: env, then OS keyring).
+    /// Store or inspect secrets (secretspec: env, then OS keyring; a Deck guest stores none).
     Secrets {
         #[command(subcommand)]
         cmd: SecretsCmd,
@@ -122,9 +122,9 @@ enum SessionsCmd {
 
 #[derive(Subcommand)]
 enum SecretsCmd {
-    /// Store a secret in the OS keyring (value from stdin when omitted).
+    /// Store a secret in the OS keyring (value from stdin when omitted; refused in a Deck guest).
     Set { name: String, value: Option<String> },
-    /// Show which known secrets resolve.
+    /// Show which known secrets resolve, and from where.
     Status,
 }
 
@@ -176,6 +176,11 @@ pub fn run() -> Result<()> {
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {
+                // Before reading a value: a Deck guest has no credential store,
+                // so the command must fail at once instead of prompting.
+                if secrets::managed() {
+                    bail!("{}", secrets::HOST_OWNED);
+                }
                 let value = match value {
                     Some(v) => v,
                     None => {
@@ -192,8 +197,8 @@ pub fn run() -> Result<()> {
                 Ok(())
             }
             SecretsCmd::Status => {
-                for (n, ok) in secrets::status() {
-                    println!("{} {n}", if ok { "✓" } else { "·" });
+                for status in secrets::status() {
+                    println!("{}", secrets::status_line(&status));
                 }
                 Ok(())
             }

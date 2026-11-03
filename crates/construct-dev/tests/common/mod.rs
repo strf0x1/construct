@@ -114,12 +114,17 @@ impl Env {
             ("OPENAI_API_KEY".into(), "test".into()),
             ("CONSTRUCT_LEARN_DEBOUNCE_MS".into(), "0".into()),
             // Empty means unset: the developer's shell must not change what the tests see.
+            ("OPENROUTER_API_KEY".into(), String::new()),
             ("TYPESAFE_API_KEY".into(), String::new()),
+            ("EXA_API_KEY".into(), String::new()),
+            ("BRAVE_API_KEY".into(), String::new()),
+            ("TAVILY_API_KEY".into(), String::new()),
             ("CONSTRUCT_MODEL".into(), String::new()),
             ("CONSTRUCT_ROUTER".into(), String::new()),
             ("CONSTRUCT_SANDBOX".into(), String::new()),
             ("CONSTRUCT_TOOLS_EDITOR".into(), String::new()),
             ("DECK_BOUNDARY_URL".into(), String::new()),
+            ("DECK_MANAGED".into(), String::new()),
             ("CONSTRUCT_TRACE".into(), String::new()),
         ]
     }
