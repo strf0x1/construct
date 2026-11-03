@@ -10,6 +10,8 @@
     reason = "test helpers outside #[test] fns fail the test by panicking"
 )]
 
+#[path = "acp_contract.rs"]
+mod acp_contract;
 #[path = "acp_kinds.rs"]
 mod acp_kinds;
 #[path = "edit_contract.rs"]

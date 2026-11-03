@@ -2,6 +2,12 @@
 //! editor would, with the model on the scripted endpoint.
 
 use crate::common::*;
+use construct::acp::Start;
+use construct::agents::AgentDef;
+use construct::child::Origin;
+use construct::config::Config;
+use construct::sandbox::Policy;
+use construct::tools::Catalog;
 use serde_json::{Value, json};
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
@@ -532,4 +538,98 @@ fn session_close_ends_the_turn_and_is_idempotent() {
     let (unknown, _) = c.call("session/close", json!({ "sessionId": "nope" }));
     assert_eq!(unknown["result"], json!({}), "{unknown}");
     c.finish();
+}
+
+/// `construct __child --acp`, the hidden mode a parent sets up.
+fn child_acp(env: &Env) -> (Child, ChildStdin, BufReader<ChildStdout>) {
+    let mut c = Command::new(construct());
+    c.args(["__child", "--acp"]).current_dir(&env.work).stdin(Stdio::piped()).stdout(Stdio::piped());
+    c.stderr(Stdio::from(std::fs::File::create(env.dir.join("child-acp-stderr.log")).unwrap()));
+    for (k, v) in env.env() {
+        if v.is_empty() {
+            c.env_remove(k);
+        } else {
+            c.env(k, v);
+        }
+    }
+    let mut child = c.spawn().unwrap();
+    let stdin = child.stdin.take().unwrap();
+    let out = BufReader::new(child.stdout.take().unwrap());
+    (child, stdin, out)
+}
+
+fn child_call(stdin: &mut ChildStdin, id: u64, method: &str, params: Value) {
+    writeln!(stdin, "{}", json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })).unwrap();
+    stdin.flush().unwrap();
+}
+
+fn child_reply(out: &mut BufReader<ChildStdout>, id: u64) -> (Value, Vec<Value>) {
+    let mut notes = vec![];
+    loop {
+        let mut line = String::new();
+        assert!(out.read_line(&mut line).unwrap() > 0, "the child closed its output");
+        let v: Value = serde_json::from_str(&line).unwrap_or_else(|e| panic!("not JSON ({e}): {line}"));
+        if v["id"] == json!(id) && v["method"].is_null() {
+            return (v, notes);
+        }
+        notes.push(v);
+    }
+}
+
+/// A released Construct parent sends the setup under `_meta.construct.start`;
+/// the child must still start a session from it for one release (issue #171).
+#[test]
+fn a_released_parent_sets_up_an_acp_child_with_the_bare_start_key() {
+    let env = Env::new("acp-child-legacy-start", json!({ "steps": [{ "text": "child says hi" }] }));
+    let cfg = Config { base_url: format!("http://127.0.0.1:{}/v1", env.port), ..Default::default() };
+    let table = Catalog::build(&cfg.tools, None).unwrap().table();
+    let def = AgentDef { tools: vec!["read".into()], ..Default::default() };
+    let cfg = def.child_config("scout", &cfg, &table).unwrap();
+    let origin = Origin {
+        policy: Policy { off: true, ..Default::default() },
+        system: "You are a scout. Report what you find.".into(),
+        parent_session: "parent-1".into(),
+        parent_call_id: "call-7".into(),
+    };
+    let start = serde_json::to_value(Start { config: Box::new(cfg), origin: Box::new(origin) }).unwrap();
+
+    let (mut child, mut stdin, mut out) = child_acp(&env);
+    child_call(&mut stdin, 1, "initialize", json!({ "protocolVersion": 1, "clientCapabilities": {} }));
+    let (init, _) = child_reply(&mut out, 1);
+    assert_eq!(init["result"]["protocolVersion"], 1, "{init}");
+
+    child_call(
+        &mut stdin,
+        2,
+        "session/new",
+        json!({
+            "cwd": env.work.display().to_string(),
+            "mcpServers": [],
+            "_meta": { "construct": { "start": start } },
+        }),
+    );
+    let (new, _) = child_reply(&mut out, 2);
+    let sid = new["result"]["sessionId"]
+        .as_str()
+        .unwrap_or_else(|| panic!("the bare start key was refused: {new}"))
+        .to_string();
+
+    child_call(
+        &mut stdin,
+        3,
+        "session/prompt",
+        json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "look" }] }),
+    );
+    let (done, notes) = child_reply(&mut out, 3);
+    assert_eq!(done["result"]["stopReason"], "end_turn", "{done}");
+    let said: String = notes
+        .iter()
+        .filter(|n| n["method"] == "session/update")
+        .filter(|n| n["params"]["update"]["sessionUpdate"] == "agent_message_chunk")
+        .filter_map(|n| n["params"]["update"]["content"]["text"].as_str())
+        .collect();
+    assert_eq!(said, "child says hi", "{notes:?}");
+
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
 }

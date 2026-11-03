@@ -1,6 +1,7 @@
 //! Deck's boundary extension on the ACP server: the capability advertised in
-//! `initialize` and the informational `_deck/boundary` notification accepted
-//! after a late decision (Deck ADR 0004 §6).
+//! `initialize` and the informational boundary notification accepted after a
+//! late decision (Deck ADR 0004 §6), under the reverse-DNS method or the bare
+//! `_deck/boundary` a released Deck sends.
 //!
 //! The design choice: the capability is advertised only when this process has
 //! a boundary endpoint. An agent without one would have nowhere to put the

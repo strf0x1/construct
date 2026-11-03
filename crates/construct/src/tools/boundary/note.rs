@@ -11,8 +11,8 @@ use super::{WAIT, WITHDRAW};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
-/// A decision Deck pushed over ACP (`_deck/boundary`). It informs; it grants
-/// nothing and the agent cannot answer it with a decision.
+/// A decision Deck pushed over ACP (either boundary method). It informs; it
+/// grants nothing and the agent cannot answer it with a decision.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Notice {
     #[serde(rename = "approval_id", alias = "id")]
