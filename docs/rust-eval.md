@@ -30,6 +30,7 @@ but not the solution.
 | `rust-replay-openat2` | #82 | sandbox, file tools | 5 contract (`symlink_farm.rs`) | 763 |
 | `rust-replay-journal-query` | #43 | journal, history tools | 6 e2e | 427 |
 | `rust-replay-hashline-salt` | #40 | hashline editor, config | 1 e2e + the whole hashline contract | 164 |
+| `rust-replay-child-key-issue` | #76 | the same as `child-key`, prompted with issue #65 verbatim | 2 e2e (`delegate.rs`) | 57 |
 
 No `llm/` task: every merged PR in that area also changed golden snapshots or
 the bench. Add one as `bench/tasks/rust-replay-<name>/` (copy a `task.toml`,
@@ -61,6 +62,11 @@ Each run's `report` holds details that aren't pass/fail:
   can mean drive-by changes. Use it to choose which runs to read or judge.
 - `report.diff_text` and `final_message` (the agent's last words): the inputs
   for the judge.
+
+`final_message` is the last assistant text in the run, even when that text
+came with tool calls. A run cut off by construct's step limit or by an error
+shows a stale line from much earlier ("I'll start by exploring…"), so read
+the last turn's `rc` and `stderr_tail` before saying the model stopped.
 
 ## Running it
 
@@ -207,6 +213,13 @@ passes fewer hidden tests is worse for this repo.
 
 ## Caveats
 
+- construct stops a turn at 200 steps (`max_steps`). Real tasks on this repo
+  take 130-200+ steps even for strong models, so some passing runs end on that
+  limit before their summary, and a slow, thorough model can fail on it.
+- `child-key-issue` differs from `child-key` only in its prompt: the issue as
+  written, including its proposed fix and extra wants, against the rewrite
+  that keeps intent only. Compare the two to see how much a model leans on
+  the issue's wording.
 - The PRs are public on GitHub, so a model trained after they merged may have
   seen the answer. For each model, compare its training cutoff with the PR
   dates (October 2026).

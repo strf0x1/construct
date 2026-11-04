@@ -570,6 +570,23 @@ class Compaction(unittest.TestCase):
         ]
         self.assertEqual(bench.provider_failures(recs), 2)
 
+    def test_a_timeout_kill_is_the_bench_and_an_in_stream_error_is_the_provider(self):
+        import bench
+
+        ok = {"status": 200, "usage": {"prompt_tokens": 9}, "finish_reason": "tool_calls"}
+        cut = {"status": 200, "usage": None, "finish_reason": None}
+        quiet = {"timed_out": False, "stderr_tail": "· read {}\n"}
+        # The bench's own timeout cut the last stream: not the provider's.
+        self.assertEqual(bench.run_provider_failures([ok, cut], [{"timed_out": True, "stderr_tail": ""}]), 0)
+        # The same cut stream without a timeout is.
+        self.assertEqual(bench.run_provider_failures([ok, cut], [quiet]), 1)
+        # A 502 inside a 200 stream leaves a complete-looking record; construct's exit names it.
+        err = {"timed_out": False, "stderr_tail": 'error: model endpoint error: {"code":502}\n'}
+        self.assertEqual(bench.run_provider_failures([ok], [err]), 1)
+        # Hitting max_steps is the harness's limit, not a provider failure.
+        steps = {"timed_out": False, "stderr_tail": "error: stopped after 200 steps (max_steps)\n"}
+        self.assertEqual(bench.run_provider_failures([ok], [steps]), 0)
+
 
     def test_an_error_row_is_not_a_message(self):
         rows = journal.legacy([("error", 1, {"message": "compaction failed"}), ("user", 2, {"message": {"role": "user", "content": "hi"}})])

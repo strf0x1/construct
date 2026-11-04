@@ -392,3 +392,27 @@ Issue #142 final release after private Git context and backing-path guards. Fram
 #95 pilot 5: pilot 4's setup (16k window, 1 round, main f57b0ed / new / newwide) on anthropic/claude-haiku-5.5, $0.355 in all. Success: main 0/3, new 3/3, newwide 3/3. main dies on the window in every task (checks 1/8, 2/8, 0/6): with no result cap, Haiku's single reads are 18-20 kB, a round of 2-4 calls is 36-40 kB, the newest round is never cut, and summaries of 2.6-5.7k tokens leave cuts short (recall: 6 summaries in a row UNREACHED, then 26.0k -> 24.3k and 'nothing left to cut'). On the branch Haiku's rounds stay at or under 18 kB and no run overflowed. newwide is the cheaper arm: 85 requests, 27 cuts, 5 stub re-runs, $0.082 against new's 168 requests, 64 cuts, 20 re-runs, $0.219; new's recall took 105 requests and 40 cuts, 23 of them summary fallbacks after the 3584-token limit. The default 0.7/0.5 still cuts on most requests late in a long turn (target 7.2k against 10-14k prompts). new's recall passed 6/6 but two turns exited 1: a turn whose last compaction fell back from a summary that hit the output limit reports 'compaction failed' and exits 1 although it recovered and wrote the answer. Against pilot 4: the planner, not the window, decides the 16k outcome for a capable model; nemotron's failures there are the model's (whole-package reads in 10-call rounds).
 
 - `bench/results/task-20261101-114548.json`: model anthropic/claude-haiku-5.5; bench 9563a8a; main f57b0ed editor=replace router=local; new c7f2467 editor=replace router=local; newwide c7f2467 editor=replace router=local
+
+## 2026-11-04 00:14 note
+
+DeepSeek V4.1-Flash-1017 full (OpenRouter), 1 round: hashline-salt pass (scope 1.14, clean). child-key: invalid, not a fail. It died on an in-stream provider error after 9 requests (502 wrapping an upstream 429, rc=1) that provider_failures missed, so it was never retried. final_message shows a stale opening line (see task-20261104-001225 for valid runs).
+
+- `bench/results/task-20261103-110828.json`: model deepseek/deepseek-v4.1-flash-1017; bench dab77ad dirty; construct dab77ad editor=replace router=local
+
+## 2026-11-04 00:14 note
+
+IQ2_XXS (ISTA GSQ-RCO, 384 experts, Strata, ~12 tok/s), 1 round: hashline-salt PASS in 69 min, diff near-identical in structure to the full model's (scope 1.15), but hit construct's max_steps (200) before writing its summary. child-key fail: 3h timeout, 359 tool calls, 0 edits, widening search. The Coder (192 experts) was also tried on child-key: 0 edits in 3x2h; a language sweep shows the prune lost Rust and Go (Python/TS/C++ intact), so it is unfit for this repo.
+
+- `bench/results/task-20261103-204636.json`: model deepseek-v4.1-flash; bench dab77ad dirty; construct dab77ad editor=replace router=local
+
+## 2026-11-04 00:14 note
+
+Full model, child-key x2 (rewrite) and child-key-issue x2 (raw issue #65): hidden tests 4/4, xtask 4/4; one issue run changed a golden snapshot (lint). Scope 3.2-5.1x the 57-line reference; the raw issue gave the largest diffs and cost more ($0.44-0.57 vs $0.19-0.33). Two runs hit max_steps (200) and passed anyway; the step cap, not the model, cut off their summaries. OpenRouter reasoning was on (reasoning_tokens in usage).
+
+- `bench/results/task-20261104-001225.json`: model deepseek/deepseek-v4.1-flash-1017; bench dab77ad dirty; construct dab77ad editor=replace router=local
+
+## 2026-11-04 02:05 note
+
+IQ2_XXS on child-key-issue (raw issue #65, which names the fix): FAIL. Hit max_steps (200) after 1.8h with 0 edits (137 read, 81 grep, 44 shell); it ended up reading the secretspec crate's source in ~/.cargo/registry. A detailed issue did not get it from reading to editing; the full model passed the same prompt 2/2. Next levers: a plan written by a stronger model, or a nudge after N reads with no edit.
+
+- `bench/results/task-20261104-020421.json`: model deepseek-v4.1-flash; bench dab77ad dirty; construct dab77ad editor=replace router=local

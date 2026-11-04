@@ -1,0 +1,52 @@
+# Replay of PR #76 from the raw issue (#65), verbatim: the prompt-wording
+# variant of rust-replay-child-key (same fixture, same hidden tests).
+git = "e14893f5028dc6eb2a58c54133ab6984b10d5fec"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Fix this GitHub issue (#65).
+
+# Delegate: child gets 401 when the parent's key came from the OPENROUTER_API_KEY fallback
+
+## Problem
+
+`delegate to scout` failed with `model endpoint returned 401 Unauthorized: No cookie auth credentials found` (session `20261023-050416-6d40`, child `20261023-050444-e4ef`). I had set `OPENROUTER_API_KEY`, not `OPENAI_API_KEY`. The parent session worked fine.
+
+Cause:
+
+- The parent resolves its key with `secrets::api_key`: the configured secret (`OPENAI_API_KEY`), **then `OPENROUTER_API_KEY`** (`crates/construct/src/secrets.rs:54`).
+- The child is given only the secret names `AgentDef::secret_names` returns, which is the configured name `OPENAI_API_KEY` (`agents.rs:161`). It reads the key with `env_key`, which on purpose has no fallback (`secrets.rs:60`).
+- So the parent got the key from the fallback, and the child received an empty `OPENAI_API_KEY`.
+
+Related: with no key at all, construct sends the request without auth and shows the provider's 401 text (session `20261023-034043-78d0`, seq 8). That message doesn't say "no key was found".
+
+## Proposal
+
+- Pass the child the key **the parent actually used**, under whatever name the child reads. One way: have `api_key` return the name that resolved, and use that name in `secret_names`/`key_secret` when the definition doesn't set its own `api_key_secret`.
+- If no key resolves, fail before sending, in the parent and in the child: `no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY (or construct secrets set …)`. Allow an explicitly keyless local endpoint, e.g. `api_key_secret = ""`.
+- A delegate failure should carry that same message, not the provider's 401 body.
+
+## Acceptance
+
+- e2e: only `OPENROUTER_API_KEY` set; a delegated child's request to the mock carries `Authorization: Bearer <that key>`.
+- e2e: no key set → a clear error before any request reaches the mock.
+
+_Source: user testing on 2026-10-22 (note 15)._
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 76
+merge = "bdf61d11a4c1d003b2f47e8b040a1343a0a4ac59"
+hidden = ["crates/construct-dev/tests/delegate.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "delegate"
+names = ["a_child_gets_the_openrouter_key_the_parent_fell_back_to", "no_key_fails_before_any_request"]

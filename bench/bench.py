@@ -37,6 +37,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 import compaction
@@ -195,7 +196,10 @@ class Endpoint:
         if window:
             args += ["--window", str(window)]
         env = dict(os.environ)
-        if upstream:
+        if upstream and urllib.parse.urlparse(upstream).hostname in ("127.0.0.1", "localhost", "::1"):
+            # A local server (qwen-engine, llama.cpp) needs no key: never send it the OpenRouter one.
+            env["OPENROUTER_API_KEY"] = "local"
+        elif upstream:
             key = read_key(KEY_FILE) if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
             if not key:
                 sys.exit(f"no OpenRouter key: put it in {KEY_FILE}")
@@ -664,6 +668,22 @@ def provider_failures(recs) -> int:
     return bad
 
 
+# construct's words for an `error` chunk inside a 200 stream (llm/stream.rs).
+# The proxy's record of that request can still look complete, so only the
+# harness's own exit tells it apart.
+STREAM_ERROR = "model endpoint error:"
+
+
+def run_provider_failures(main, turns) -> int:
+    """provider_failures for one run, given its main records and its turns.
+    A turn the bench killed at its timeout cuts its own last stream short:
+    that request is the bench's doing, not a provider failure to retry. A
+    turn that construct ended on an in-stream provider error is one."""
+    killed = any(t["timed_out"] for t in turns)
+    bad = provider_failures(main[:-1] if killed else main)
+    return bad + sum(1 for t in turns if STREAM_ERROR in (t.get("stderr_tail") or ""))
+
+
 def with_stall_retry(name, fn, retries=1):
     """opencode sometimes hangs at startup before contacting the model. Count
     that as a stall (reported) and retry; timed results only come from runs
@@ -1020,6 +1040,7 @@ def suite_task(args):
         checks, report = tasklib.check_report(task, work)
         unintended = tasklib.unintended(task, work)
         main = [x for x in recs if not x.get("side")]
+        failed = run_provider_failures(main, turns)
         first = next((x for x in recs if x.get("n_tools")), None)
         # How it got there, from construct's own tool records.
         proc = process.metrics(process.tool_events(h.home, t0)) if isinstance(h, Construct) else {}
@@ -1027,7 +1048,7 @@ def suite_task(args):
             proc["compaction"] = compaction.metrics(h.home, t0, recs, window or task.window)
         return {
             **proc,
-            "provider_failures": provider_failures(recs),
+            "provider_failures": failed,
             "task": task.name,
             "turns": turns,
             "checks": checks,
