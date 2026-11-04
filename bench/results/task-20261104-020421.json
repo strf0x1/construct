@@ -1,0 +1,7942 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.3.1",
+    "git_sha": "dab77adff6e0ae0d758f3e1e5617713b3818d195",
+    "git_dirty": false,
+    "binary_sha256": "4e3b7bdc5d6b2b0d4851622619c08e12d3aa9834e961080f5a38ed3ca6e53de2",
+    "config_sha256": "36f0bace2d835111d53e287210c0c73968c486d43e51ed7aa5b2872820db6261",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job",
+     "developer"
+    ],
+    "editor": "replace",
+    "web_search": "auto",
+    "model": "deepseek-v4.1-flash",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/home/brandon/git/construct/.claude/worktrees/suspicious-elbakyan-c70924/target/release/construct"
+   }
+  },
+  "dev_git_sha": "dab77adff6e0ae0d758f3e1e5617713b3818d195",
+  "dev_dirty": true,
+  "model": "deepseek-v4.1-flash",
+  "bench_py_sha256": "10176af5c7c7ea644a13e774f93c8bb487ea5021293ffe892e9d03c3d4fb4989",
+  "host": "echo",
+  "started": "2026-11-04T07:13:51Z"
+ },
+ "model": "deepseek-v4.1-flash",
+ "rounds": 1,
+ "tasks": {
+  "rust-replay-child-key-issue": [
+   "Fix this GitHub issue (#65).\n\n# Delegate: child gets 401 when the parent's key came from the OPENROUTER_API_KEY fallback\n\n## Problem\n\n`delegate to scout` failed with `model endpoint returned 401 Unauthorized: No cookie auth credentials found` (session `20261023-050416-6d40`, child `20261023-050444-e4ef`). I had set `OPENROUTER_API_KEY`, not `OPENAI_API_KEY`. The parent session worked fine.\n\nCause:\n\n- The parent resolves its key with `secrets::api_key`: the configured secret (`OPENAI_API_KEY`), **then `OPENROUTER_API_KEY`** (`crates/construct/src/secrets.rs:54`).\n- The child is given only the secret names `AgentDef::secret_names` returns, which is the configured name `OPENAI_API_KEY` (`agents.rs:161`). It reads the key with `env_key`, which on purpose has no fallback (`secrets.rs:60`).\n- So the parent got the key from the fallback, and the child received an empty `OPENAI_API_KEY`.\n\nRelated: with no key at all, construct sends the request without auth and shows the provider's 401 text (session `20261023-034043-78d0`, seq 8). That message doesn't say \"no key was found\".\n\n## Proposal\n\n- Pass the child the key **the parent actually used**, under whatever name the child reads. One way: have `api_key` return the name that resolved, and use that name in `secret_names`/`key_secret` when the definition doesn't set its own `api_key_secret`.\n- If no key resolves, fail before sending, in the parent and in the child: `no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY (or construct secrets set \u2026)`. Allow an explicitly keyless local endpoint, e.g. `api_key_secret = \"\"`.\n- A delegate failure should carry that same message, not the provider's 401 body.\n\n## Acceptance\n\n- e2e: only `OPENROUTER_API_KEY` set; a delegated child's request to the mock carries `Authorization: Bearer <that key>`.\n- e2e: no key set \u2192 a clear error before any request reaches the mock.\n\n_Source: user testing on 2026-10-22 (note 15)._\n\nWork the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it."
+  ]
+ },
+ "raw": {
+  "construct": [
+   {
+    "search": {
+     "tool": 81,
+     "shell": 17,
+     "find": 0,
+     "tool_failed": 0,
+     "adoption": 0.826530612244898
+    },
+    "tool_failures": {
+     "calls": 264,
+     "failed": 1,
+     "rate": 0.003787878787878788
+    },
+    "failure_codes": {
+     "read:error": 1
+    },
+    "tool_calls": 264,
+    "reads": 137,
+    "shell": {
+     "calls": 44,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 0,
+     "applied": 0,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": null
+    },
+    "rejection_codes": {},
+    "provider_failures": 0,
+    "task": "rust-replay-child-key-issue",
+    "turns": [
+     {
+      "rc": 1,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 6432.521461101947,
+      "peak_mb": 32.20703125,
+      "stdout_tail": "I'll start by exploring the relevant files.\n",
+      "stderr_tail": "dex.crates.io-1949cf8c6b5b557f/secretspec-0.21.1/src/secrets.rs | head -40\"}\n\u00b7 shell {\"command\":\"sed -n '380,470p' /home/brandon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secretspec-0.21.1/src/secrets.rs\"}\n\u00b7 shell {\"command\":\"grep -rn \\\"fn set_provider\\\\|fn set_text\\\\|pub fn resolve_named\\\" /home/brandon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secretspec-0.21\u2026\n\u00b7 shell {\"command\":\"sed -n '2820,2860p' /home/brandon/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secretspec-0.21.1/src/secrets.rs; echo ---; sed -n '5250,5290\u2026\nerror: stopped after 200 steps (max_steps)\n"
+     }
+    ],
+    "checks": {
+     "xtask_check": true,
+     "hidden_tests": false,
+     "conventions": true,
+     "hidden.a_child_gets_the_openrouter_key_the_parent_fell_back_to": false,
+     "hidden.no_key_fails_before_any_request": false
+    },
+    "success": false,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 6432.521461101947,
+    "requests": 200,
+    "agent_requests": 200,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 4181,
+     "bytes": 14846,
+     "n_tools": 7,
+     "system_chars": 9149,
+     "tools_chars": 3126
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 11091674,
+    "completion_tokens": 109632,
+    "cached_tokens": 10793442,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.9731120838928371,
+    "cost_usd": null,
+    "tool_gaps_ms": [
+     39.35266599999886,
+     48.321147999995446,
+     47.25391700000182,
+     56.576404999999795,
+     57.612026999966474,
+     38.15973800001666,
+     32.566468999983044,
+     21.189750999968965,
+     33.56963400001405,
+     22.955447000043932,
+     39.49777199991513,
+     32.34906400000909,
+     34.67115100007504,
+     53.538748000049964,
+     44.4250320000574,
+     41.83467400004156,
+     31.465570000000298,
+     35.510959999868646,
+     23.90184299997054,
+     24.30844399984926,
+     38.47715099994093,
+     22.887314999941736,
+     36.64007199998014,
+     23.117105999961495,
+     37.55444999993779,
+     32.85214000009,
+     32.79444699990563,
+     49.66705199982971,
+     22.40848600002937,
+     22.016050999984145,
+     248.00586399971507,
+     32.666015999857336,
+     37.58848599996418,
+     30.44426800007932,
+     38.819825999904424,
+     22.706465000053868,
+     21.187798999715596,
+     13.602066999999806,
+     20.06316599994898,
+     13.793007000116631,
+     15.96807700023055,
+     15.91205000015907,
+     14.094477000180632,
+     7.231376999989152,
+     8.230958000058308,
+     42.04340899991803,
+     7.304521000245586,
+     5.9263750000391155,
+     6.074347999878228,
+     8.59697200008668,
+     41.58294199989177,
+     12.1190700000152,
+     5.111849000211805,
+     9.287346000084653,
+     8.495137999998406,
+     6.885474999900907,
+     14.693175999913365,
+     8.241824999917299,
+     15.379703999962658,
+     7.654554000124335,
+     5.393599000759423,
+     182.50724999979138,
+     8.71247599972412,
+     21.38626900035888,
+     5.23052900005132,
+     9.485102999489754,
+     6.873606000095606,
+     12.424712999723852,
+     7.348645000252873,
+     5.96398500027135,
+     8.39082600036636,
+     5.938612999860197,
+     8.993154000025243,
+     5.9424040000885725,
+     14.33076799986884,
+     6.418188000097871,
+     6.448084000498056,
+     15.75071300053969,
+     6.490293000359088,
+     17.881278000306338,
+     5.782770999707282,
+     10.879267000127584,
+     9.500744000077248,
+     9.835963999852538,
+     9.695792999584228,
+     5.540666999761015,
+     5.563980000093579,
+     9.526920000091195,
+     7.0031460002064705,
+     5.627360000275075,
+     8.360061000101268,
+     9.321312999818474,
+     5.747080999892205,
+     5.727211000397801,
+     6.559331999626011,
+     23.753026000224054,
+     6.945441999938339,
+     21.68898200010881,
+     16.33571599982679,
+     9.384270999580622,
+     6.349671999923885,
+     7.215272999834269,
+     6.390229000709951,
+     6.631684000138193,
+     6.690634000115097,
+     6.753756000194699,
+     6.505034000147134,
+     6.2346080001443624,
+     5.805286000017077,
+     13.356488999910653,
+     6.37502899998799,
+     6.27262800000608,
+     6.309086999855936,
+     10.894627999980003,
+     6.119816999416798,
+     8.047668999992311,
+     6.051545000169426,
+     5.917252999730408,
+     5.740558000281453,
+     12.623519000131637,
+     8.368075999896973,
+     13.140995000023395,
+     10.40366099961102,
+     6.738412000238895,
+     9.345526999793947,
+     8.705873999278992,
+     27.553601999767125,
+     6.694511000066996,
+     6.7379209995269775,
+     7.5545310000889,
+     6.242072000168264,
+     15.132516999728978,
+     27.926681000739336,
+     40.936280000023544,
+     17.470893999561667,
+     27.224949000403285,
+     17.6313720010221,
+     14.563905999995768,
+     21.7550039999187,
+     29.22093200031668,
+     17.50114200077951,
+     21.51181000098586,
+     14.187598000280559,
+     32.03074799943715,
+     24.095106999389827,
+     24.24948599934578,
+     40.34087600000203,
+     40.06684600096196,
+     24.587716000154614,
+     25.825952999293804,
+     42.87213300075382,
+     23.69218199979514,
+     25.071775999851525,
+     23.627389000728726,
+     22.622803000733256,
+     28.504871000535786,
+     33.52324799913913,
+     33.78284100070596,
+     22.336168000474572,
+     22.677674000151455,
+     33.397419000044465,
+     25.380736000835896,
+     28.75746100023389,
+     28.82331599947065,
+     25.20200099889189,
+     27.220377000048757,
+     30.123127000406384,
+     25.298345999792218,
+     25.78527299966663,
+     25.82076400052756,
+     26.052861000411212,
+     25.61179899983108,
+     25.5269480003044,
+     25.83070599939674,
+     26.134481000714004,
+     26.66859900020063,
+     26.117537000216544,
+     25.86813599988818,
+     25.359416000545025,
+     25.05034200102091,
+     28.54537700023502,
+     40.744777999818325,
+     24.666652999818325,
+     26.02434500027448,
+     25.038681000471115,
+     30.132427000440657,
+     27.26391900051385,
+     27.5399299999699,
+     29.23510599974543,
+     27.09202599991113,
+     27.14283199980855,
+     27.469661000184715,
+     26.60781899932772,
+     30.418757999315858,
+     29.032147999852896,
+     26.05486400052905,
+     13.990911000408232,
+     9.549048999324441,
+     19.323580999858677
+    ],
+    "peak_mb": 32.20703125,
+    "learn_wait_s": 0.05411076545715332,
+    "report": {
+     "pr": 76,
+     "lint": {
+      "counts": {
+       "unwrap": 0,
+       "wire-name": 0,
+       "module-doc": 0,
+       "file-length": 0,
+       "dependency": 0,
+       "workspace-dependency": 0,
+       "snap": 0,
+       "clippy-pedantic": 0
+      },
+      "findings": []
+     },
+     "lint_violations": 0,
+     "scope": {
+      "diff_lines": 0,
+      "diff_files": 0,
+      "test_lines": 0,
+      "reference_lines": 57,
+      "scope_ratio": 0.0
+     },
+     "xtask_tail": "",
+     "hidden_tail": "\nrunning 2 tests\ntest a_child_gets_the_openrouter_key_the_parent_fell_back_to ... FAILED\ntest no_key_fails_before_any_request ... FAILED\n\nfailures:\n\n---- a_child_gets_the_openrouter_key_the_parent_fell_back_to stdout ----\n\nthread 'a_child_gets_the_openrouter_key_the_parent_fell_back_to' (2621999) panicked at crates/construct-dev/tests/delegate.rs:508:5:\nassertion `left == right` failed\n  left: [String(\"Bearer orou\u2026\"), Null, String(\"Bearer orou\u2026\")]\n right: [String(\"Bearer orou\u2026\"), String(\"Bearer orou\u2026\"), String(\"Bearer orou\u2026\")]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- no_key_fails_before_any_request stdout ----\n\nthread 'no_key_fails_before_any_request' (2622000) panicked at crates/construct-dev/tests/delegate.rs:516:5:\nassertion failed: !out.status.success()\n\n\nfailures:\n    a_child_gets_the_openrouter_key_the_parent_fell_back_to\n    no_key_fails_before_any_request\n\ntest result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 17 filtered out; finished in 1.86s\n\n   Compiling construct v0.1.0 (/home/brandon/.cache/construct-bench/work/construct-bench/task/construct/rust-replay-child-key-issue/r0/work/crates/construct)\n   Compiling construct-dev v0.1.0 (/home/brandon/.cache/construct-bench/work/construct-bench/task/construct/rust-replay-child-key-issue/r0/work/crates/construct-dev)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.06s\n     Running tests/delegate.rs (target/debug/deps/delegate-3976affc2fcc890b)\nerror: test failed, to rerun pass `-p construct-dev --test delegate`",
+     "diff_text": ""
+    },
+    "final_message": "I'll start by exploring the relevant files.",
+    "records": [
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 1,
+      "t_arrive": 167.275702,
+      "req_bytes": 14846,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 187.109544,
+      "t_end": 19434.580899,
+      "usage": {
+       "prompt_tokens": 4181,
+       "completion_tokens": 87,
+       "total_tokens": 4268,
+       "prompt_tokens_details": {
+        "cached_tokens": 0
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 5,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 2,
+      "t_arrive": 19473.933565,
+      "req_bytes": 39896,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 19503.056242,
+      "t_end": 42240.276222,
+      "usage": {
+       "prompt_tokens": 10870,
+       "completion_tokens": 127,
+       "total_tokens": 10997,
+       "prompt_tokens_details": {
+        "cached_tokens": 4267
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 8,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 3,
+      "t_arrive": 42288.597369999996,
+      "req_bytes": 43336,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 42308.734424999995,
+      "t_end": 55623.342389,
+      "usage": {
+       "prompt_tokens": 11807,
+       "completion_tokens": 133,
+       "total_tokens": 11940,
+       "prompt_tokens_details": {
+        "cached_tokens": 10870
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 12,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 4,
+      "t_arrive": 55670.596306,
+      "req_bytes": 98957,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 55713.735155999995,
+      "t_end": 89005.46380900001,
+      "usage": {
+       "prompt_tokens": 26006,
+       "completion_tokens": 306,
+       "total_tokens": 26312,
+       "prompt_tokens_details": {
+        "cached_tokens": 11939
+       }
+      },
+      "resp_tool_calls": 4,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 5,
+      "t_arrive": 89062.04021400001,
+      "req_bytes": 126964,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 89100.98399899999,
+      "t_end": 209233.429238,
+      "usage": {
+       "prompt_tokens": 33262,
+       "completion_tokens": 2025,
+       "total_tokens": 35287,
+       "prompt_tokens_details": {
+        "cached_tokens": 26006
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 6,
+      "t_arrive": 209291.04126499998,
+      "req_bytes": 130109,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 209331.395995,
+      "t_end": 219069.471092,
+      "usage": {
+       "prompt_tokens": 34145,
+       "completion_tokens": 81,
+       "total_tokens": 34226,
+       "prompt_tokens_details": {
+        "cached_tokens": 33262
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 24,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 7,
+      "t_arrive": 219107.63083,
+      "req_bytes": 164263,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 219152.759647,
+      "t_end": 235590.186829,
+      "usage": {
+       "prompt_tokens": 43629,
+       "completion_tokens": 107,
+       "total_tokens": 43736,
+       "prompt_tokens_details": {
+        "cached_tokens": 34225
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 27,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 8,
+      "t_arrive": 235622.753298,
+      "req_bytes": 173340,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 235669.342458,
+      "t_end": 245971.507244,
+      "usage": {
+       "prompt_tokens": 46512,
+       "completion_tokens": 47,
+       "total_tokens": 46559,
+       "prompt_tokens_details": {
+        "cached_tokens": 43735
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 29,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 9,
+      "t_arrive": 245992.69699499998,
+      "req_bytes": 182366,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 246040.885756,
+      "t_end": 262309.29885099997,
+      "usage": {
+       "prompt_tokens": 48995,
+       "completion_tokens": 156,
+       "total_tokens": 49151,
+       "prompt_tokens_details": {
+        "cached_tokens": 46558
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 32,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 10,
+      "t_arrive": 262342.868485,
+      "req_bytes": 186641,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 262386.558601,
+      "t_end": 271058.174984,
+      "usage": {
+       "prompt_tokens": 50190,
+       "completion_tokens": 45,
+       "total_tokens": 50235,
+       "prompt_tokens_details": {
+        "cached_tokens": 48995
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 34,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 11,
+      "t_arrive": 271081.130431,
+      "req_bytes": 208004,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 271127.80630999996,
+      "t_end": 376872.457379,
+      "usage": {
+       "prompt_tokens": 55805,
+       "completion_tokens": 1760,
+       "total_tokens": 57565,
+       "prompt_tokens_details": {
+        "cached_tokens": 50234
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 37,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 12,
+      "t_arrive": 376911.95515099994,
+      "req_bytes": 210711,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 376960.526505,
+      "t_end": 389411.803417,
+      "usage": {
+       "prompt_tokens": 56542,
+       "completion_tokens": 89,
+       "total_tokens": 56631,
+       "prompt_tokens_details": {
+        "cached_tokens": 55805
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 40,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 13,
+      "t_arrive": 389444.152481,
+      "req_bytes": 218826,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 389490.986279,
+      "t_end": 553260.571239,
+      "usage": {
+       "prompt_tokens": 58679,
+       "completion_tokens": 3194,
+       "total_tokens": 61873,
+       "prompt_tokens_details": {
+        "cached_tokens": 56630
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 43,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 14,
+      "t_arrive": 553295.24239,
+      "req_bytes": 224118,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 553346.19276,
+      "t_end": 566571.9890269999,
+      "usage": {
+       "prompt_tokens": 60180,
+       "completion_tokens": 107,
+       "total_tokens": 60287,
+       "prompt_tokens_details": {
+        "cached_tokens": 58679
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 46,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 15,
+      "t_arrive": 566625.527775,
+      "req_bytes": 228056,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 566666.584128,
+      "t_end": 577859.788711,
+      "usage": {
+       "prompt_tokens": 61180,
+       "completion_tokens": 112,
+       "total_tokens": 61292,
+       "prompt_tokens_details": {
+        "cached_tokens": 60286
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 49,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 16,
+      "t_arrive": 577904.2137430001,
+      "req_bytes": 230129,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 577949.3140969999,
+      "t_end": 675853.231726,
+      "usage": {
+       "prompt_tokens": 61783,
+       "completion_tokens": 1931,
+       "total_tokens": 63714,
+       "prompt_tokens_details": {
+        "cached_tokens": 61291
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 52,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 17,
+      "t_arrive": 675895.0664,
+      "req_bytes": 234089,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 675941.244064,
+      "t_end": 843064.837159,
+      "usage": {
+       "prompt_tokens": 62817,
+       "completion_tokens": 3630,
+       "total_tokens": 66447,
+       "prompt_tokens_details": {
+        "cached_tokens": 61783
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 54,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 18,
+      "t_arrive": 843096.302729,
+      "req_bytes": 263902,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 843151.0014450001,
+      "t_end": 1117633.240933,
+      "usage": {
+       "prompt_tokens": 71013,
+       "completion_tokens": 5488,
+       "total_tokens": 76501,
+       "prompt_tokens_details": {
+        "cached_tokens": 62817
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 57,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 19,
+      "t_arrive": 1117668.751893,
+      "req_bytes": 264946,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1117728.6020520001,
+      "t_end": 1125175.567473,
+      "usage": {
+       "prompt_tokens": 71288,
+       "completion_tokens": 67,
+       "total_tokens": 71355,
+       "prompt_tokens_details": {
+        "cached_tokens": 71013
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 59,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 20,
+      "t_arrive": 1125199.469316,
+      "req_bytes": 265679,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1125245.843701,
+      "t_end": 1130159.496978,
+      "usage": {
+       "prompt_tokens": 71484,
+       "completion_tokens": 47,
+       "total_tokens": 71531,
+       "prompt_tokens_details": {
+        "cached_tokens": 71354
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 61,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 21,
+      "t_arrive": 1130183.805422,
+      "req_bytes": 273679,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1130236.730145,
+      "t_end": 1312843.585655,
+      "usage": {
+       "prompt_tokens": 73597,
+       "completion_tokens": 3992,
+       "total_tokens": 77589,
+       "prompt_tokens_details": {
+        "cached_tokens": 71530
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 64,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 22,
+      "t_arrive": 1312882.062806,
+      "req_bytes": 275463,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1312934.449089,
+      "t_end": 1322177.964236,
+      "usage": {
+       "prompt_tokens": 74115,
+       "completion_tokens": 80,
+       "total_tokens": 74195,
+       "prompt_tokens_details": {
+        "cached_tokens": 73597
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 66,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 23,
+      "t_arrive": 1322200.851551,
+      "req_bytes": 275816,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1322259.591368,
+      "t_end": 1325047.857347,
+      "usage": {
+       "prompt_tokens": 74208,
+       "completion_tokens": 46,
+       "total_tokens": 74254,
+       "prompt_tokens_details": {
+        "cached_tokens": 74194
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 68,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 24,
+      "t_arrive": 1325084.497419,
+      "req_bytes": 276928,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1325145.486947,
+      "t_end": 1330869.627046,
+      "usage": {
+       "prompt_tokens": 74543,
+       "completion_tokens": 39,
+       "total_tokens": 74582,
+       "prompt_tokens_details": {
+        "cached_tokens": 74253
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 70,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 25,
+      "t_arrive": 1330892.744152,
+      "req_bytes": 283478,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1330958.1524329998,
+      "t_end": 1345989.909918,
+      "usage": {
+       "prompt_tokens": 76272,
+       "completion_tokens": 127,
+       "total_tokens": 76399,
+       "prompt_tokens_details": {
+        "cached_tokens": 74581
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 73,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 26,
+      "t_arrive": 1346027.464368,
+      "req_bytes": 286354,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1346096.7468080001,
+      "t_end": 1539032.936636,
+      "usage": {
+       "prompt_tokens": 77064,
+       "completion_tokens": 4148,
+       "total_tokens": 81212,
+       "prompt_tokens_details": {
+        "cached_tokens": 76398
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 76,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 27,
+      "t_arrive": 1539065.788776,
+      "req_bytes": 291720,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1539129.1743879998,
+      "t_end": 1556301.3182970001,
+      "usage": {
+       "prompt_tokens": 78412,
+       "completion_tokens": 146,
+       "total_tokens": 78558,
+       "prompt_tokens_details": {
+        "cached_tokens": 77064
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 79,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 28,
+      "t_arrive": 1556334.112744,
+      "req_bytes": 299477,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1556391.74404,
+      "t_end": 1574419.767031,
+      "usage": {
+       "prompt_tokens": 80430,
+       "completion_tokens": 194,
+       "total_tokens": 80624,
+       "prompt_tokens_details": {
+        "cached_tokens": 78557
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 83,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 29,
+      "t_arrive": 1574469.4340829998,
+      "req_bytes": 301104,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1574527.6406979999,
+      "t_end": 1581536.771647,
+      "usage": {
+       "prompt_tokens": 80870,
+       "completion_tokens": 80,
+       "total_tokens": 80950,
+       "prompt_tokens_details": {
+        "cached_tokens": 80623
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 85,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 30,
+      "t_arrive": 1581559.180133,
+      "req_bytes": 301524,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1581619.454483,
+      "t_end": 1586421.557155,
+      "usage": {
+       "prompt_tokens": 80987,
+       "completion_tokens": 78,
+       "total_tokens": 81065,
+       "prompt_tokens_details": {
+        "cached_tokens": 80949
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 87,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 31,
+      "t_arrive": 1586443.573206,
+      "req_bytes": 303848,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1586511.728102,
+      "t_end": 1596006.2862810001,
+      "usage": {
+       "prompt_tokens": 81685,
+       "completion_tokens": 78,
+       "total_tokens": 81763,
+       "prompt_tokens_details": {
+        "cached_tokens": 81064
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 89,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 32,
+      "t_arrive": 1596254.2921449998,
+      "req_bytes": 304188,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1596311.550148,
+      "t_end": 1599574.8834880001,
+      "usage": {
+       "prompt_tokens": 81776,
+       "completion_tokens": 62,
+       "total_tokens": 81838,
+       "prompt_tokens_details": {
+        "cached_tokens": 81762
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 91,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 33,
+      "t_arrive": 1599607.549504,
+      "req_bytes": 308668,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1599675.761918,
+      "t_end": 1610126.6802780002,
+      "usage": {
+       "prompt_tokens": 82986,
+       "completion_tokens": 63,
+       "total_tokens": 83049,
+       "prompt_tokens_details": {
+        "cached_tokens": 81837
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 93,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 34,
+      "t_arrive": 1610164.2687640002,
+      "req_bytes": 309220,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1610222.15406,
+      "t_end": 1615227.917499,
+      "usage": {
+       "prompt_tokens": 83151,
+       "completion_tokens": 63,
+       "total_tokens": 83214,
+       "prompt_tokens_details": {
+        "cached_tokens": 83048
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 95,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 35,
+      "t_arrive": 1615258.361767,
+      "req_bytes": 313593,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1615321.5794610002,
+      "t_end": 1773259.057378,
+      "usage": {
+       "prompt_tokens": 84359,
+       "completion_tokens": 3084,
+       "total_tokens": 87443,
+       "prompt_tokens_details": {
+        "cached_tokens": 83213
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 98,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 36,
+      "t_arrive": 1773297.877204,
+      "req_bytes": 314370,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1773366.696086,
+      "t_end": 1783140.165349,
+      "usage": {
+       "prompt_tokens": 84549,
+       "completion_tokens": 118,
+       "total_tokens": 84667,
+       "prompt_tokens_details": {
+        "cached_tokens": 84359
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 101,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 37,
+      "t_arrive": 1783162.871814,
+      "req_bytes": 49596,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1783202.755663,
+      "t_end": 1799500.567983,
+      "usage": {
+       "prompt_tokens": 13297,
+       "completion_tokens": 79,
+       "total_tokens": 13376,
+       "prompt_tokens_details": {
+        "cached_tokens": 4267
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 103,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 38,
+      "t_arrive": 1799521.7557819998,
+      "req_bytes": 56827,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1799555.576472,
+      "t_end": 1812357.787037,
+      "usage": {
+       "prompt_tokens": 15358,
+       "completion_tokens": 74,
+       "total_tokens": 15432,
+       "prompt_tokens_details": {
+        "cached_tokens": 13375
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 105,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 39,
+      "t_arrive": 1812371.389104,
+      "req_bytes": 64337,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1812411.441168,
+      "t_end": 1824106.334041,
+      "usage": {
+       "prompt_tokens": 17427,
+       "completion_tokens": 63,
+       "total_tokens": 17490,
+       "prompt_tokens_details": {
+        "cached_tokens": 15358
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 107,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 40,
+      "t_arrive": 1824126.397207,
+      "req_bytes": 70501,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1824175.138934,
+      "t_end": 1835752.735436,
+      "usage": {
+       "prompt_tokens": 19140,
+       "completion_tokens": 79,
+       "total_tokens": 19219,
+       "prompt_tokens_details": {
+        "cached_tokens": 17489
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 109,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 41,
+      "t_arrive": 1835766.528443,
+      "req_bytes": 73784,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1835800.3272799999,
+      "t_end": 1844982.557715,
+      "usage": {
+       "prompt_tokens": 20042,
+       "completion_tokens": 84,
+       "total_tokens": 20126,
+       "prompt_tokens_details": {
+        "cached_tokens": 19218
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 111,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 42,
+      "t_arrive": 1844998.5257920001,
+      "req_bytes": 75748,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1845031.14718,
+      "t_end": 1852635.2485089998,
+      "usage": {
+       "prompt_tokens": 20603,
+       "completion_tokens": 77,
+       "total_tokens": 20680,
+       "prompt_tokens_details": {
+        "cached_tokens": 20125
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 113,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 43,
+      "t_arrive": 1852651.160559,
+      "req_bytes": 79454,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1852688.784102,
+      "t_end": 1862013.3846419998,
+      "usage": {
+       "prompt_tokens": 21614,
+       "completion_tokens": 65,
+       "total_tokens": 21679,
+       "prompt_tokens_details": {
+        "cached_tokens": 20679
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 115,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 44,
+      "t_arrive": 1862027.479119,
+      "req_bytes": 80501,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1862060.267914,
+      "t_end": 1871592.732318,
+      "usage": {
+       "prompt_tokens": 21890,
+       "completion_tokens": 143,
+       "total_tokens": 22033,
+       "prompt_tokens_details": {
+        "cached_tokens": 21678
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 118,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 45,
+      "t_arrive": 1871599.963695,
+      "req_bytes": 89384,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1871636.173408,
+      "t_end": 1886165.184632,
+      "usage": {
+       "prompt_tokens": 24186,
+       "completion_tokens": 127,
+       "total_tokens": 24313,
+       "prompt_tokens_details": {
+        "cached_tokens": 22032
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 121,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 46,
+      "t_arrive": 1886173.41559,
+      "req_bytes": 91343,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1886211.244742,
+      "t_end": 1893294.3469270002,
+      "usage": {
+       "prompt_tokens": 24723,
+       "completion_tokens": 67,
+       "total_tokens": 24790,
+       "prompt_tokens_details": {
+        "cached_tokens": 24312
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 123,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 47,
+      "t_arrive": 1893336.3903360001,
+      "req_bytes": 94702,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1893373.274672,
+      "t_end": 1904583.728398,
+      "usage": {
+       "prompt_tokens": 25652,
+       "completion_tokens": 145,
+       "total_tokens": 25797,
+       "prompt_tokens_details": {
+        "cached_tokens": 24789
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 126,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 48,
+      "t_arrive": 1904591.0329190001,
+      "req_bytes": 103007,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1904639.182801,
+      "t_end": 1914927.818523,
+      "usage": {
+       "prompt_tokens": 27950,
+       "completion_tokens": 45,
+       "total_tokens": 27995,
+       "prompt_tokens_details": {
+        "cached_tokens": 25796
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 128,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 49,
+      "t_arrive": 1914933.744898,
+      "req_bytes": 107454,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1914974.533206,
+      "t_end": 1927466.234591,
+      "usage": {
+       "prompt_tokens": 29192,
+       "completion_tokens": 100,
+       "total_tokens": 29292,
+       "prompt_tokens_details": {
+        "cached_tokens": 27994
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 130,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 50,
+      "t_arrive": 1927472.308939,
+      "req_bytes": 112121,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1927521.909431,
+      "t_end": 1938072.238815,
+      "usage": {
+       "prompt_tokens": 30433,
+       "completion_tokens": 79,
+       "total_tokens": 30512,
+       "prompt_tokens_details": {
+        "cached_tokens": 29192
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 132,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 51,
+      "t_arrive": 1938080.8357870001,
+      "req_bytes": 118117,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1938121.793019,
+      "t_end": 1951145.039427,
+      "usage": {
+       "prompt_tokens": 31998,
+       "completion_tokens": 125,
+       "total_tokens": 32123,
+       "prompt_tokens_details": {
+        "cached_tokens": 30511
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 135,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 52,
+      "t_arrive": 1951186.622369,
+      "req_bytes": 123983,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1951235.508969,
+      "t_end": 1964878.909022,
+      "usage": {
+       "prompt_tokens": 33508,
+       "completion_tokens": 139,
+       "total_tokens": 33647,
+       "prompt_tokens_details": {
+        "cached_tokens": 32122
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 138,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 53,
+      "t_arrive": 1964891.028092,
+      "req_bytes": 130344,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1964944.0624270001,
+      "t_end": 1976487.512013,
+      "usage": {
+       "prompt_tokens": 35200,
+       "completion_tokens": 79,
+       "total_tokens": 35279,
+       "prompt_tokens_details": {
+        "cached_tokens": 33646
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 140,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 54,
+      "t_arrive": 1976492.6238620002,
+      "req_bytes": 135291,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1976547.139923,
+      "t_end": 1986429.159043,
+      "usage": {
+       "prompt_tokens": 36494,
+       "completion_tokens": 66,
+       "total_tokens": 36560,
+       "prompt_tokens_details": {
+        "cached_tokens": 35278
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 142,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 55,
+      "t_arrive": 1986438.4463890002,
+      "req_bytes": 136309,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1986481.652898,
+      "t_end": 1992510.382118,
+      "usage": {
+       "prompt_tokens": 36774,
+       "completion_tokens": 63,
+       "total_tokens": 36837,
+       "prompt_tokens_details": {
+        "cached_tokens": 36559
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 144,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 56,
+      "t_arrive": 1992518.877256,
+      "req_bytes": 141628,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 1992573.949074,
+      "t_end": 2043730.552824,
+      "usage": {
+       "prompt_tokens": 38194,
+       "completion_tokens": 819,
+       "total_tokens": 39013,
+       "prompt_tokens_details": {
+        "cached_tokens": 36836
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 146,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 57,
+      "t_arrive": 2043737.4382989998,
+      "req_bytes": 147608,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2043784.789552,
+      "t_end": 2191820.760245,
+      "usage": {
+       "prompt_tokens": 39819,
+       "completion_tokens": 2896,
+       "total_tokens": 42715,
+       "prompt_tokens_details": {
+        "cached_tokens": 38194
+       }
+      },
+      "resp_tool_calls": 4,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 151,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 58,
+      "t_arrive": 2191835.453421,
+      "req_bytes": 160469,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2191893.411484,
+      "t_end": 2206507.828844,
+      "usage": {
+       "prompt_tokens": 43267,
+       "completion_tokens": 96,
+       "total_tokens": 43363,
+       "prompt_tokens_details": {
+        "cached_tokens": 39819
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 154,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 59,
+      "t_arrive": 2206516.070669,
+      "req_bytes": 178388,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2206584.2105860002,
+      "t_end": 2261411.190234,
+      "usage": {
+       "prompt_tokens": 48173,
+       "completion_tokens": 902,
+       "total_tokens": 49075,
+       "prompt_tokens_details": {
+        "cached_tokens": 43362
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 157,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 60,
+      "t_arrive": 2261426.569938,
+      "req_bytes": 181480,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2261479.0328949997,
+      "t_end": 2338770.381532,
+      "usage": {
+       "prompt_tokens": 49033,
+       "completion_tokens": 1552,
+       "total_tokens": 50585,
+       "prompt_tokens_details": {
+        "cached_tokens": 48173
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 160,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 61,
+      "t_arrive": 2338778.036086,
+      "req_bytes": 187423,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2338829.122316,
+      "t_end": 2349081.4769909997,
+      "usage": {
+       "prompt_tokens": 50696,
+       "completion_tokens": 47,
+       "total_tokens": 50743,
+       "prompt_tokens_details": {
+        "cached_tokens": 49033
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 162,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 62,
+      "t_arrive": 2349086.8705900004,
+      "req_bytes": 191082,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2349152.2263820004,
+      "t_end": 2503664.844845,
+      "usage": {
+       "prompt_tokens": 51626,
+       "completion_tokens": 3214,
+       "total_tokens": 54840,
+       "prompt_tokens_details": {
+        "cached_tokens": 50742
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 164,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 63,
+      "t_arrive": 2503847.352095,
+      "req_bytes": 191847,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2503896.65044,
+      "t_end": 2512624.545434,
+      "usage": {
+       "prompt_tokens": 51872,
+       "completion_tokens": 93,
+       "total_tokens": 51965,
+       "prompt_tokens_details": {
+        "cached_tokens": 51626
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 166,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 64,
+      "t_arrive": 2512633.2579099997,
+      "req_bytes": 192349,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2512685.194117,
+      "t_end": 2519691.12232,
+      "usage": {
+       "prompt_tokens": 52002,
+       "completion_tokens": 126,
+       "total_tokens": 52128,
+       "prompt_tokens_details": {
+        "cached_tokens": 51964
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 168,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 65,
+      "t_arrive": 2519712.5085890004,
+      "req_bytes": 196591,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2519764.310068,
+      "t_end": 2609405.586297,
+      "usage": {
+       "prompt_tokens": 53424,
+       "completion_tokens": 1784,
+       "total_tokens": 55208,
+       "prompt_tokens_details": {
+        "cached_tokens": 52127
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 170,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 66,
+      "t_arrive": 2609410.816826,
+      "req_bytes": 202127,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2609476.29388,
+      "t_end": 2620858.7916010004,
+      "usage": {
+       "prompt_tokens": 54830,
+       "completion_tokens": 66,
+       "total_tokens": 54896,
+       "prompt_tokens_details": {
+        "cached_tokens": 53424
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 172,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 67,
+      "t_arrive": 2620868.276704,
+      "req_bytes": 203430,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2620944.981399,
+      "t_end": 2628715.424906,
+      "usage": {
+       "prompt_tokens": 55168,
+       "completion_tokens": 77,
+       "total_tokens": 55245,
+       "prompt_tokens_details": {
+        "cached_tokens": 54895
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 174,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 68,
+      "t_arrive": 2628722.298512,
+      "req_bytes": 207726,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2628779.674968,
+      "t_end": 2642774.956563,
+      "usage": {
+       "prompt_tokens": 56189,
+       "completion_tokens": 143,
+       "total_tokens": 56332,
+       "prompt_tokens_details": {
+        "cached_tokens": 55244
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 177,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 69,
+      "t_arrive": 2642787.381276,
+      "req_bytes": 211781,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2642851.2034159997,
+      "t_end": 2652857.116267,
+      "usage": {
+       "prompt_tokens": 57333,
+       "completion_tokens": 77,
+       "total_tokens": 57410,
+       "prompt_tokens_details": {
+        "cached_tokens": 56331
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 179,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 70,
+      "t_arrive": 2652864.464912,
+      "req_bytes": 214982,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2652922.0953539996,
+      "t_end": 2662359.691743,
+      "usage": {
+       "prompt_tokens": 58240,
+       "completion_tokens": 79,
+       "total_tokens": 58319,
+       "prompt_tokens_details": {
+        "cached_tokens": 57409
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 181,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 71,
+      "t_arrive": 2662365.655728,
+      "req_bytes": 215335,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2662428.39025,
+      "t_end": 2666208.244958,
+      "usage": {
+       "prompt_tokens": 58332,
+       "completion_tokens": 78,
+       "total_tokens": 58410,
+       "prompt_tokens_details": {
+        "cached_tokens": 58318
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 183,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 72,
+      "t_arrive": 2666216.635784,
+      "req_bytes": 216035,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2666271.8833640004,
+      "t_end": 2672138.495242,
+      "usage": {
+       "prompt_tokens": 58526,
+       "completion_tokens": 76,
+       "total_tokens": 58602,
+       "prompt_tokens_details": {
+        "cached_tokens": 58409
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 185,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 73,
+      "t_arrive": 2672144.433855,
+      "req_bytes": 218707,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2672214.000521,
+      "t_end": 2680425.2943289997,
+      "usage": {
+       "prompt_tokens": 59255,
+       "completion_tokens": 68,
+       "total_tokens": 59323,
+       "prompt_tokens_details": {
+        "cached_tokens": 58601
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 187,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 74,
+      "t_arrive": 2680434.2874829997,
+      "req_bytes": 219127,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2680506.263325,
+      "t_end": 2685054.447793,
+      "usage": {
+       "prompt_tokens": 59370,
+       "completion_tokens": 77,
+       "total_tokens": 59447,
+       "prompt_tokens_details": {
+        "cached_tokens": 59322
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 189,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 75,
+      "t_arrive": 2685060.390197,
+      "req_bytes": 223459,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2685118.610206,
+      "t_end": 2698232.793286,
+      "usage": {
+       "prompt_tokens": 60496,
+       "completion_tokens": 155,
+       "total_tokens": 60651,
+       "prompt_tokens_details": {
+        "cached_tokens": 59446
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 192,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 76,
+      "t_arrive": 2698247.124054,
+      "req_bytes": 225601,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2698312.935696,
+      "t_end": 2705967.538594,
+      "usage": {
+       "prompt_tokens": 61101,
+       "completion_tokens": 80,
+       "total_tokens": 61181,
+       "prompt_tokens_details": {
+        "cached_tokens": 60650
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 194,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 77,
+      "t_arrive": 2705973.956782,
+      "req_bytes": 227759,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2706034.133502,
+      "t_end": 2713607.862893,
+      "usage": {
+       "prompt_tokens": 61708,
+       "completion_tokens": 64,
+       "total_tokens": 61772,
+       "prompt_tokens_details": {
+        "cached_tokens": 61180
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 196,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 78,
+      "t_arrive": 2713614.3109770003,
+      "req_bytes": 231763,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2713676.585703,
+      "t_end": 2725232.229151,
+      "usage": {
+       "prompt_tokens": 62827,
+       "completion_tokens": 106,
+       "total_tokens": 62933,
+       "prompt_tokens_details": {
+        "cached_tokens": 61771
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 199,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 79,
+      "t_arrive": 2725247.9798640003,
+      "req_bytes": 232959,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2725314.719606,
+      "t_end": 2730400.677543,
+      "usage": {
+       "prompt_tokens": 63132,
+       "completion_tokens": 45,
+       "total_tokens": 63177,
+       "prompt_tokens_details": {
+        "cached_tokens": 62932
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 201,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 80,
+      "t_arrive": 2730407.167836,
+      "req_bytes": 237406,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2730468.6276040003,
+      "t_end": 2824907.404661,
+      "usage": {
+       "prompt_tokens": 64374,
+       "completion_tokens": 1757,
+       "total_tokens": 66131,
+       "prompt_tokens_details": {
+        "cached_tokens": 63176
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 204,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 81,
+      "t_arrive": 2824925.285939,
+      "req_bytes": 240414,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2824986.9125989997,
+      "t_end": 2999052.493785,
+      "usage": {
+       "prompt_tokens": 65195,
+       "completion_tokens": 3837,
+       "total_tokens": 69032,
+       "prompt_tokens_details": {
+        "cached_tokens": 64374
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 206,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 82,
+      "t_arrive": 2999058.2765559996,
+      "req_bytes": 242041,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 2999137.066158,
+      "t_end": 3009477.355683,
+      "usage": {
+       "prompt_tokens": 65662,
+       "completion_tokens": 98,
+       "total_tokens": 65760,
+       "prompt_tokens_details": {
+        "cached_tokens": 65195
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 209,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 83,
+      "t_arrive": 3009488.23495,
+      "req_bytes": 246332,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3009560.741858,
+      "t_end": 3022027.3963099997,
+      "usage": {
+       "prompt_tokens": 66838,
+       "completion_tokens": 94,
+       "total_tokens": 66932,
+       "prompt_tokens_details": {
+        "cached_tokens": 65759
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 211,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 84,
+      "t_arrive": 3022036.897054,
+      "req_bytes": 256345,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3022119.0757049997,
+      "t_end": 3034969.49206,
+      "usage": {
+       "prompt_tokens": 69657,
+       "completion_tokens": 79,
+       "total_tokens": 69736,
+       "prompt_tokens_details": {
+        "cached_tokens": 66931
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 213,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 85,
+      "t_arrive": 3034979.328024,
+      "req_bytes": 263957,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3035047.869409,
+      "t_end": 3049446.561364,
+      "usage": {
+       "prompt_tokens": 71847,
+       "completion_tokens": 128,
+       "total_tokens": 71975,
+       "prompt_tokens_details": {
+        "cached_tokens": 69735
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 216,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 86,
+      "t_arrive": 3049456.257157,
+      "req_bytes": 264879,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3049522.703919,
+      "t_end": 3055390.404434,
+      "usage": {
+       "prompt_tokens": 72100,
+       "completion_tokens": 70,
+       "total_tokens": 72170,
+       "prompt_tokens_details": {
+        "cached_tokens": 71974
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 218,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 87,
+      "t_arrive": 3055395.945101,
+      "req_bytes": 265579,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3055461.597461,
+      "t_end": 3061918.709221,
+      "usage": {
+       "prompt_tokens": 72289,
+       "completion_tokens": 77,
+       "total_tokens": 72366,
+       "prompt_tokens_details": {
+        "cached_tokens": 72169
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 220,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 88,
+      "t_arrive": 3061924.273201,
+      "req_bytes": 268243,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3061994.928255,
+      "t_end": 3072468.138564,
+      "usage": {
+       "prompt_tokens": 72961,
+       "completion_tokens": 121,
+       "total_tokens": 73082,
+       "prompt_tokens_details": {
+        "cached_tokens": 72365
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 223,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 89,
+      "t_arrive": 3072477.665484,
+      "req_bytes": 272856,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3072547.71291,
+      "t_end": 3226011.7077599997,
+      "usage": {
+       "prompt_tokens": 74270,
+       "completion_tokens": 3106,
+       "total_tokens": 77376,
+       "prompt_tokens_details": {
+        "cached_tokens": 73081
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 225,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 90,
+      "t_arrive": 3226018.710906,
+      "req_bytes": 273890,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3226089.487139,
+      "t_end": 3234587.926924,
+      "usage": {
+       "prompt_tokens": 74570,
+       "completion_tokens": 79,
+       "total_tokens": 74649,
+       "prompt_tokens_details": {
+        "cached_tokens": 74270
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 227,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 91,
+      "t_arrive": 3234593.5542840003,
+      "req_bytes": 277202,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3234666.0917559997,
+      "t_end": 3247791.824711,
+      "usage": {
+       "prompt_tokens": 75535,
+       "completion_tokens": 134,
+       "total_tokens": 75669,
+       "prompt_tokens_details": {
+        "cached_tokens": 74648
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 230,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 92,
+      "t_arrive": 3247800.184772,
+      "req_bytes": 280991,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3247891.557932,
+      "t_end": 3257624.382809,
+      "usage": {
+       "prompt_tokens": 76602,
+       "completion_tokens": 71,
+       "total_tokens": 76673,
+       "prompt_tokens_details": {
+        "cached_tokens": 75668
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 232,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 93,
+      "t_arrive": 3257633.704122,
+      "req_bytes": 282596,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3257703.8215460004,
+      "t_end": 3265333.657732,
+      "usage": {
+       "prompt_tokens": 77085,
+       "completion_tokens": 79,
+       "total_tokens": 77164,
+       "prompt_tokens_details": {
+        "cached_tokens": 76672
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 234,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 94,
+      "t_arrive": 3265339.404813,
+      "req_bytes": 284537,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3265411.427125,
+      "t_end": 3273188.7213129997,
+      "usage": {
+       "prompt_tokens": 77663,
+       "completion_tokens": 62,
+       "total_tokens": 77725,
+       "prompt_tokens_details": {
+        "cached_tokens": 77163
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 236,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 95,
+      "t_arrive": 3273194.448524,
+      "req_bytes": 289125,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3273269.097728,
+      "t_end": 3285750.897917,
+      "usage": {
+       "prompt_tokens": 78954,
+       "completion_tokens": 108,
+       "total_tokens": 79062,
+       "prompt_tokens_details": {
+        "cached_tokens": 77724
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 238,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 96,
+      "t_arrive": 3285757.4572489997,
+      "req_bytes": 300412,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3285847.022814,
+      "t_end": 3298101.0986699997,
+      "usage": {
+       "prompt_tokens": 82695,
+       "completion_tokens": 77,
+       "total_tokens": 82772,
+       "prompt_tokens_details": {
+        "cached_tokens": 79061
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 240,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 97,
+      "t_arrive": 3298124.851696,
+      "req_bytes": 302577,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3298202.012219,
+      "t_end": 3307968.409727,
+      "usage": {
+       "prompt_tokens": 83310,
+       "completion_tokens": 89,
+       "total_tokens": 83399,
+       "prompt_tokens_details": {
+        "cached_tokens": 82771
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 242,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 98,
+      "t_arrive": 3307975.355169,
+      "req_bytes": 310577,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3308068.5716359997,
+      "t_end": 3468840.296385,
+      "usage": {
+       "prompt_tokens": 85423,
+       "completion_tokens": 3206,
+       "total_tokens": 88629,
+       "prompt_tokens_details": {
+        "cached_tokens": 83310
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 245,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 99,
+      "t_arrive": 3468861.985367,
+      "req_bytes": 96873,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3468933.489978,
+      "t_end": 3496538.919052,
+      "usage": {
+       "prompt_tokens": 26414,
+       "completion_tokens": 199,
+       "total_tokens": 26613,
+       "prompt_tokens_details": {
+        "cached_tokens": 4267
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 248,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 100,
+      "t_arrive": 3496555.254768,
+      "req_bytes": 104640,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3496615.3260850003,
+      "t_end": 3510917.9007920003,
+      "usage": {
+       "prompt_tokens": 28546,
+       "completion_tokens": 134,
+       "total_tokens": 28680,
+       "prompt_tokens_details": {
+        "cached_tokens": 26414
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 251,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 101,
+      "t_arrive": 3510927.285063,
+      "req_bytes": 109015,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3510983.450002,
+      "t_end": 3521076.919253,
+      "usage": {
+       "prompt_tokens": 29799,
+       "completion_tokens": 79,
+       "total_tokens": 29878,
+       "prompt_tokens_details": {
+        "cached_tokens": 28679
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 253,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 102,
+      "t_arrive": 3521083.268925,
+      "req_bytes": 110496,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3521141.2517990004,
+      "t_end": 3528541.379625,
+      "usage": {
+       "prompt_tokens": 30230,
+       "completion_tokens": 77,
+       "total_tokens": 30307,
+       "prompt_tokens_details": {
+        "cached_tokens": 29877
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 255,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 103,
+      "t_arrive": 3528548.594898,
+      "req_bytes": 111719,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3528616.530487,
+      "t_end": 3535174.1735659996,
+      "usage": {
+       "prompt_tokens": 30570,
+       "completion_tokens": 79,
+       "total_tokens": 30649,
+       "prompt_tokens_details": {
+        "cached_tokens": 30306
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 257,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 104,
+      "t_arrive": 3535180.5637950003,
+      "req_bytes": 116399,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3535250.6323510003,
+      "t_end": 3545055.383777,
+      "usage": {
+       "prompt_tokens": 31827,
+       "completion_tokens": 79,
+       "total_tokens": 31906,
+       "prompt_tokens_details": {
+        "cached_tokens": 30648
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 259,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 105,
+      "t_arrive": 3545062.015461,
+      "req_bytes": 122395,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3545120.505314,
+      "t_end": 3554450.149995,
+      "usage": {
+       "prompt_tokens": 33392,
+       "completion_tokens": 45,
+       "total_tokens": 33437,
+       "prompt_tokens_details": {
+        "cached_tokens": 31905
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 261,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 106,
+      "t_arrive": 3554456.840629,
+      "req_bytes": 126842,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3554529.4010570003,
+      "t_end": 3569045.447695,
+      "usage": {
+       "prompt_tokens": 34634,
+       "completion_tokens": 140,
+       "total_tokens": 34774,
+       "prompt_tokens_details": {
+        "cached_tokens": 33436
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 263,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 107,
+      "t_arrive": 3569052.2014510003,
+      "req_bytes": 136808,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3569114.0344310002,
+      "t_end": 3581084.273281,
+      "usage": {
+       "prompt_tokens": 37226,
+       "completion_tokens": 77,
+       "total_tokens": 37303,
+       "prompt_tokens_details": {
+        "cached_tokens": 34634
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 265,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 108,
+      "t_arrive": 3581090.7783150002,
+      "req_bytes": 140055,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3581170.424803,
+      "t_end": 3590236.301963,
+      "usage": {
+       "prompt_tokens": 38095,
+       "completion_tokens": 77,
+       "total_tokens": 38172,
+       "prompt_tokens_details": {
+        "cached_tokens": 37302
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 267,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 109,
+      "t_arrive": 3590242.5365710002,
+      "req_bytes": 143424,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3590303.833306,
+      "t_end": 3599046.431756,
+      "usage": {
+       "prompt_tokens": 39012,
+       "completion_tokens": 79,
+       "total_tokens": 39091,
+       "prompt_tokens_details": {
+        "cached_tokens": 38171
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 269,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 110,
+      "t_arrive": 3599052.237042,
+      "req_bytes": 147483,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3599128.810116,
+      "t_end": 3668059.874197,
+      "usage": {
+       "prompt_tokens": 40142,
+       "completion_tokens": 1223,
+       "total_tokens": 41365,
+       "prompt_tokens_details": {
+        "cached_tokens": 39090
+       }
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 273,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 111,
+      "t_arrive": 3668073.230686,
+      "req_bytes": 156119,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3668136.719501,
+      "t_end": 3708799.037794,
+      "usage": {
+       "prompt_tokens": 42403,
+       "completion_tokens": 636,
+       "total_tokens": 43039,
+       "prompt_tokens_details": {
+        "cached_tokens": 40142
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 275,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 112,
+      "t_arrive": 3708805.412823,
+      "req_bytes": 163728,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3708871.906149,
+      "t_end": 3721261.728105,
+      "usage": {
+       "prompt_tokens": 44396,
+       "completion_tokens": 76,
+       "total_tokens": 44472,
+       "prompt_tokens_details": {
+        "cached_tokens": 42403
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 277,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 113,
+      "t_arrive": 3721268.000733,
+      "req_bytes": 166267,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3721350.117317,
+      "t_end": 3729569.397486,
+      "usage": {
+       "prompt_tokens": 45031,
+       "completion_tokens": 76,
+       "total_tokens": 45107,
+       "prompt_tokens_details": {
+        "cached_tokens": 44471
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 279,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 114,
+      "t_arrive": 3729575.7065729997,
+      "req_bytes": 170106,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3729642.045652,
+      "t_end": 3741045.01131,
+      "usage": {
+       "prompt_tokens": 46065,
+       "completion_tokens": 125,
+       "total_tokens": 46190,
+       "prompt_tokens_details": {
+        "cached_tokens": 45106
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 282,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 115,
+      "t_arrive": 3741055.905938,
+      "req_bytes": 170794,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3741137.132697,
+      "t_end": 3745766.0530930003,
+      "usage": {
+       "prompt_tokens": 46245,
+       "completion_tokens": 79,
+       "total_tokens": 46324,
+       "prompt_tokens_details": {
+        "cached_tokens": 46189
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 284,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 116,
+      "t_arrive": 3745772.1729099997,
+      "req_bytes": 176164,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3745856.41222,
+      "t_end": 3757023.787936,
+      "usage": {
+       "prompt_tokens": 47662,
+       "completion_tokens": 79,
+       "total_tokens": 47741,
+       "prompt_tokens_details": {
+        "cached_tokens": 46323
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 286,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 117,
+      "t_arrive": 3757031.835605,
+      "req_bytes": 181057,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3757116.20054,
+      "t_end": 3817810.563116,
+      "usage": {
+       "prompt_tokens": 48942,
+       "completion_tokens": 1035,
+       "total_tokens": 49977,
+       "prompt_tokens_details": {
+        "cached_tokens": 47740
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 288,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 118,
+      "t_arrive": 3817816.614661,
+      "req_bytes": 185372,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3817886.532583,
+      "t_end": 3909829.49592,
+      "usage": {
+       "prompt_tokens": 50054,
+       "completion_tokens": 1841,
+       "total_tokens": 51895,
+       "prompt_tokens_details": {
+        "cached_tokens": 48942
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 290,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 119,
+      "t_arrive": 3909835.413173,
+      "req_bytes": 190962,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3909913.166245,
+      "t_end": 3920491.034019,
+      "usage": {
+       "prompt_tokens": 51474,
+       "completion_tokens": 62,
+       "total_tokens": 51536,
+       "prompt_tokens_details": {
+        "cached_tokens": 50054
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 292,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 120,
+      "t_arrive": 3920496.774577,
+      "req_bytes": 194376,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3920565.934907,
+      "t_end": 3933229.560281,
+      "usage": {
+       "prompt_tokens": 52408,
+       "completion_tokens": 130,
+       "total_tokens": 52538,
+       "prompt_tokens_details": {
+        "cached_tokens": 51535
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 295,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 121,
+      "t_arrive": 3933242.1838,
+      "req_bytes": 195861,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3933309.47995,
+      "t_end": 3941163.105907,
+      "usage": {
+       "prompt_tokens": 52823,
+       "completion_tokens": 100,
+       "total_tokens": 52923,
+       "prompt_tokens_details": {
+        "cached_tokens": 52537
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 298,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 122,
+      "t_arrive": 3941171.473983,
+      "req_bytes": 200658,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 3941259.164991,
+      "t_end": 4113061.7953540003,
+      "usage": {
+       "prompt_tokens": 54148,
+       "completion_tokens": 3633,
+       "total_tokens": 57781,
+       "prompt_tokens_details": {
+        "cached_tokens": 52922
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 301,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 123,
+      "t_arrive": 4113074.9363490003,
+      "req_bytes": 206649,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4113145.897714,
+      "t_end": 4127509.2546730004,
+      "usage": {
+       "prompt_tokens": 55713,
+       "completion_tokens": 123,
+       "total_tokens": 55836,
+       "prompt_tokens_details": {
+        "cached_tokens": 54148
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 304,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 124,
+      "t_arrive": 4127519.658334,
+      "req_bytes": 207489,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4127589.599883,
+      "t_end": 4133944.520725,
+      "usage": {
+       "prompt_tokens": 55942,
+       "completion_tokens": 79,
+       "total_tokens": 56021,
+       "prompt_tokens_details": {
+        "cached_tokens": 55835
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 306,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 125,
+      "t_arrive": 4133951.2591370004,
+      "req_bytes": 211128,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4134041.223374,
+      "t_end": 4146932.9967000005,
+      "usage": {
+       "prompt_tokens": 56957,
+       "completion_tokens": 135,
+       "total_tokens": 57092,
+       "prompt_tokens_details": {
+        "cached_tokens": 56020
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 309,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 126,
+      "t_arrive": 4146942.3422270003,
+      "req_bytes": 211991,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4147035.324121,
+      "t_end": 4155311.5869310005,
+      "usage": {
+       "prompt_tokens": 57195,
+       "completion_tokens": 131,
+       "total_tokens": 57326,
+       "prompt_tokens_details": {
+        "cached_tokens": 57091
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 312,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 127,
+      "t_arrive": 4155320.2928049997,
+      "req_bytes": 212788,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4155411.011139,
+      "t_end": 4159991.17141,
+      "usage": {
+       "prompt_tokens": 57405,
+       "completion_tokens": 63,
+       "total_tokens": 57468,
+       "prompt_tokens_details": {
+        "cached_tokens": 57325
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 314,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 128,
+      "t_arrive": 4160018.7250119997,
+      "req_bytes": 215422,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4160091.656924,
+      "t_end": 4168066.203642,
+      "usage": {
+       "prompt_tokens": 58103,
+       "completion_tokens": 63,
+       "total_tokens": 58166,
+       "prompt_tokens_details": {
+        "cached_tokens": 57467
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 316,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 129,
+      "t_arrive": 4168072.898153,
+      "req_bytes": 221719,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4168146.58098,
+      "t_end": 4179548.691631,
+      "usage": {
+       "prompt_tokens": 59807,
+       "completion_tokens": 79,
+       "total_tokens": 59886,
+       "prompt_tokens_details": {
+        "cached_tokens": 58165
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 318,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 130,
+      "t_arrive": 4179555.4295519996,
+      "req_bytes": 227450,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4179632.3364959997,
+      "t_end": 4191034.6300359997,
+      "usage": {
+       "prompt_tokens": 61379,
+       "completion_tokens": 79,
+       "total_tokens": 61458,
+       "prompt_tokens_details": {
+        "cached_tokens": 59885
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 320,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 131,
+      "t_arrive": 4191042.184567,
+      "req_bytes": 230265,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4191140.0145999994,
+      "t_end": 4200464.538413,
+      "usage": {
+       "prompt_tokens": 62212,
+       "completion_tokens": 79,
+       "total_tokens": 62291,
+       "prompt_tokens_details": {
+        "cached_tokens": 61457
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 322,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 132,
+      "t_arrive": 4200470.780485,
+      "req_bytes": 233667,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4200547.620241,
+      "t_end": 4209430.596143,
+      "usage": {
+       "prompt_tokens": 63145,
+       "completion_tokens": 78,
+       "total_tokens": 63223,
+       "prompt_tokens_details": {
+        "cached_tokens": 62290
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 324,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 133,
+      "t_arrive": 4209445.72866,
+      "req_bytes": 238941,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4209526.183387,
+      "t_end": 4229424.622800999,
+      "usage": {
+       "prompt_tokens": 64624,
+       "completion_tokens": 138,
+       "total_tokens": 64762,
+       "prompt_tokens_details": {
+        "cached_tokens": 63222
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 327,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 134,
+      "t_arrive": 4229452.549482,
+      "req_bytes": 239581,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4229535.503037999,
+      "t_end": 4233106.80425,
+      "usage": {
+       "prompt_tokens": 64785,
+       "completion_tokens": 62,
+       "total_tokens": 64847,
+       "prompt_tokens_details": {
+        "cached_tokens": 64761
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 329,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 135,
+      "t_arrive": 4233147.74053,
+      "req_bytes": 243587,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4233230.629197,
+      "t_end": 4250221.798728,
+      "usage": {
+       "prompt_tokens": 65896,
+       "completion_tokens": 77,
+       "total_tokens": 65973,
+       "prompt_tokens_details": {
+        "cached_tokens": 64846
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 331,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 136,
+      "t_arrive": 4250239.269622,
+      "req_bytes": 247876,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4250323.813223,
+      "t_end": 4263716.897729999,
+      "usage": {
+       "prompt_tokens": 66957,
+       "completion_tokens": 77,
+       "total_tokens": 67034,
+       "prompt_tokens_details": {
+        "cached_tokens": 65972
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 333,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 137,
+      "t_arrive": 4263744.122679,
+      "req_bytes": 252073,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4263823.62966,
+      "t_end": 4272924.628017999,
+      "usage": {
+       "prompt_tokens": 67995,
+       "completion_tokens": 77,
+       "total_tokens": 68072,
+       "prompt_tokens_details": {
+        "cached_tokens": 67033
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 335,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 138,
+      "t_arrive": 4272942.25939,
+      "req_bytes": 255641,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4273029.658177,
+      "t_end": 4281862.888392,
+      "usage": {
+       "prompt_tokens": 68853,
+       "completion_tokens": 77,
+       "total_tokens": 68930,
+       "prompt_tokens_details": {
+        "cached_tokens": 68071
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 337,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 139,
+      "t_arrive": 4281877.452298,
+      "req_bytes": 258653,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4281961.675118,
+      "t_end": 4717832.679614,
+      "usage": {
+       "prompt_tokens": 69627,
+       "completion_tokens": 9617,
+       "total_tokens": 79244,
+       "prompt_tokens_details": {
+        "cached_tokens": 68929
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 340,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 140,
+      "t_arrive": 4717854.434618,
+      "req_bytes": 266768,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4717937.041141,
+      "t_end": 4733908.316528,
+      "usage": {
+       "prompt_tokens": 71764,
+       "completion_tokens": 106,
+       "total_tokens": 71870,
+       "prompt_tokens_details": {
+        "cached_tokens": 69627
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 343,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 141,
+      "t_arrive": 4733937.53746,
+      "req_bytes": 271139,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4734025.4282599995,
+      "t_end": 4744420.071196999,
+      "usage": {
+       "prompt_tokens": 72886,
+       "completion_tokens": 69,
+       "total_tokens": 72955,
+       "prompt_tokens_details": {
+        "cached_tokens": 71869
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 345,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 142,
+      "t_arrive": 4744437.572339,
+      "req_bytes": 272581,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4744526.257199,
+      "t_end": 4751824.764229,
+      "usage": {
+       "prompt_tokens": 73282,
+       "completion_tokens": 63,
+       "total_tokens": 73345,
+       "prompt_tokens_details": {
+        "cached_tokens": 72954
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 347,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 143,
+      "t_arrive": 4751846.276039001,
+      "req_bytes": 273191,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4751933.215671,
+      "t_end": 4758506.725277,
+      "usage": {
+       "prompt_tokens": 73452,
+       "completion_tokens": 79,
+       "total_tokens": 73531,
+       "prompt_tokens_details": {
+        "cached_tokens": 73344
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 349,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 144,
+      "t_arrive": 4758520.912875,
+      "req_bytes": 277577,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 4758607.529964,
+      "t_end": 5055211.471100001,
+      "usage": {
+       "prompt_tokens": 74676,
+       "completion_tokens": 5855,
+       "total_tokens": 80531,
+       "prompt_tokens_details": {
+        "cached_tokens": 73530
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 351,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 145,
+      "t_arrive": 5055243.501848,
+      "req_bytes": 282510,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5055329.463474,
+      "t_end": 5382893.338900001,
+      "usage": {
+       "prompt_tokens": 76079,
+       "completion_tokens": 7306,
+       "total_tokens": 83385,
+       "prompt_tokens_details": {
+        "cached_tokens": 74676
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 353,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 146,
+      "t_arrive": 5382917.434007,
+      "req_bytes": 284164,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5383004.465693001,
+      "t_end": 5392925.536564,
+      "usage": {
+       "prompt_tokens": 76565,
+       "completion_tokens": 79,
+       "total_tokens": 76644,
+       "prompt_tokens_details": {
+        "cached_tokens": 76079
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 355,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 147,
+      "t_arrive": 5392949.786049999,
+      "req_bytes": 286095,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5393037.559846,
+      "t_end": 5406082.523194,
+      "usage": {
+       "prompt_tokens": 77123,
+       "completion_tokens": 135,
+       "total_tokens": 77258,
+       "prompt_tokens_details": {
+        "cached_tokens": 76643
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 358,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 148,
+      "t_arrive": 5406122.86407,
+      "req_bytes": 286853,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5406209.511025,
+      "t_end": 5414582.527922,
+      "usage": {
+       "prompt_tokens": 77321,
+       "completion_tokens": 138,
+       "total_tokens": 77459,
+       "prompt_tokens_details": {
+        "cached_tokens": 77257
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 361,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 149,
+      "t_arrive": 5414622.594768001,
+      "req_bytes": 290031,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5414722.7008609995,
+      "t_end": 5424275.534147,
+      "usage": {
+       "prompt_tokens": 78253,
+       "completion_tokens": 77,
+       "total_tokens": 78330,
+       "prompt_tokens_details": {
+        "cached_tokens": 77458
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 363,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 150,
+      "t_arrive": 5424300.121863,
+      "req_bytes": 297084,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5424390.993660999,
+      "t_end": 5436676.539185001,
+      "usage": {
+       "prompt_tokens": 80040,
+       "completion_tokens": 79,
+       "total_tokens": 80119,
+       "prompt_tokens_details": {
+        "cached_tokens": 78329
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 365,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 151,
+      "t_arrive": 5436702.365138,
+      "req_bytes": 303890,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5436790.415937,
+      "t_end": 5449187.906164,
+      "usage": {
+       "prompt_tokens": 81911,
+       "completion_tokens": 63,
+       "total_tokens": 81974,
+       "prompt_tokens_details": {
+        "cached_tokens": 80118
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 367,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 152,
+      "t_arrive": 5449230.778297001,
+      "req_bytes": 307509,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5449324.716995999,
+      "t_end": 5459671.676406,
+      "usage": {
+       "prompt_tokens": 82897,
+       "completion_tokens": 79,
+       "total_tokens": 82976,
+       "prompt_tokens_details": {
+        "cached_tokens": 81973
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 369,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 153,
+      "t_arrive": 5459695.368588,
+      "req_bytes": 310527,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5459801.172455,
+      "t_end": 5469407.828001,
+      "usage": {
+       "prompt_tokens": 83725,
+       "completion_tokens": 80,
+       "total_tokens": 83805,
+       "prompt_tokens_details": {
+        "cached_tokens": 82975
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 371,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 154,
+      "t_arrive": 5469432.899777,
+      "req_bytes": 312519,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5469537.70358,
+      "t_end": 5477343.753258999,
+      "usage": {
+       "prompt_tokens": 84296,
+       "completion_tokens": 63,
+       "total_tokens": 84359,
+       "prompt_tokens_details": {
+        "cached_tokens": 83804
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 373,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 155,
+      "t_arrive": 5477367.380648,
+      "req_bytes": 317593,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5477462.069309999,
+      "t_end": 5488122.7117139995,
+      "usage": {
+       "prompt_tokens": 85639,
+       "completion_tokens": 81,
+       "total_tokens": 85720,
+       "prompt_tokens_details": {
+        "cached_tokens": 84358
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 375,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 156,
+      "t_arrive": 5488145.334517,
+      "req_bytes": 318101,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5488248.18764,
+      "t_end": 5493783.154980999,
+      "usage": {
+       "prompt_tokens": 85794,
+       "completion_tokens": 81,
+       "total_tokens": 85875,
+       "prompt_tokens_details": {
+        "cached_tokens": 85719
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 377,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 157,
+      "t_arrive": 5493811.659852,
+      "req_bytes": 115309,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5493909.636123001,
+      "t_end": 5519171.198351,
+      "usage": {
+       "prompt_tokens": 31500,
+       "completion_tokens": 130,
+       "total_tokens": 31630,
+       "prompt_tokens_details": {
+        "cached_tokens": 4267
+       }
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 380,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 158,
+      "t_arrive": 5519204.721599,
+      "req_bytes": 116728,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5519284.489124,
+      "t_end": 5525300.478727,
+      "usage": {
+       "prompt_tokens": 31907,
+       "completion_tokens": 79,
+       "total_tokens": 31986,
+       "prompt_tokens_details": {
+        "cached_tokens": 31629
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 382,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 159,
+      "t_arrive": 5525334.261568001,
+      "req_bytes": 119277,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5525413.6138969995,
+      "t_end": 5533400.539360999,
+      "usage": {
+       "prompt_tokens": 32609,
+       "completion_tokens": 79,
+       "total_tokens": 32688,
+       "prompt_tokens_details": {
+        "cached_tokens": 31985
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 384,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 160,
+      "t_arrive": 5533422.875529,
+      "req_bytes": 124272,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5533508.118591,
+      "t_end": 5545553.955486,
+      "usage": {
+       "prompt_tokens": 34008,
+       "completion_tokens": 98,
+       "total_tokens": 34106,
+       "prompt_tokens_details": {
+        "cached_tokens": 32687
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 386,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 161,
+      "t_arrive": 5545576.63316,
+      "req_bytes": 130727,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5545653.732561,
+      "t_end": 5570438.094924,
+      "usage": {
+       "prompt_tokens": 35828,
+       "completion_tokens": 278,
+       "total_tokens": 36106,
+       "prompt_tokens_details": {
+        "cached_tokens": 34008
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 388,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 162,
+      "t_arrive": 5570471.492343,
+      "req_bytes": 135274,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5570547.750975,
+      "t_end": 5581435.145713,
+      "usage": {
+       "prompt_tokens": 37073,
+       "completion_tokens": 58,
+       "total_tokens": 37131,
+       "prompt_tokens_details": {
+        "cached_tokens": 35828
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 390,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 163,
+      "t_arrive": 5581460.526449,
+      "req_bytes": 138004,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5581547.814048,
+      "t_end": 5590081.79543,
+      "usage": {
+       "prompt_tokens": 37769,
+       "completion_tokens": 82,
+       "total_tokens": 37851,
+       "prompt_tokens_details": {
+        "cached_tokens": 37130
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 392,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 164,
+      "t_arrive": 5590110.552891,
+      "req_bytes": 147393,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5590193.665134001,
+      "t_end": 5601230.139174,
+      "usage": {
+       "prompt_tokens": 40131,
+       "completion_tokens": 58,
+       "total_tokens": 40189,
+       "prompt_tokens_details": {
+        "cached_tokens": 37850
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 394,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 165,
+      "t_arrive": 5601258.96249,
+      "req_bytes": 150757,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5601338.747485,
+      "t_end": 5609934.979315001,
+      "usage": {
+       "prompt_tokens": 40993,
+       "completion_tokens": 58,
+       "total_tokens": 41051,
+       "prompt_tokens_details": {
+        "cached_tokens": 40188
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 396,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 166,
+      "t_arrive": 5609960.1813159995,
+      "req_bytes": 153938,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5610047.895392,
+      "t_end": 5617701.643983,
+      "usage": {
+       "prompt_tokens": 41815,
+       "completion_tokens": 60,
+       "total_tokens": 41875,
+       "prompt_tokens_details": {
+        "cached_tokens": 41050
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 398,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 167,
+      "t_arrive": 5617728.86436,
+      "req_bytes": 159003,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5617811.070261,
+      "t_end": 5627164.747667,
+      "usage": {
+       "prompt_tokens": 43185,
+       "completion_tokens": 60,
+       "total_tokens": 43245,
+       "prompt_tokens_details": {
+        "cached_tokens": 41874
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 400,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 168,
+      "t_arrive": 5627194.870794,
+      "req_bytes": 164628,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5627287.121233,
+      "t_end": 5636371.413935,
+      "usage": {
+       "prompt_tokens": 44567,
+       "completion_tokens": 60,
+       "total_tokens": 44627,
+       "prompt_tokens_details": {
+        "cached_tokens": 43244
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 402,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 169,
+      "t_arrive": 5636396.712281,
+      "req_bytes": 168758,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5636473.577943,
+      "t_end": 5645182.165714,
+      "usage": {
+       "prompt_tokens": 45640,
+       "completion_tokens": 60,
+       "total_tokens": 45700,
+       "prompt_tokens_details": {
+        "cached_tokens": 44626
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 404,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 170,
+      "t_arrive": 5645207.950987,
+      "req_bytes": 173824,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5645298.803386,
+      "t_end": 5654855.435501999,
+      "usage": {
+       "prompt_tokens": 46914,
+       "completion_tokens": 60,
+       "total_tokens": 46974,
+       "prompt_tokens_details": {
+        "cached_tokens": 45699
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 406,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 171,
+      "t_arrive": 5654881.256266,
+      "req_bytes": 177126,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5654972.574143,
+      "t_end": 5700647.091733,
+      "usage": {
+       "prompt_tokens": 47712,
+       "completion_tokens": 732,
+       "total_tokens": 48444,
+       "prompt_tokens_details": {
+        "cached_tokens": 46973
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 408,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 172,
+      "t_arrive": 5700673.144594001,
+      "req_bytes": 184350,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5700765.7211380005,
+      "t_end": 5711775.174079,
+      "usage": {
+       "prompt_tokens": 49553,
+       "completion_tokens": 61,
+       "total_tokens": 49614,
+       "prompt_tokens_details": {
+        "cached_tokens": 47712
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 410,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 173,
+      "t_arrive": 5711800.785878,
+      "req_bytes": 185386,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5711898.701516,
+      "t_end": 5717625.522364999,
+      "usage": {
+       "prompt_tokens": 49834,
+       "completion_tokens": 58,
+       "total_tokens": 49892,
+       "prompt_tokens_details": {
+        "cached_tokens": 49613
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 412,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 174,
+      "t_arrive": 5717651.0493129995,
+      "req_bytes": 188654,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5717741.938114,
+      "t_end": 5725301.138767,
+      "usage": {
+       "prompt_tokens": 50653,
+       "completion_tokens": 58,
+       "total_tokens": 50711,
+       "prompt_tokens_details": {
+        "cached_tokens": 49891
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 414,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 175,
+      "t_arrive": 5725326.969473,
+      "req_bytes": 192773,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5725513.0077450005,
+      "t_end": 5735688.7828939995,
+      "usage": {
+       "prompt_tokens": 51730,
+       "completion_tokens": 87,
+       "total_tokens": 51817,
+       "prompt_tokens_details": {
+        "cached_tokens": 50710
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 416,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 176,
+      "t_arrive": 5735714.917375,
+      "req_bytes": 195764,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5735794.509579,
+      "t_end": 5745541.109499,
+      "usage": {
+       "prompt_tokens": 52578,
+       "completion_tokens": 91,
+       "total_tokens": 52669,
+       "prompt_tokens_details": {
+        "cached_tokens": 51816
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 418,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 177,
+      "t_arrive": 5745567.778098,
+      "req_bytes": 199109,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5745649.602484,
+      "t_end": 5753699.93466,
+      "usage": {
+       "prompt_tokens": 53545,
+       "completion_tokens": 63,
+       "total_tokens": 53608,
+       "prompt_tokens_details": {
+        "cached_tokens": 52668
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 420,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 178,
+      "t_arrive": 5753726.052197,
+      "req_bytes": 200091,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5753819.847822,
+      "t_end": 5760494.212863,
+      "usage": {
+       "prompt_tokens": 53808,
+       "completion_tokens": 84,
+       "total_tokens": 53892,
+       "prompt_tokens_details": {
+        "cached_tokens": 53607
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 422,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 179,
+      "t_arrive": 5760520.080999,
+      "req_bytes": 204859,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5760607.920081,
+      "t_end": 5769818.09832,
+      "usage": {
+       "prompt_tokens": 55151,
+       "completion_tokens": 60,
+       "total_tokens": 55211,
+       "prompt_tokens_details": {
+        "cached_tokens": 53891
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 424,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 180,
+      "t_arrive": 5769843.457736,
+      "req_bytes": 208616,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5769939.524507,
+      "t_end": 5778940.959206999,
+      "usage": {
+       "prompt_tokens": 56087,
+       "completion_tokens": 60,
+       "total_tokens": 56147,
+       "prompt_tokens_details": {
+        "cached_tokens": 55210
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 426,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 181,
+      "t_arrive": 5778966.009549,
+      "req_bytes": 212267,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5779050.874788,
+      "t_end": 5786870.006495,
+      "usage": {
+       "prompt_tokens": 57001,
+       "completion_tokens": 50,
+       "total_tokens": 57051,
+       "prompt_tokens_details": {
+        "cached_tokens": 56146
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 428,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 182,
+      "t_arrive": 5786898.551872,
+      "req_bytes": 216007,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5786993.200182,
+      "t_end": 5963270.675613,
+      "usage": {
+       "prompt_tokens": 57934,
+       "completion_tokens": 3506,
+       "total_tokens": 61440,
+       "prompt_tokens_details": {
+        "cached_tokens": 57050
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 430,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 183,
+      "t_arrive": 5963311.420391,
+      "req_bytes": 218144,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5963400.730646,
+      "t_end": 5974573.717446,
+      "usage": {
+       "prompt_tokens": 58544,
+       "completion_tokens": 71,
+       "total_tokens": 58615,
+       "prompt_tokens_details": {
+        "cached_tokens": 57934
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 432,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 184,
+      "t_arrive": 5974598.384099,
+      "req_bytes": 218669,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5974694.753515,
+      "t_end": 5980705.229938,
+      "usage": {
+       "prompt_tokens": 58669,
+       "completion_tokens": 83,
+       "total_tokens": 58752,
+       "prompt_tokens_details": {
+        "cached_tokens": 58614
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 434,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 185,
+      "t_arrive": 5980731.254283001,
+      "req_bytes": 220461,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5980824.91708,
+      "t_end": 5988921.998582,
+      "usage": {
+       "prompt_tokens": 59168,
+       "completion_tokens": 63,
+       "total_tokens": 59231,
+       "prompt_tokens_details": {
+        "cached_tokens": 58751
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 436,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 186,
+      "t_arrive": 5988947.037263,
+      "req_bytes": 222280,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5989030.582025,
+      "t_end": 5997466.349621,
+      "usage": {
+       "prompt_tokens": 59662,
+       "completion_tokens": 58,
+       "total_tokens": 59720,
+       "prompt_tokens_details": {
+        "cached_tokens": 59230
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 438,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 187,
+      "t_arrive": 5997496.482048,
+      "req_bytes": 224564,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 5997591.943997,
+      "t_end": 6006533.995898,
+      "usage": {
+       "prompt_tokens": 60206,
+       "completion_tokens": 80,
+       "total_tokens": 60286,
+       "prompt_tokens_details": {
+        "cached_tokens": 59719
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 440,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 188,
+      "t_arrive": 6006561.2598170005,
+      "req_bytes": 227025,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6006661.648764,
+      "t_end": 6015353.597639,
+      "usage": {
+       "prompt_tokens": 60821,
+       "completion_tokens": 79,
+       "total_tokens": 60900,
+       "prompt_tokens_details": {
+        "cached_tokens": 60285
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 442,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 189,
+      "t_arrive": 6015381.137569,
+      "req_bytes": 230409,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6015468.063317999,
+      "t_end": 6025216.394147,
+      "usage": {
+       "prompt_tokens": 61591,
+       "completion_tokens": 97,
+       "total_tokens": 61688,
+       "prompt_tokens_details": {
+        "cached_tokens": 60899
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 444,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 190,
+      "t_arrive": 6025245.629253,
+      "req_bytes": 231592,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6025341.065761,
+      "t_end": 6030944.870569,
+      "usage": {
+       "prompt_tokens": 61899,
+       "completion_tokens": 59,
+       "total_tokens": 61958,
+       "prompt_tokens_details": {
+        "cached_tokens": 61687
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 446,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 191,
+      "t_arrive": 6030971.962595,
+      "req_bytes": 234510,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6031060.951715,
+      "t_end": 6039548.261795,
+      "usage": {
+       "prompt_tokens": 62662,
+       "completion_tokens": 66,
+       "total_tokens": 62728,
+       "prompt_tokens_details": {
+        "cached_tokens": 61957
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 448,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 192,
+      "t_arrive": 6039575.404627,
+      "req_bytes": 236838,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6039674.4162570005,
+      "t_end": 6047717.861254999,
+      "usage": {
+       "prompt_tokens": 63319,
+       "completion_tokens": 79,
+       "total_tokens": 63398,
+       "prompt_tokens_details": {
+        "cached_tokens": 62727
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 450,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 193,
+      "t_arrive": 6047745.330916,
+      "req_bytes": 237578,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6047848.410372,
+      "t_end": 6052607.477957,
+      "usage": {
+       "prompt_tokens": 63506,
+       "completion_tokens": 57,
+       "total_tokens": 63563,
+       "prompt_tokens_details": {
+        "cached_tokens": 63397
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 452,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 194,
+      "t_arrive": 6052634.085775999,
+      "req_bytes": 239376,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6052723.8933770005,
+      "t_end": 6059319.182506001,
+      "usage": {
+       "prompt_tokens": 63963,
+       "completion_tokens": 64,
+       "total_tokens": 64027,
+       "prompt_tokens_details": {
+        "cached_tokens": 63562
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 454,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 195,
+      "t_arrive": 6059349.601264,
+      "req_bytes": 240018,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6059448.325051,
+      "t_end": 6064123.96255,
+      "usage": {
+       "prompt_tokens": 64125,
+       "completion_tokens": 59,
+       "total_tokens": 64184,
+       "prompt_tokens_details": {
+        "cached_tokens": 64026
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 456,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 196,
+      "t_arrive": 6064152.994698,
+      "req_bytes": 242291,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6064252.117592,
+      "t_end": 6071628.862671,
+      "usage": {
+       "prompt_tokens": 64711,
+       "completion_tokens": 60,
+       "total_tokens": 64771,
+       "prompt_tokens_details": {
+        "cached_tokens": 64183
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 458,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 197,
+      "t_arrive": 6071654.9175350005,
+      "req_bytes": 247673,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6071750.365358,
+      "t_end": 6398645.73193,
+      "usage": {
+       "prompt_tokens": 66110,
+       "completion_tokens": 6944,
+       "total_tokens": 73054,
+       "prompt_tokens_details": {
+        "cached_tokens": 64770
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 460,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 198,
+      "t_arrive": 6398659.722841,
+      "req_bytes": 251057,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6398758.492155,
+      "t_end": 6410219.201656001,
+      "usage": {
+       "prompt_tokens": 66928,
+       "completion_tokens": 86,
+       "total_tokens": 67014,
+       "prompt_tokens_details": {
+        "cached_tokens": 66110
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 462,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 199,
+      "t_arrive": 6410228.750705,
+      "req_bytes": 254926,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6410329.875298,
+      "t_end": 6421501.833312,
+      "usage": {
+       "prompt_tokens": 67753,
+       "completion_tokens": 99,
+       "total_tokens": 67852,
+       "prompt_tokens_details": {
+        "cached_tokens": 67013
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek-v4.1-flash",
+      "stream": true,
+      "n_messages": 464,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 9149,
+      "tools_chars": 3126,
+      "i": 200,
+      "t_arrive": 6421521.156893,
+      "req_bytes": 256224,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "status": 200,
+      "t_first_byte": 6421616.789701,
+      "t_end": 6432532.106788,
+      "usage": {
+       "prompt_tokens": 68180,
+       "completion_tokens": 143,
+       "total_tokens": 68323,
+       "prompt_tokens_details": {
+        "cached_tokens": 67851
+       }
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     }
+    ],
+    "invalid": false
+   }
+  ]
+ },
+ "summary": {
+  "construct": {
+   "success_rate": 0.0,
+   "checks_passed": {
+    "n": 1,
+    "median": 2,
+    "p10": 2,
+    "p90": 2,
+    "min": 2,
+    "max": 2,
+    "mean": 2
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 1,
+    "median": 6432.521461101947,
+    "p10": 6432.521461101947,
+    "p90": 6432.521461101947,
+    "min": 6432.521461101947,
+    "max": 6432.521461101947,
+    "mean": 6432.521461101947
+   },
+   "requests": {
+    "n": 1,
+    "median": 200,
+    "p10": 200,
+    "p90": 200,
+    "min": 200,
+    "max": 200,
+    "mean": 200
+   },
+   "prompt_tokens": {
+    "n": 1,
+    "median": 11091674,
+    "p10": 11091674,
+    "p90": 11091674,
+    "min": 11091674,
+    "max": 11091674,
+    "mean": 11091674
+   },
+   "completion_tokens": {
+    "n": 1,
+    "median": 109632,
+    "p10": 109632,
+    "p90": 109632,
+    "min": 109632,
+    "max": 109632,
+    "mean": 109632
+   },
+   "first_request_tokens": {
+    "n": 1,
+    "median": 4181,
+    "p10": 4181,
+    "p90": 4181,
+    "min": 4181,
+    "max": 4181,
+    "mean": 4181
+   },
+   "cached_tokens": {
+    "n": 1,
+    "median": 10793442,
+    "p10": 10793442,
+    "p90": 10793442,
+    "min": 10793442,
+    "max": 10793442,
+    "mean": 10793442
+   },
+   "cache_write_tokens": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 1,
+    "median": 0.9731120838928371,
+    "p10": 0.9731120838928371,
+    "p90": 0.9731120838928371,
+    "min": 0.9731120838928371,
+    "max": 0.9731120838928371,
+    "mean": 0.9731120838928371
+   },
+   "cost_usd": null,
+   "tool_gap_ms": {
+    "n": 199,
+    "median": 21.51181000098586,
+    "p10": 6.242072000168264,
+    "p90": 38.47715099994093,
+    "min": 5.111849000211805,
+    "max": 248.00586399971507,
+    "mean": 22.183506894512675
+   },
+   "peak_mb": {
+    "n": 1,
+    "median": 32.20703125,
+    "p10": 32.20703125,
+    "p90": 32.20703125,
+    "min": 32.20703125,
+    "max": 32.20703125,
+    "mean": 32.20703125
+   },
+   "search_tool_calls": {
+    "n": 1,
+    "median": 81,
+    "p10": 81,
+    "p90": 81,
+    "min": 81,
+    "max": 81,
+    "mean": 81
+   },
+   "search_shell_calls": {
+    "n": 1,
+    "median": 17,
+    "p10": 17,
+    "p90": 17,
+    "min": 17,
+    "max": 17,
+    "mean": 17
+   },
+   "search_adoption": {
+    "n": 1,
+    "median": 0.826530612244898,
+    "p10": 0.826530612244898,
+    "p90": 0.826530612244898,
+    "min": 0.826530612244898,
+    "max": 0.826530612244898,
+    "mean": 0.826530612244898
+   },
+   "tool_failure_rate": {
+    "n": 1,
+    "median": 0.003787878787878788,
+    "p10": 0.003787878787878788,
+    "p90": 0.003787878787878788,
+    "min": 0.003787878787878788,
+    "max": 0.003787878787878788,
+    "mean": 0.003787878787878788
+   },
+   "edit_calls": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_rejected": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  }
+ },
+ "by_task": {
+  "rust-replay-child-key-issue": {
+   "construct": {
+    "success_rate": 0.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 2,
+     "p10": 2,
+     "p90": 2,
+     "min": 2,
+     "max": 2,
+     "mean": 2
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 6432.521461101947,
+     "p10": 6432.521461101947,
+     "p90": 6432.521461101947,
+     "min": 6432.521461101947,
+     "max": 6432.521461101947,
+     "mean": 6432.521461101947
+    },
+    "requests": {
+     "n": 1,
+     "median": 200,
+     "p10": 200,
+     "p90": 200,
+     "min": 200,
+     "max": 200,
+     "mean": 200
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 11091674,
+     "p10": 11091674,
+     "p90": 11091674,
+     "min": 11091674,
+     "max": 11091674,
+     "mean": 11091674
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 109632,
+     "p10": 109632,
+     "p90": 109632,
+     "min": 109632,
+     "max": 109632,
+     "mean": 109632
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 4181,
+     "p10": 4181,
+     "p90": 4181,
+     "min": 4181,
+     "max": 4181,
+     "mean": 4181
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 10793442,
+     "p10": 10793442,
+     "p90": 10793442,
+     "min": 10793442,
+     "max": 10793442,
+     "mean": 10793442
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.9731120838928371,
+     "p10": 0.9731120838928371,
+     "p90": 0.9731120838928371,
+     "min": 0.9731120838928371,
+     "max": 0.9731120838928371,
+     "mean": 0.9731120838928371
+    },
+    "cost_usd": null,
+    "tool_gap_ms": {
+     "n": 199,
+     "median": 21.51181000098586,
+     "p10": 6.242072000168264,
+     "p90": 38.47715099994093,
+     "min": 5.111849000211805,
+     "max": 248.00586399971507,
+     "mean": 22.183506894512675
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 32.20703125,
+     "p10": 32.20703125,
+     "p90": 32.20703125,
+     "min": 32.20703125,
+     "max": 32.20703125,
+     "mean": 32.20703125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 81,
+     "p10": 81,
+     "p90": 81,
+     "min": 81,
+     "max": 81,
+     "mean": 81
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 17,
+     "p10": 17,
+     "p90": 17,
+     "min": 17,
+     "max": 17,
+     "mean": 17
+    },
+    "search_adoption": {
+     "n": 1,
+     "median": 0.826530612244898,
+     "p10": 0.826530612244898,
+     "p90": 0.826530612244898,
+     "min": 0.826530612244898,
+     "max": 0.826530612244898,
+     "mean": 0.826530612244898
+    },
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.003787878787878788,
+     "p10": 0.003787878787878788,
+     "p90": 0.003787878787878788,
+     "min": 0.003787878787878788,
+     "max": 0.003787878787878788,
+     "mean": 0.003787878787878788
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  }
+ },
+ "stalls": {},
+ "invalid_reruns": {},
+ "jev": false,
+ "arms": {},
+ "learn": false,
+ "window": null
+}
