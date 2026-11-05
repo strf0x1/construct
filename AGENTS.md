@@ -122,11 +122,23 @@ Run `cargo xtask check --quick` as you go, plus the end-to-end tests your
 change can reach (filter by file, as above); CI runs the full `cargo xtask
 check` on the PR and is the gate that blocks a merge, so there is no need to
 run the full check locally first. Read CI's result on the PR and fix forward.
-Only one `cargo xtask` runs at a time per repository (the others wait on a
-lock in the git dir), niced and capped to a third of the cores: a full build
-links every test binary and several at once froze the desktop. Set
-`CARGO_BUILD_JOBS` or `RUST_TEST_THREADS` to override. Timing limits in e2e
-tests are smoke limits, doubled under `CONSTRUCT_E2E_SLOW=1` (set in CI).
+Separate worktrees may run `cargo xtask` concurrently. During the local mbx
+trial, ordinary `cargo` commands resolve through mise's mbx wrapper, which
+shares a compiler and test CPU/memory budget across builds. xtask resolves
+nested Cargo commands through PATH too; it adds no repository-wide lock,
+niceness, job cap, or test-thread cap. Keep a separate target per worktree;
+do not copy or share another checkout's managed `target` symlink. See
+`docs/research/mbx-trial.md` for setup, evidence, and rollback. CI can use plain
+Cargo. Timing limits in e2e tests are smoke limits, doubled under
+`CONSTRUCT_E2E_SLOW=1` (set in CI).
+
+For the local mbx 1.29.2 trial, invoke the helper as
+`cargo run -q -p construct-dev -- check --quick` (or `check`, `fix`,
+`snapshots`). mbx bypasses the initial build behind the `cargo xtask` alias
+because that alias introduces `--`; the explicit `cargo run` invocation
+caches and schedules that build as well as the nested gates. The alias still
+works with plain Cargo in CI. Ordinary `cargo build`, `test`, `clippy`, and
+`check` commands need no change.
 Formatting is `cargo fmt`'s opinion; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` to skip the
 reformat commit in blame.
@@ -212,7 +224,8 @@ repository: `strf0x1/sprawlcommons-acp`. Its `SPEC.md`, `schema/` and
 `conformance/matrix.json` are normative; the prose is not vendored here.
 `CONTRACT.lock` names the release, and
 `crates/construct/tests/fixtures/acp-contract/<version>/` holds the vendored
-matrix and schemas. ADR 0038 records the names; ADR 0040 records the pin.
+matrix, payload fixtures and schemas.
+ADR 0038 records the names; ADR 0040 records the pin.
 
 1. A change to an extension method, `_meta` key, capability flag or payload
    starts in the contract repo, not here. Add the matrix/schema/CHANGELOG
@@ -229,6 +242,13 @@ matrix and schemas. ADR 0038 records the names; ADR 0040 records the pin.
 
 Read `SPEC.md` before changing `crates/construct/src/acp/`: its §4 negotiation
 table is what `Wire::for_client` must implement.
+
+### Reviewing a contract patch before release
+`scripts/acp-contract.sh update <version> <commit>` prepares a candidate pin
+from an immutable contract commit, including payload fixtures. Keep candidate
+implementation PRs draft until the contract is merged and tagged, then rerun
+`update <version>` in both repos and verify that their hashes match. The
+release-tag form remains the default; a candidate commit is not a release.
 
 ## Rules of thumb
 

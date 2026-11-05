@@ -36,6 +36,8 @@ tokio = { workspace = true, features = ["full"] }
 vt100 = "0.18"
 
 [dev-dependencies]
+# Offline payload conformance only; never linked into either shipped binary.
+jsonschema = { version = "0.60.2", default-features = false }
 # The e2e tests read the journal back and parse its rows as `construct::agent::Event`.
 construct = { path = "../construct" }
 rusqlite.workspace = true

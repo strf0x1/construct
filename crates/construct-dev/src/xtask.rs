@@ -6,15 +6,13 @@
 //! output is printed above that last line; a golden-snapshot failure reports
 //! `FAILED snapshots`. `docs`, `map`, `contract` and `arch` read files in process.
 //!
-//! One run at a time per repository, however many worktrees and agents ask
-//! (`exclusive`): a build links every test binary at once and a second one
-//! on top of it is what freezes the desktop. Cargo and the tests run niced
-//! and capped to a third of the cores unless the caller set the limits.
+//! Builds in separate worktrees may run together. Local compiler and test
+//! scheduling belongs to the user's Cargo frontend (mbx during the local
+//! trial), rather than a repository-wide lock or fixed per-command limits.
 //! `check --quick` is the inner loop: the static gates plus only the tests
 //! the diff can reach, with the end-to-end tests left to CI.
 
 use anyhow::{Context, Result};
-use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
@@ -27,43 +25,11 @@ const GATES: &[(&str, &[&str])] = &[
     ("bench", &["@python3", "-m", "unittest", "discover", "-s", "bench", "-p", "test_*.py"]),
 ];
 
-/// Cargo, niced, with its jobs and the test threads capped at a third of the
-/// cores (at most 8) unless the caller already set them.
+/// Resolve Cargo through PATH so the user's frontend also wraps nested gates.
+/// Cargo's CARGO environment value names the underlying executable and can
+/// bypass a frontend installed by mise.
 fn cargo() -> Command {
-    let mut c = Command::new("nice");
-    c.args(["-n", "10", &std::env::var("CARGO").unwrap_or_else(|_| "cargo".into())]);
-    let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
-    let share = (cores / 3).clamp(2, 8).to_string();
-    for key in ["CARGO_BUILD_JOBS", "RUST_TEST_THREADS"] {
-        if std::env::var_os(key).is_none() {
-            c.env(key, &share);
-        }
-    }
-    c
-}
-
-/// Hold the repository's xtask lock until the returned file is dropped (or the
-/// process dies). The lock lives in the git common dir, so every worktree of
-/// the repository shares it. Waits, and says so, if another run has it.
-fn exclusive(root: &Path) -> Result<File> {
-    let common = Command::new("git")
-        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
-        .current_dir(root)
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| PathBuf::from(String::from_utf8_lossy(&o.stdout).trim()))
-        .unwrap_or_else(std::env::temp_dir);
-    let file = OpenOptions::new().create(true).append(true).open(common.join("xtask.lock"))?;
-    match file.try_lock() {
-        Ok(()) => {}
-        Err(TryLockError::WouldBlock) => {
-            println!("waiting for another cargo xtask run in this repository to finish");
-            file.lock()?;
-        }
-        Err(TryLockError::Error(e)) => return Err(e.into()),
-    }
-    Ok(file)
+    Command::new("cargo")
 }
 
 /// A gate's command: cargo with these args, or a program named by a leading `@`.
@@ -87,16 +53,6 @@ fn workspace_root() -> Result<PathBuf> {
     anyhow::ensure!(out.status.success(), "cargo locate-project failed");
     let manifest = PathBuf::from(String::from_utf8(out.stdout)?.trim());
     Ok(manifest.parent().context("workspace manifest has no parent")?.to_path_buf())
-}
-
-/// Point git at the repo's hooks (`.githooks/post-checkout` seeds a new
-/// worktree's `target/`) unless the user already chose a hooks path. Best effort.
-fn enable_hooks(root: &PathBuf) {
-    let git = |args: &[&str]| Command::new("git").args(args).current_dir(root).output().ok();
-    let set = git(&["config", "--get", "core.hooksPath"]).is_some_and(|o| !o.stdout.is_empty());
-    if !set && root.join(".githooks").is_dir() {
-        git(&["config", "core.hooksPath", ".githooks"]);
-    }
 }
 
 /// Repo conventions the toolchain cannot express: ADRs are numbered `0001…N`
@@ -243,8 +199,6 @@ fn plan(quick: bool, t: &Touched) -> Vec<(String, Vec<String>)> {
 /// Returns true if every gate passed.
 pub fn check(quick: bool) -> Result<bool> {
     let root = workspace_root()?;
-    let _lock = exclusive(&root)?;
-    enable_hooks(&root);
     use crate::feature_map as map;
     let git = map::Git {
         is_commit: &|sha| map::is_commit(&root, sha),
@@ -309,7 +263,6 @@ pub fn check(quick: bool) -> Result<bool> {
 /// a `.snap` by hand; this is the way to accept an intended change.
 pub fn snapshots() -> Result<bool> {
     let root = workspace_root()?;
-    let _lock = exclusive(&root)?;
     let ok = cargo()
         .args(["test", "-q", "-p", "construct-dev", "--test", "it", "--", "snapshots::"])
         .env("INSTA_UPDATE", "always")
@@ -333,7 +286,6 @@ pub fn snapshots() -> Result<bool> {
 /// Apply what can be applied mechanically: clippy's suggestions, then formatting.
 pub fn fix() -> Result<bool> {
     let root = workspace_root()?;
-    let _lock = exclusive(&root)?;
     let clippy = ["clippy", "--fix", "--allow-dirty", "--allow-staged", "--workspace", "--all-targets"].as_slice();
     for args in [clippy, &["fmt", "--all"]] {
         if !cargo().args(args).current_dir(&root).status()?.success() {
