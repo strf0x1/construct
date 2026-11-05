@@ -57,7 +57,7 @@ def run(cmd, cwd, env=None, timeout=None):
     # Timing limits in e2e tests are smoke limits; a loaded scorer machine
     # must not fail a model for them (CI sets the same).
     env = {"CONSTRUCT_E2E_SLOW": "1", **(env or {})}
-    r = subprocess.run(cmd, cwd=cwd, env={**os.environ, **env}, capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(cmd, cwd=cwd, env={**os.environ, **env}, capture_output=True, text=True, errors="replace", timeout=timeout)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -99,10 +99,10 @@ def hidden_tests(task, work: Path):
 
 def diff_text(work: Path):
     """The change as one patch, new files included, for the judge."""
-    out = subprocess.run(["git", "diff", "--no-color", "--no-ext-diff", "HEAD"], cwd=work, capture_output=True, text=True).stdout
-    new = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], cwd=work, capture_output=True, text=True).stdout
+    out = subprocess.run(["git", "diff", "--no-color", "--no-ext-diff", "HEAD"], cwd=work, capture_output=True, text=True, errors="replace").stdout
+    new = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], cwd=work, capture_output=True, text=True, errors="replace").stdout
     for path in new.splitlines():
-        out += subprocess.run(["git", "diff", "--no-color", "--no-index", "/dev/null", path], cwd=work, capture_output=True, text=True).stdout
+        out += subprocess.run(["git", "diff", "--no-color", "--no-index", "/dev/null", path], cwd=work, capture_output=True, text=True, errors="replace").stdout
     return out[:DIFF_CAP] + ("\n[diff cut]\n" if len(out) > DIFF_CAP else "")
 
 

@@ -48,7 +48,7 @@ DEP_KEY = re.compile(r"^([A-Za-z0-9_-]+)(\.workspace)?\s*=")
 
 
 def git(repo, *args, check=True):
-    r = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True)
+    r = subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, errors="replace")
     if check and r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
     return r
@@ -274,7 +274,7 @@ def clippy_findings(repo: Path, files):
     """Pedantic warnings whose primary span is a line this change added."""
     added = {(p, n) for p, c in files.items() for n in c["added"]}
     cmd = ["cargo", "clippy", "--workspace", "--all-targets", "--message-format=json", "--", "-W", "clippy::pedantic"]
-    r = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
+    r = subprocess.run(cmd, cwd=repo, capture_output=True, text=True, errors="replace")
     out, seen = [], set()
     for line in r.stdout.splitlines():
         try:

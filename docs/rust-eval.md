@@ -31,6 +31,7 @@ but not the solution.
 | `rust-replay-journal-query` | #43 | journal, history tools | 6 e2e | 427 |
 | `rust-replay-hashline-salt` | #40 | hashline editor, config | 1 e2e + the whole hashline contract | 164 |
 | `rust-replay-child-key-issue` | #76 | the same as `child-key`, prompted with issue #65 verbatim | 2 e2e (`delegate.rs`) | 57 |
+| `rust-replay-child-key-plan` | #76 | the same as `child-key`, plus a step plan written from the issue and the fixture only | 2 e2e (`delegate.rs`) | 57 |
 
 No `llm/` task: every merged PR in that area also changed golden snapshots or
 the bench. Add one as `bench/tasks/rust-replay-<name>/` (copy a `task.toml`,
@@ -219,7 +220,9 @@ passes fewer hidden tests is worse for this repo.
 - `child-key-issue` differs from `child-key` only in its prompt: the issue as
   written, including its proposed fix and extra wants, against the rewrite
   that keeps intent only. Compare the two to see how much a model leans on
-  the issue's wording.
+  the issue's wording. `child-key-plan` adds a step plan, as a stronger model
+  would hand one to a weaker one; it names files and the shape of the fix, so
+  a pass there measures carrying out a plan, not finding the bug.
 - The PRs are public on GitHub, so a model trained after they merged may have
   seen the answer. For each model, compare its training cutoff with the PR
   dates (October 2026).
