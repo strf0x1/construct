@@ -1,0 +1,2 @@
+# Trial: run build scripts normally while validating Git revision/dirty stamps.
+build_script_execution = false

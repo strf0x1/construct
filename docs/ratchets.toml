@@ -10,7 +10,6 @@
 "crates/construct-dev/src/drive.rs" = 458
 "crates/construct-dev/src/serve/mod.rs" = 593
 "crates/construct-dev/src/style.rs" = 375
-"crates/construct-dev/src/xtask.rs" = 347
 "crates/construct/src/acp/client.rs" = 399
 "crates/construct/src/agent.rs" = 470
 "crates/construct/src/child/run.rs" = 324
