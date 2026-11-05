@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 /// grants nothing and the agent cannot answer it with a decision.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Notice {
-    #[serde(rename = "approval_id", alias = "id")]
+    #[serde(rename = "approval_id", alias = "id", deserialize_with = "approval_id")]
     pub id: String,
     #[serde(default)]
     pub destination: Option<String>,
@@ -25,6 +25,15 @@ pub struct Notice {
     pub scope: Option<String>,
     #[serde(default, rename = "sessionId", alias = "session_id")]
     pub session: Option<String>,
+}
+
+/// Empty IDs cannot identify a decision for deduplication (contract §5.3).
+fn approval_id<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let id = String::deserialize(deserializer)?;
+    if id.is_empty() {
+        return Err(serde::de::Error::custom("approval id must not be empty"));
+    }
+    Ok(id)
 }
 
 impl Notice {

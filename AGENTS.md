@@ -224,7 +224,8 @@ repository: `strf0x1/sprawlcommons-acp`. Its `SPEC.md`, `schema/` and
 `conformance/matrix.json` are normative; the prose is not vendored here.
 `CONTRACT.lock` names the release, and
 `crates/construct/tests/fixtures/acp-contract/<version>/` holds the vendored
-matrix and schemas. ADR 0038 records the names; ADR 0040 records the pin.
+matrix, payload fixtures and schemas.
+ADR 0038 records the names; ADR 0040 records the pin.
 
 1. A change to an extension method, `_meta` key, capability flag or payload
    starts in the contract repo, not here. Add the matrix/schema/CHANGELOG
@@ -241,6 +242,13 @@ matrix and schemas. ADR 0038 records the names; ADR 0040 records the pin.
 
 Read `SPEC.md` before changing `crates/construct/src/acp/`: its §4 negotiation
 table is what `Wire::for_client` must implement.
+
+### Reviewing a contract patch before release
+`scripts/acp-contract.sh update <version> <commit>` prepares a candidate pin
+from an immutable contract commit, including payload fixtures. Keep candidate
+implementation PRs draft until the contract is merged and tagged, then rerun
+`update <version>` in both repos and verify that their hashes match. The
+release-tag form remains the default; a candidate commit is not a release.
 
 ## Rules of thumb
 
