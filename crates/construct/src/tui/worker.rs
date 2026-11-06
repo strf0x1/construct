@@ -56,6 +56,8 @@ pub(super) struct Out {
     pub ready: mpsc::UnboundedSender<Ready>,
     pub prompts: mpsc::UnboundedSender<Prompt>,
     pub landed: mpsc::UnboundedSender<()>,
+    /// A prompt or `/skill` command answered without a turn.
+    pub refused: mpsc::UnboundedSender<()>,
 }
 
 fn session_events(id: String, out: mpsc::UnboundedSender<(String, Event)>) -> Events {
@@ -160,12 +162,20 @@ pub(super) async fn agent_task(
                     maybe_learn(a, tx, &mut reviewed, false);
                 } else {
                     error(&out, &active, "No active session; use /model to choose an available model, or /resume.");
+                    let _ = out.refused.send(());
                 }
             }
             Cmd::Skill { name, text, original } => {
-                if let Some((a, tx)) = &mut active {
-                    let _ = a.invoke_as(&name, &text, &original, tx).await;
-                    maybe_learn(a, tx, &mut reviewed, false);
+                let ran = match &mut active {
+                    Some((a, tx)) => {
+                        let ran = a.invoke_as(&name, &text, &original, tx).await.unwrap_or(true);
+                        maybe_learn(a, tx, &mut reviewed, false);
+                        ran
+                    }
+                    None => false,
+                };
+                if !ran {
+                    let _ = out.refused.send(());
                 }
             }
             Cmd::LearnNow => {

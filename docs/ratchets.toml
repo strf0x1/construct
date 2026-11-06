@@ -23,4 +23,4 @@
 "crates/construct/src/tools/edit/hashline/ops.rs" = 312
 "crates/construct/src/tools/shell.rs" = 307
 "crates/construct/src/tui/markdown.rs" = 336
-"crates/construct/src/tui/view.rs" = 412
+"crates/construct/src/tui/view.rs" = 382
