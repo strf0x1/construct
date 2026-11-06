@@ -36,6 +36,13 @@ impl Tool for Status {
         if out.terminal() {
             b.mark_seen(id);
         }
-        Ok(Output::plain(status_text(id, &out)).with_data(json!({ "approval": id, "outcome": out.outcome })))
+        let mut data = json!({ "approval": id, "outcome": out.outcome });
+        if let Some(scope) = &out.scope {
+            data["scope"] = json!(scope);
+        }
+        if let Some(expires_at_ms) = out.expires_at_ms {
+            data["expires_at_ms"] = json!(expires_at_ms);
+        }
+        Ok(Output::plain(status_text(id, &out)).with_data(data))
     }
 }

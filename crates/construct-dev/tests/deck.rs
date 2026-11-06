@@ -118,6 +118,63 @@ fn a_blocked_tool_result_carries_the_boundary_note() {
 }
 
 #[test]
+fn malformed_timed_event_does_not_disable_a_later_corrected_record() {
+    let server = boundary::Server::start();
+    server.pending("a1f3", "index.crates.io:443");
+    server.event_responses([
+        json!([]),
+        json!([{
+            "seq": 1, "approval_id": "a1f3", "destination": "index.crates.io:443",
+            "state": "allowed", "scope": "timed"
+        }]),
+    ]);
+    server.resolve_with_deadline("a1f3", "allowed", "timed", 1_800_000_300_000);
+    let env = Env::new(
+        "deck-malformed-recovery",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "true" } },
+            { "call": "shell", "args": { "command": "true" } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run_with(&[("DECK_BOUNDARY_URL", server.url().as_str())], &["run", "--no-learn", "recover"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let requests = env.requests();
+    assert!(!last_tool_result(&requests[1]).contains("[deck boundary]"));
+    let corrected = last_tool_result(&requests[2]);
+    assert!(corrected.contains("a1f3"), "{corrected}");
+    assert!(corrected.contains("expires_at_ms=1800000300000 (Unix ms)"), "{corrected}");
+}
+
+#[test]
+fn malformed_status_does_not_disable_a_later_corrected_response() {
+    let server = boundary::Server::start();
+    server.pending("a1f3", "index.crates.io:443");
+    server.resolve_with_deadline("a1f3", "allowed", "timed", 1_800_000_300_000);
+    server.approval_responses(
+        "a1f3",
+        [json!({
+            "approval_id": "a1f3", "destination": "index.crates.io:443",
+            "state": "allowed", "scope": "timed"
+        })],
+    );
+    let env = Env::new(
+        "deck-malformed-status-recovery",
+        json!({ "steps": [
+            { "call": "boundary_status", "args": { "id": "a1f3" } },
+            { "call": "boundary_status", "args": { "id": "a1f3" } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run_with(&[("DECK_BOUNDARY_URL", server.url().as_str())], &["run", "--no-learn", "recover"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let requests = env.requests();
+    assert!(last_tool_result(&requests[1]).contains("timed boundary observation is missing expires_at_ms"));
+    let corrected = last_tool_result(&requests[2]);
+    assert!(corrected.contains("expires_at_ms=1800000300000 (Unix ms)"), "{corrected}");
+}
+
+#[test]
 fn boundary_wait_returns_allowed_with_its_scope() {
     let server = boundary::Server::start();
     server.pending("a1f3", "index.crates.io:443");
@@ -137,6 +194,29 @@ fn boundary_wait_returns_allowed_with_its_scope() {
     assert!(tool.contains("allowed") && tool.contains("scope task"), "{tool}");
     let asked = server.requests();
     assert!(asked.iter().any(|r| r.starts_with("GET /approvals/a1f3") && r.contains("wait=5")), "{asked:?}");
+}
+
+#[test]
+fn boundary_status_preserves_the_hosts_absolute_timed_deadline() {
+    const DEADLINE: u64 = 1_800_000_300_000;
+    let server = boundary::Server::start();
+    server.pending("a1f3", "index.crates.io:443");
+    server.resolve_with_deadline("a1f3", "allowed", "timed", DEADLINE);
+    let env = Env::new(
+        "deck-timed-status",
+        json!({ "steps": [
+            { "call": "boundary_status", "args": { "id": "a1f3" } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run_with(&[("DECK_BOUNDARY_URL", server.url().as_str())], &["run", "--no-learn", "check it"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let tool = last_tool_result(&env.requests()[1]);
+    assert!(tool.contains("scope timed"), "{tool}");
+    assert!(tool.contains("expires_at_ms=1800000300000 (Unix ms)"), "{tool}");
+    let end = env.journal().into_iter().find(|row| row.ty == "tool_end").unwrap();
+    assert_eq!(end.payload["data"]["scope"], "timed", "{}", end.payload);
+    assert_eq!(end.payload["data"]["expires_at_ms"], DEADLINE, "{}", end.payload);
 }
 
 #[test]
@@ -249,6 +329,37 @@ fn a_late_decision_reaches_the_next_request_exactly_once() {
     let text = reqs.last().unwrap().to_string();
     assert_eq!(text.matches("[deck boundary]").count(), 1, "{text}");
     assert!(text.contains("a1f3") && text.contains("allowed"), "{text}");
+    c.finish();
+}
+
+#[test]
+fn a_past_timed_deadline_is_preserved_in_a_late_notice_without_replaying_work() {
+    const DEADLINE: u64 = 42;
+    let env = Env::new("deck-push-timed", json!({ "steps": [{ "text": "one" }, { "text": "two" }] }));
+    env.config("[router]\nmode = \"local\"\n");
+    let server = boundary::Server::start();
+    let (mut c, sid) = acp(&env, &[("DECK_BOUNDARY_URL", server.url().as_str())]);
+    c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "first" }] }));
+    c.notify(
+        "_com.sprawlcommons/deck/boundary",
+        json!({
+            "approval_id": "a1f3", "destination": "index.crates.io:443", "outcome": "allowed",
+            "scope": "timed", "expires_at_ms": DEADLINE
+        }),
+    );
+    c.notify(
+        "_deck/boundary",
+        json!({
+            "approval_id": "a1f3", "destination": "index.crates.io:443", "outcome": "allowed",
+            "scope": "timed", "expires_at_ms": DEADLINE
+        }),
+    );
+    c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "second" }] }));
+    let requests = env.requests();
+    let text = requests.last().unwrap().to_string();
+    assert_eq!(text.matches("[deck boundary]").count(), 1, "{text}");
+    assert!(text.contains("expires_at_ms=42 (Unix ms)"), "{text}");
+    assert_eq!(requests.len(), 2, "a notice must not create another model/tool exchange");
     c.finish();
 }
 

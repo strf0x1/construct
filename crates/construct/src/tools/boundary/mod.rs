@@ -8,6 +8,7 @@
 //! here can allow anything.
 
 mod client;
+mod grant;
 mod note;
 mod status;
 mod wait;

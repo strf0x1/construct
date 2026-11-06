@@ -21,8 +21,10 @@ pub struct Notice {
     pub destination: Option<String>,
     #[serde(default, alias = "state")]
     pub outcome: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "super::grant::optional_string")]
     pub scope: Option<String>,
+    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
+    pub expires_at_ms: Option<u64>,
     #[serde(default, rename = "sessionId", alias = "session_id")]
     pub session: Option<String>,
 }
@@ -37,6 +39,10 @@ fn approval_id<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Stri
 }
 
 impl Notice {
+    pub fn validate(self) -> Result<Self, String> {
+        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
+        Ok(self)
+    }
     pub fn outcome(&self) -> &str {
         self.outcome.as_deref().unwrap_or("decided")
     }
@@ -77,6 +83,9 @@ fn describe(e: &Entry) -> String {
     if let Some(scope) = &e.scope {
         s.push_str(&format!("; scope: {scope}"));
     }
+    if let Some(expires_at_ms) = e.expires_at_ms {
+        s.push_str(&format!("; expires_at_ms={expires_at_ms} (Unix ms)"));
+    }
     s.push(')');
     s
 }
@@ -102,6 +111,9 @@ pub fn status_text(id: &str, out: &Outcome) -> String {
     if let Some(dest) = &out.destination {
         text.push_str(&format!(", for {dest}"));
     }
+    if let Some(expires_at_ms) = out.expires_at_ms {
+        text.push_str(&format!(", expires_at_ms={expires_at_ms} (Unix ms)"));
+    }
     text
 }
 
@@ -114,6 +126,9 @@ pub fn notifications(notices: &[Notice]) -> String {
             let mut s = format!("{dest} (approval {}) is now {}", n.id, n.outcome());
             if let Some(scope) = &n.scope {
                 s.push_str(&format!(" (scope: {scope})"));
+            }
+            if let Some(expires_at_ms) = n.expires_at_ms {
+                s.push_str(&format!(" (expires_at_ms={expires_at_ms} (Unix ms))"));
             }
             s
         })
