@@ -31,9 +31,15 @@ pub struct Entry {
     pub state: Option<String>,
     #[serde(default)]
     pub scope: Option<String>,
+    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
+    pub expires_at_ms: Option<u64>,
 }
 
 impl Entry {
+    fn validate(self) -> Result<Self, String> {
+        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
+        Ok(self)
+    }
     pub fn state(&self) -> &str {
         self.state.as_deref().unwrap_or("pending")
     }
@@ -51,9 +57,15 @@ pub struct Outcome {
     pub scope: Option<String>,
     #[serde(default)]
     pub destination: Option<String>,
+    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
+    pub expires_at_ms: Option<u64>,
 }
 
 impl Outcome {
+    fn validate(self) -> Result<Self, String> {
+        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
+        Ok(self)
+    }
     pub fn terminal(&self) -> bool {
         matches!(self.outcome.as_str(), "allowed" | "denied" | "expired" | "withdrawn")
     }
@@ -163,7 +175,7 @@ impl Boundary {
         if !status.is_success() {
             return Err(format!("boundary approval returned {status}: {}", crate::llm::truncate(&body, 200)));
         }
-        serde_json::from_str(&body).map_err(|e| format!("boundary approval was not JSON: {e}"))
+        serde_json::from_str::<Outcome>(&body).map_err(|e| format!("boundary approval was not JSON: {e}"))?.validate()
     }
 
     /// Drop a pending item. The audit names the agent; nothing is granted.
@@ -251,16 +263,11 @@ impl Boundary {
         if !r.status().is_success() {
             return Err(format!("boundary events returned {}", r.status()));
         }
-        let body: EventsBody = match r.json().await {
-            Ok(b) => b,
-            Err(e) => {
-                self.mark_down();
-                return Err(format!("boundary events were not JSON: {e}"));
-            }
-        };
-        Ok(match body {
+        let body: EventsBody = r.json().await.map_err(|e| format!("boundary events were not JSON: {e}"))?;
+        let events = match body {
             EventsBody::Items(v) | EventsBody::Named { events: v } => v,
-        })
+        };
+        events.into_iter().map(Entry::validate).collect()
     }
 }
 

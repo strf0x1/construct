@@ -59,7 +59,7 @@ fn shared_positive_and_negative_payload_fixtures() {
         // and reject malformed identifiers instead of queueing them.
         if name == "boundary-notice.schema.json" {
             assert_eq!(
-                serde_json::from_value::<Notice>(case["payload"].clone()).is_ok(),
+                serde_json::from_value::<Notice>(case["payload"].clone()).is_ok_and(|notice| notice.validate().is_ok()),
                 case["valid"].as_bool().unwrap(),
                 "boundary decoder: {}",
                 case["case"]

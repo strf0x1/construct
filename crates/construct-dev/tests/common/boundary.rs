@@ -4,6 +4,7 @@
 
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
@@ -15,6 +16,7 @@ pub struct Approval {
     pub destination: String,
     pub state: String,
     pub scope: Option<String>,
+    pub expires_at_ms: Option<u64>,
 }
 
 #[derive(Default)]
@@ -26,6 +28,8 @@ struct State {
     /// lands after the tool's cursor probe rather than before it.
     arm: Option<Approval>,
     log: Vec<String>,
+    event_responses: VecDeque<Value>,
+    approval_responses: HashMap<String, VecDeque<Value>>,
 }
 
 pub struct Server {
@@ -54,7 +58,13 @@ impl Server {
 
     /// An approval that exists before the tool runs, and is still pending.
     pub fn pending(&self, id: &str, destination: &str) {
-        self.add(Approval { id: id.into(), destination: destination.into(), state: "pending".into(), scope: None });
+        self.add(Approval {
+            id: id.into(),
+            destination: destination.into(),
+            state: "pending".into(),
+            scope: None,
+            expires_at_ms: None,
+        });
     }
 
     /// Add the block once the next `/events` call has answered: the cursor
@@ -66,12 +76,17 @@ impl Server {
             destination: destination.into(),
             state: state.into(),
             scope: scope.map(str::to_string),
+            expires_at_ms: None,
         });
     }
 
     /// Decide `id` now.
     pub fn resolve(&self, id: &str, state: &str, scope: Option<&str>) {
-        resolve(&mut self.state.lock().unwrap(), id, state, scope);
+        resolve(&mut self.state.lock().unwrap(), id, state, scope, None);
+    }
+
+    pub fn resolve_with_deadline(&self, id: &str, state: &str, scope: &str, expires_at_ms: u64) {
+        resolve(&mut self.state.lock().unwrap(), id, state, Some(scope), Some(expires_at_ms));
     }
 
     /// Decide `id` after `delay`, as a user would while the agent waits.
@@ -82,7 +97,7 @@ impl Server {
         let scope = scope.map(str::to_string);
         std::thread::spawn(move || {
             std::thread::sleep(delay);
-            resolve(&mut state_arc.lock().unwrap(), &id, &state, scope.as_deref());
+            resolve(&mut state_arc.lock().unwrap(), &id, &state, scope.as_deref(), None);
         });
     }
 
@@ -95,6 +110,15 @@ impl Server {
         self.state.lock().unwrap().approvals.get(id).cloned()
     }
 
+    /// Replace successive `/events` bodies, then return to the real event log.
+    pub fn event_responses(&self, responses: impl IntoIterator<Item = Value>) {
+        self.state.lock().unwrap().event_responses.extend(responses);
+    }
+
+    pub fn approval_responses(&self, id: &str, responses: impl IntoIterator<Item = Value>) {
+        self.state.lock().unwrap().approval_responses.entry(id.into()).or_default().extend(responses);
+    }
+
     fn add(&self, approval: Approval) {
         add(&mut self.state.lock().unwrap(), approval);
     }
@@ -102,21 +126,25 @@ impl Server {
 
 fn add(state: &mut State, approval: Approval) {
     state.seq += 1;
-    state.events.push(json!({
+    let mut event = json!({
         "seq": state.seq,
         "approval_id": approval.id,
         "destination": approval.destination,
         "state": approval.state,
         "scope": approval.scope,
-    }));
+    });
+    if let Some(expires_at_ms) = approval.expires_at_ms {
+        event["expires_at_ms"] = json!(expires_at_ms);
+    }
+    state.events.push(event);
     state.approvals.insert(approval.id.clone(), approval);
 }
 
-fn resolve(state: &mut State, id: &str, state_name: &str, scope: Option<&str>) {
+fn resolve(state: &mut State, id: &str, state_name: &str, scope: Option<&str>, expires_at_ms: Option<u64>) {
     let Some(approval) = state.approvals.get(id).cloned() else {
         return;
     };
-    add(state, Approval { state: state_name.into(), scope: scope.map(str::to_string), ..approval });
+    add(state, Approval { state: state_name.into(), scope: scope.map(str::to_string), expires_at_ms, ..approval });
 }
 
 fn handle(mut stream: TcpStream, state: &Arc<Mutex<State>>) {
@@ -156,6 +184,9 @@ fn route(method: &str, target: &str, state: &Arc<Mutex<State>>) -> (u16, String)
     if method == "GET" && path == "/events" {
         let after = query(target, "after").and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
         let mut s = state.lock().unwrap();
+        if let Some(body) = s.event_responses.pop_front() {
+            return (200, body.to_string());
+        }
         let body =
             json!(s.events.iter().filter(|e| e["seq"].as_u64().unwrap_or(0) > after).cloned().collect::<Vec<_>>());
         if let Some(arm) = s.arm.take() {
@@ -166,6 +197,9 @@ fn route(method: &str, target: &str, state: &Arc<Mutex<State>>) -> (u16, String)
     if method == "GET"
         && let Some(id) = path.strip_prefix("/approvals/")
     {
+        if let Some(body) = state.lock().unwrap().approval_responses.get_mut(id).and_then(VecDeque::pop_front) {
+            return (200, body.to_string());
+        }
         let wait = query(target, "wait").and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
         let deadline = Instant::now() + Duration::from_secs(wait);
         loop {
@@ -191,7 +225,7 @@ fn route(method: &str, target: &str, state: &Arc<Mutex<State>>) -> (u16, String)
         && let Some(id) = id.strip_suffix("/withdraw")
     {
         let mut s = state.lock().unwrap();
-        resolve(&mut s, id, "withdrawn", None);
+        resolve(&mut s, id, "withdrawn", None, None);
         return (200, "{}".into());
     }
     (404, json!({ "error": "not found" }).to_string())
@@ -202,13 +236,16 @@ fn s_decision(state: &State, id: &str) -> bool {
 }
 
 fn approval_body(a: &Approval, state: &str) -> String {
-    json!({
+    let mut body = json!({
         "approval_id": a.id,
         "destination": a.destination,
         "state": state,
         "scope": a.scope,
-    })
-    .to_string()
+    });
+    if let Some(expires_at_ms) = a.expires_at_ms {
+        body["expires_at_ms"] = json!(expires_at_ms);
+    }
+    body.to_string()
 }
 
 fn approval_json(a: &Approval) -> String {
