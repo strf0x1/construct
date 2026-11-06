@@ -23,9 +23,9 @@ def show(rev, path):
 
 
 class Tasks(unittest.TestCase):
-    def test_there_are_six(self):
-        # five PRs; child-key also runs from its issue as written
-        self.assertEqual(len(TASKS), 6, TASKS)
+    def test_there_are_seven(self):
+        # five PRs; child-key also runs from its issue as written and with a plan
+        self.assertEqual(len(TASKS), 7, TASKS)
 
     def test_fixture_is_the_merges_parent_and_its_hidden_tests_are_new(self):
         for name in TASKS:

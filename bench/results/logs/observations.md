@@ -416,3 +416,12 @@ Full model, child-key x2 (rewrite) and child-key-issue x2 (raw issue #65): hidde
 IQ2_XXS on child-key-issue (raw issue #65, which names the fix): FAIL. Hit max_steps (200) after 1.8h with 0 edits (137 read, 81 grep, 44 shell); it ended up reading the secretspec crate's source in ~/.cargo/registry. A detailed issue did not get it from reading to editing; the full model passed the same prompt 2/2. Next levers: a plan written by a stronger model, or a nudge after N reads with no edit.
 
 - `bench/results/task-20261104-020421.json`: model deepseek-v4.1-flash; bench dab77ad dirty; construct dab77ad editor=replace router=local
+
+## 2026-11-05 note: IQ2_XXS with a plan (re-scored after a system lockup)
+
+The overnight IQ2_XXS invocation (`--arm steps400`, max_steps = 400) never saved its result file: the machine locked up at 20:24 (memory pressure while Strata held ~90 GB and a cargo build linked every test binary; kswapd died in zram, a kernel bug). The four work dirs survived and were re-scored with `check.sh`, no model loaded; reports in `bench/results/rescore-20261105/`.
+
+- `child-key-plan` (the child-key prompt plus a step plan written from the issue and the fixture only): hidden tests 2/2, sizes 1.56x and 1.28x the 57-line reference. r0 hit 400 steps and left 28,591 scratch files (`.scratch-home/`, its own test runs), moved aside before scoring.
+- `hashline-salt`: hidden tests 2/2 (3/3 with the 2026-11-03 run), sizes 1.04x and 1.11x.
+- Without a plan, the same model made 0 edits on child-key in 2/2 runs. Full model, same `hashline-salt` arm: 2/2 (`task-20261104-121137.json`).
+- Both xtask/lint failures (child-key-plan r1, hashline-salt r0) are one golden snapshot, `snapshots__finished_turn.snap`: its status line shows the first request's token count, 2.0k inside construct's sandbox and 1.9k in the scorer's env. The model saw a failure it didn't cause and re-recorded it. The full model did the same once. The fixture's snapshot depends on the environment; that's a bench bug, not a model signal.

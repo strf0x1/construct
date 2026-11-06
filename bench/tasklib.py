@@ -254,7 +254,7 @@ def check_report(task: Task, work: Path, env=None):
         report = Path(tmp) / "report.json"
         e = {**os.environ, "BENCH_PYTHON": sys.executable, "BENCH_REPORT": str(report), **(env or {})}
         try:
-            r = subprocess.run(["bash", str(task.src / "check.sh")], cwd=work, env=e, capture_output=True, text=True, timeout=task.check_timeout_s)
+            r = subprocess.run(["bash", str(task.src / "check.sh")], cwd=work, env=e, capture_output=True, text=True, errors="replace", timeout=task.check_timeout_s)
         except subprocess.TimeoutExpired:
             print(f"  {task.name}: check.sh ran past {task.check_timeout_s}s", file=sys.stderr)
             return {"check_ran": False}, None

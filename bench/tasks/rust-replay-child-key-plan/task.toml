@@ -1,0 +1,44 @@
+# Replay of PR #76 with a plan: the child-key prompt plus a step plan written
+# from the issue and the fixture's code only (never the merged PR), to test
+# whether a weaker model that reads but never edits gets moving with a plan.
+git = "e14893f5028dc6eb2a58c54133ab6984b10d5fec"
+timeout_s = 3600
+check_timeout_s = 3600
+# Code, tests, docs; a stray file anywhere else is unintended.
+changes = ["crates/*", "docs/*", "AGENTS.md", "README.md", "Cargo.toml", "Cargo.lock", ".agents/*"]
+turns = [
+"""Fix a bug in delegation: a delegated child gets a 401 when the parent's API key came from the `OPENROUTER_API_KEY` fallback.
+
+What happens: I set `OPENROUTER_API_KEY`, not `OPENAI_API_KEY`, and `delegate to scout` failed with `model endpoint returned 401 Unauthorized`. The parent session itself worked. The parent resolves its key with `secrets::api_key` (the configured secret, `OPENAI_API_KEY`, then the `OPENROUTER_API_KEY` fallback), but the child is only given the configured secret names (`AgentDef::secret_names`) and reads its key without a fallback, so it got an empty `OPENAI_API_KEY`.
+
+Related: with no key at all, construct sends the request without auth and shows the provider's 401 text, which never says that no key was found.
+
+Wanted:
+- A child on the parent's endpoint gets the key the parent actually used, under the name the child reads. With only `OPENROUTER_API_KEY` set, the parent's and the child's requests all carry `Authorization: Bearer <that key>`.
+- With no key resolved, fail before any request is sent, in the parent and in the child, with an error containing exactly `no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY`. An explicitly keyless endpoint (`api_key_secret = ""`) must still work.
+
+Plan (from a senior engineer who read the code; follow it, and change course only if the code proves a step wrong):
+
+1. `crates/construct/src/secrets.rs`: add a resolver that returns which name supplied the key as well as the value: the configured secret, then `OPENROUTER_API_KEY`. Keep `api_key` as a thin wrapper over it. An empty secret name means an explicitly keyless endpoint: no lookup and no fallback (today `api_key("")` would fall back to `OPENROUTER_API_KEY`).
+2. `crates/construct/src/agent.rs`, `build`: the parent resolves with the fallback and the child with `env_key`, as today. In both, when `cfg.api_key_secret` is not empty and nothing resolves, return an error containing exactly `no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY`. `build` runs before any request, so that also satisfies "fail before any request is sent". Keyless (`api_key_secret = ""`) builds a client with no key, as today.
+3. `crates/construct/src/child/run.rs`, `drive`: the loop over `spec.def.secret_names(spec.parent)` reads each value with `secrets::get`, which has no fallback; that is the bug. For the endpoint key of a child on the parent's endpoint, read it the way the parent did (step 1's resolver) and set it under the name the child reads (`key_secret`). Other secrets stay exactly as they are. This needs `AgentDef::key_secret` (`crates/construct/src/agents.rs`) visible to `child/run.rs`, and a way to tell "same endpoint as the parent" (`api_key_secret`, `base_url` and `command` all empty: the `("", true)` arm of `key_secret`). Keep it narrow: a child on its own endpoint must still never get the parent's key (`a_child_on_its_own_endpoint_gets_its_own_key_or_none` in `delegate.rs` pins that).
+4. Tests, e2e in `crates/construct-dev/tests/delegate.rs`, next to that test and reusing its `auth_seen` helper and `agent_config`: (a) only `OPENROUTER_API_KEY` set, so the parent's and the child's requests all carry `Bearer` with that key; (b) no key at all, so the run fails, the output contains the error, and the mock got no request. `Env` sets `OPENAI_API_KEY=test` by default (`tests/common/mod.rs`); pass `("OPENAI_API_KEY", "")` to `run_with` to unset it (an empty value counts as unset). A unit test in `secrets.rs` for the keyless rule.
+5. Run `cargo test -p construct-dev --test it delegate::`, then `cargo xtask check`.
+
+Do not read the source of dependencies (`~/.cargo/registry`); everything you need is in this repo. Expect to make your first edit after reading these five files.
+
+Work the way AGENTS.md says: follow its conventions, add tests for what you change (prefer an e2e scenario), and run `cargo xtask check` until it prints `ok`. Don't edit golden snapshots by hand. When you are done, end with a short summary: what you changed, where, and how you verified it.""",
+]
+
+[budget]
+max_requests = 400
+
+[replay]
+pr = 76
+merge = "bdf61d11a4c1d003b2f47e8b040a1343a0a4ac59"
+hidden = ["crates/construct-dev/tests/delegate.rs"]
+
+[[replay.tests]]
+package = "construct-dev"
+test = "delegate"
+names = ["a_child_gets_the_openrouter_key_the_parent_fell_back_to", "no_key_fails_before_any_request"]

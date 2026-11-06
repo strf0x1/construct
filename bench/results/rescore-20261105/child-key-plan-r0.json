@@ -1,0 +1,58 @@
+{
+ "pr": 76,
+ "lint": {
+  "counts": {
+   "unwrap": 0,
+   "wire-name": 0,
+   "module-doc": 0,
+   "file-length": 0,
+   "dependency": 0,
+   "workspace-dependency": 0,
+   "snap": 0,
+   "clippy-pedantic": 3
+  },
+  "findings": [
+   {
+    "rule": "clippy-pedantic",
+    "severity": "info",
+    "file": "crates/construct/src/agents.rs",
+    "line": 211,
+    "message": "clippy::must_use_candidate: this method could have a `#[must_use]` attribute"
+   },
+   {
+    "rule": "clippy-pedantic",
+    "severity": "info",
+    "file": "crates/construct/src/secrets.rs",
+    "line": 54,
+    "message": "clippy::doc_markdown: item in documentation is missing backticks"
+   },
+   {
+    "rule": "clippy-pedantic",
+    "severity": "info",
+    "file": "crates/construct/src/secrets.rs",
+    "line": 56,
+    "message": "clippy::must_use_candidate: this function could have a `#[must_use]` attribute"
+   }
+  ]
+ },
+ "lint_violations": 0,
+ "scope": {
+  "diff_lines": 89,
+  "diff_files": 5,
+  "test_lines": 45,
+  "reference_lines": 57,
+  "scope_ratio": 1.561
+ },
+ "xtask_tail": "",
+ "hidden_tail": "",
+ "diff_text": "diff --git c/crates/construct-dev/tests/delegate.rs w/crates/construct-dev/tests/delegate.rs\nindex 8b86421..3097672 100644\n--- c/crates/construct-dev/tests/delegate.rs\n+++ w/crates/construct-dev/tests/delegate.rs\n@@ -312,6 +312,51 @@ fn a_child_on_its_own_endpoint_gets_its_own_key_or_none() {\n     }\n }\n \n+#[test]\n+fn a_child_on_the_parents_endpoint_gets_the_key_the_parent_used() {\n+    let env = Env::new(\n+        \"delegate-key-fallback\",\n+        json!({ \"steps\": [delegate(\"hi\"), { \"text\": \"hello\" }, { \"text\": \"done\" }] }),\n+    );\n+    env.config(&agent_config(&env, \"\"));\n+    // The parent resolves OPENROUTER_API_KEY; the child must get that same key.\n+    let out = env\n+        .run_with(&[(\"OPENAI_API_KEY\", \"\"), (\"OPENROUTER_API_KEY\", \"openrouter-CCCC\")], &[\"run\", \"--no-learn\", \"go\"]);\n+    assert!(out.status.success(), \"{}\", text(&out));\n+    assert_eq!(env.requests().len(), 3, \"{}\", text(&out));\n+    // Parent, child, parent: all three requests carry the fallback key.\n+    assert_eq!(\n+        auth_seen(&env),\n+        vec![json!(\"Bearer open\u2026\"), json!(\"Bearer open\u2026\"), json!(\"Bearer open\u2026\")],\n+        \"{}\",\n+        text(&out)\n+    );\n+}\n+\n+#[test]\n+fn with_no_key_the_run_fails_before_any_request() {\n+    let env = Env::new(\"delegate-no-key\", json!({ \"steps\": [delegate(\"hi\"), { \"text\": \"hello\" }] }));\n+    env.config(&agent_config(&env, \"\"));\n+    let out = env.run_with(&[(\"OPENAI_API_KEY\", \"\"), (\"OPENROUTER_API_KEY\", \"\")], &[\"run\", \"--no-learn\", \"go\"]);\n+    assert!(!out.status.success(), \"{}\", text(&out));\n+    assert!(text(&out).contains(\"no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY\"), \"{}\", text(&out));\n+    assert!(env.requests().is_empty(), \"a request was sent without a key\");\n+    assert!(env.journal().is_empty(), \"the session started without a key\");\n+}\n+\n+/// An explicitly keyless endpoint (`api_key_secret = \"\"`) still builds and runs\n+/// without auth, so the no-key check must not reject it.\n+#[test]\n+fn an_explicitly_keyless_endpoint_still_works() {\n+    let env =\n+        Env::new(\"delegate-keyless\", json!({ \"steps\": [delegate(\"hi\"), { \"text\": \"hello\" }, { \"text\": \"done\" }] }));\n+    env.config(&format!(\"api_key_secret = \\\"\\\"\\n{}\", agent_config(&env, \"\")));\n+    let out = env.run_with(&[(\"OPENAI_API_KEY\", \"\")], &[\"run\", \"--no-learn\", \"go\"]);\n+    assert!(out.status.success(), \"{}\", text(&out));\n+    assert_eq!(env.requests().len(), 3, \"{}\", text(&out));\n+    assert!(auth_seen(&env).iter().all(Value::is_null), \"{:?}\", auth_seen(&env));\n+}\n+\n /// The first scenario above, on either transport: what the child's journal\n /// rows were (types, in order) and what the parent got back.\n fn scout_run(name: &str, protocol: &str) -> (Vec<String>, String, Vec<Row>) {\ndiff --git c/crates/construct/src/agent.rs w/crates/construct/src/agent.rs\nindex 84a3304..983b377 100644\n--- c/crates/construct/src/agent.rs\n+++ w/crates/construct/src/agent.rs\n@@ -71,6 +71,11 @@ impl Agent {\n             Some(_) => crate::secrets::env_key(&cfg.api_key_secret),\n             None => crate::secrets::api_key(&cfg.api_key_secret),\n         };\n+        // An empty `api_key_secret` is an explicitly keyless endpoint. Otherwise\n+        // fail before any request: the provider's 401 never says why.\n+        if !cfg.api_key_secret.is_empty() && key.is_none() {\n+            anyhow::bail!(\"no API key: set OPENAI_API_KEY or OPENROUTER_API_KEY\");\n+        }\n         let client = llm::Client::new(&cfg, key)?;\n         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);\n         let (cancel_tx, cancel_rx) = watch::channel(false);\ndiff --git c/crates/construct/src/agents.rs w/crates/construct/src/agents.rs\nindex 66899c1..80007b0 100644\n--- c/crates/construct/src/agents.rs\n+++ w/crates/construct/src/agents.rs\n@@ -206,7 +206,9 @@ impl AgentDef {\n         names\n     }\n \n-    fn key_secret(&self, parent: &Config) -> String {\n+    /// The secret name holding the child's endpoint key: its own, or the\n+    /// parent's when the child is on the parent's endpoint. Empty means keyless.\n+    pub fn key_secret(&self, parent: &Config) -> String {\n         match (self.api_key_secret.as_str(), self.base_url.is_empty() && self.command.is_empty()) {\n             (\"\", true) => parent.api_key_secret.clone(),\n             (s, _) => s.to_string(),\ndiff --git c/crates/construct/src/child/run.rs w/crates/construct/src/child/run.rs\nindex f910025..d481be2 100644\n--- c/crates/construct/src/child/run.rs\n+++ w/crates/construct/src/child/run.rs\n@@ -145,8 +145,19 @@ async fn drive(spec: Spec<'_>, task: &str, call: &Call, cancel: &mut watch::Rece\n         .process_group(0);\n     cmd.envs(&spec.def.env);\n     // Only the secrets the definition names. A name that isn't set is left out.\n+    // On the parent's endpoint, the endpoint key is the one the parent used,\n+    // under the name the child reads: the parent may have resolved it from the\n+    // OPENROUTER_API_KEY fallback, which a child's `env_key` never looks at.\n+    let key_name = spec.def.key_secret(spec.parent);\n+    let same_endpoint =\n+        spec.def.api_key_secret.is_empty() && spec.def.base_url.is_empty() && spec.def.command.is_empty();\n     for name in spec.def.secret_names(spec.parent) {\n-        if let Some(v) = crate::secrets::get(&name) {\n+        let value = if same_endpoint && name == key_name {\n+            crate::secrets::api_key(&key_name)\n+        } else {\n+            crate::secrets::get(&name)\n+        };\n+        if let Some(v) = value {\n             cmd.env(name, v);\n         }\n     }\ndiff --git c/crates/construct/src/secrets.rs w/crates/construct/src/secrets.rs\nindex d917b61..7594a3d 100644\n--- c/crates/construct/src/secrets.rs\n+++ w/crates/construct/src/secrets.rs\n@@ -50,9 +50,22 @@ pub fn get(name: &str) -> Option<String> {\n     value\n }\n \n+/// The endpoint key and the name that supplied it: the configured secret, then\n+/// OpenRouter's usual name. An empty name is an explicitly keyless endpoint:\n+/// no lookup and no fallback.\n+pub fn api_key_source(secret_name: &str) -> Option<(String, String)> {\n+    if secret_name.is_empty() {\n+        return None;\n+    }\n+    if let Some(v) = get(secret_name) {\n+        return Some((secret_name.to_string(), v));\n+    }\n+    get(\"OPENROUTER_API_KEY\").map(|v| (\"OPENROUTER_API_KEY\".to_string(), v))\n+}\n+\n /// The endpoint key: the configured secret, then OpenRouter's usual name.\n pub fn api_key(secret_name: &str) -> Option<String> {\n-    get(secret_name).or_else(|| get(\"OPENROUTER_API_KEY\"))\n+    api_key_source(secret_name).map(|(_, v)| v)\n }\n \n /// A key from the environment alone: no keyring, no OpenRouter fallback. A\n@@ -86,4 +99,11 @@ mod tests {\n         assert_eq!(env_key(\"CONSTRUCT_TEST_UNSET_KEY\"), None);\n         assert_eq!(env_key(\"\"), None);\n     }\n+\n+    #[test]\n+    fn an_empty_secret_name_is_keyless_and_does_not_fall_back() {\n+        // Even with OPENROUTER_API_KEY in the environment, `\"\"` means no key.\n+        assert_eq!(api_key(\"\"), None);\n+        assert_eq!(api_key_source(\"\"), None);\n+    }\n }\n",
+ "verdict": {
+  "xtask_check": true,
+  "hidden_tests": true,
+  "conventions": true,
+  "hidden.a_child_gets_the_openrouter_key_the_parent_fell_back_to": true,
+  "hidden.no_key_fails_before_any_request": true
+ },
+ "model": "deepseek-v4.1-flash (strata-deepseek-v41-iq2xxs)",
+ "arm": "steps400 (max_steps = 400)"
+}
