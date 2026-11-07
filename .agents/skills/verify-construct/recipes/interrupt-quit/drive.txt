@@ -1,0 +1,27 @@
+# esc and ctrl-c during a turn interrupt it; ctrl-c when idle arms quit for 2 s.
+wait "ask construct" 5000
+type interrupt me
+key enter
+wait "running shell" 5000
+sleep 300
+key esc
+wait "■ interrupted after" 6000
+wait "ask construct anything… (/help)" 4000
+snap after-esc
+image {evidence}/after-esc.png
+type second try
+key enter
+wait "running shell" 5000
+sleep 300
+key ctrl-c
+wait "ask construct anything… (/help)" 4000
+snap after-ctrl-c
+image {evidence}/after-ctrl-c.png
+key ctrl-c
+wait "press ctrl+c again to quit" 2000
+snap --style quit-armed
+image {evidence}/quit-armed.png
+sleep 2100
+key ctrl-c
+wait "press ctrl+c again to quit" 2000
+key ctrl-c

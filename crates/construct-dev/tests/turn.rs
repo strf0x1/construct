@@ -111,7 +111,10 @@ fn a_quit_pressed_as_the_reply_ends_arms_instead_of_interrupting() {
     let env = Env::new("turn-quit-gap", json!({"steps":[{"text":"done"}]}));
     env.config("[router]\nmode = 'local'\n[learn]\nenabled = false\n");
     let mut d = tui(&env, 100, 30);
-    play(&mut d, "wait \"ask construct\" 5000\ntype hi\nkey enter\nwait \"done\" 5000\nkey ctrl-c\nwait \"press ctrl+c again to quit\" 3000\n");
+    play(
+        &mut d,
+        "wait \"ask construct\" 5000\ntype hi\nkey enter\nwait \"done\" 5000\nkey ctrl-c\nwait \"press ctrl+c again to quit\" 3000\n",
+    );
     let rows = env.journal();
     let ends: Vec<_> = rows.iter().filter(|r| r.ty == "turn_end").collect();
     assert_eq!(ends.len(), 1, "{rows:?}");

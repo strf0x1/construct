@@ -1,0 +1,16 @@
+# A /skill accepted by the palette, whose SKILL.md is deleted by the running
+# turn before the worker gets to it: error notice, and back to idle.
+wait "ask construct" 5000
+type /go
+wait "▸ /gone" 2000
+expect "skill · A procedure that exists only long enough to be listed"
+key ctrl-u
+type remove it now
+key enter
+type /gone go
+key enter
+wait "no skill named" 15000
+wait "ask construct anything… (/help)" 4000
+gone "queue a message" 2000
+snap --style refused
+image {evidence}/refused.png
