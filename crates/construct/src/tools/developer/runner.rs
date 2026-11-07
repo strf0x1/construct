@@ -99,6 +99,20 @@ pub async fn run(
     input: &[u8],
     env: &[(&str, OsString)],
 ) -> Result<Vec<u8>, ToolError> {
+    run_limited(ctx, exe, cwd, args, input, env, 2 * 1024 * 1024).await
+}
+
+/// [`run`] keeping at most `limit` bytes of output: a bundle for Deck's
+/// gateway is larger than any metadata read.
+pub async fn run_limited(
+    ctx: &Ctx,
+    exe: &Executable,
+    cwd: &Path,
+    args: &[OsString],
+    input: &[u8],
+    env: &[(&str, OsString)],
+    limit: usize,
+) -> Result<Vec<u8>, ToolError> {
     exe.check()?;
     if *ctx.cancel.borrow() {
         return Err(ToolError::new("interrupted", "developer operation interrupted before execution"));
@@ -169,7 +183,7 @@ pub async fn run(
         let read = |pipe: Option<tokio::process::ChildStdout>| async move {
             let mut bytes = Vec::new();
             if let Some(pipe) = pipe {
-                bytes = drain(pipe, 2 * 1024 * 1024).await?;
+                bytes = drain(pipe, limit).await?;
             }
             Ok::<_, std::io::Error>(bytes)
         };

@@ -94,7 +94,8 @@ impl Agent {
         if is_child {
             cfg.deck = None;
         }
-        let catalog = Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), cfg.deck.is_some())?);
+        let catalog =
+            Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), cfg.deck.is_some(), cfg.github_gateway.is_some())?);
         if !cfg.agents.is_empty() {
             catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
         }
@@ -144,7 +145,8 @@ impl Agent {
         let ctx = Arc::new(
             crate::tools::Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox)
                 .with_jobs(jobs)
-                .with_boundary(boundary),
+                .with_boundary(boundary)
+                .with_github(cfg.github_gateway.clone()),
         );
         let entries = writer.entries()?;
         let totals = journal::Totals::session(&journal::Journal::read_only(&file)?, &entries)?;

@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+mod deck;
 mod mcp;
+pub use deck::DeckConfig;
 pub use mcp::McpServer;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,6 +44,9 @@ pub struct Config {
     /// ordinary session's config hash does not change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deck: Option<DeckConfig>,
+    /// Deck's GitHub gateway (`DECK_GITHUB_URL`); see `config/deck.rs`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub github_gateway: Option<String>,
     pub jobs: crate::jobs::JobsConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Agents the model can delegate to, each run as a sandboxed child.
@@ -150,6 +155,7 @@ impl Default for Config {
             sandbox: SandboxConfig::default(),
             tools: ToolsConfig::default(),
             deck: None,
+            github_gateway: None,
             jobs: Default::default(),
             mcp: BTreeMap::new(),
             agents: BTreeMap::new(),
@@ -241,13 +247,6 @@ impl Default for ToolsConfig {
             shell: Default::default(),
         }
     }
-}
-
-/// What Deck tells a guest agent about its host boundary (ADR 0004 §6). The
-/// URL is a base: construct appends `/events` and `/approvals/<id>`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct DeckConfig {
-    pub boundary_url: String,
 }
 
 /// Knobs for `editor = "hashline"`, the ones a bench sweeps.
@@ -395,12 +394,7 @@ impl Config {
         if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_WEB_SEARCH") {
             cfg.tools.web.search = v;
         }
-        if let Ok(v) = std::env::var("DECK_BOUNDARY_URL") {
-            let v = v.trim().trim_end_matches('/');
-            if !v.is_empty() {
-                cfg.deck = Some(DeckConfig { boundary_url: v.to_string() });
-            }
-        }
+        cfg.apply_deck_env();
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         cfg.load_catalog(&paths.models())?;
         // The model's entry (limits, endpoint) is laid over the defaults here,

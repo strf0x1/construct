@@ -3,8 +3,8 @@ id: developer-operations
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tools/developer, crates/construct/src/permission/operation.rs, crates/construct/src/tui/ask.rs, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct-dev/tests/developer.rs]
-verified_at: ebc7e37
-verified_deps: 4144dbc2e368a632
+verified_at: 6fd2a34
+verified_deps: 5af25b7edc625287
 ---
 # Approved developer operations
 
@@ -21,6 +21,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - `developer-operation-session` remembers only the identical operation for this session.
 - `developer-operation-deny` refuses execution.
 - `developer-operation-git-state` changed staged content requires a new approval; pushes use the captured commit.
+- `developer-operation-deck-gateway` in a Deck VM task with a repository (`DECK_GITHUB_URL`), push, pr_create, pr_update and pr_review go through Deck's GitHub gateway instead of host authentication, and in Deck mode Construct shows no panel of its own: Deck's gateway decides each write. `issue_create` is refused there.
 
 ## How to get to it (user POV)
 
@@ -50,6 +51,7 @@ Preconditions:
 - **Scroll.** Drive: `key pgdn`, `key pgdn`, `snap --style approval-end`, `key pgup`, `key pgup`. Expect: the last review details and the approval choices remain visible.
 - **Approve.** Drive: `type y`, `wait "developer operation done" 15000`. Expect: the panel closes and the tool returns the new commit ID.
 - **Confirm effects.** Drive: the recipe's `check.sh` and `cargo test -p construct-dev --test it developer::`. Expect: actual committed file contents match the reviewed change, and the journal records approval and success. The tests also cover denial, index substitution, linked worktrees, and pushing a captured commit to a local remote.
+- **Deck gateway.** Drive: `cargo test -p construct-dev --test it deck_github::` (a stub of Deck's gateway; no TUI panel exists in this mode). Expect: an incremental bundle for the task branch, a draft pull request, checks read back, a rewrite reported as rebase-onto, and every request head valid against the contract 1.2.0 schemas.
 
 ## Gotchas
 

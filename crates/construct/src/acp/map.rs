@@ -30,6 +30,11 @@ pub const TURN_METHOD: &str = "_com.sprawlcommons/construct/turn";
 /// notification Deck sends after a late decision (ADR 0004 §6).
 pub const DECK_KEY: &str = "com.sprawlcommons/deck";
 pub const BOUNDARY_METHOD: &str = "_com.sprawlcommons/deck/boundary";
+/// Under [`DECK_KEY`] only (no bare form): the GitHub operation API version
+/// the `developer` tool speaks when this process has Deck's GitHub gateway
+/// (contract 1.2.0 §11.1).
+pub const GITHUB_OPERATIONS: &str = "github_operations";
+pub const GITHUB_OPERATIONS_VERSION: u64 = 1;
 
 /// The bare names released builds use. Construct advertises both capability
 /// keys and accepts both notification names for one release, so an old Deck

@@ -26,6 +26,8 @@ mod child;
 mod compaction;
 #[path = "deck.rs"]
 mod deck;
+#[path = "deck_github.rs"]
+mod deck_github;
 #[path = "delegate.rs"]
 mod delegate;
 #[path = "developer.rs"]

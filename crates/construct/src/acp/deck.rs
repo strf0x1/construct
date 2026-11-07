@@ -29,6 +29,10 @@ impl Server {
             caps["_meta"][map::DECK_KEY] = json!({ "boundary": true });
             caps["_meta"][map::LEGACY_DECK_KEY] = json!({ "boundary": true });
         }
+        // The GitHub operation API has no bare form (contract 1.2.0 §11.1).
+        if self.mode == Mode::User && self.cfg.github_gateway.is_some() {
+            caps["_meta"][map::DECK_KEY][map::GITHUB_OPERATIONS] = json!(map::GITHUB_OPERATIONS_VERSION);
+        }
         if self.mode == Mode::User {
             caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
             caps["_meta"][map::META_KEY]["liveAttach"] = json!(true);
