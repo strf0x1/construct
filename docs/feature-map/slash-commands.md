@@ -2,9 +2,9 @@
 id: slash-commands
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/skills.rs]
-verified_at: ebc7e37
-verified_deps: 08dfcd3fd4ccf51f
+depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/skills.rs, crates/construct/src/tui/mod.rs, crates/construct/src/tui/worker.rs]
+verified_at: d3ebadf
+verified_deps: e51beb3ce82ddf07
 ---
 # Slash commands
 
@@ -15,7 +15,7 @@ Typing a line that starts with `/` at the prompt runs a built-in command instead
 - `slash-help` `/help` (or `/?`) draws rounded boxes for commands, skills (only when there are any) and keys: command names bold blue, skill names bold green, arguments yellow, key names bold cyan.
 - `slash-skills` `/skills` lists skills (project kit and global) in a green `skills` box, or says there are none yet. `/skills <name> <request>` runs one.
 - `slash-palette` typing `/word` lists matching commands (blue) and skills (green, `skill ·` before the description), best match first: name prefix, then substring, then letters in order, then description. ↑↓ move the selection, tab completes it, esc closes the list. Enter runs a command that takes no required argument (`/model` opens the picker); for a skill it completes the name plus a space and waits for the rest. Past 8 rows a faint `… N more` row says how many are hidden.
-- `slash-skill-run` `/<skill> <request>` runs a turn with the skill loaded and journals an `invoke` row (`skill`, `scope`). The library is read from disk each time, so a skill written mid-session can be run at once. A built-in command wins over a skill with the same name; `/skills <name>` still reaches that skill.
+- `slash-skill-run` `/<skill> <request>` runs a turn with the skill loaded and journals an `invoke` row (`skill`, `scope`). The library is read from disk each time, so a skill written mid-session can be run at once. A built-in command wins over a skill with the same name; `/skills <name>` still reaches that skill. A skill whose SKILL.md has vanished by the time the worker runs it prints `no skill named …`, journals no `invoke` row, and ends the turn instead of leaving the TUI busy.
 - `slash-model` `/model <id>` switches the model; the notice (`model → <id> · <window> ctx`) and the status line show it. With no argument it opens the picker. After `/model ` and a word the palette lists matching catalog models (the user's `[models.*]`, then the endpoint's list; the picker's matching), each with its window and label, narrowed per keystroke; enter or tab completes `/model <id>` and closes the list, a second enter switches. No match shows nothing and any id still works. Bare `/model ` stays the picker's. Recipe: `.agents/skills/verify-construct/recipes/model-palette`.
 - `slash-models` `/models [query]` searches the cached model list (tool-capable models whose id or name contains every word) and draws a `models` box: id, window and USD per million tokens in and out, one row each (20 at most, then a dim `… and N more` line). On OpenRouter the list is fetched at startup and laid under the model catalog, so `/model <id>` and the picker use its windows unless the user's own `[models.*]` entry or a top-level `context_window` says otherwise (ADR 0020). `construct models [query] [--refresh]` prints the same from the shell. Recipe: `.agents/skills/verify-construct/recipes/models`.
 - `slash-memory` `/memory` draws one box per non-empty store (titled with its use of the cap, `N/M chars`, one `•` row per entry) or says memory is empty.
@@ -51,6 +51,7 @@ Palette and skill run: `setup.sh` writes the `create-verification` skill to the 
 - **Complete and run.** Drive: `key enter`, `expect "› /create-verification"`, `type do-the-thing`, `key enter`, `wait "ran-it"`. Expect: the reply.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/slash-palette`. Expect: `ok: request carried SKILL.md and do-the-thing; invoke row for create-verification` — the last `requests/req-*.json` holds the SKILL.md body and the request, and `journal.txt` has the `invoke` row.
 - Contract: `crates/construct-dev/tests/slash.rs` (`listing_commands_draw_boxes`; a skill written by `skill_manage` in turn 1 runs from the palette in turn 2; built-ins from the palette; esc), golden `help_panel` in `snapshots.rs`.
+- **Vanishing skill.** Drive: `type /go` so the palette lists the skill, then a prompt whose running turn deletes its SKILL.md before the queued `/gone go` line reaches the worker. Recipe: `.agents/skills/verify-construct/recipes/turn-refused`. Expect: `✗ no skill named "gone"`, one `turn_start`/`turn_end`, no `invoke` row, two requests, and the idle ask-anything placeholder.
 
 ## Gotchas
 
