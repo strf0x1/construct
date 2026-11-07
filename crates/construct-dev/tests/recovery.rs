@@ -265,7 +265,7 @@ fn unreadable_history_keeps_the_current_session_usable() {
     db.execute("INSERT INTO events(session_id,type,v,at_ms,payload) VALUES ('broken','future_event',1,0,'{\"event\":\"future_event\"}')", []).unwrap();
     play(
         &mut d,
-        "type /resume broken\nkey enter\nwait \"unreadable or incompatible history\" 5000\nexpect \"healthy answer\"\ntype Continue healthy\nkey enter\nwait \"healthy continuation\" 5000\n",
+        "gone \"esc to interrupt\" 3000\ntype /resume broken\nkey enter\nwait \"unreadable or incompatible history\" 5000\nexpect \"healthy answer\"\ntype Continue healthy\nkey enter\nwait \"healthy continuation\" 5000\n",
     );
     assert_eq!(
         env.requests().last().unwrap()["messages"].as_array().unwrap().last().unwrap()["content"],
