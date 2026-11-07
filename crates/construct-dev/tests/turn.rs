@@ -101,3 +101,20 @@ fn a_skill_that_vanishes_before_it_runs_ends_the_turn() {
     assert!(screen.contains("ask construct anything… (/help)"), "the TUI is not idle after the refusal:\n{screen}");
     assert!(!screen.contains("queue a message"), "the TUI stayed busy after the refusal:\n{screen}");
 }
+
+/// ctrl-c pressed as the reply ends arms quit rather than interrupting a turn
+/// that has already finished. The reply is drawn before `TurnEnd` is folded
+/// in, so the key must see the events that already arrived; on a loaded runner
+/// the key used to win that race and the toast never appeared.
+#[test]
+fn a_quit_pressed_as_the_reply_ends_arms_instead_of_interrupting() {
+    let env = Env::new("turn-quit-gap", json!({"steps":[{"text":"done"}]}));
+    env.config("[router]\nmode = 'local'\n[learn]\nenabled = false\n");
+    let mut d = tui(&env, 100, 30);
+    play(&mut d, "wait \"ask construct\" 5000\ntype hi\nkey enter\nwait \"done\" 5000\nkey ctrl-c\nwait \"press ctrl+c again to quit\" 3000\n");
+    let rows = env.journal();
+    let ends: Vec<_> = rows.iter().filter(|r| r.ty == "turn_end").collect();
+    assert_eq!(ends.len(), 1, "{rows:?}");
+    assert_eq!(ends[0].payload["interrupted"], json!(false), "the ctrl-c interrupted a finished turn: {rows:?}");
+    assert!(d.text().contains("press ctrl+c again to quit"));
+}

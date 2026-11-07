@@ -103,6 +103,19 @@ fn restore_stderr(saved: Option<i32>) {
     }
 }
 
+/// Fold in the agent events that have already arrived, so the next decision is
+/// made on the state the agent has reported. A reply is drawn before its
+/// `TurnEnd` is handled here; a ctrl-c or a session switch pressed in that gap
+/// would otherwise be judged against a turn that has already finished (and for
+/// ctrl-c, the interrupt it sends is a no-op, so quit never arms).
+fn fold_events(app: &mut App, rx: &mut mpsc::UnboundedReceiver<(String, Event)>) {
+    while let Ok((session, ev)) = rx.try_recv() {
+        if session == app.generation {
+            app.on_event(ev);
+        }
+    }
+}
+
 pub async fn run(
     cfg: Config,
     paths: Paths,
@@ -195,14 +208,13 @@ async fn run_inner(
             }
             Some((session, ev)) = ev_rx.recv() => {
                 if session == app.generation { app.on_event(ev); }
-                while let Ok((session, ev)) = ev_rx.try_recv() {
-                    if session == app.generation { app.on_event(ev); }
-                }
+                fold_events(&mut app, &mut ev_rx);
                 dirty = true;
             }
             Some(Ok(ev)) = events.next() => {
                 match ev {
                     CEvent::Key(k) if k.kind != KeyEventKind::Release => {
+                        fold_events(&mut app, &mut ev_rx);
                         if handle_key(&mut app, k, &cmd_tx) { break; }
                     }
                     CEvent::Paste(s) => { let s = s.replace("\r\n", "\n").replace('\r', "\n"); if let Some(p) = app.browser.as_mut() { p.paste(&s); } else { app.insert(&s); } }
