@@ -2,9 +2,9 @@
 id: slash-commands
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/skills.rs]
-verified_at: c03781f
-verified_deps: 3e6413be4138d277
+depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/skills.rs]
+verified_at: ebc7e37
+verified_deps: 08dfcd3fd4ccf51f
 ---
 # Slash commands
 
