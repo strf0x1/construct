@@ -241,11 +241,14 @@ fn acp_stdout_is_only_json_rpc_and_diagnostics_are_stderr() {
     let (done, _) = c.call("session/prompt", json!({ "sessionId": sid, "prompt": [{ "type": "text", "text": "hi" }] }));
     assert_eq!(done["result"]["stopReason"], "end_turn");
     // The router resolves TYPESAFE_API_KEY inside the turn, which is the first
-    // secret resolution; both diagnostics are prose, not protocol frames.
+    // secret resolution; its audit note is the diagnostic that must land on
+    // stderr, as prose. Whether the keyring provider then *errors* or merely
+    // misses is the host's business (a headless runner has no session bus; a
+    // desktop keyring answers "no entry"), so nothing here rides on that
+    // warning: `Client::call` already rejects any non-JSON line on stdout.
     let err = c.stderr_text();
     assert!(err.contains("note: secretspec is now recording"), "stderr: {err}");
-    #[cfg(target_os = "linux")]
-    assert!(err.contains("provider keyring failed for TYPESAFE_API_KEY"), "stderr: {err}");
+    assert!(err.lines().all(|l| !l.trim_start().starts_with('{')), "a diagnostic on stderr is a protocol frame: {err}");
     c.finish();
 }
 

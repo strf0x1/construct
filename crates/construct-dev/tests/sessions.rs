@@ -115,7 +115,7 @@ fn in_app_a_b_a_restores_transcripts_context_models_and_names() {
     assert_eq!(ids.len(), 2);
     play(
         &mut d,
-        "type /resume\nkey enter\nwait \"Resume session\" 3000\nwait \"Session A\" 3000\ntype Session A\nkey enter\nwait \"A historical answer\" 5000\nexpect \"First A prompt\"\nkey ctrl-o\nwait \"original A tool output\" 3000\ntype Continue A\nkey enter\nwait \"A continued answer\" 5000\n",
+        "gone \"esc to interrupt\" 3000\ntype /resume\nkey enter\nwait \"Resume session\" 3000\nwait \"Session A\" 3000\ntype Session A\nkey enter\nwait \"A historical answer\" 5000\nexpect \"First A prompt\"\nkey ctrl-o\nwait \"original A tool output\" 3000\ntype Continue A\nkey enter\nwait \"A continued answer\" 5000\n",
     );
     let reqs = env.requests();
     let a = reqs.last().unwrap();
@@ -125,7 +125,7 @@ fn in_app_a_b_a_restores_transcripts_context_models_and_names() {
     play(
         &mut d,
         &format!(
-            "type /resume {}\nkey enter\nwait \"B isolated answer\" 5000\ngone \"First A prompt\" 3000\ntype Continue B\nkey enter\nwait \"B continued answer\" 5000\n",
+            "gone \"esc to interrupt\" 3000\ntype /resume {}\nkey enter\nwait \"B isolated answer\" 5000\ngone \"First A prompt\" 3000\ntype Continue B\nkey enter\nwait \"B continued answer\" 5000\n",
             ids[1]
         ),
     );
@@ -138,7 +138,7 @@ fn in_app_a_b_a_restores_transcripts_context_models_and_names() {
     play(
         &mut d,
         &format!(
-            "type /resume {}\nkey enter\ntype /resume\nkey enter\nwait \"Resume session\" 3000\nkey esc\ngone \"Resume session\" 3000\ntype /rename\nkey enter\nkey enter\nwait \"non-empty title\" 3000\n",
+            "gone \"esc to interrupt\" 3000\ntype /resume {}\nkey enter\ntype /resume\nkey enter\nwait \"Resume session\" 3000\nkey esc\ngone \"Resume session\" 3000\ntype /rename\nkey enter\nkey enter\nwait \"non-empty title\" 3000\n",
             ids[1]
         ),
     );
@@ -342,13 +342,13 @@ fn switching_builds_fresh_permissions_including_when_returning_to_a_session() {
     let mut d = tui(&env, &[], 110, 40);
     play(
         &mut d,
-        "wait \"ask construct\" 5000\ntype A read outside\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype s\nwait \"A permission granted\" 5000\ntype /new\nkey enter\ngone \"A permission granted\" 3000\ntype B read outside\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype y\nwait \"B permission granted\" 5000\n",
+        "wait \"ask construct\" 5000\ntype A read outside\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype s\nwait \"A permission granted\" 5000\ngone \"esc to interrupt\" 3000\ntype /new\nkey enter\ngone \"A permission granted\" 3000\ntype B read outside\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype y\nwait \"B permission granted\" 5000\n",
     );
     let a = env.sessions()[0].clone();
     play(
         &mut d,
         &format!(
-            "type /resume {a}\nkey enter\nwait \"A permission granted\" 5000\ntype A read outside again\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype y\nwait \"A permission rebuilt\" 5000\n"
+            "gone \"esc to interrupt\" 3000\ntype /resume {a}\nkey enter\nwait \"A permission granted\" 5000\ntype A read outside again\nkey enter\nwait \"PERMISSION\" 5000\nsleep 600\ntype y\nwait \"A permission rebuilt\" 5000\n"
         ),
     );
     let grants: Vec<_> = env.journal().into_iter().filter(|r| r.ty == "access").collect();

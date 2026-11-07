@@ -39,9 +39,15 @@ mkdir -p "$EVIDENCE" "$WORK" "$OUTSIDE" "$CHOME"
 collect() {
   cp "$scratch/mock/log.jsonl" "$EVIDENCE/requests.jsonl" 2>/dev/null || true
   rm -rf "$EVIDENCE/requests" && cp -r "$scratch/requests" "$EVIDENCE/requests" 2>/dev/null || true
+  # A run that never built a session has no journal; that is evidence too, not
+  # a failure. (A bare `[ -f ] && …` returns 1 under `set -e`, which the EXIT
+  # trap would turn into the script's own exit status.)
   for j in "$CHOME"/projects/*/journal.sqlite; do
-    [ -f "$j" ] && sqlite3 "$j" "select seq, session_id, type, payload from events order by seq" >"$EVIDENCE/journal.txt"
+    if [ -f "$j" ]; then
+      sqlite3 "$j" "select seq, session_id, type, payload from events order by seq" >"$EVIDENCE/journal.txt"
+    fi
   done
+  return 0
 }
 
 cleanup() {
