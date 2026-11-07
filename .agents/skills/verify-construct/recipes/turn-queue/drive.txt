@@ -1,0 +1,19 @@
+# A message typed while a turn runs is queued: the placeholder says so, both
+# turns run, and the TUI is idle again (no spinner, ask-anything placeholder).
+wait "ask construct" 5000
+type first
+key enter
+wait "running shell" 5000
+wait "queue a message… (esc to interrupt)" 2000
+snap --style busy
+image {evidence}/busy.png
+type second
+key enter
+snap --style queued
+image {evidence}/queued.png
+wait "answer one" 10000
+wait "answer two" 10000
+wait "ask construct anything… (/help)" 5000
+gone "queue a message" 2000
+snap idle
+image {evidence}/idle.png

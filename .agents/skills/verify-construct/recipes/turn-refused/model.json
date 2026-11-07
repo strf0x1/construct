@@ -1,0 +1,5 @@
+{"steps":[
+  {"call":"shell","args":{"command":"touch now && sleep 1","delay_ms":800}},
+  {"text":"done removing"},
+  {"text":"SHOULD-NOT-RUN"}
+]}

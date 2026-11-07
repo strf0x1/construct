@@ -1,0 +1,27 @@
+# Enter before the first session lands: the activity line says `starting` and
+# nothing else; during a turn the tool, thinking, writing labels and the timer
+# and chars/s readout still show. The starting frame lasts only ~20 ms, so
+# snap it several times in a row.
+wait "ask construct" 5000
+type first
+key enter
+snap --style starting-1
+snap --style starting-2
+snap --style starting-3
+snap --style starting-4
+snap --style starting-5
+wait "warm reply" 12000
+type phases
+key enter
+wait "running shell" 8000
+snap --style tool
+image {evidence}/tool.png
+wait "thinking" 6000
+snap --style thinking
+image {evidence}/thinking.png
+wait "writing" 8000
+expect "chars/s"
+snap --style writing
+image {evidence}/writing.png
+wait "ask construct anything… (/help)" 15000
+snap done

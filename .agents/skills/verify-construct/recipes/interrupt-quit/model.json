@@ -1,0 +1,4 @@
+{"steps":[
+  {"call":"shell","args":{"command":"sleep 8"}},
+  {"call":"shell","args":{"command":"sleep 8"}}
+]}

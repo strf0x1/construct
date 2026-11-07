@@ -1,0 +1,5 @@
+{"steps":[
+  {"text":"warm reply"},
+  {"call":"shell","args":{"command":"sleep 1"}},
+  {"text":"streaming words that keep arriving for a while so the chars per second readout has time to show","delay_ms":1500}
+]}

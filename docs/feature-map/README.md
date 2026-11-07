@@ -40,6 +40,9 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Background jobs](./background-jobs.md) — a shell command or a delegated agent runs in the background; its ending wakes the agent, a cancel never does
 - [Delegation](./delegation.md) — the model hands a task to a configured agent, whose own blocked access asks the user as a subagent
 - [Delegate progress](./delegate-progress.md) — a running child's current tool and latest words, nested under its delegate call or job line
+- [Queued messages](./turn-queue.md) — a message typed while a turn runs waits and runs next; the TUI settles when the queue empties
+- [Interrupt and quit](./interrupt-quit.md) — `esc` or ctrl-c interrupts a turn; idle ctrl-c arms quit for two seconds
+- [Activity line](./activity-line.md) — the line above the prompt: starting, thinking, writing, running a tool, the timer and chars/s
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
 - [Providers](./providers.md) — named endpoints with their own url, key and models; `provider/model` selection; `construct providers [test <name>]`
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
