@@ -22,12 +22,18 @@ pub struct Catalog {
 impl Catalog {
     /// The one place implementations are chosen.
     pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>) -> Result<Catalog> {
-        Self::build_with(cfg, mcp, false)
+        Self::build_with(cfg, mcp, false, false)
     }
 
     /// `build` for a process that also has a Deck boundary endpoint; the three
-    /// boundary tools exist only there.
-    pub fn build_with(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>, deck: bool) -> Result<Catalog> {
+    /// boundary tools exist only there. `github` is Deck's GitHub gateway: it
+    /// switches the `developer` tool to publish through it.
+    pub fn build_with(
+        cfg: &ToolsConfig,
+        mcp: Option<Arc<crate::mcp::Manager>>,
+        deck: bool,
+        github: bool,
+    ) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         match cfg.editor.as_str() {
             "replace" => {
@@ -57,7 +63,7 @@ impl Catalog {
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
         tools.push(Arc::new(job::JobTool));
-        tools.push(Arc::new(developer::Developer));
+        tools.push(Arc::new(developer::Developer::new(github)));
         if deck {
             tools.push(Arc::new(boundary::Wait));
             tools.push(Arc::new(boundary::Status));

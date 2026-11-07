@@ -20,7 +20,7 @@ fn load(path: impl AsRef<std::path::Path>) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-fn validators() -> HashMap<String, Validator> {
+pub(crate) fn validators() -> HashMap<String, Validator> {
     let schemas: Vec<_> = std::fs::read_dir(vendored().join("schema"))
         .unwrap()
         .map(|p| {
@@ -39,7 +39,7 @@ fn validators() -> HashMap<String, Validator> {
         .collect()
 }
 
-fn check(schemas: &HashMap<String, Validator>, name: &str, value: &Value) {
+pub(crate) fn check(schemas: &HashMap<String, Validator>, name: &str, value: &Value) {
     let errors: Vec<_> = schemas[&format!("{name}.schema.json")].iter_errors(value).map(|e| e.to_string()).collect();
     assert!(errors.is_empty(), "{name}: {errors:?}\npayload: {value}");
 }

@@ -32,6 +32,9 @@ pub struct Ctx {
     /// task. Absent everywhere else, which is why the boundary tools are
     /// absent from the catalog too.
     pub boundary: Option<Arc<super::boundary::Boundary>>,
+    /// Deck's GitHub operation gateway, when the task has one: the
+    /// `developer` tool's only route to GitHub then.
+    pub github: Option<String>,
     read_files: Mutex<HashSet<PathBuf>>,
     /// Shell calls the sandbox blocked this turn (`shell::STOP_AFTER`).
     shell_blocked: std::sync::atomic::AtomicUsize,
@@ -74,6 +77,7 @@ impl Ctx {
             perms,
             jobs: crate::jobs::Jobs::new(&Default::default()),
             boundary: None,
+            github: None,
             read_files: Mutex::new(HashSet::new()),
             shell_blocked: Default::default(),
             output_max: super::OUTPUT_MAX.into(),
@@ -84,6 +88,12 @@ impl Ctx {
         self.jobs = jobs;
         self
     }
+    /// Deck's GitHub gateway, when the VM runtime set one.
+    pub fn with_github(mut self, github: Option<String>) -> Self {
+        self.github = github;
+        self
+    }
+
     /// The Deck boundary endpoint, when the VM runtime set one.
     pub fn with_boundary(mut self, boundary: Option<Arc<super::boundary::Boundary>>) -> Self {
         self.boundary = boundary;

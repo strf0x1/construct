@@ -42,7 +42,7 @@ pub fn binding(body: &Body) -> Result<Vec<u8>, ToolError> {
     .map_err(|_| "cannot encode git operation".into())
 }
 
-fn options() -> Vec<OsString> {
+pub(super) fn options() -> Vec<OsString> {
     runner::args(&[
         "--no-optional-locks",
         "-c",
@@ -58,14 +58,14 @@ fn options() -> Vec<OsString> {
     ])
 }
 
-async fn git(ctx: &Ctx, exe: &Executable, cwd: &Path, args: &[&str]) -> Result<String, ToolError> {
+pub(super) async fn git(ctx: &Ctx, exe: &Executable, cwd: &Path, args: &[&str]) -> Result<String, ToolError> {
     let mut command = options();
     command.extend(runner::args(args));
     let output = Box::pin(runner::run(ctx, exe, cwd, &command, &[], &[])).await?;
     String::from_utf8(output).map(|s| s.trim_end().to_string()).map_err(|_| "git returned non-UTF-8 metadata".into())
 }
 
-fn oid(value: &str) -> Result<String, ToolError> {
+pub(super) fn oid(value: &str) -> Result<String, ToolError> {
     if matches!(value.len(), 40 | 64) && value.bytes().all(|b| b.is_ascii_hexdigit()) {
         Ok(value.into())
     } else {

@@ -61,6 +61,17 @@ fn the_constants_are_the_contracts_names() {
 }
 
 #[test]
+fn the_github_capability_is_the_contracts() {
+    let m = matrix();
+    let capability = &m["github"]["capability"];
+    assert_eq!(capability["meta_key"], map::DECK_KEY);
+    assert_eq!(capability["field"], map::GITHUB_OPERATIONS);
+    assert_eq!(capability["version"], json!(map::GITHUB_OPERATIONS_VERSION));
+    assert_eq!(capability["legacy_key"], json!(false), "advertised under the current key only (acp/deck.rs)");
+    assert_eq!(m["github"]["environment"], "DECK_GITHUB_URL");
+}
+
+#[test]
 fn every_negotiation_case_matches_the_code() {
     for case in matrix()["negotiation"].as_array().unwrap() {
         let wire = map::Wire::for_client(&case["client_meta"]);
