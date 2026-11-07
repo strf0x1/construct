@@ -3,8 +3,8 @@ id: scroll-copy
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/clip.rs, crates/construct/src/tui/view.rs, crates/construct/src/tui/input.rs]
-verified_at: 37ef7fc
-verified_deps: 33ca9f66f7290fce
+verified_at: c03781f
+verified_deps: 831fa2b1fa17e836
 ---
 # Scroll and copy
 

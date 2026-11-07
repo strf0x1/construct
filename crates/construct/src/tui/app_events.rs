@@ -32,17 +32,11 @@ impl App {
             | Event::Note { .. }
             | Event::DeckBoundary { .. }
             | Event::Request { .. } => {}
-            Event::Submitted { .. } => self.active_user_turn = true,
-            Event::TurnStart => {
-                self.active_user_turn = false;
-                self.busy = true;
-                self.phase = Phase::Routing;
-                self.turn_started = Instant::now();
-                self.stream_chars = 0;
-            }
+            Event::Submitted { .. } => self.turn.submitted(),
+            Event::TurnStart => self.turn.start(Instant::now()),
             Event::Route { groups, skills, source, ms, note } => {
                 for g in &groups { if !self.groups.contains(g) { self.groups.push(g.clone()); } }
-                self.phase = Phase::Waiting;
+                self.turn.set_phase(Phase::Waiting);
                 if !skills.is_empty() || !groups.is_empty() {
                     let mut parts = vec![];
                     if !groups.is_empty() {
@@ -57,13 +51,9 @@ impl App {
                     self.notice(theme::YELLOW, note);
                 }
             }
-            Event::Opened => {
-                if self.phase == Phase::Waiting || self.phase == Phase::Routing {
-                    self.phase = Phase::Thinking;
-                }
-            }
+            Event::Opened => self.turn.opened(),
             Event::Reasoning { text } => {
-                self.phase = Phase::Thinking;
+                self.turn.set_phase(Phase::Thinking);
                 match self.last_of(Kind::Reasoning) {
                     Some(b) if b.status == Status::Running => {
                         b.text.push_str(&text);
@@ -77,8 +67,7 @@ impl App {
                 }
             }
             Event::Text { text } => {
-                self.phase = Phase::Writing;
-                self.stream_chars += text.len();
+                self.turn.wrote(text.len());
                 self.close_reasoning();
                 match self.last_of(Kind::Assistant) {
                     Some(b) => {
@@ -94,7 +83,7 @@ impl App {
             }
             Event::ToolPending { name } => {
                 self.close_reasoning();
-                self.phase = Phase::Tool(format!("preparing {name}"));
+                self.turn.set_phase(Phase::Tool(format!("preparing {name}")));
             }
             Event::ToolStart { id, name, args } => {
                 self.close_reasoning();
@@ -105,7 +94,7 @@ impl App {
                 b.title = name.clone();
                 b.id = id;
                 b.status = Status::Running;
-                self.phase = Phase::Tool(name);
+                self.turn.set_phase(Phase::Tool(name));
                 self.push(b);
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
@@ -118,7 +107,7 @@ impl App {
                     b.version += 1;
                 }
                 if !self.blocks.iter().any(|b| b.kind == Kind::Tool && b.status == Status::Running) {
-                    self.phase = Phase::Waiting;
+                    self.turn.set_phase(Phase::Waiting);
                 }
             }
             Event::Usage { .. } => self.context_pct = self.context_pct_now(),
@@ -146,10 +135,7 @@ impl App {
                     }
                 }
                 self.blocks.append(&mut self.held);
-                if self.active_user_turn { self.pending_turns = self.pending_turns.saturating_sub(1); }
-                self.active_user_turn = false;
-                self.busy = self.pending_turns > 0;
-                self.phase = Phase::Idle;
+                self.turn.end();
                 // The turn may have written a skill: list it if `/` is up.
                 if self.palette.take().is_some() {
                     self.refresh_palette();
@@ -163,8 +149,7 @@ impl App {
             }
             Event::Error { message } => {
                 self.close_reasoning();
-                self.switching = false;
-                if !self.ready { self.busy = false; self.pending_turns = 0; }
+                self.turn.error();
                 self.notice(theme::RED, format!("✗ {message}"));
             }
             Event::Child { id, inner } => self.on_child(&id, *inner),

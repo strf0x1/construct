@@ -17,16 +17,17 @@ impl Agent {
     /// `text`, and an `invoke` event records which skill it was. A skill that
     /// is gone by now is an error and no turn.
     pub async fn invoke(&mut self, skill: &str, text: &str, tx: &Events) -> Result<()> {
-        self.invoke_as(skill, text, &format!("/{skill} {text}"), tx).await
+        self.invoke_as(skill, text, &format!("/{skill} {text}"), tx).await.map(|_| ())
     }
 
     /// Preserve the exact submitted slash line separately from skill injection.
-    pub async fn invoke_as(&mut self, skill: &str, text: &str, original: &str, tx: &Events) -> Result<()> {
+    /// False when no turn ran: the skill was gone, which is only an `Error`.
+    pub async fn invoke_as(&mut self, skill: &str, text: &str, original: &str, tx: &Events) -> Result<bool> {
         match crate::tools::skill::load(&self.ctx, skill, None) {
-            Ok(body) => self.run_turn(Some(text), Some((skill, body, original.to_string())), tx).await,
+            Ok(body) => self.run_turn(Some(text), Some((skill, body, original.to_string())), tx).await.map(|()| true),
             Err(e) => {
                 self.journal.emit(Event::Error { message: e }, tx);
-                Ok(())
+                Ok(false)
             }
         }
     }

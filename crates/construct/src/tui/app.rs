@@ -5,6 +5,7 @@ use super::ask::Prompt;
 use super::palette::{self, Palette, Query};
 use super::picker::Picker;
 use super::theme;
+pub(super) use super::turn::{Phase, Turn};
 use crate::config::{Config, Paths};
 use crate::skills::{Library, Skill};
 use crate::tools::{Catalog, OutputKind};
@@ -77,16 +78,6 @@ impl Block {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(super) enum Phase {
-    Idle,
-    Routing,
-    Waiting,
-    Thinking,
-    Writing,
-    Tool(String),
-}
-
 pub(super) enum Cmd {
     Prompt(String),
     /// `/<skill> text`: run a turn with the skill loaded.
@@ -114,12 +105,7 @@ pub(super) struct App {
     pub(super) hist_pos: Option<usize>,
     pub(super) scroll: usize,
     pub(super) last_total: usize,
-    pub(super) phase: Phase,
-    pub(super) busy: bool,
-    pub(super) switching: bool,
-    pub(super) pending_turns: usize,
-    pub(super) active_user_turn: bool,
-    pub(super) turn_started: Instant,
+    pub(super) turn: Turn,
     pub(super) last_activity: Instant,
     pub(super) started: Instant,
     pub(super) expand: bool,
@@ -136,7 +122,6 @@ pub(super) struct App {
     pub(super) generation: String,
     pub(super) canceller: Option<watch::Sender<bool>>,
     pub(super) quit_armed: Option<Instant>,
-    pub(super) stream_chars: usize,
     /// The session's tools, once the agent is built; display hints come from here.
     pub(super) catalog: Option<Arc<Catalog>>,
     /// Questions waiting for a key, oldest first; the front one is on screen.
@@ -166,12 +151,7 @@ impl App {
             hist_pos: None,
             scroll: 0,
             last_total: 0,
-            phase: Phase::Idle,
-            busy: false,
-            switching: false,
-            pending_turns: 0,
-            active_user_turn: false,
-            turn_started: Instant::now(),
+            turn: Turn::Idle,
             last_activity: Instant::now(),
             started: Instant::now(),
             expand: false,
@@ -186,7 +166,6 @@ impl App {
             generation: String::new(),
             canceller: None,
             quit_armed: None,
-            stream_chars: 0,
             catalog: None,
             prompts: VecDeque::new(),
             palette: None,
@@ -236,7 +215,7 @@ impl App {
     }
 
     pub(super) fn animating(&self) -> bool {
-        self.busy
+        self.turn.busy()
             || self.browser.as_ref().is_some_and(|b| b.loading)
             || !self.prompts.is_empty()
             || self.learning.is_some()

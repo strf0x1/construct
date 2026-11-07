@@ -323,8 +323,11 @@ fn status_line_keeps_counters_beside_a_toast() {
     .unwrap();
     let mut log = Vec::new();
     let (short, long) = (budget(3000), budget(5000));
+    // The activity line carries "esc to interrupt" until `TurnEnd`; a ctrl-c
+    // pressed after the reply is drawn but before that event interrupts the
+    // finished turn instead of arming quit, so wait for the turn to end first.
     let script = format!(
-        "wait \"ask construct\" {short}\ntype hi\nkey enter\nwait \"done\" {long}\nkey ctrl-c\nwait \"press ctrl+c\" {short}\n"
+        "wait \"ask construct\" {short}\ntype hi\nkey enter\nwait \"done\" {long}\ngone \"esc to interrupt\" {short}\nkey ctrl-c\nwait \"press ctrl+c\" {short}\n"
     );
     if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
         panic!("{e:#}\n{}", String::from_utf8_lossy(&log));

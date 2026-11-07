@@ -1,7 +1,7 @@
-//! Rendering: transcript blocks, splash, input line, activity and status
-//! bars, and the frame layout.
+//! Rendering: transcript blocks, splash, input line, status bar, and the
+//! frame layout. The activity line is `activity.rs`.
 
-use super::app::{App, Kind, Phase, Status};
+use super::app::{App, Kind, Status};
 use super::{boxed, help, markdown, prompt, theme};
 use crate::tools::OutputKind;
 use anyhow::Result;
@@ -229,7 +229,7 @@ impl App {
         let mut offset = 0usize;
         let placeholder = self.input.is_empty();
         let text = if placeholder {
-            if self.busy { "queue a message… (esc to interrupt)" } else { "ask construct anything… (/help)" }
+            if self.turn.busy() { "queue a message… (esc to interrupt)" } else { "ask construct anything… (/help)" }
                 .to_string()
         } else {
             self.input.clone()
@@ -267,36 +267,6 @@ impl App {
             offset += para.len() + 1;
         }
         (lines, cur)
-    }
-
-    pub(super) fn activity(&self, phase: f32) -> Line<'static> {
-        if !self.busy {
-            return Line::default();
-        }
-        let since = self.last_activity.elapsed().as_secs_f32();
-        let total = self.turn_started.elapsed().as_secs_f32();
-        let (mut label, mut base, mut hi) = match &self.phase {
-            Phase::Routing => ("routing".to_string(), theme::DIM, theme::CYAN),
-            Phase::Waiting => ("waiting for model".to_string(), theme::DIM, theme::ACCENT),
-            Phase::Thinking => ("thinking".to_string(), theme::DIM, theme::ACCENT2),
-            Phase::Writing => ("writing".to_string(), theme::DIM, theme::ACCENT),
-            Phase::Tool(n) => (format!("running {n}"), theme::DIM, theme::YELLOW),
-            Phase::Idle => (String::new(), theme::DIM, theme::DIM),
-        };
-        // Silence from the model reads as "broken"; say so plainly instead.
-        if since > 6.0 && !matches!(self.phase, Phase::Tool(_)) {
-            label = format!("{label} · no output for {since:.0}s");
-            base = theme::YELLOW;
-            hi = Color::Rgb(255, 230, 180);
-        }
-        let mut spans = vec![Span::styled(format!("  {} ", theme::spinner(phase)), Style::new().fg(hi))];
-        spans.extend(theme::shimmer(&label, phase, base, hi));
-        spans.push(Span::styled(format!("  {total:.1}s"), theme::faint()));
-        if self.phase == Phase::Writing && total > 0.5 {
-            spans.push(Span::styled(format!(" · {:.0} chars/s", self.stream_chars as f32 / total), theme::faint()));
-        }
-        spans.push(Span::styled("  esc to interrupt", theme::faint()));
-        Line::from(spans)
     }
 
     pub(super) fn draw(&mut self, term: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
@@ -340,7 +310,7 @@ impl App {
         let activity = self.activity(phase);
         let status = self.status(width as usize, phase);
         let input_scroll = (input.len() as u16).saturating_sub(input_h);
-        let rule_color = if self.busy { theme::pulse(phase, theme::FAINT, theme::ACCENT) } else { theme::FAINT };
+        let rule_color = if self.turn.busy() { theme::pulse(phase, theme::FAINT, theme::ACCENT) } else { theme::FAINT };
         let mut stdout = std::io::stdout();
         queue!(stdout, BeginSynchronizedUpdate)?;
         term.draw(|f| {

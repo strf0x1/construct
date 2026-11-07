@@ -1,7 +1,7 @@
 //! Historical UI projection, separate from the compacted model messages.
 //! A ready notification atomically replaces all session-specific UI state.
 
-use super::app::{App, Block, Kind, Phase};
+use super::app::{App, Block, Kind};
 use super::theme;
 use super::worker::Ready;
 use crate::event::Event;
@@ -24,7 +24,6 @@ impl App {
         } else {
             None
         };
-        let pending = if !self.ready { self.pending_turns } else { 0 };
         self.blocks.clear();
         self.cache.clear();
         self.input.clear();
@@ -33,11 +32,7 @@ impl App {
         self.hist_pos = None;
         self.scroll = 0;
         self.last_total = 0;
-        self.phase = Phase::Idle;
-        self.busy = pending > 0;
-        self.switching = false;
-        self.pending_turns = pending;
-        self.active_user_turn = false;
+        self.turn.restored(!self.ready);
         self.learning = None;
         self.toast = None;
         self.prompts.clear();
@@ -136,7 +131,6 @@ impl App {
                 p.refresh(&self.cfg);
             }
         }
-        self.phase = Phase::Idle;
         self.totals = ready.spent;
         self.context_pct = self.context_pct_now();
         self.refresh_palette();
@@ -146,9 +140,7 @@ impl App {
     }
 
     pub(super) fn switch_blocked(&mut self) -> bool {
-        let blocked = self.busy
-            || self.pending_turns > 0
-            || self.switching
+        let blocked = self.turn.blocks_switch()
             || !self.prompts.is_empty()
             || self.dock.jobs.as_ref().is_some_and(|j| j.running() > 0);
         if blocked {

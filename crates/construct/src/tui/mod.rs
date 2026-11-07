@@ -3,6 +3,7 @@
 //! when something changed: the animation tick runs only while work is
 //! visibly in progress.
 
+mod activity;
 mod app;
 mod app_events;
 mod args;
@@ -27,6 +28,7 @@ mod sessions;
 mod status;
 mod table;
 mod theme;
+mod turn;
 mod view;
 mod worker;
 
@@ -154,7 +156,8 @@ async fn run_inner(
     let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<ask::Prompt>();
     // A provider's model list landing, maybe after the session started.
     let (landed_tx, mut landed_rx) = mpsc::unbounded_channel::<()>();
-    let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx };
+    let (refused_tx, mut refused_rx) = mpsc::unbounded_channel::<()>();
+    let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx, refused: refused_tx };
     let worker =
         tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, startup_browser, model_override, cmd_rx, out));
 
@@ -180,6 +183,10 @@ async fn run_inner(
             }
             Some(ready) = ready_rx.recv() => {
                 app.restore(ready);
+                dirty = true;
+            }
+            Some(()) = refused_rx.recv() => {
+                app.turn.refused();
                 dirty = true;
             }
             Some(prompt) = prompt_rx.recv() => {

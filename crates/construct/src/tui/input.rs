@@ -98,7 +98,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             Outcome::Pick(id) => {
                 app.browser = None;
                 if !app.switch_blocked() {
-                    app.switching = true;
+                    app.turn.switch();
                     let _ = cmd.send(Cmd::Resume(Some(id)));
                 }
             }
@@ -113,7 +113,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
         picker_key(app, k, cmd);
         return false;
     }
-    if app.switching {
+    if app.turn.switching() {
         return false;
     }
     if app.peek_key(k) {
@@ -130,7 +130,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             if !app.input.is_empty() {
                 app.input.clear();
                 app.cursor = 0;
-            } else if app.busy {
+            } else if app.turn.busy() {
                 if let Some(c) = &app.canceller {
                     c.send_replace(true);
                 }
@@ -143,7 +143,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
         }
         KeyCode::Char('d') if ctrl && app.input.is_empty() => return true,
         KeyCode::Esc => {
-            if app.busy {
+            if app.turn.busy() {
                 if let Some(c) = &app.canceller {
                     c.send_replace(true);
                 }
@@ -177,8 +177,7 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             if let Some(rest) = text.strip_prefix('/') {
                 return slash(app, rest, cmd);
             }
-            app.busy = true;
-            app.pending_turns += 1;
+            app.turn.submit();
             app.push(Block::new(Kind::User, text.clone()));
             let _ = cmd.send(Cmd::Prompt(text));
         }

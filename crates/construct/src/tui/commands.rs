@@ -24,7 +24,7 @@ pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>)
                     Err(e) => app.notice(theme::RED, format!("Could not list sessions: {e:#}")),
                 }
             } else if arg != app.session {
-                app.switching = true;
+                app.turn.switch();
                 let _ = cmd.send(Cmd::Resume(Some(arg.to_string())));
             }
         }
@@ -39,7 +39,7 @@ pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>)
             if app.switch_blocked() {
                 return false;
             }
-            app.switching = true;
+            app.turn.switch();
             let _ = cmd.send(Cmd::New);
         }
         // The notice and the new limits come back as an `Event::Model` once
@@ -122,8 +122,7 @@ fn run_skill(app: &mut App, name: &str, text: &str, typed: &str, cmd: &mpsc::Unb
     if !app.skills().iter().any(|s| s.name == name) {
         return app.notice(theme::YELLOW, format!("unknown command /{name} — try /help"));
     }
-    app.busy = true;
-    app.pending_turns += 1;
+    app.turn.submit();
     app.push(Block::new(Kind::User, format!("/{typed}")));
     let _ = cmd.send(Cmd::Skill { name: name.to_string(), text: text.to_string(), original: format!("/{typed}") });
 }
