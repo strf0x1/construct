@@ -152,6 +152,11 @@ pub fn transcript(entries: &[Entry]) -> String {
             Event::Compacted { mode, tokens_before, tokens_after, .. } => {
                 let _ = writeln!(out, "   compacted ({mode}) ~{tokens_before} -> ~{tokens_after} tokens\n");
             }
+            Event::Memory { leaves, merges, view, .. } => {
+                let nodes = view.as_ref().map_or(0, Vec::len);
+                let _ =
+                    writeln!(out, "   memory {} leaves, {} merges, view {nodes} nodes\n", leaves.len(), merges.len());
+            }
             Event::Error { message } => {
                 let _ = writeln!(out, "!! error: {message}\n");
             }

@@ -3,6 +3,19 @@
 
 use super::Event;
 use crate::llm::Message;
+use serde::{Deserialize, Serialize};
+
+/// One node of the `optchat` tree as the journal records it (ADR 0043). A
+/// leaf has `l == 0`; a merge has `l >= 1`. `fallback` marks a line that was
+/// written without the summary model succeeding.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct MemoryNode {
+    pub l: u32,
+    pub i: u64,
+    pub text: String,
+    pub fallback: bool,
+}
 
 impl Event {
     /// Whether the journal keeps it. Stream deltas are not kept: the

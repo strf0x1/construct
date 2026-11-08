@@ -25,6 +25,7 @@ impl App {
             | Event::User { .. }
             | Event::SessionName { .. }
             | Event::Recovered { .. }
+            | Event::Memory { .. }
             // The user's own `/skill` line already says it.
             | Event::Invoke { .. }
             | Event::Assistant { .. }

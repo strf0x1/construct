@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-mod context;
+pub mod context;
 mod deck;
 mod mcp;
 pub use {context::ContextConfig, deck::DeckConfig, mcp::McpServer};

@@ -1,7 +1,7 @@
 //! Session writer ownership and ordered durable event delivery. The OS lock
 //! lives as long as the writer; crashes release it without stale-lock cleanup.
 
-use super::{Journal, new_id, project};
+use super::{Journal, new_id};
 use crate::event::{Event, Events};
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
@@ -29,18 +29,19 @@ impl Writer {
         Ok((Self { session, db: Mutex::new(db), _ownership: ownership, failure: Mutex::default() }, head))
     }
 
-    /// Reopen `session` and project its conversation.
-    pub fn resume(file: &Path, session: &str) -> Result<(Self, Vec<crate::llm::Message>)> {
+    /// Reopen `session` and rebuild its context through the strategy its head
+    /// names, keeping that strategy's own state (ADR 0043).
+    pub fn resume(file: &Path, session: &str) -> Result<(Self, Box<dyn crate::context::Context>)> {
         let ownership = ownership(file, session)?;
         let mut db = Journal::open(file)?;
         let entries = db.strict(session)?;
         db.recover(session, &entries)?;
         let entries = db.strict(session)?;
         anyhow::ensure!(!entries.is_empty(), "no session {session} in {}", file.display());
-        let msgs = project(entries.iter().map(|e| &e.event))?;
+        let ctx = crate::context::replay(entries.iter().map(|e| &e.event), crate::context::Check::Lenient)?;
         Ok((
             Self { session: session.to_string(), db: Mutex::new(db), _ownership: ownership, failure: Mutex::default() },
-            msgs,
+            ctx,
         ))
     }
 

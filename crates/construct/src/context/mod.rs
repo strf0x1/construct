@@ -4,10 +4,11 @@
 //! the window, the request sizing, pricing and events.
 //!
 //! The one choice a reader must know: a strategy is selected by name from
-//! `[context] strategy`, and the only one today is `compact`, which is the
-//! ADR 0013 planner moved behind this trait unchanged.
+//! `[context] strategy`. `compact` (the ADR 0013 planner) is the default;
+//! `optchat` (ADR 0043) keeps every message as a tree of short lines.
 
 mod compact;
+mod optchat;
 
 use crate::config::Config;
 use crate::event::Event;
@@ -15,10 +16,11 @@ use crate::llm::{self, Message, Usage};
 use serde_json::Value;
 
 pub const COMPACT: &str = "compact";
+pub const OPTCHAT: &str = "optchat";
 pub use crate::compact::Reason;
 
 /// The strategies a config may name, in the order an error lists them.
-pub const KNOWN: &[&str] = &[COMPACT];
+pub const KNOWN: &[&str] = &[COMPACT, OPTCHAT];
 
 /// How strictly a journal is replayed. Lenient resume skips a `compacted`
 /// event from before `cut` was journaled; recovery refuses it.
@@ -73,6 +75,11 @@ pub trait Context: Send + Sync {
     fn messages(&self) -> &[Message];
     /// Observe a message the agent appended.
     fn push(&mut self, m: Message);
+    /// Swap in the session's current system prompt. Replaces the recorded one
+    /// if there was one, inserts one otherwise, and returns whether one was
+    /// recorded. Resume keeps the replayed strategy, so this is how the
+    /// prompt is refreshed without losing the strategy's own state.
+    fn set_system(&mut self, m: Message) -> bool;
     /// Replay a journal event that is not message-bearing, in order.
     fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()>;
     /// Tool definitions this strategy contributes (none for `compact`).
@@ -88,6 +95,7 @@ pub trait Context: Send + Sync {
 pub fn build(name: &str, messages: Vec<Message>) -> anyhow::Result<Box<dyn Context>> {
     match name {
         COMPACT => Ok(Box::new(compact::Compact::new(messages))),
+        OPTCHAT => Ok(Box::new(optchat::Optchat::new(messages))),
         other => {
             anyhow::bail!(
                 "context.strategy: unknown strategy {other:?} (expected {})",
@@ -144,14 +152,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_names_the_only_strategy_and_lists_the_known_ones() {
+    fn build_names_the_known_strategies_and_lists_them() {
         let default = crate::config::Config::default();
         assert_eq!(build(&default.context.strategy, vec![]).expect("the default strategy").name(), COMPACT);
+        assert_eq!(build(OPTCHAT, vec![]).expect("optchat").name(), OPTCHAT);
         let message = match build("nope", vec![]) {
             Ok(_) => panic!("an unknown strategy must not build"),
             Err(e) => e.to_string(),
         };
-        assert_eq!(message, r#"context.strategy: unknown strategy "nope" (expected "compact")"#);
+        assert_eq!(message, r#"context.strategy: unknown strategy "nope" (expected "compact", "optchat")"#);
     }
 
     #[test]

@@ -66,6 +66,15 @@ impl Context for Compact {
         self.messages.push(m);
     }
 
+    fn set_system(&mut self, message: Message) -> bool {
+        let recorded = matches!(self.messages.first(), Some(m) if m.role == "system");
+        match self.messages.first_mut() {
+            Some(first) if first.role == "system" => *first = message,
+            _ => self.messages.insert(0, message),
+        }
+        recorded
+    }
+
     fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()> {
         let Event::Compacted { before, after, cut, .. } = e else {
             return Ok(());
@@ -374,5 +383,18 @@ mod tests {
             other => panic!("expected a failure, got {other:?}"),
         }
         assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn set_system_replaces_a_recorded_prompt_or_inserts_one() {
+        let mut recorded = Compact::new(vec![Message::system("old"), Message::user("hi")]);
+        assert!(recorded.set_system(Message::system("new")));
+        assert_eq!(recorded.messages()[0].content.as_deref(), Some("new"));
+        assert_eq!(recorded.messages().len(), 2);
+
+        let mut fresh = Compact::new(vec![Message::user("hi")]);
+        assert!(!fresh.set_system(Message::system("new")));
+        assert_eq!(fresh.messages()[0].content.as_deref(), Some("new"));
+        assert_eq!(fresh.messages().len(), 2);
     }
 }
