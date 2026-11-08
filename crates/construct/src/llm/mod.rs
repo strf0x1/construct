@@ -32,6 +32,10 @@ pub struct Message {
     pub role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
+    /// The message as content parts, sent instead of `content` when non-empty.
+    /// A marked part is where the provider should cache (ADR 0043 decision 6).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<Part>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,6 +44,15 @@ pub struct Message {
     /// the UI, never sent back (most endpoints reject or ignore it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning: Option<String>,
+}
+
+/// One text part of a [`Message`]. `mark` asks the dialect to put the cache
+/// breakpoint on this part; only a strategy that splits a message sets it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Part {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mark: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -68,12 +81,24 @@ impl Message {
         Self::text("user", text)
     }
     pub fn text(role: &str, text: impl Into<String>) -> Self {
-        Self { role: role.into(), content: Some(text.into()), tool_calls: vec![], tool_call_id: None, reasoning: None }
+        Self {
+            role: role.into(),
+            content: Some(text.into()),
+            parts: vec![],
+            tool_calls: vec![],
+            tool_call_id: None,
+            reasoning: None,
+        }
+    }
+    /// A message sent as content parts rather than one string.
+    pub fn parts(role: &str, parts: Vec<Part>) -> Self {
+        Self { role: role.into(), content: None, parts, tool_calls: vec![], tool_call_id: None, reasoning: None }
     }
     pub fn tool(id: &str, text: impl Into<String>) -> Self {
         Self {
             role: "tool".into(),
             content: Some(text.into()),
+            parts: vec![],
             tool_calls: vec![],
             tool_call_id: Some(id.into()),
             reasoning: None,
@@ -82,10 +107,26 @@ impl Message {
     /// The wire form: reasoning stripped, empty assistant content as null.
     fn wire(&self) -> Value {
         let mut v = json!({ "role": self.role });
-        match (&self.content, self.role.as_str()) {
-            (Some(c), _) => v["content"] = json!(c),
-            (None, "assistant") => v["content"] = Value::Null,
-            (None, _) => v["content"] = json!(""),
+        if self.parts.is_empty() {
+            match (&self.content, self.role.as_str()) {
+                (Some(c), _) => v["content"] = json!(c),
+                (None, "assistant") => v["content"] = Value::Null,
+                (None, _) => v["content"] = json!(""),
+            }
+        } else {
+            let parts: Vec<Value> = self
+                .parts
+                .iter()
+                .filter(|p| !p.text.is_empty())
+                .map(|p| {
+                    let mut part = json!({ "type": "text", "text": p.text });
+                    if p.mark {
+                        part["cache_control"] = dialect::ephemeral();
+                    }
+                    part
+                })
+                .collect();
+            v["content"] = json!(parts);
         }
         if !self.tool_calls.is_empty() {
             v["tool_calls"] = json!(self.tool_calls);
@@ -287,4 +328,38 @@ pub fn truncate(s: &str, max: usize) -> String {
         return s.to_string();
     }
     format!("{}…", crate::text::head(s, max))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn part(text: &str, mark: bool) -> Part {
+        Part { text: text.into(), mark }
+    }
+
+    #[test]
+    fn a_message_without_parts_serializes_as_before() {
+        let v = serde_json::to_value(Message::user("hi")).unwrap();
+        assert!(v.get("parts").is_none());
+        // Old journal rows have no `parts` key and still load.
+        let old: Message = serde_json::from_value(json!({ "role": "user", "content": "hi" })).unwrap();
+        assert_eq!(old, Message::user("hi"));
+    }
+
+    #[test]
+    fn marked_parts_wire_as_content_parts() {
+        let m = Message::parts("user", vec![part("a", false), part("b", true)]);
+        let v = m.wire();
+        assert_eq!(v["content"][0], json!({ "type": "text", "text": "a" }));
+        assert_eq!(v["content"][1], json!({ "type": "text", "text": "b", "cache_control": { "type": "ephemeral" } }));
+    }
+
+    #[test]
+    fn empty_parts_are_skipped() {
+        let m = Message::parts("user", vec![part("a", true), part("", false), part("", true)]);
+        let v = m.wire();
+        assert_eq!(v["content"].as_array().unwrap().len(), 1);
+        assert_eq!(v["content"][0]["text"], "a");
+    }
 }
