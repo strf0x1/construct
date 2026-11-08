@@ -25,14 +25,14 @@ pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, cura
         if all.is_empty() {
             bail!("no session {id} in this project's journal");
         }
-        let msgs = journal::project(all.iter().map(|e| &e.event));
+        let msgs = journal::project(all.iter().map(|e| &e.event))?;
         let last = all.last().map(|e| e.seq).unwrap_or(0);
         let user_turns = msgs.iter().filter(|m| m.role == "user").count() as u32;
         let tool_calls = msgs.iter().map(|m| m.tool_calls.len() as u32).sum();
         let mut st = learn::state(&paths);
         // A session may already have been reviewed in-process up to some seq.
         let reviewed = st["reviewed_seq"][&id].as_i64().unwrap_or(0);
-        let fresh = journal::project(db.since(&id, reviewed)?.iter().map(|e| &e.event));
+        let fresh = journal::project(db.since(&id, reviewed)?.iter().map(|e| &e.event))?;
         if reviewed < last && !fresh.is_empty() && learn::kind_for(user_turns, tool_calls).is_some() {
             // The curator below still runs either way: it tends agent-written
             // global skills, whatever strategy wrote them.

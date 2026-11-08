@@ -57,24 +57,9 @@ fn repairs(entries: &[Entry]) -> Result<Vec<Event>> {
             _ => {}
         }
     }
-    // Replay compaction before pairing: cuts preserve complete rounds. Any
-    // outstanding calls must be at the very end of the effective context.
-    let mut context = vec![];
-    for e in events() {
-        if let Event::Compacted { before, after, cut, .. } = e {
-            let Some(cut) = cut else {
-                anyhow::bail!("compaction has no replayable cut; history is incompatible with safe restoration");
-            };
-            ensure!(*before == context.len(), "compaction input does not match recorded history");
-            if let Some(s) = &cut.summary {
-                ensure!(s.upto > 1 && s.upto <= context.len(), "invalid saved compaction boundary");
-            }
-            context = crate::compact::apply(context, cut);
-            ensure!(*after == context.len(), "compaction output does not match recorded history");
-        } else {
-            context.extend(e.message().cloned());
-        }
-    }
+    // Replay before pairing: cuts preserve complete rounds. Any outstanding
+    // calls must be at the very end of the effective context.
+    let context = crate::context::replay(events(), crate::context::Check::Strict)?.messages().to_vec();
     let mut pending = BTreeSet::new();
     for m in &context {
         if m.role == "tool" {
