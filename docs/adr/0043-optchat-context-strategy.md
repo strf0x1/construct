@@ -228,6 +228,8 @@ One model (`anthropic/claude-haiku-5.5` on OpenRouter), one task
 | wall per run, median | 680 s | 2104 s |
 | summaries / overflows | 6 / 3 (2–4) | 0 / 0 |
 
+![coord-recall: compact vs optchat](../../bench/results/logs/coord-recall-20261108.svg)
+
 Pooling the probe outcomes, 8/24 against 24/24 is Fisher p = 6.5e-7.
 `compare` calls `report.recall` "same" because its spread rule takes the
 widest 10–90% range as the noise band and compact's is 0–0.875; it calls
