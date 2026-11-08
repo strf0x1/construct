@@ -7,6 +7,7 @@ fn call(id: &str) -> Message {
     Message {
         role: "assistant".into(),
         content: None,
+        parts: vec![],
         tool_calls: vec![ToolCall {
             id: id.into(),
             kind: "function".into(),

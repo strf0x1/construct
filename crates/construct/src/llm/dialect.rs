@@ -74,9 +74,17 @@ impl Provider {
     /// Adjust a standard body for this provider.
     pub fn shape(&self, model: &str, body: &mut Value) {
         match self.breakpoint(model) {
-            Breakpoint::None => {}
+            Breakpoint::None => {
+                shape_part_marks(body, false);
+            }
             Breakpoint::Request => body["cache_control"] = ephemeral(),
-            Breakpoint::LastPrompt => mark_last_prompt(body),
+            Breakpoint::LastPrompt => {
+                // A strategy that marked a part knows where its prefix ends;
+                // only that one breakpoint survives.
+                if !shape_part_marks(body, true) {
+                    mark_last_prompt(body);
+                }
+            }
         }
     }
 }
@@ -101,8 +109,31 @@ pub(super) fn standard_body(req: &Request<'_>) -> Value {
     body
 }
 
-fn ephemeral() -> Value {
+pub(super) fn ephemeral() -> Value {
     json!({ "type": "ephemeral" })
+}
+
+/// Remove the `cache_control` of every marked content part, keeping only the
+/// last marked one when `keep_last`. Returns whether the body had any.
+fn shape_part_marks(body: &mut Value, keep_last: bool) -> bool {
+    let Some(msgs) = body["messages"].as_array_mut() else { return false };
+    let mut marks = Vec::new();
+    for m in msgs.iter_mut() {
+        let Some(parts) = m.get_mut("content").and_then(Value::as_array_mut) else { continue };
+        for part in parts.iter_mut() {
+            if part.get("cache_control").is_some() {
+                marks.push(part);
+            }
+        }
+    }
+    let n = marks.len();
+    for (i, part) in marks.into_iter().enumerate() {
+        let remove = !keep_last || i + 1 != n;
+        if remove && let Some(obj) = part.as_object_mut() {
+            obj.remove("cache_control");
+        }
+    }
+    n > 0
 }
 
 /// Turn the newest system/user message's text into one content part that
@@ -185,5 +216,75 @@ mod tests {
         let off = provider(Dialect::OpenRouter, CacheMode::Off, "");
         assert_eq!(off.breakpoint("anthropic/claude"), Breakpoint::None);
         assert_eq!(off.breakpoint("google/gemini"), Breakpoint::None);
+    }
+
+    /// Two marked parts in different messages, so a single-breakpoint
+    /// provider has something to remove.
+    fn marked() -> Value {
+        json!({ "model": "m", "messages": [
+            { "role": "system", "content": [
+                { "type": "text", "text": "sys", "cache_control": ephemeral() },
+            ]},
+            { "role": "user", "content": [
+                { "type": "text", "text": "a" },
+                { "type": "text", "text": "b", "cache_control": ephemeral() },
+            ]},
+            { "role": "tool", "content": "out", "tool_call_id": "1" },
+        ]})
+    }
+
+    /// The same messages with every part mark removed.
+    fn unmarked() -> Value {
+        json!({ "model": "m", "messages": [
+            { "role": "system", "content": [{ "type": "text", "text": "sys" }] },
+            { "role": "user", "content": [{ "type": "text", "text": "a" }, { "type": "text", "text": "b" }] },
+            { "role": "tool", "content": "out", "tool_call_id": "1" },
+        ]})
+    }
+
+    fn marks(v: &Value) -> usize {
+        match v {
+            Value::Object(o) => {
+                o.keys().filter(|k| *k == "cache_control").count() + o.values().map(marks).sum::<usize>()
+            }
+            Value::Array(a) => a.iter().map(marks).sum(),
+            _ => 0,
+        }
+    }
+
+    #[test]
+    fn a_plain_endpoint_never_sees_a_part_mark() {
+        let mut b = marked();
+        provider(Dialect::OpenAi, CacheMode::Auto, "http://localhost/v1").shape("anthropic/claude", &mut b);
+        assert_eq!(marks(&b), 0);
+        assert_eq!(b, unmarked());
+    }
+
+    #[test]
+    fn request_keeps_part_marks_and_adds_the_top_level_one() {
+        let mut b = marked();
+        provider(Dialect::OpenRouter, CacheMode::Auto, "").shape("anthropic/claude-haiku-5.5", &mut b);
+        assert_eq!(b["cache_control"], ephemeral());
+        assert_eq!(b["messages"], marked()["messages"]);
+    }
+
+    #[test]
+    fn last_prompt_keeps_only_the_last_part_mark() {
+        let mut b = marked();
+        provider(Dialect::OpenRouter, CacheMode::Auto, "").shape("google/gemini-3-flash", &mut b);
+        assert!(b.get("cache_control").is_none());
+        assert_eq!(marks(&b), 1);
+        assert_eq!(b["messages"][1]["content"][1]["cache_control"], ephemeral());
+        let mut expected = marked();
+        expected["messages"][0]["content"][0].as_object_mut().unwrap().remove("cache_control");
+        assert_eq!(b, expected);
+    }
+
+    #[test]
+    fn deepseek_gets_no_part_mark() {
+        let mut b = marked();
+        provider(Dialect::OpenRouter, CacheMode::Auto, "").shape("deepseek/deepseek-v4.1-flash", &mut b);
+        assert!(b.get("cache_control").is_none());
+        assert_eq!(marks(&b), 0);
     }
 }

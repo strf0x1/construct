@@ -150,6 +150,7 @@ impl Accumulator {
             message: Message {
                 role: "assistant".into(),
                 content: if self.content.is_empty() { None } else { Some(self.content) },
+                parts: vec![],
                 tool_calls,
                 tool_call_id: None,
                 reasoning: if self.reasoning.is_empty() { None } else { Some(self.reasoning) },
