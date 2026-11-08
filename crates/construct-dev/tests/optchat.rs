@@ -72,7 +72,8 @@ fn the_third_turn_sees_earlier_turns_as_chat_lines_and_never_raw() {
 }
 
 /// `zoom` (ADR 0043 decision 9): offered by the strategy, answered by it
-/// without the catalog, and journaled exactly like a catalog call.
+/// without the catalog, and journaled like a catalog call — `ok` from the
+/// outcome `Context::call` returns, not from the text.
 #[test]
 fn zoom_is_offered_and_answered_by_the_context() {
     let env = Env::with_window(
@@ -80,7 +81,10 @@ fn zoom_is_offered_and_answered_by_the_context() {
         json!({
             "steps": [
                 {"text": "answer one"},
-                {"call": "zoom", "args": {"id": 0, "n": 1}},
+                {"calls": [
+                    {"call": "zoom", "args": {"id": 0, "n": 1}},
+                    {"call": "zoom", "args": {"id": 0, "n": 3}}
+                ]},
                 {"text": "answer two"}
             ],
             "side": ["merged"]
@@ -107,19 +111,20 @@ fn zoom_is_offered_and_answered_by_the_context() {
     assert!(offers_zoom, "the request offers zoom: {:?}", reqs[0]["tools"]);
 
     let rows = env.journal();
-    let start =
-        rows.iter().find(|r| r.ty == "tool_start" && r.payload["name"] == "zoom").expect("the zoom call is journaled");
-    let args: Value = serde_json::from_str(start.payload["args"].as_str().unwrap()).unwrap();
-    assert_eq!(args, json!({"id": 0, "n": 1}));
-    let end =
-        rows.iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "zoom").expect("the zoom answer is journaled");
-    assert_eq!(end.payload["ok"], true);
-    assert_eq!(end.payload["output"], "0+0|first");
-    assert_eq!(end.payload["id"], start.payload["id"]);
+    let ends: Vec<&Row> = rows.iter().filter(|r| r.ty == "tool_end" && r.payload["name"] == "zoom").collect();
+    assert_eq!(ends.len(), 2, "both calls are journaled: {ends:?}");
+    let good = ends.iter().find(|r| r.payload["ok"] == true).expect("the leaf answer is ok");
+    assert_eq!(good.payload["output"], "0+1|first");
+    let bad = ends.iter().find(|r| r.payload["ok"] == false).expect("the refusal is not ok");
+    let refusal = "zoom: 0+3 is not a node: n must be a power of two, id a multiple of n, and id+n at most 4";
+    assert_eq!(bad.payload["output"], refusal);
 
-    // The page reached the model as that call's result.
+    // Both results reached the model under their own call ids.
     let messages = reqs[2]["messages"].as_array().unwrap();
-    let result = messages.iter().find(|m| m["role"] == "tool").expect("the zoom result was sent back");
-    assert_eq!(result["tool_call_id"], end.payload["id"]);
-    assert_eq!(result["content"], "0+0|first");
+    let results: Vec<&Value> = messages.iter().filter(|m| m["role"] == "tool").collect();
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0]["tool_call_id"], good.payload["id"]);
+    assert_eq!(results[0]["content"], "0+1|first");
+    assert_eq!(results[1]["tool_call_id"], bad.payload["id"]);
+    assert_eq!(results[1]["content"], refusal);
 }

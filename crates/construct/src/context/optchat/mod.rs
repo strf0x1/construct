@@ -130,7 +130,7 @@ impl Context for Optchat {
         vec![zoom::definition()]
     }
 
-    fn call(&mut self, name: &str, args: &str) -> Option<String> {
+    fn call(&mut self, name: &str, args: &str) -> Option<Result<String, String>> {
         if name != zoom::ZOOM {
             return None;
         }
@@ -298,7 +298,7 @@ mod tests {
         let tools = ctx.tools();
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0]["function"]["name"], ZOOM);
-        assert_eq!(ctx.call(ZOOM, r#"{"id":0,"n":1}"#).as_deref(), Some("0+0|one"));
+        assert_eq!(ctx.call(ZOOM, r#"{"id":0,"n":1}"#), Some(Ok("0+1|one".into())));
         assert_eq!(ctx.call("read", "{}"), None);
     }
 

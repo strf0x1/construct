@@ -60,12 +60,13 @@ impl Agent {
                 );
                 results[i] = Some(out);
             } else if own.contains(&c.function.name) {
-                let Some(out) = self.context.call(&c.function.name, &c.function.arguments) else {
+                let Some(outcome) = self.context.call(&c.function.name, &c.function.arguments) else {
                     continue;
                 };
-                // A strategy refuses with `{name}: …`; that is the model's
-                // error text and the journal's not-ok, as for a catalog call.
-                let ok = !out.strip_prefix(c.function.name.as_str()).is_some_and(|rest| rest.starts_with(": "));
+                let (ok, out) = match outcome {
+                    Ok(text) => (true, text),
+                    Err(refusal) => (false, refusal),
+                };
                 self.journal.emit(
                     Event::ToolStart {
                         id: c.id.clone(),
