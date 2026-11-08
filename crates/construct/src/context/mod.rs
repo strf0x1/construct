@@ -94,8 +94,9 @@ pub trait Context: Send + Sync {
         vec![]
     }
     /// Answer a call to one of `tools()`. `None` means the name is not one of
-    /// this strategy's tools. A refusal starts with the tool's name and `: `.
-    fn call(&mut self, _name: &str, _args: &str) -> Option<String> {
+    /// this strategy's tools; `Some(Ok(text))` is the model's result and
+    /// `Some(Err(text))` a refusal, which the journal records as not ok.
+    fn call(&mut self, _name: &str, _args: &str) -> Option<Result<String, String>> {
         None
     }
     /// React to the threshold before a request, or to a provider's overflow.

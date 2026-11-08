@@ -48,33 +48,29 @@ struct Args {
     page: usize,
 }
 
-/// Answer one call. A refusal starts with `{ZOOM}: `.
-pub(super) fn call(entries: &[Message], tree: &Tree, args: &str) -> String {
-    let Args { id: raw_id, n: raw_n, page } = match serde_json::from_str(args) {
-        Ok(args) => args,
-        Err(_) => {
-            return format!(r#"{ZOOM}: expected {{"id": integer, "n": integer, "page": integer}}"#);
-        }
-    };
+/// Answer one call. The `Err` text is the refusal, starting `{ZOOM}: `.
+pub(super) fn call(entries: &[Message], tree: &Tree, args: &str) -> Result<String, String> {
+    let Args { id: raw_id, n: raw_n, page } = serde_json::from_str(args)
+        .map_err(|_| format!(r#"{ZOOM}: expected {{"id": integer, "n": integer, "page": integer}}"#))?;
     let count = entries.len() as u128;
     let (id, n) = (u128::from(raw_id), u128::from(raw_n));
     if !n.is_power_of_two() || id % n != 0 || id + n > count {
-        return format!(
+        return Err(format!(
             "{ZOOM}: {raw_id}+{raw_n} is not a node: \
              n must be a power of two, id a multiple of n, and id+n at most {count}"
-        );
+        ));
     }
     let l = n.trailing_zeros();
     let i = (id >> l) as u64;
     if !tree.built(entries, l, i) {
-        return not_in_tree(raw_id, raw_n);
+        return Err(not_in_tree(raw_id, raw_n));
     }
     if l == 0 {
         return leaf(entries, raw_id as usize, page);
     }
     match (tree.line(entries, l - 1, i * 2), tree.line(entries, l - 1, i * 2 + 1)) {
-        (Some(first), Some(second)) => format!("{first}\n{second}"),
-        _ => not_in_tree(raw_id, raw_n),
+        (Some(first), Some(second)) => Ok(format!("{first}\n{second}")),
+        _ => Err(not_in_tree(raw_id, raw_n)),
     }
 }
 
@@ -82,19 +78,19 @@ fn not_in_tree(id: u64, n: u64) -> String {
     format!("{ZOOM}: {id}+{n} is not in the tree; zoom a line from <chat> or one zoom returned")
 }
 
-/// A leaf: the entry's raw content, one page of it.
-fn leaf(entries: &[Message], id: usize, page: usize) -> String {
+/// A leaf: the entry's raw content, one page of it, under the leaf's own ref.
+fn leaf(entries: &[Message], id: usize, page: usize) -> Result<String, String> {
     let text = entries.get(id).map(raw).unwrap_or_default();
     let pages = pages(&text);
     let count = pages.len();
     let Some(chunk) = pages.get(page) else {
-        return format!("{ZOOM}: page {page} of {count} does not exist");
+        return Err(format!("{ZOOM}: page {page} of {count} does not exist"));
     };
-    let mut out = format!("{id}+0|{chunk}");
+    let mut out = format!("{id}+1|{chunk}");
     if count > 1 {
         out.push_str(&format!("\n(page {} of {count})", page + 1));
     }
-    out
+    Ok(out)
 }
 
 /// `text` in pages of `PAGE` bytes, each ending on a char boundary.
@@ -133,7 +129,11 @@ mod tests {
     }
 
     fn call_on(args: &str) -> String {
-        call(&entries(), &node(), args)
+        call(&entries(), &node(), args).expect("an answer")
+    }
+
+    fn refusal(args: &str) -> String {
+        call(&entries(), &node(), args).expect_err("a refusal")
     }
 
     #[test]
@@ -143,17 +143,17 @@ mod tests {
 
     #[test]
     fn a_leaf_with_one_page_is_the_original_message() {
-        assert_eq!(call_on(r#"{"id":0,"n":1}"#), "0+0|first message");
+        assert_eq!(call_on(r#"{"id":0,"n":1}"#), "0+1|first message");
     }
 
     #[test]
     fn a_three_page_leaf_pages_on_char_boundaries_and_footers_each_page() {
         let first = call_on(r#"{"id":2,"n":1}"#);
-        assert_eq!(first, format!("2+0|{}\n(page 1 of 3)", "x".repeat(PAGE)));
+        assert_eq!(first, format!("2+1|{}\n(page 1 of 3)", "x".repeat(PAGE)));
         let second = call_on(r#"{"id":2,"n":1,"page":1}"#);
-        assert_eq!(second, format!("2+0|{}\n(page 2 of 3)", "x".repeat(PAGE)));
+        assert_eq!(second, format!("2+1|{}\n(page 2 of 3)", "x".repeat(PAGE)));
         let third = call_on(r#"{"id":2,"n":1,"page":2}"#);
-        assert_eq!(third, format!("2+0|{}\n(page 3 of 3)", "x".repeat(10)));
+        assert_eq!(third, format!("2+1|{}\n(page 3 of 3)", "x".repeat(10)));
     }
 
     #[test]
@@ -162,33 +162,33 @@ mod tests {
         tree.insert(0, 0, "written".into(), false);
         let mut entries = vec![Message::user("é".repeat(PAGE / 2 + 1))];
         let args = r#"{"id":0,"n":1,"page":1}"#;
-        assert_eq!(call(&entries, &tree, args), "0+0|é\n(page 2 of 2)");
+        assert_eq!(call(&entries, &tree, args).expect("an answer"), "0+1|é\n(page 2 of 2)");
         entries[0] = Message::user("short");
-        assert_eq!(call(&entries, &tree, r#"{"id":0,"n":1}"#), "0+0|short");
+        assert_eq!(call(&entries, &tree, r#"{"id":0,"n":1}"#).expect("an answer"), "0+1|short");
     }
 
     #[test]
     fn a_misaligned_node_names_what_is_valid() {
         let msg = "zoom: 0+3 is not a node: n must be a power of two, id a multiple of n, and id+n at most 3";
-        assert_eq!(call_on(r#"{"id":0,"n":3}"#), msg);
+        assert_eq!(refusal(r#"{"id":0,"n":3}"#), msg);
         let msg = "zoom: 1+2 is not a node: n must be a power of two, id a multiple of n, and id+n at most 3";
-        assert_eq!(call_on(r#"{"id":1,"n":2}"#), msg);
+        assert_eq!(refusal(r#"{"id":1,"n":2}"#), msg);
         let msg = "zoom: 2+2 is not a node: n must be a power of two, id a multiple of n, and id+n at most 3";
-        assert_eq!(call_on(r#"{"id":2,"n":2}"#), msg);
+        assert_eq!(refusal(r#"{"id":2,"n":2}"#), msg);
     }
 
     #[test]
     fn an_unwritten_node_or_leaf_is_not_in_the_tree() {
         let msg = "zoom: 0+2 is not in the tree; zoom a line from <chat> or one zoom returned";
-        assert_eq!(call(&entries(), &Tree::default(), r#"{"id":0,"n":2}"#), msg);
+        assert_eq!(call(&entries(), &Tree::default(), r#"{"id":0,"n":2}"#).expect_err("a refusal"), msg);
         let mut tree = Tree::default();
         tree.insert(1, 0, "merged".into(), false);
         let msg = "zoom: 2+1 is not in the tree; zoom a line from <chat> or one zoom returned";
-        assert_eq!(call(&entries(), &tree, r#"{"id":2,"n":1}"#), msg);
+        assert_eq!(call(&entries(), &tree, r#"{"id":2,"n":1}"#).expect_err("a refusal"), msg);
     }
 
     #[test]
     fn a_page_past_the_end_is_an_error() {
-        assert_eq!(call_on(r#"{"id":0,"n":1,"page":1}"#), "zoom: page 1 of 1 does not exist");
+        assert_eq!(refusal(r#"{"id":0,"n":1,"page":1}"#), "zoom: page 1 of 1 does not exist");
     }
 }
