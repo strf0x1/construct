@@ -216,10 +216,22 @@ No measurements yet. Implementation slices:
 3. #204: `fit` writes summaries, parents, batches and mid-turn folds, with
    the fallback.
 4. #205: `zoom`, and `Context::log` for learning and routing.
-5. #206: the `coord-recall` bench family: a long synthetic coordinator
-   transcript with decisions planted far back, then questions that need
-   them. It compares `compact` against `optchat` on recall, cost and cached
-   share (#187's metrics), and relates to #128.
+5. #206: the `coord-recall` bench family. `bench/coord_fixtures.py`
+   generates `bench/tasks/coord-recall/` (seeded; `check.sh` is hand-written):
+   twelve early turns plant decisions with per-run values, 120 middle turns
+   are ordinary traffic and override two of them, and eight probes ask for
+   the current decision, recorded in `answers.txt`. It compares `compact`
+   against `optchat` on recall, cost and cached share (#187's metrics), and
+   relates to #128. The arms are a config overlay, so the run is:
+
+   ```sh
+   python3 bench/bench.py task --tasks coord-recall --rounds 3 \
+     --arm compact:'cfg:context = { strategy = "compact" }' \
+     --arm optchat:'cfg:context = { strategy = "optchat" }'
+   python3 bench/bench.py compare <result.json> --a compact --b optchat
+   ```
+
+   No measurement has been taken yet.
 
 Read in UniiChat at its current `HEAD`:
 - `Memory.ts`: `line`, `view` with `BLOCK = 4` and one marked block, `HIGH =

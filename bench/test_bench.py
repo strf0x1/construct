@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 
 import compare as cmp
+import coord_fixtures
 import journal
 import process
 import tasklib
@@ -29,6 +30,11 @@ def tmpdir(test):
     tmp = tempfile.TemporaryDirectory()
     test.addCleanup(tmp.cleanup)
     return Path(tmp.name)
+
+
+def tree(root):
+    """Every file under `root` as {relative path: bytes}, dotfiles included."""
+    return {str(f.relative_to(root)): f.read_bytes() for f in sorted(root.rglob("*")) if f.is_file()}
 
 
 SOLUTIONS = {
@@ -97,6 +103,24 @@ def recall_answer(w, v):
 SOLUTIONS["compact-long-fix"] = lambda w, v: fix_shop(w)
 SOLUTIONS["compact-conventions"] = validate_quantities
 SOLUTIONS["compact-recall"] = recall_answer
+
+
+def coord_answer(w, v):
+    """The eight probed decisions: the overrides where there were two."""
+    answers = {
+        "kernel": v["kcfg"],
+        "region": v["region"],
+        "train": v["train"],
+        "base": v["base"],
+        "staging": v["staging"],
+        "signing": v["signing"],
+        "flag": v["flag"],
+        "channel": v["channel"],
+    }
+    (w / "answers.txt").write_text("".join(f"{k}={val}\n" for k, val in answers.items()))
+
+
+SOLUTIONS["coord-recall"] = coord_answer
 CHECK_ENV = {"team-seed": {"BENCH_SESSION": "median"}}
 
 
@@ -153,6 +177,47 @@ class Tasks(unittest.TestCase):
                 after = tasklib.check(task, work, CHECK_ENV.get(name))
                 self.assertTrue(after and all(after.values()), f"solution must pass: {after}")
                 self.assertEqual(tasklib.unintended(task, work), [], "a solution changes only expected paths")
+
+    def test_the_coord_task_is_the_generators_output(self):
+        d = self.tmp / "coord"
+        coord_fixtures.write(d, seed=coord_fixtures.SEED)
+        generated = ("task.toml", "fixture/README.md", "fixture/Makefile", "fixture/ops/runbook.md", "fixture/.coord-answer")
+        for rel in generated:
+            self.assertEqual((d / rel).read_bytes(), (coord_fixtures.TASK / rel).read_bytes(), f"{rel}: rerun bench/coord_fixtures.py")
+
+    def test_the_coord_generator_is_deterministic_for_a_seed(self):
+        a, b = self.tmp / "a", self.tmp / "b"
+        coord_fixtures.write(a, seed=3)
+        coord_fixtures.write(b, seed=3)
+        self.assertEqual(tree(a), tree(b), "the same seed must write the same task")
+        coord_fixtures.write(b, seed=4)
+        self.assertNotEqual((a / "task.toml").read_bytes(), (b / "task.toml").read_bytes(), "another seed, another task")
+
+    def test_the_coord_probes_match_the_scorer(self):
+        task, _, work = self.materialize("coord-recall")
+        keys = task.spec["probes"]
+        self.assertEqual(keys, [d["key"] for d in coord_fixtures.DECISIONS if "probe" in d])
+        self.assertEqual(len([t for t in task.turns if "answers.txt" in t]), len(keys), "one probe turn per key")
+        checks, report = tasklib.check_report(task, work)
+        self.assertEqual(sorted(checks), sorted(f"probe_{k}" for k in keys), "check.sh scores exactly the probes")
+        self.assertFalse(any(checks.values()))
+        self.assertEqual(report["recall"], 0.0)
+
+    def test_the_coord_scorer_reports_recall(self):
+        task, vars, work = self.materialize("coord-recall")
+        coord_answer(work, vars)
+        checks, report = tasklib.check_report(task, work)
+        self.assertTrue(all(checks.values()), checks)
+        self.assertEqual(report["recall"], 1.0)
+        # Half wrong: the two retired values and two plain wrong ones.
+        self.assertNotEqual(vars["kcfg"], vars["kcfg_old"])
+        wrong = {"kernel": vars["kcfg_old"], "region": "eu-west-1", "train": "nope", "base": "trixie"}
+        kept = [l for l in (work / "answers.txt").read_text().splitlines() if l.split("=")[0] not in wrong]
+        (work / "answers.txt").write_text("\n".join(kept + [f"{k}={v}" for k, v in wrong.items()]) + "\n")
+        checks, report = tasklib.check_report(task, work)
+        self.assertEqual(report["recall"], 0.5)
+        for k in wrong:
+            self.assertFalse(checks[f"probe_{k}"], k)
 
     def curriculum_session(self, task, s, rng_seed=7):
         """A materialized work dir for one curriculum session, as the suite makes it."""
