@@ -9,10 +9,9 @@ probes ask for one decision each, recorded in `answers.txt` as `key=value`.
 The generator is seeded: `python3 bench/coord_fixtures.py --seed N` writes the
 same task.toml and fixture for the same N, so the committed task is a diffable
 artefact. Per-run values are `{{name}}` placeholders from `[vars]`, filled by
-tasklib. The fixture's hidden `.coord-answer` holds a digest per probe, so the
-work dir never holds the expected values plainly; an ordinary search finds it
-only with `-a`. (`compact-recall` keeps its hashes in `.git`; a fixture cannot
-carry a `.git` directory, because git will not track one.)
+The expected values reach `check.sh` only as `BENCH_VAR_<key>` in its own
+environment. Nothing in the work dir is an answer key: an agent that cannot
+recall a decision and searches the repo must find nothing to copy.
 """
 
 import argparse
@@ -26,28 +25,20 @@ TASK = TASKS / "coord-recall"
 SEED = 0
 WINDOW = 65536
 
-# Per-run values. Templates are tasklib's ({hexN}, {sha256:var:N}); turns and
-# the fixture use {{name}}. The `*_check` entries are the answer key: check.sh
-# compares a digest, so the work dir never holds the expected values plainly.
+# Per-run values. Templates are tasklib's ({hexN}); the turns use {{name}}.
+# Every probed key has a var of the same name, which the bench hands check.sh
+# as BENCH_VAR_<key>; `kernel_old` is the value the override retires.
 VARS = {
-    "kcfg": "KCFG-{hex4}",
-    "kcfg_old": "KCFG-{hex4}",
+    "kernel": "KCFG-{hex4}",
+    "kernel_old": "KCFG-{hex4}",
     "train": "train-{hex4}",
-    "staging": "s3://acme-staging-{hex4}",
+    "staging": "acme-staging-{hex4}",
     "signing": "KEY-{hex4}",
     "flag": "ff-{hex4}",
     "channel": "#inc-{hex4}",
     "region": "eu-central-1",
     "base": "bookworm",
     "dbkey": "{hex6}",
-    "kernel_check": "{sha256:kcfg:64}",
-    "region_check": "{sha256:region:64}",
-    "train_check": "{sha256:train:64}",
-    "base_check": "{sha256:base:64}",
-    "staging_check": "{sha256:staging:64}",
-    "signing_check": "{sha256:signing:64}",
-    "flag_check": "{sha256:flag:64}",
-    "channel_check": "{sha256:channel:64}",
 }
 
 # One planted decision per turn, in order. `override` is where the decision
@@ -57,11 +48,11 @@ VARS = {
 DECISIONS = [
     {
         "key": "kernel",
-        "plant": "The arm64 image is built with kernel config `{{kcfg_old}}`. That is the only arm64 config the fleet supports; nothing else is approved.",
-        "override": "Correction from the architecture review: the arm64 image now uses kernel config `{{kcfg}}`. The old `{{kcfg_old}}` is retired, and nothing may reference it.",
+        "plant": "The arm64 image is built with kernel config `{{kernel_old}}`. That is the only arm64 config the fleet supports; nothing else is approved.",
+        "override": "Correction from the architecture review: the arm64 image now uses kernel config `{{kernel}}`. The old `{{kernel_old}}` is retired, and nothing may reference it.",
         "thing": "arm64 kernel config",
         "probe": "Which kernel config does the arm64 image use now?",
-        "want": "{{kcfg}}",
+        "want": "{{kernel}}",
     },
     {
         "key": "region",
@@ -87,7 +78,7 @@ DECISIONS = [
     },
     {
         "key": "staging",
-        "plant": "Staging artifacts go to `{{staging}}`. Nothing goes to the old bucket.",
+        "plant": "Staging artifacts go to the bucket `{{staging}}`. Nothing goes to the old bucket.",
         "thing": "staging bucket",
         "probe": "What is the staging bucket?",
         "want": "{{staging}}",
@@ -189,8 +180,9 @@ def conversation(rng: random.Random) -> list:
         if "probe" not in d:
             continue
         turns.append(
-            f"Record what you know: append one line `{d['key']}=<value>` to answers.txt with the current "
-            f"{d['thing']}. Keep the lines already in the file and change nothing else. Do not explain."
+            f"Record what you know: write one line `{d['key']}=<value>` to answers.txt with the current "
+            f"{d['thing']}. Create answers.txt if it does not exist; keep any lines already in it and change "
+            f"nothing else. Write the value you have, and do not ask questions."
         )
     return turns
 
@@ -231,9 +223,6 @@ def fixture(dest: Path):
     (dest / "ops" / "runbook.md").write_text(
         "# Runbook\n\n- Start a rollout with a canary window and watch the error and latency dashboards.\n"
         "- Roll back first, investigate second.\n- Write the handoff summary before you leave.\n"
-    )
-    (dest / ".coord-answer").write_text(
-        "".join(f"{d['key']} {{{{{d['key']}_check}}}}\n" for d in DECISIONS if "probe" in d)
     )
 
 

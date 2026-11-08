@@ -425,3 +425,9 @@ The overnight IQ2_XXS invocation (`--arm steps400`, max_steps = 400) never saved
 - `hashline-salt`: hidden tests 2/2 (3/3 with the 2026-11-03 run), sizes 1.04x and 1.11x.
 - Without a plan, the same model made 0 edits on child-key in 2/2 runs. Full model, same `hashline-salt` arm: 2/2 (`task-20261104-121137.json`).
 - Both xtask/lint failures (child-key-plan r1, hashline-salt r0) are one golden snapshot, `snapshots__finished_turn.snap`: its status line shows the first request's token count, 2.0k inside construct's sandbox and 1.9k in the scorer's env. The model saw a failure it didn't cause and re-recorded it. The full model did the same once. The fixture's snapshot depends on the environment; that's a bench bug, not a model signal.
+
+## 2026-11-08 16:14 note
+
+coord-recall (#206), Haiku 5.5, n=3 per arm: recall 8/24 (compact) vs 24/24 (optchat), pooled Fisher p=6.5e-7. optchat costs 1.8x, 3.7x model requests, 3.1x wall and has 2.5 points lower cached share; compact overflows 2-4 times per run at peak fill 0.99. First attempt discarded: the fixture kept a hash answer key the agent found by grepping; re-run on the fixed task (key only in check.sh's BENCH_VAR_*).
+
+- `bench/results/task-20261108-161422.json`: model anthropic/claude-haiku-5.5; bench ca4e6e5 dirty; compact ca4e6e5 editor=replace router=local; optchat ca4e6e5 editor=replace router=local

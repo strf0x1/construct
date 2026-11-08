@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Scores answers.txt: one check per probe, exact match after trimming, against
-# the digests the fixture keeps in .coord-answer (filled per run from [vars],
-# so the work dir never holds the expected values plainly). The fraction
-# correct is written to $BENCH_REPORT as `recall`. No model judge.
+# the per-run values the bench passes as BENCH_VAR_<key> (never into the work
+# dir). The fraction correct is written to $BENCH_REPORT as `recall`. No model
+# judge.
 exec "${BENCH_PYTHON:-python3}" - <<'PY'
-import hashlib
 import json
 import os
 import re
@@ -27,20 +26,9 @@ if p.exists():
         if m and m.group(1) in KEYS and norm(m.group(2)):
             answers[m.group(1)] = norm(m.group(2))  # a later line wins
 
-want = {}
-key = Path(".coord-answer")
-if key.exists():
-    for line in key.read_text().splitlines():
-        k, _, v = line.strip().partition(" ")
-        if k and v.strip():
-            want[k] = v.strip()
+want = {k: os.environ.get(f"BENCH_VAR_{k}") for k in KEYS}
 
-
-def digest(text):
-    return hashlib.sha256(text.encode()).hexdigest()
-
-
-checks = {f"probe_{k}": k in answers and want.get(k) == digest(answers[k]) for k in KEYS}
+checks = {f"probe_{k}": k in answers and want[k] is not None and answers[k] == want[k] for k in KEYS}
 correct = sum(checks.values())
 report = {"recall": correct / len(KEYS), "correct": correct, "probes": len(KEYS), "answers": answers}
 if os.environ.get("BENCH_REPORT"):

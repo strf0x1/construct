@@ -108,7 +108,7 @@ SOLUTIONS["compact-recall"] = recall_answer
 def coord_answer(w, v):
     """The eight probed decisions: the overrides where there were two."""
     answers = {
-        "kernel": v["kcfg"],
+        "kernel": v["kernel"],
         "region": v["region"],
         "train": v["train"],
         "base": v["base"],
@@ -167,21 +167,26 @@ class Tasks(unittest.TestCase):
         self.assertEqual(v["seed_check"], hashlib.sha256(v["seed"].encode()).hexdigest()[:16])
         self.assertRegex(tasklib.make_vars(tasklib.load("release-signing"), random.Random(1))["key"], r"^ledger-[0-9a-f]{4}$")
 
+    def run_vars(self, vars, name=None):
+        """A scorer's env: the run's values, as the bench passes them."""
+        return {f"BENCH_VAR_{k}": v for k, v in vars.items()} | (CHECK_ENV.get(name) or {})
+
     def test_scorers_fail_the_fixture_and_pass_a_solution(self):
         for name, solve in SOLUTIONS.items():
             with self.subTest(name):
                 task, vars, work = self.materialize(name)
-                before = tasklib.check(task, work, CHECK_ENV.get(name))
+                env = self.run_vars(vars, name)
+                before = tasklib.check(task, work, env)
                 self.assertFalse(all(before.values()), f"untouched fixture must fail: {before}")
                 solve(work, vars)
-                after = tasklib.check(task, work, CHECK_ENV.get(name))
+                after = tasklib.check(task, work, env)
                 self.assertTrue(after and all(after.values()), f"solution must pass: {after}")
                 self.assertEqual(tasklib.unintended(task, work), [], "a solution changes only expected paths")
 
     def test_the_coord_task_is_the_generators_output(self):
         d = self.tmp / "coord"
         coord_fixtures.write(d, seed=coord_fixtures.SEED)
-        generated = ("task.toml", "fixture/README.md", "fixture/Makefile", "fixture/ops/runbook.md", "fixture/.coord-answer")
+        generated = ("task.toml", "fixture/README.md", "fixture/Makefile", "fixture/ops/runbook.md")
         for rel in generated:
             self.assertEqual((d / rel).read_bytes(), (coord_fixtures.TASK / rel).read_bytes(), f"{rel}: rerun bench/coord_fixtures.py")
 
@@ -194,27 +199,28 @@ class Tasks(unittest.TestCase):
         self.assertNotEqual((a / "task.toml").read_bytes(), (b / "task.toml").read_bytes(), "another seed, another task")
 
     def test_the_coord_probes_match_the_scorer(self):
-        task, _, work = self.materialize("coord-recall")
+        task, vars, work = self.materialize("coord-recall")
         keys = task.spec["probes"]
         self.assertEqual(keys, [d["key"] for d in coord_fixtures.DECISIONS if "probe" in d])
         self.assertEqual(len([t for t in task.turns if "answers.txt" in t]), len(keys), "one probe turn per key")
-        checks, report = tasklib.check_report(task, work)
+        checks, report = tasklib.check_report(task, work, self.run_vars(vars))
         self.assertEqual(sorted(checks), sorted(f"probe_{k}" for k in keys), "check.sh scores exactly the probes")
         self.assertFalse(any(checks.values()))
         self.assertEqual(report["recall"], 0.0)
 
     def test_the_coord_scorer_reports_recall(self):
         task, vars, work = self.materialize("coord-recall")
+        env = self.run_vars(vars)
         coord_answer(work, vars)
-        checks, report = tasklib.check_report(task, work)
+        checks, report = tasklib.check_report(task, work, env)
         self.assertTrue(all(checks.values()), checks)
         self.assertEqual(report["recall"], 1.0)
         # Half wrong: the two retired values and two plain wrong ones.
-        self.assertNotEqual(vars["kcfg"], vars["kcfg_old"])
-        wrong = {"kernel": vars["kcfg_old"], "region": "eu-west-1", "train": "nope", "base": "trixie"}
+        self.assertNotEqual(vars["kernel"], vars["kernel_old"])
+        wrong = {"kernel": vars["kernel_old"], "region": "eu-west-1", "train": "nope", "base": "trixie"}
         kept = [l for l in (work / "answers.txt").read_text().splitlines() if l.split("=")[0] not in wrong]
         (work / "answers.txt").write_text("\n".join(kept + [f"{k}={v}" for k, v in wrong.items()]) + "\n")
-        checks, report = tasklib.check_report(task, work)
+        checks, report = tasklib.check_report(task, work, env)
         self.assertEqual(report["recall"], 0.5)
         for k in wrong:
             self.assertFalse(checks[f"probe_{k}"], k)
