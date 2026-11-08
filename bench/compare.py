@@ -28,7 +28,7 @@ SKIP = {"findings", "rejection_codes", "failure_codes", "unintended", "turns", "
 # Higher is better for these; everything else (time, tokens, requests, errors,
 # rejections, sizes) is lower-better. Boolean checks are higher-better unless
 # their name is in LOWER_BOOL.
-HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|recoveries|cache_hit_rate|cached_tokens|cache_hit|cache_hit_after_cut|adoption)($|[._])|^checks\.")
+HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|correct|recall|recoveries|cache_hit_rate|cached_tokens|cache_hit|cache_hit_after_cut|adoption)($|[._])|^checks\.")
 # No better direction: a different editor may rightly take more or fewer calls,
 # a compaction policy may rightly cut more or less often, cache writes are
 # what turning caching on costs (cost_usd judges them), and a change's size
