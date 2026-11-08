@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub type Events = tokio::sync::mpsc::UnboundedSender<Event>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
@@ -183,6 +184,22 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cut: Option<crate::compact::Cut>,
     },
+    /// The `optchat` tree changed (ADR 0043): written leaves and merges, and
+    /// the view when its shape moved. Replay rebuilds from these.
+    Memory {
+        #[serde(default)]
+        leaves: Vec<MemoryNode>,
+        #[serde(default)]
+        merges: Vec<MemoryNode>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        view: Option<Vec<(u32, u64)>>,
+        #[serde(default)]
+        summary_prompt: u64,
+        #[serde(default)]
+        summary_completion: u64,
+        #[serde(default)]
+        ms: u64,
+    },
     TurnEnd {
         steps: u32,
         prompt: u64,
@@ -280,3 +297,4 @@ pub enum Event {
 }
 
 mod projection;
+pub use projection::MemoryNode;

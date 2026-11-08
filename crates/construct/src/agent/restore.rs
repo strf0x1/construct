@@ -81,6 +81,7 @@ impl Agent {
                 })?;
             }
         }
+        check_window(&cfg.context.strategy, u64::from(cfg.context_window), &cfg.model)?;
         let ep = cfg.endpoint();
         let key = if origin.is_some() { ep.env_key() } else { ep.key() };
         let client = llm::Client::new(&ep, ep.require(key)?)?;
@@ -107,7 +108,7 @@ impl Agent {
         let cwd_s = cwd.display().to_string();
         let mut unsent = vec![];
         let resume_id = resume.clone();
-        let (writer, mut messages) = match resume {
+        let (writer, mut context) = match resume {
             Some(id) => journal::Writer::resume(&file, &id)?,
             None => {
                 let (w, head) = journal::Writer::create(&file, |id| Event::Head {
@@ -121,7 +122,7 @@ impl Agent {
                     parent_call_id: origin.as_ref().map(|o| o.parent_call_id.clone()),
                 })?;
                 unsent.push(head);
-                (w, vec![])
+                (w, crate::context::build(&cfg.context.strategy, vec![])?)
             }
         };
         let (system, sandbox) = match origin {
@@ -133,12 +134,7 @@ impl Agent {
                 crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
             ),
         };
-        let system_recorded = messages.first().is_some_and(|m| m.role == "system");
-        match messages.first() {
-            Some(m) if m.role == "system" => messages[0] = Message::system(system),
-            _ => messages.insert(0, Message::system(system)),
-        }
-        let context = crate::context::build(&cfg.context.strategy, messages)?;
+        let system_recorded = context.set_system(Message::system(system));
         let jobs = crate::jobs::Jobs::new(&cfg.jobs);
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
@@ -213,5 +209,27 @@ impl Agent {
             agent.unsent.push(Event::Error { message });
         }
         Ok(agent)
+    }
+}
+
+/// `optchat`'s view alone can reach about 32k tokens, so it is for large
+/// windows only (ADR 0043 decision 1). `compact` has no such floor.
+fn check_window(strategy: &str, window: u64, model: &str) -> Result<()> {
+    if strategy == crate::context::OPTCHAT && window < 65536 {
+        anyhow::bail!("context.optchat needs a context window of at least 65536 tokens; {model} has {window}");
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optchat_refuses_a_window_under_65536_and_compact_accepts_any() {
+        check_window(crate::context::COMPACT, 4096, "small").expect("compact accepts any window");
+        check_window(crate::context::OPTCHAT, 65536, "big").expect("the minimum is enough");
+        let err = check_window(crate::context::OPTCHAT, 32000, "small").expect_err("a small window refuses");
+        assert_eq!(err.to_string(), "context.optchat needs a context window of at least 65536 tokens; small has 32000");
     }
 }
