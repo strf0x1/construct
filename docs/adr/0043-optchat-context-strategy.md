@@ -161,8 +161,7 @@ This ADR takes A. B stays a possible bench arm.
     the current turn is covered by exactly one line, and the turn waits
     until every line is written. A summary that fails or is refused still
     yields a line: the entry's head cut to 512 bytes and marked
-    `[unsummarized]`, journaled with `fallback: true`, and recorded as a
-    note. The model can therefore always continue without `zoom`. `zoom`
+    `[unsummarized]` and journaled with `fallback: true`. The model can therefore always continue without `zoom`. `zoom`
     adds detail, not coverage.
 
 11. **Summary calls.** The summary model has its own fixed system prompt:
@@ -192,6 +191,10 @@ This ADR takes A. B stays a possible bench arm.
 - Under A, a long last reply comes back as its summary on the next turn. If
   the bench shows the model losing the thread of its own last answer, B is
   the arm to try.
+- Resume keeps the strategy that replay rebuilt, and swaps in the current
+  system prompt with `Context::set_system`. Today `agent/restore.rs`
+  rebuilds a strategy from the replayed view, which loses optchat's tree.
+  For `compact` the view and the log are the same, so nothing changes.
 - Hard facts (task ids, hashes, PR numbers) will get garbled after enough
   merges. Deck's coordinator reads them from `deckd` (0042 decision 6);
   this ADR does not try to protect them.
@@ -203,19 +206,20 @@ This ADR takes A. B stays a possible bench arm.
 
 ## Evidence
 
-No measurements yet. The first slices, to file as issues when this is
-accepted:
+No measurements yet. Implementation slices:
 
-1. `Message::parts` and per-part cache marks in the dialect. Neutral for
-   `compact`: golden snapshots unchanged.
-2. The `optchat` strategy: log, leaves, tree, view, `Event::Memory`, replay
-   and the window check. Tested with a fake `Complete`; replay makes no model
-   call.
-3. `zoom`, `Context::log` and learning.
-4. A bench family: a long synthetic coordinator transcript with decisions
-   planted far back, then questions that need them. It compares `compact`
-   against `optchat` on recall, cost and cached share (#187's metrics), and
-   relates to #128.
+1. #202: `Message::parts` and per-part cache marks in the dialect. Neutral
+   for `compact`: golden snapshots unchanged.
+2. #203: resume keeps the replayed strategy; the `optchat` name, config and
+   window check; log, tree, view, render, `Event::Memory` and replay. No
+   model calls.
+3. #204: `fit` writes summaries, parents, batches and mid-turn folds, with
+   the fallback.
+4. #205: `zoom`, and `Context::log` for learning and routing.
+5. #206: the `coord-recall` bench family: a long synthetic coordinator
+   transcript with decisions planted far back, then questions that need
+   them. It compares `compact` against `optchat` on recall, cost and cached
+   share (#187's metrics), and relates to #128.
 
 Read in UniiChat at its current `HEAD`:
 - `Memory.ts`: `line`, `view` with `BLOCK = 4` and one marked block, `HIGH =
