@@ -2,16 +2,21 @@
 //! against. Kept out of the loop so a pricing or window change has one home.
 
 use super::Agent;
+use crate::config::Config;
 use crate::llm::Usage;
 
+/// The catalog's price for `model` stands in when the provider sent none.
+pub(super) fn price(cfg: &Config, model: &str, u: &mut Usage) {
+    if u.cost.is_none()
+        && let Some(p) = cfg.lookup(model).and_then(|e| e.pricing)
+    {
+        u.cost = Some(p.cost(u.prompt_tokens, u.completion_tokens));
+    }
+}
+
 impl Agent {
-    /// The catalog's price for `model` stands in when the provider sent none.
     pub(super) fn price(&self, model: &str, u: &mut Usage) {
-        if u.cost.is_none()
-            && let Some(p) = self.cfg.lookup(model).and_then(|e| e.pricing)
-        {
-            u.cost = Some(p.cost(u.prompt_tokens, u.completion_tokens));
-        }
+        price(&self.cfg, model, u);
     }
 
     /// The window a provider stated about this model wins while it is smaller

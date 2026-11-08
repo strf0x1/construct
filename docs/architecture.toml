@@ -16,7 +16,7 @@
 may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
 
 [modules.agent]
-may_use = ["child", "compact", "config", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
+may_use = ["child", "compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
 
 [modules.agents]
 may_use = ["child", "config", "sandbox", "tools"]
@@ -32,6 +32,9 @@ may_use = ["config", "llm"]
 
 [modules.config]
 may_use = ["agents", "jobs", "learn", "mcp", "models", "providers", "tools"]
+
+[modules.context]
+may_use = ["compact", "config", "event", "llm"]
 
 [modules.endpoint]
 may_use = ["config", "providers", "secrets"]

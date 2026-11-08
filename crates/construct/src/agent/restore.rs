@@ -134,6 +134,7 @@ impl Agent {
             Some(m) if m.role == "system" => messages[0] = Message::system(system),
             _ => messages.insert(0, Message::system(system)),
         }
+        let context = crate::context::build(&cfg.context.strategy, messages)?;
         let jobs = crate::jobs::Jobs::new(&cfg.jobs);
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
@@ -170,7 +171,7 @@ impl Agent {
             ctx,
             catalog,
             manifest,
-            messages,
+            context,
             groups,
             journal: Arc::new(writer),
             unsent,
@@ -186,7 +187,7 @@ impl Agent {
             notes: Coalescer::default(),
         };
         if !system_recorded {
-            let ev = Event::for_message(agent.messages[0].clone());
+            let ev = Event::for_message(agent.messages()[0].clone());
             agent.journal.record(&ev);
             agent.unsent.push(ev);
         }

@@ -27,7 +27,7 @@ impl Agent {
         let message = Message::user(jobs::render(&ended));
         let delivery = jobs::Delivered { ids: ids.clone(), via: "turn".into(), message: Some(message.clone()) };
         self.journal.emit(Event::JobsDelivered(delivery), tx);
-        self.messages.push(message);
+        self.context.push(message);
         self.ctx.jobs.delivered(&ids);
         true
     }

@@ -20,6 +20,9 @@ pub struct Manifest {
     pub config_sha256: String,
     pub tools: Vec<String>,
     pub editor: String,
+    /// The `[context] strategy` that owns the message list (ADR 0042).
+    #[serde(default)]
+    pub context: String,
     /// The editor's knobs, when it has any, so bench arms that differ only
     /// in them (`anchor`, `window_radius`) are told apart.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -69,6 +72,7 @@ impl Manifest {
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools: vec![],
             editor: String::new(),
+            context: String::new(),
             hashline: None,
             web_search: String::new(),
             model: String::new(),
@@ -93,6 +97,7 @@ impl Manifest {
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools: catalog.names(),
             editor: cfg.tools.editor.clone(),
+            context: cfg.context.strategy.clone(),
             hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             web_search: cfg.tools.web.search.clone(),
             model: cfg.model.clone(),

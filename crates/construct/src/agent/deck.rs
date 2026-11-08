@@ -45,7 +45,7 @@ impl Agent {
         let ids: Vec<String> = notices.iter().map(|n| n.id.clone()).collect();
         let message = Message::user(boundary::notifications(&notices));
         self.journal.emit(Event::DeckBoundary { ids: ids.clone(), message: message.clone() }, tx);
-        self.messages.push(message);
+        self.context.push(message);
         for id in ids {
             boundary.mark_seen(&id);
         }
