@@ -62,8 +62,8 @@ impl Journal {
     }
 }
 
-/// The conversation as the model saw it last: the message-bearing events,
-/// replayed through the strategy the session's head names.
+/// The conversation the session logged, replayed through the strategy the
+/// session's head names: every message, not only what the view still shows.
 pub fn project<'a>(events: impl IntoIterator<Item = &'a Event> + Clone) -> Result<Vec<Message>> {
-    Ok(crate::context::replay(events, crate::context::Check::Lenient)?.messages().to_vec())
+    Ok(crate::context::replay(events, crate::context::Check::Lenient)?.log().to_vec())
 }

@@ -70,3 +70,56 @@ fn the_third_turn_sees_earlier_turns_as_chat_lines_and_never_raw() {
     let memory = env.journal().into_iter().filter(|r| r.ty == "memory").count();
     assert!(memory > 0, "the journal records the fits");
 }
+
+/// `zoom` (ADR 0043 decision 9): offered by the strategy, answered by it
+/// without the catalog, and journaled exactly like a catalog call.
+#[test]
+fn zoom_is_offered_and_answered_by_the_context() {
+    let env = Env::with_window(
+        "optchat-zoom",
+        json!({
+            "steps": [
+                {"text": "answer one"},
+                {"call": "zoom", "args": {"id": 0, "n": 1}},
+                {"text": "answer two"}
+            ],
+            "side": ["merged"]
+        }),
+        Some(65_536),
+    );
+    env.config("context_window = 65536\n[learn]\nenabled = false\n");
+    let mut vars = env.env();
+    vars.push(("CONSTRUCT_CONTEXT_STRATEGY".into(), "optchat".into()));
+
+    let mut d =
+        drive::Driver::spawn(&[construct().display().to_string()], &vars, Some(env.work.to_str().unwrap()), 100, 30)
+            .expect("the TUI starts");
+    play(
+        &mut d,
+        "wait \"ask construct\" 8000\n\
+         type first\nkey enter\nwait \"answer one\" 15000\nwait \"ask construct anything… (/help)\" 5000\n\
+         type second\nkey enter\nwait \"answer two\" 15000\nwait \"ask construct anything… (/help)\" 5000\n",
+    );
+
+    let reqs = agent_requests(&env);
+    assert_eq!(reqs.len(), 3, "two turns and the step after the tool: {reqs:?}");
+    let offers_zoom = reqs[0]["tools"].as_array().is_some_and(|t| t.iter().any(|x| x["function"]["name"] == "zoom"));
+    assert!(offers_zoom, "the request offers zoom: {:?}", reqs[0]["tools"]);
+
+    let rows = env.journal();
+    let start =
+        rows.iter().find(|r| r.ty == "tool_start" && r.payload["name"] == "zoom").expect("the zoom call is journaled");
+    let args: Value = serde_json::from_str(start.payload["args"].as_str().unwrap()).unwrap();
+    assert_eq!(args, json!({"id": 0, "n": 1}));
+    let end =
+        rows.iter().find(|r| r.ty == "tool_end" && r.payload["name"] == "zoom").expect("the zoom answer is journaled");
+    assert_eq!(end.payload["ok"], true);
+    assert_eq!(end.payload["output"], "0+0|first");
+    assert_eq!(end.payload["id"], start.payload["id"]);
+
+    // The page reached the model as that call's result.
+    let messages = reqs[2]["messages"].as_array().unwrap();
+    let result = messages.iter().find(|m| m["role"] == "tool").expect("the zoom result was sent back");
+    assert_eq!(result["tool_call_id"], end.payload["id"]);
+    assert_eq!(result["content"], "0+0|first");
+}

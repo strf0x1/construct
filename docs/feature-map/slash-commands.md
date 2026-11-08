@@ -3,8 +3,8 @@ id: slash-commands
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tui/help.rs, crates/construct/src/tui/palette.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/commands.rs, crates/construct/src/tui/listing.rs, crates/construct/src/tui/boxed.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/skills.rs, crates/construct/src/tui/mod.rs, crates/construct/src/tui/worker.rs]
-verified_at: 2cc6584
-verified_deps: 2457c45b4a442685
+verified_at: a62e0f6
+verified_deps: 70e49d020b8f5b26
 ---
 # Slash commands
 

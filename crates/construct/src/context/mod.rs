@@ -73,6 +73,12 @@ pub trait Context: Send + Sync {
     fn name(&self) -> &'static str;
     /// The view sent to the model.
     fn messages(&self) -> &[Message];
+    /// Every message the log holds, including the ones the view no longer
+    /// shows. Readers that need what actually happened (learning, routing)
+    /// read this, not `messages()` (ADR 0043 decision 12).
+    fn log(&self) -> &[Message] {
+        self.messages()
+    }
     /// Observe a message the agent appended.
     fn push(&mut self, m: Message);
     /// Swap in the session's current system prompt. Replaces the recorded one
@@ -82,9 +88,15 @@ pub trait Context: Send + Sync {
     fn set_system(&mut self, m: Message) -> bool;
     /// Replay a journal event that is not message-bearing, in order.
     fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()>;
-    /// Tool definitions this strategy contributes (none for `compact`).
+    /// Tool definitions this strategy contributes (none for `compact`,
+    /// `optchat`'s `zoom`).
     fn tools(&self) -> Vec<Value> {
         vec![]
+    }
+    /// Answer a call to one of `tools()`. `None` means the name is not one of
+    /// this strategy's tools. A refusal starts with the tool's name and `: `.
+    fn call(&mut self, _name: &str, _args: &str) -> Option<String> {
+        None
     }
     /// React to the threshold before a request, or to a provider's overflow.
     async fn fit(&mut self, env: &Env<'_>, reason: Reason) -> Fit;
@@ -161,6 +173,12 @@ mod tests {
             Err(e) => e.to_string(),
         };
         assert_eq!(message, r#"context.strategy: unknown strategy "nope" (expected "compact", "optchat")"#);
+    }
+
+    #[test]
+    fn only_optchat_offers_tools() {
+        assert!(build(COMPACT, vec![]).expect("compact").tools().is_empty());
+        assert_eq!(build(OPTCHAT, vec![]).expect("optchat").tools().len(), 1);
     }
 
     #[test]
