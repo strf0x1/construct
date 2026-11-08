@@ -2,7 +2,7 @@
 //! Old journals resume exactly as before, the `compacted` event is identical,
 //! and a second strategy can land beside it without touching the loop.
 
-use super::{COMPACT, Context, Env, Fit};
+use super::{COMPACT, Check, Context, Env, Fit};
 use crate::compact::{self, Reason};
 use crate::event::Event;
 use crate::llm::{Message, Usage};
@@ -64,6 +64,31 @@ impl Context for Compact {
 
     fn push(&mut self, m: Message) {
         self.messages.push(m);
+    }
+
+    fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()> {
+        let Event::Compacted { before, after, cut, .. } = e else {
+            return Ok(());
+        };
+        match check {
+            Check::Lenient => {
+                if let Some(cut) = cut {
+                    self.messages = compact::apply(std::mem::take(&mut self.messages), cut);
+                }
+            }
+            Check::Strict => {
+                let Some(cut) = cut else {
+                    anyhow::bail!("compaction has no replayable cut; history is incompatible with safe restoration");
+                };
+                anyhow::ensure!(*before == self.messages.len(), "compaction input does not match recorded history");
+                if let Some(s) = &cut.summary {
+                    anyhow::ensure!(s.upto > 1 && s.upto <= self.messages.len(), "invalid saved compaction boundary");
+                }
+                self.messages = compact::apply(std::mem::take(&mut self.messages), cut);
+                anyhow::ensure!(*after == self.messages.len(), "compaction output does not match recorded history");
+            }
+        }
+        Ok(())
     }
 
     async fn fit(&mut self, env: &Env<'_>, reason: Reason) -> Fit {
@@ -244,6 +269,96 @@ mod tests {
             .await;
         assert!(matches!(fit, Fit::NothingToCut), "{fit:?}");
         assert_eq!(fake.calls.load(Ordering::SeqCst), 0);
+    }
+
+    fn compacted(before: usize, after: usize, cut: Option<compact::Cut>) -> Event {
+        serde_json::from_value(serde_json::json!({
+            "event": "compacted",
+            "before": before,
+            "after": after,
+            "cut": cut,
+        }))
+        .expect("a compacted event")
+    }
+
+    #[test]
+    fn replay_applies_each_cut_where_it_happened() {
+        let first = vec![
+            Message::system("system"),
+            Message::user("one"),
+            Message::text("assistant", "answer one"),
+            Message::tool("call-1", "x".repeat(700)),
+        ];
+        let elide = compact::Cut { elide: vec!["call-1".into()], summary: None };
+        let after_elide = apply(first.clone(), &elide);
+        let summarize = compact::Cut {
+            elide: vec![],
+            summary: Some(compact::Summary { upto: 3, text: "earlier rounds".into(), request: None }),
+        };
+        let mut middle = after_elide.clone();
+        middle.push(Message::user("two"));
+        middle.push(Message::text("assistant", "answer two"));
+        let expected = apply(middle.clone(), &summarize);
+
+        let events = [
+            Event::for_message(Message::system("system")),
+            Event::for_message(Message::user("one")),
+            Event::for_message(Message::text("assistant", "answer one")),
+            Event::for_message(Message::tool("call-1", "x".repeat(700))),
+            compacted(first.len(), after_elide.len(), Some(elide)),
+            Event::for_message(Message::user("two")),
+            Event::for_message(Message::text("assistant", "answer two")),
+            compacted(middle.len(), expected.len(), Some(summarize)),
+        ];
+        let ctx = crate::context::replay(events.iter(), Check::Lenient).expect("a lenient replay");
+        assert_eq!(ctx.messages(), expected.as_slice());
+    }
+
+    #[test]
+    fn strict_replay_refuses_a_cut_less_compaction_and_lenient_skips_it() {
+        let events = [
+            Event::for_message(Message::system("system")),
+            compacted(1, 1, None),
+            Event::for_message(Message::user("hi")),
+        ];
+        let ctx = crate::context::replay(events.iter(), Check::Lenient).expect("a lenient replay");
+        let expected = vec![Message::system("system"), Message::user("hi")];
+        assert_eq!(ctx.messages(), expected.as_slice());
+        let err = match crate::context::replay(events.iter(), Check::Strict) {
+            Ok(_) => panic!("strict must refuse a cut-less compaction"),
+            Err(e) => e.to_string(),
+        };
+        assert_eq!(err, "compaction has no replayable cut; history is incompatible with safe restoration");
+    }
+
+    #[test]
+    fn strict_replay_refuses_a_cut_that_does_not_match_the_history() {
+        let events = [
+            Event::for_message(Message::system("system")),
+            compacted(7, 1, Some(compact::Cut { elide: vec![], summary: None })),
+        ];
+        let err = match crate::context::replay(events.iter(), Check::Strict) {
+            Ok(_) => panic!("strict must refuse a mismatched compaction"),
+            Err(e) => e.to_string(),
+        };
+        assert_eq!(err, "compaction input does not match recorded history");
+    }
+
+    #[test]
+    fn strategy_of_treats_an_empty_head_as_compact() {
+        let manifest = crate::manifest::Manifest::foreign(&cfg());
+        let head = Event::Head {
+            id: "s".into(),
+            harness: "construct".into(),
+            version: "test".into(),
+            cwd: "/".into(),
+            model: "m".into(),
+            manifest,
+            parent_session: None,
+            parent_call_id: None,
+        };
+        assert_eq!(crate::context::strategy_of([&head]), COMPACT);
+        assert_eq!(crate::context::strategy_of(std::iter::empty()), COMPACT);
     }
 
     #[tokio::test]

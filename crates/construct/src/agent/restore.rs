@@ -43,6 +43,10 @@ impl Agent {
             let source = if local { file.clone() } else { journal::find(&paths, id)?.0 };
             let entries = journal::Journal::read_only(&source)?.strict(id)?;
             journal::validate_directory(&entries, &cwd)?;
+            crate::context::check_resume(
+                crate::context::strategy_of(entries.iter().map(|e| &e.event)),
+                &cfg.context.strategy,
+            )?;
             if model_override.is_none()
                 && let Some((model, provider)) = journal::saved_model(&entries)
             {

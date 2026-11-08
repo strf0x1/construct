@@ -20,6 +20,14 @@ pub use crate::compact::Reason;
 /// The strategies a config may name, in the order an error lists them.
 pub const KNOWN: &[&str] = &[COMPACT];
 
+/// How strictly a journal is replayed. Lenient resume skips a `compacted`
+/// event from before `cut` was journaled; recovery refuses it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Check {
+    Lenient,
+    Strict,
+}
+
 /// The outcome of one fit.
 #[derive(Debug)]
 pub enum Fit {
@@ -65,6 +73,8 @@ pub trait Context: Send + Sync {
     fn messages(&self) -> &[Message];
     /// Observe a message the agent appended.
     fn push(&mut self, m: Message);
+    /// Replay a journal event that is not message-bearing, in order.
+    fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()>;
     /// Tool definitions this strategy contributes (none for `compact`).
     fn tools(&self) -> Vec<Value> {
         vec![]
@@ -87,6 +97,48 @@ pub fn build(name: &str, messages: Vec<Message>) -> anyhow::Result<Box<dyn Conte
     }
 }
 
+/// The strategy a session's head names. A journal from before the manifest
+/// carried one, or a session with no head at all, is `compact`.
+pub fn strategy_of<'a>(events: impl IntoIterator<Item = &'a Event>) -> &'a str {
+    events
+        .into_iter()
+        .find_map(|e| match e {
+            Event::Head { manifest, .. } => Some(manifest.context.as_str()),
+            _ => None,
+        })
+        .map(|name| if name.is_empty() { COMPACT } else { name })
+        .unwrap_or(COMPACT)
+}
+
+/// Rebuild a session's view through the strategy its head names, replaying
+/// every non-message event in order.
+pub fn replay<'a, I>(events: I, check: Check) -> anyhow::Result<Box<dyn Context>>
+where
+    I: IntoIterator<Item = &'a Event> + Clone,
+{
+    let mut ctx = build(strategy_of(events.clone()), vec![])?;
+    for e in events {
+        if let Some(m) = e.message() {
+            ctx.push(m.clone());
+        } else {
+            ctx.replay(e, check)?;
+        }
+    }
+    Ok(ctx)
+}
+
+/// Refuse to replay a session whose head names another strategy. `recorded`
+/// is empty for journals from before the manifest carried one.
+pub fn check_resume(recorded: &str, configured: &str) -> anyhow::Result<()> {
+    let recorded = if recorded.is_empty() { COMPACT } else { recorded };
+    if recorded != configured {
+        anyhow::bail!(
+            "session uses context strategy {recorded:?} but config names {configured:?}; resume with CONSTRUCT_CONTEXT_STRATEGY={recorded}"
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,5 +152,16 @@ mod tests {
             Err(e) => e.to_string(),
         };
         assert_eq!(message, r#"context.strategy: unknown strategy "nope" (expected "compact")"#);
+    }
+
+    #[test]
+    fn check_resume_accepts_an_unrecorded_or_matching_strategy_and_refuses_another() {
+        check_resume("", COMPACT).expect("an old journal is compact");
+        check_resume(COMPACT, COMPACT).expect("the same strategy");
+        let message = check_resume("optchat", COMPACT).expect_err("a different strategy must refuse").to_string();
+        assert_eq!(
+            message,
+            r#"session uses context strategy "optchat" but config names "compact"; resume with CONSTRUCT_CONTEXT_STRATEGY=optchat"#
+        );
     }
 }

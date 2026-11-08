@@ -63,14 +63,7 @@ impl Journal {
 }
 
 /// The conversation as the model saw it last: the message-bearing events,
-/// with each journaled compaction cut replayed where it happened.
-pub fn project<'a>(events: impl IntoIterator<Item = &'a Event>) -> Vec<Message> {
-    let mut out = vec![];
-    for e in events {
-        match e {
-            Event::Compacted { cut: Some(cut), .. } => out = crate::compact::apply(out, cut),
-            e => out.extend(e.message().cloned()),
-        }
-    }
-    out
+/// replayed through the strategy the session's head names.
+pub fn project<'a>(events: impl IntoIterator<Item = &'a Event> + Clone) -> Result<Vec<Message>> {
+    Ok(crate::context::replay(events, crate::context::Check::Lenient)?.messages().to_vec())
 }

@@ -22,9 +22,9 @@ fn rows_project_back_to_the_conversation_and_rewind_truncates() {
     db.append("s", &Event::Text { text: "hel".into() }).unwrap();
     let all = db.since("s", 0).unwrap();
     assert_eq!(all.len(), 6);
-    assert_eq!(project(all.iter().map(|e| &e.event)), msgs);
+    assert_eq!(project(all.iter().map(|e| &e.event)).unwrap(), msgs);
     db.rewind("s", all[3].seq).unwrap();
-    assert_eq!(project(db.since("s", 0).unwrap().iter().map(|e| &e.event)), msgs[..2]);
+    assert_eq!(project(db.since("s", 0).unwrap().iter().map(|e| &e.event)).unwrap(), msgs[..2]);
     assert_eq!(db.last_seq("s").unwrap(), all[3].seq);
     // FTS follows inserts and the rewind's deletes.
     let hits = |q: &str| -> i64 {

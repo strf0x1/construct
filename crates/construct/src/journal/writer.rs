@@ -37,7 +37,7 @@ impl Writer {
         db.recover(session, &entries)?;
         let entries = db.strict(session)?;
         anyhow::ensure!(!entries.is_empty(), "no session {session} in {}", file.display());
-        let msgs = project(entries.iter().map(|e| &e.event));
+        let msgs = project(entries.iter().map(|e| &e.event))?;
         Ok((
             Self { session: session.to_string(), db: Mutex::new(db), _ownership: ownership, failure: Mutex::default() },
             msgs,
