@@ -206,7 +206,47 @@ This ADR takes A. B stays a possible bench arm.
 
 ## Evidence
 
-No measurements yet. Implementation slices:
+### coord-recall, 2026-11-08
+
+One model (`anthropic/claude-haiku-5.5` on OpenRouter), one task
+(`bench/tasks/coord-recall/`, 140 turns, ~210k-token transcript,
+`window = 65536`), n = 3 runs per arm, `--no-learn`, no warm-up. Result:
+`bench/results/task-20261108-161422.json`; compare:
+`bench/results/compare-20261108-161430.json`.
+
+| | compact | optchat |
+|---|---|---|
+| recall, probes over all runs | 8/24 (33%) | 24/24 (100%) |
+| recall per run | 0.125, 0.875, 0.0 | 1.0, 1.0, 1.0 |
+| cost per run, median | $0.194 | $0.344 |
+| prompt tokens, median | 5,551,172 | 4,582,658 |
+| cached share, median | 85.0% | 82.5% |
+| cached tokens, median | 4,633,572 | 3,797,546 |
+| cache writes, median | 649,628 | 653,040 |
+| completion tokens, median | 133,628 | 422,990 |
+| model requests, median | 181 | 677 |
+| wall per run, median | 680 s | 2104 s |
+| summaries / overflows | 6 / 3 (2–4) | 0 / 0 |
+
+Pooling the probe outcomes, 8/24 against 24/24 is Fisher p = 6.5e-7.
+`compare` calls `report.recall` "same" because its spread rule takes the
+widest 10–90% range as the noise band and compact's is 0–0.875; it calls
+`success` inconclusive (p = 0.10 at n = 3). The numbers that go against
+optchat are cost (1.8x), completion tokens (3.2x), requests (3.7x), wall
+(3.1x) and cached share (2.5 points lower). compact's losses are of two
+kinds: in its 7/8 run it answered the retired region (`eu-west-1`, the
+override's predecessor); in its 0/8 run it wrote "unknown" or the host's
+kernel version after searching the repo. compact also ran at the provider's
+edge: 3 overflows (2–4) per run and peak fill 0.99.
+
+The first attempt at this run was discarded: the fixture then kept a hash
+answer key in the work dir, which compact found by grepping, and the probe
+wording ("keep the lines already in the file") made it refuse to create
+`answers.txt`. The key now reaches `check.sh` only as `BENCH_VAR_<key>` in the
+scorer's own environment, and the probes say to create the file and write the
+value without asking.
+
+Implementation slices:
 
 1. #202: `Message::parts` and per-part cache marks in the dialect. Neutral
    for `compact`: golden snapshots unchanged.
@@ -231,7 +271,7 @@ No measurements yet. Implementation slices:
    python3 bench/bench.py compare <result.json> --a compact --b optchat
    ```
 
-   No measurement has been taken yet.
+   Measured above, under "coord-recall, 2026-11-08".
 
 Read in UniiChat at its current `HEAD`:
 - `Memory.ts`: `line`, `view` with `BLOCK = 4` and one marked block, `HIGH =

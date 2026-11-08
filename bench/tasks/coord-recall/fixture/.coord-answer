@@ -1,8 +1,0 @@
-kernel {{kernel_check}}
-region {{region_check}}
-train {{train_check}}
-base {{base_check}}
-staging {{staging_check}}
-signing {{signing_check}}
-flag {{flag_check}}
-channel {{channel_check}}

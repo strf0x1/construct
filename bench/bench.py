@@ -1037,7 +1037,9 @@ def suite_task(args):
         recs = ep.records()
         ep.close()
         assert_no_keys(base)
-        checks, report = tasklib.check_report(task, work)
+        # The run's vars, for a scorer that must not keep an answer key in the
+        # work dir (the curriculum suite already reads BENCH_VAR_* the same way).
+        checks, report = tasklib.check_report(task, work, {f"BENCH_VAR_{k}": v for k, v in vars.items()})
         unintended = tasklib.unintended(task, work)
         main = [x for x in recs if not x.get("side")]
         failed = run_provider_failures(main, turns)
