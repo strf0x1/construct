@@ -24,7 +24,7 @@ impl Optchat {
     pub(super) async fn fitting(&mut self, env: &Env<'_>, reason: Reason) -> Fit {
         let started = Instant::now();
         let mut rec = Record::default();
-        let turn = turn_of(&self.entries);
+        let turn = turn_of(self.entries());
 
         if reason == Reason::Threshold && turn > self.view.frontier {
             self.write_leaves(env, self.view.frontier, turn, &mut rec).await;
@@ -63,7 +63,7 @@ impl Optchat {
         self.view
             .nodes
             .iter()
-            .filter_map(|&(l, i)| self.tree.line(&self.entries, l, i))
+            .filter_map(|&(l, i)| self.tree.line(self.entries(), l, i))
             .map(|l| l.len() as u64 + 1)
             .sum()
     }
@@ -72,8 +72,8 @@ impl Optchat {
     /// `concurrency`, then insert them in index order.
     async fn write_leaves(&mut self, env: &Env<'_>, from: usize, to: usize, rec: &mut Record) {
         let missing: Vec<(usize, String)> = (from..to)
-            .filter(|&i| !self.tree.built(&self.entries, 0, i as u64))
-            .filter_map(|i| self.entries.get(i).map(|m| (i, entry_text(m))))
+            .filter(|&i| !self.tree.built(self.entries(), 0, i as u64))
+            .filter_map(|i| self.entries().get(i).map(|m| (i, entry_text(m))))
             .collect();
         if missing.is_empty() {
             return;
@@ -103,11 +103,11 @@ impl Optchat {
                 continue;
             }
             let j = i / 2;
-            if self.tree.built(&self.entries, l + 1, j) || !seen.insert((l + 1, j)) {
+            if self.tree.built(self.entries(), l + 1, j) || !seen.insert((l + 1, j)) {
                 continue;
             }
             let (Some(first), Some(second)) =
-                (self.tree.line(&self.entries, l, i), self.tree.line(&self.entries, l, i + 1))
+                (self.tree.line(self.entries(), l, i), self.tree.line(self.entries(), l, i + 1))
             else {
                 continue;
             };
@@ -170,7 +170,7 @@ impl Optchat {
                 continue;
             }
             let j = i / 2;
-            if !self.tree.built(&self.entries, l + 1, j) {
+            if !self.tree.built(self.entries(), l + 1, j) {
                 continue;
             }
             let key = due(l, i2);
@@ -185,9 +185,10 @@ impl Optchat {
     /// assistant message, so a result is never separated from its call.
     /// Returns whether anything was folded.
     async fn fold(&mut self, env: &Env<'_>, rec: &mut Record) -> bool {
-        let turn = turn_of(&self.entries);
+        let turn = turn_of(self.entries());
         let raw_start = (turn + 1).max(self.view.frontier);
-        let Some(last) = (raw_start..self.entries.len()).rev().find(|&i| self.entries[i].role == "assistant") else {
+        let Some(last) = (raw_start..self.entries().len()).rev().find(|&i| self.entries()[i].role == "assistant")
+        else {
             return false;
         };
         if last <= raw_start {
@@ -431,7 +432,7 @@ mod tests {
         let mut cfg = cfg();
         cfg.context.optchat.high = 200;
         cfg.context.optchat.concurrency = 2;
-        let old: Vec<String> = (0..20).map(|i| entry_text(&ctx.entries[i])).collect();
+        let old: Vec<String> = (0..20).map(|i| entry_text(&ctx.entries()[i])).collect();
         let fake = Fake::new("merged line");
         let size = size;
         let fit = ctx.fit(&env(&cfg, &fake, &size), Reason::Threshold).await;
@@ -440,14 +441,14 @@ mod tests {
         assert!(nodes.len() < 21, "a batch replaced pairs: {nodes:?}");
         assert!(nodes.windows(2).all(|w| w[0] != w[1]));
         let bytes: u64 =
-            nodes.iter().filter_map(|&(l, i)| ctx.tree.line(&ctx.entries, l, i)).map(|l| l.len() as u64 + 1).sum();
+            nodes.iter().filter_map(|&(l, i)| ctx.tree.line(ctx.entries(), l, i)).map(|l| l.len() as u64 + 1).sum();
         assert!(bytes <= cfg.context.optchat.high / 2, "{bytes} bytes, high {}", cfg.context.optchat.high);
 
         // The leaves a batch did not touch keep their exact line.
         for &(l, i) in nodes {
             if l == 0 {
                 let expected = format!("{}+1|{}", i, old[i as usize]);
-                assert_eq!(ctx.tree.line(&ctx.entries, l, i).as_deref(), Some(expected.as_str()));
+                assert_eq!(ctx.tree.line(ctx.entries(), l, i).as_deref(), Some(expected.as_str()));
             }
         }
     }

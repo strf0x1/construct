@@ -3,7 +3,9 @@
 //! bytes is derived from the entry, so replay needs no journal row for it;
 //! only a line the summary model wrote is stored.
 
+use super::zoom::ZOOM;
 use crate::llm::Message;
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// A leaf's byte ceiling. Part of the format: replay depends on it.
@@ -77,9 +79,27 @@ pub fn entry_text(m: &Message) -> String {
 }
 
 /// The entry's own line when it fits, else `None`: it needs a written leaf.
-pub fn derived(m: &Message) -> Option<String> {
-    let text = entry_text(m);
+pub fn derived(entries: &[Message], i: usize) -> Option<String> {
+    if let Some(line) = zoom_result(entries, i) {
+        return Some(line);
+    }
+    let text = entry_text(entries.get(i)?);
     (text.len() <= LINE).then_some(text)
+}
+
+/// A tool result whose call was `zoom` names what it opened and is never
+/// summarized (ADR 0043 decision 2), whatever its size: `result: zoom {id}+{n}`.
+fn zoom_result(entries: &[Message], i: usize) -> Option<String> {
+    let m = entries.get(i).filter(|m| m.role == "tool")?;
+    let call_id = m.tool_call_id.as_deref()?;
+    let call = entries
+        .get(..i)?
+        .iter()
+        .rev()
+        .flat_map(|a| a.tool_calls.iter())
+        .find(|c| c.id == call_id && c.function.name == ZOOM)?;
+    let args: Value = serde_json::from_str(&call.function.arguments).ok()?;
+    Some(format!("result: zoom {}+{}", args.get("id")?.as_u64()?, args.get("n")?.as_u64()?))
 }
 
 impl Tree {
@@ -92,8 +112,7 @@ impl Tree {
     /// Whether `(l, i)` has a line: stored, or derived for a leaf.
     pub fn built(&self, entries: &[Message], l: u32, i: u64) -> bool {
         if l == 0 {
-            entries.get(usize::try_from(i).unwrap_or(usize::MAX)).is_some_and(|m| derived(m).is_some())
-                || self.nodes.contains_key(&(0, i))
+            usize::try_from(i).ok().is_some_and(|i| derived(entries, i).is_some()) || self.nodes.contains_key(&(0, i))
         } else {
             self.nodes.contains_key(&(l, i))
         }
@@ -107,7 +126,7 @@ impl Tree {
         if l != 0 {
             return None;
         }
-        entries.get(usize::try_from(i).ok()?).and_then(derived)
+        derived(entries, usize::try_from(i).ok()?)
     }
 
     /// `{i·2^l}+{2^l}`, the node's name in a line and to `zoom`.
@@ -166,9 +185,19 @@ mod tests {
 
     #[test]
     fn a_short_entry_is_derived_and_a_long_one_is_not() {
-        assert_eq!(derived(&Message::user("short")).as_deref(), Some("user: short"));
-        assert_eq!(derived(&Message::user("x".repeat(600))), None);
+        let entries = vec![Message::user("short"), Message::user("x".repeat(600))];
+        assert_eq!(derived(&entries, 0).as_deref(), Some("user: short"));
+        assert_eq!(derived(&entries, 1), None);
         let long = "x".repeat(600);
-        assert_eq!(derived(&Message::user(format!("{long}\n\n{long}"))), None);
+        let entries = vec![Message::user(format!("{long}\n\n{long}"))];
+        assert_eq!(derived(&entries, 0), None);
+    }
+
+    #[test]
+    fn a_zoom_result_gets_a_fixed_leaf_whatever_its_size() {
+        let mut ask = Message::text("assistant", "opening it");
+        ask.tool_calls = vec![call("zoom", r#"{"id":3,"n":4}"#)];
+        let entries = vec![ask, Message::tool("c", "x".repeat(600))];
+        assert_eq!(derived(&entries, 1).as_deref(), Some("result: zoom 3+4"));
     }
 }

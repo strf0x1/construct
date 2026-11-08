@@ -11,21 +11,23 @@ mod fit;
 mod summary;
 mod tree;
 mod view;
+mod zoom;
 
 use super::{Check, Context, Env, Fit, OPTCHAT};
 use crate::compact::Reason;
 use crate::event::{Event, MemoryNode};
 use crate::llm::Message;
 use anyhow::Context as _;
+use serde_json::Value;
 use tree::Tree;
 use view::View;
 
 pub struct Optchat {
-    /// The session's system prompt, kept out of the log. The first system
-    /// message pushed is it; resume swaps in the current one with `set_system`.
-    system: Option<Message>,
-    /// Every other message, in order: the log.
-    entries: Vec<Message>,
+    /// The log: the session's system prompt at index 0 when it has one, then
+    /// every entry in order. `log()` hands this out as it stands.
+    log: Vec<Message>,
+    /// Whether `log[0]` is the system prompt.
+    has_system: bool,
     tree: Tree,
     view: View,
     /// `messages()` hands out a slice, so the rendered request is kept here.
@@ -35,20 +37,32 @@ pub struct Optchat {
 impl Optchat {
     pub fn new(messages: Vec<Message>) -> Self {
         let mut ctx =
-            Self { system: None, entries: vec![], tree: Tree::default(), view: View::default(), rendered: vec![] };
+            Self { log: vec![], has_system: false, tree: Tree::default(), view: View::default(), rendered: vec![] };
         for m in messages {
             ctx.push(m);
         }
         ctx
     }
 
+    /// The session's system prompt, kept out of the entries and refreshed on
+    /// resume with `set_system`.
+    fn system(&self) -> Option<&Message> {
+        if self.has_system { self.log.first() } else { None }
+    }
+
+    /// Everything after the system prompt: the entries the tree covers.
+    fn entries(&self) -> &[Message] {
+        self.log.get(usize::from(self.has_system)..).unwrap_or_default()
+    }
+
     fn refresh(&mut self) {
-        self.rendered = view::render(self.system.as_ref(), &self.entries, &self.tree, &self.view);
+        let rendered = view::render(self.system(), self.entries(), &self.tree, &self.view);
+        self.rendered = rendered;
     }
 
     /// One past the log's entries, for a strict range check.
     fn log_end(&self) -> u128 {
-        self.entries.len() as u128
+        self.entries().len() as u128
     }
 
     fn range(&self, l: u32, i: u64) -> anyhow::Result<u128> {
@@ -68,9 +82,9 @@ impl Optchat {
             anyhow::ensure!(
                 end <= self.log_end(),
                 "memory view node ({l},{i}) covers entries past the log's {} entries",
-                self.entries.len()
+                self.entries().len()
             );
-            anyhow::ensure!(self.tree.built(&self.entries, l, i), "memory view node ({l},{i}) is not built");
+            anyhow::ensure!(self.tree.built(self.entries(), l, i), "memory view node ({l},{i}) is not built");
             pos = end;
         }
         Ok(())
@@ -87,20 +101,40 @@ impl Context for Optchat {
         &self.rendered
     }
 
+    fn log(&self) -> &[Message] {
+        &self.log
+    }
+
     fn push(&mut self, m: Message) {
-        if self.system.is_none() && m.role == "system" {
-            self.system = Some(m);
+        if !self.has_system && m.role == "system" {
+            self.has_system = true;
+            self.log.insert(0, m);
         } else {
-            self.entries.push(m);
+            self.log.push(m);
         }
         self.refresh();
     }
 
     fn set_system(&mut self, message: Message) -> bool {
-        let recorded = self.system.is_some();
-        self.system = Some(message);
+        let recorded = self.has_system;
+        match self.log.first_mut() {
+            Some(first) if recorded => *first = message,
+            _ => self.log.insert(0, message),
+        }
+        self.has_system = true;
         self.refresh();
         recorded
+    }
+
+    fn tools(&self) -> Vec<Value> {
+        vec![zoom::definition()]
+    }
+
+    fn call(&mut self, name: &str, args: &str) -> Option<String> {
+        if name != zoom::ZOOM {
+            return None;
+        }
+        Some(zoom::call(self.entries(), &self.tree, args))
     }
 
     fn replay(&mut self, e: &Event, check: Check) -> anyhow::Result<()> {
@@ -113,7 +147,7 @@ impl Context for Optchat {
                 anyhow::ensure!(
                     end <= self.log_end(),
                     "memory leaf ({l},{i}) covers entries past the log's {} entries",
-                    self.entries.len()
+                    self.entries().len()
                 );
             }
             self.tree.insert(*l, *i, text.clone(), *fallback);
@@ -127,10 +161,10 @@ impl Context for Optchat {
                 anyhow::ensure!(
                     end <= self.log_end(),
                     "memory merge ({l},{i}) covers entries past the log's {} entries",
-                    self.entries.len()
+                    self.entries().len()
                 );
                 anyhow::ensure!(
-                    self.tree.built(&self.entries, parent, first) && self.tree.built(&self.entries, parent, second),
+                    self.tree.built(self.entries(), parent, first) && self.tree.built(self.entries(), parent, second),
                     "memory merge ({l},{i}) has a child that is neither stored nor derived"
                 );
             }
@@ -156,6 +190,8 @@ mod tests {
     use super::*;
     use crate::context::Complete;
     use crate::llm::{Completion, Usage};
+
+    use super::zoom::ZOOM;
 
     /// Answers every summary call with one short line.
     struct Lines;
@@ -238,6 +274,32 @@ mod tests {
             assert!(text.contains(line), "{text:?} lacks {line:?}");
         }
         assert!(text.ends_with("three"));
+    }
+
+    #[tokio::test]
+    async fn a_fold_leaves_the_log_alone_and_shrinks_the_view() {
+        let mut ctx = session();
+        let (cfg, llm, size) = (crate::config::Config::default(), Lines, |_: &[Message]| 0);
+        ctx.fit(&env(&cfg, &llm, &size), Reason::Threshold).await;
+        ctx.push(Message::text("assistant", "first round"));
+        ctx.push(Message::text("assistant", "second round"));
+        let before = ctx.messages().len();
+        let logged = ctx.log().len();
+        assert_eq!(logged, 8, "the system prompt and seven entries");
+        let fit = ctx.fit(&env(&cfg, &llm, &size), Reason::Overflow).await;
+        assert!(matches!(fit, Fit::Changed(_)), "{fit:?}");
+        assert_eq!(ctx.log().len(), logged, "a fold never touches the log");
+        assert!(ctx.messages().len() < before, "the fold moved a round into the view");
+    }
+
+    #[test]
+    fn the_only_tool_is_zoom_and_the_strategy_answers_it() {
+        let mut ctx = session();
+        let tools = ctx.tools();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0]["function"]["name"], ZOOM);
+        assert_eq!(ctx.call(ZOOM, r#"{"id":0,"n":1}"#).as_deref(), Some("0+0|one"));
+        assert_eq!(ctx.call("read", "{}"), None);
     }
 
     #[tokio::test]

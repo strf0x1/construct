@@ -9,4 +9,10 @@ impl Agent {
     pub fn messages(&self) -> &[Message] {
         self.context.messages()
     }
+
+    /// Every message the session logged, including ones the view dropped
+    /// (ADR 0043 decision 12): learning and routing read this.
+    pub fn log(&self) -> &[Message] {
+        self.context.log()
+    }
 }
