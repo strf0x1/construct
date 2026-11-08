@@ -40,6 +40,8 @@ mod jobs;
 mod models;
 #[path = "notes.rs"]
 mod notes;
+#[path = "optchat.rs"]
+mod optchat;
 #[path = "permission.rs"]
 mod permission;
 #[path = "providers.rs"]

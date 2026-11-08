@@ -2,11 +2,13 @@
 //! of short lines covers it, and the model sees the view plus the current
 //! turn raw. See `tree` for the lines and `view` for the request shape.
 //!
-//! The one choice a reader must know: this slice writes no summaries. A line
-//! exists only for an entry that fits in 512 bytes and is derived on demand;
-//! `fit` moves the view only as far as those lines reach, so a long entry
-//! blocks it until slice 3 writes that leaf.
+//! The one choice a reader must know: `fit` is the only place the strategy
+//! calls a model (`summary`), so a strategy holds no client (ADR 0042). It
+//! writes the leaves a turn needs, merges parents, batches the view and folds
+//! a turn's older rounds; every write lands in one `Event::Memory`.
 
+mod fit;
+mod summary;
 mod tree;
 mod view;
 
@@ -144,24 +146,8 @@ impl Context for Optchat {
         Ok(())
     }
 
-    async fn fit(&mut self, _env: &Env<'_>, _reason: Reason) -> Fit {
-        let turn = view::turn_of(&self.entries);
-        if turn <= self.view.frontier {
-            return Fit::Unchanged;
-        }
-        if (self.view.frontier..turn).any(|i| !self.tree.built(&self.entries, 0, i as u64)) {
-            return Fit::Unchanged;
-        }
-        self.view.advance(turn);
-        self.refresh();
-        Fit::Changed(Box::new(Event::Memory {
-            leaves: vec![],
-            merges: vec![],
-            view: Some(self.view.nodes.clone()),
-            summary_prompt: 0,
-            summary_completion: 0,
-            ms: 0,
-        }))
+    async fn fit(&mut self, env: &Env<'_>, reason: Reason) -> Fit {
+        self.fitting(env, reason).await
     }
 }
 
@@ -171,12 +157,20 @@ mod tests {
     use crate::context::Complete;
     use crate::llm::{Completion, Usage};
 
-    struct Never;
+    /// Answers every summary call with one short line.
+    struct Lines;
 
     #[async_trait::async_trait]
-    impl Complete for Never {
+    impl Complete for Lines {
         async fn complete(&self, _: &str, _: Vec<Message>, _: Option<u32>) -> (Result<Completion, String>, Usage) {
-            panic!("optchat slice 2 makes no model calls")
+            (
+                Ok(Completion {
+                    message: Message::text("assistant", "merged line"),
+                    usage: Usage::default(),
+                    finish_reason: "stop".into(),
+                }),
+                Usage::default(),
+            )
         }
     }
 
@@ -197,10 +191,10 @@ mod tests {
 
     fn env<'a>(
         cfg: &'a crate::config::Config,
-        never: &'a Never,
+        llm: &'a dyn Complete,
         size: &'a (dyn Fn(&[Message]) -> u64 + Send + Sync),
     ) -> Env<'a> {
-        Env { size, budget: 100_000, bytes_per_token: 4.0, cfg, llm: never }
+        Env { size, budget: 100_000, bytes_per_token: 4.0, cfg, llm }
     }
 
     fn memory(leaves: Vec<MemoryNode>, merges: Vec<MemoryNode>, view: Option<Vec<(u32, u64)>>) -> Event {
@@ -229,8 +223,8 @@ mod tests {
     #[tokio::test]
     async fn fits_previous_turns_into_the_view_word_for_word_and_leaves_the_turn_raw() {
         let mut ctx = session();
-        let (cfg, never, size) = (crate::config::Config::default(), Never, |_: &[Message]| 0);
-        let fit = ctx.fit(&env(&cfg, &never, &size), Reason::Threshold).await;
+        let (cfg, llm, size) = (crate::config::Config::default(), Lines, |_: &[Message]| 0);
+        let fit = ctx.fit(&env(&cfg, &llm, &size), Reason::Threshold).await;
         let Fit::Changed(event) = fit else { panic!("expected a view change, got {fit:?}") };
         let Event::Memory { view: Some(nodes), .. } = *event else { panic!("expected a memory event") };
         assert_eq!(nodes, vec![(0, 0), (0, 1), (0, 2), (0, 3)]);
@@ -247,7 +241,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_long_entry_blocks_advance_and_fit_changes_nothing() {
+    async fn a_long_entry_gets_a_written_leaf_and_no_longer_blocks_the_turn() {
         let mut ctx = Optchat::new(vec![]);
         for m in [
             Message::system("system"),
@@ -257,12 +251,16 @@ mod tests {
         ] {
             ctx.push(m);
         }
-        let before = ctx.messages().len();
-        let (cfg, never, size) = (crate::config::Config::default(), Never, |_: &[Message]| 0);
-        let fit = ctx.fit(&env(&cfg, &never, &size), Reason::Threshold).await;
-        assert!(matches!(fit, Fit::Unchanged), "{fit:?}");
-        assert_eq!(ctx.view.frontier, 0);
-        assert_eq!(ctx.messages().len(), before);
+        let (cfg, llm, size) = (crate::config::Config::default(), Lines, |_: &[Message]| 0);
+        let fit = ctx.fit(&env(&cfg, &llm, &size), Reason::Threshold).await;
+        let Fit::Changed(event) = fit else { panic!("expected a change, got {fit:?}") };
+        let Event::Memory { leaves, .. } = *event else { panic!("expected a memory event") };
+        assert_eq!(leaves.len(), 1);
+        assert_eq!((leaves[0].l, leaves[0].i), (0, 1));
+        assert_eq!(ctx.view.frontier, 2);
+        let text: String = ctx.messages()[1].parts.iter().map(|p| p.text.as_str()).collect();
+        assert!(text.contains("1+1|merged line"), "{text:?}");
+        assert!(!text.contains("xxxx"), "the long entry is no longer raw");
         assert_eq!(ctx.messages()[1].parts.last().map(|p| p.text.as_str()), Some("two"));
     }
 
