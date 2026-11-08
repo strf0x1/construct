@@ -7,10 +7,10 @@ use tokio::sync::mpsc;
 
 /// Hand any unreviewed tail of the session to a detached learning process.
 pub(super) fn finish(agent: &Agent, (reviewed, seq): (usize, i64)) {
-    if !agent.cfg.learn.enabled || reviewed >= agent.messages.len() {
+    if !agent.cfg.learn.enabled || reviewed >= agent.messages().len() {
         return;
     }
-    let tail = &agent.messages[reviewed..];
+    let tail = &agent.messages()[reviewed..];
     let users = tail.iter().filter(|m| m.role == "user").count() as u32;
     let calls = tail.iter().map(|m| m.tool_calls.len() as u32).sum();
     if learn::kind_for(users, calls).is_some() {
@@ -38,13 +38,13 @@ pub(super) fn maybe_learn(
         (false, true) => learn::Kind::Skills,
         _ => return,
     };
-    if reviewed.0 >= agent.messages.len() {
+    if reviewed.0 >= agent.messages().len() {
         return;
     }
     agent.turns_since_memory = 0;
     agent.tool_calls_since_skill = 0;
-    let slice = agent.messages[reviewed.0..].to_vec();
-    *reviewed = (agent.messages.len(), agent.journal.last_seq());
+    let slice = agent.messages()[reviewed.0..].to_vec();
+    *reviewed = (agent.messages().len(), agent.journal.last_seq());
     let (cfg, paths, tx, id, upto) =
         (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
     tokio::spawn(async move {

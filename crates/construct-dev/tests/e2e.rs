@@ -270,6 +270,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert!(!manifest["tools"].to_string().contains("\"write\""), "{manifest}");
     assert_eq!(manifest["editor"], "replace");
+    assert_eq!(manifest["context"], "compact");
     let head = env.journal().into_iter().next().unwrap();
     assert_eq!(head.payload["manifest"]["tools"], manifest["tools"]);
     // The learning pass builds its tools from the same config.

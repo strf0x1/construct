@@ -1,14 +1,14 @@
 //! The agent loop. One user turn: route, stream the model, run the tools it
 //! asks for (read-only ones in parallel), repeat until it answers in text.
-//! Everything the UI shows arrives as an `Event`, so the TUI, the headless
-//! runner and the tests all observe the same thing, and every durable event
-//! is journaled on the way out (`journal::Writer::emit`).
+//! Everything the UI sees arrives as an `Event`, so the TUI, the headless
+//! runner and the tests observe the same thing, journaled on the way out.
 
 mod compaction;
 mod deck;
 mod limits;
 mod restore;
 mod user_turn;
+mod view;
 mod wake;
 
 use crate::child::Origin;
@@ -36,18 +36,16 @@ pub struct Agent {
     pub ctx: Arc<Ctx>,
     pub catalog: Arc<Catalog>,
     pub manifest: Manifest,
-    pub messages: Vec<Message>,
+    pub context: Box<dyn crate::context::Context>,
     pub groups: BTreeSet<Group>,
     pub journal: Arc<journal::Writer>,
     /// Journaled before there was a UI to send them to; sent at the first turn.
     unsent: Vec<Event>,
     pub usage: Usage,
     pub last_prompt_tokens: u64,
-    /// The window a provider stated when it rejected a prompt, if smaller
-    /// than the configured one: planning uses it from then on.
+    /// The window a provider stated when it rejected a prompt, if smaller than configured.
     window_seen: Option<u64>,
-    /// Request bytes per prompt token, measured on the last request big
-    /// enough to say; what the compaction planner sizes candidates with.
+    /// Request bytes per prompt token, as the compaction planner sizes candidates.
     bytes_per_token: f64,
     pub turns_since_memory: u32,
     pub tool_calls_since_skill: u32,
@@ -104,6 +102,7 @@ impl Agent {
 
     fn tool_defs(&self) -> Vec<Value> {
         let mut defs = self.catalog.definitions(&self.groups);
+        defs.extend(self.context.tools());
         let offer: Vec<(String, String)> =
             self.catalog.offerable(&self.groups).into_iter().map(|(g, d)| (g.label(), d)).collect();
         if !offer.is_empty() {
@@ -141,7 +140,8 @@ impl Agent {
 
     pub async fn route(&self, text: &str) -> Route {
         let previous = self
-            .messages
+            .context
+            .messages()
             .iter()
             .rev()
             .find(|m| m.role == "assistant" && m.content.is_some())
@@ -210,7 +210,7 @@ impl Agent {
                 self.compact(&defs, Reason::Threshold, tx).await;
             }
             steps += 1;
-            let body = self.body(&self.messages, &defs);
+            let body = self.body(self.context.messages(), &defs);
             let bytes = body.len() as u64;
             let completion = match self.step(body, &defs, tx).await {
                 Ok(Some(mut c)) => {
@@ -286,7 +286,7 @@ impl Agent {
     /// Append a message to the conversation, journaled.
     fn push(&mut self, m: Message, tx: &Events) {
         self.journal.emit(Event::for_message(m.clone()), tx);
-        self.messages.push(m);
+        self.context.push(m);
     }
 
     /// The request body for `messages` with these tools, as sent.

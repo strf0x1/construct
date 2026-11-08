@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+mod context;
 mod deck;
 mod mcp;
-pub use deck::DeckConfig;
-pub use mcp::McpServer;
+pub use {context::ContextConfig, deck::DeckConfig, mcp::McpServer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -25,23 +25,21 @@ pub struct Config {
     pub temperature: Option<f32>,
     /// Tool-call rounds per user turn before the agent must stop.
     pub max_steps: u32,
-    /// Tokens the model can take. Compaction plans against this less the
-    /// output reserve (`max_tokens`, or an eighth of it up to 8192).
+    /// Tokens the model can take; compaction plans against this less the output reserve.
     pub context_window: u32,
-    /// Whether the config file sets `context_window`. When it does, the
-    /// endpoint's list does not supply a window (`llm::overlay::overlay`).
+    /// Whether the config file set `context_window` (the endpoint's list then supplies none).
     #[serde(skip)]
     pub window_pinned: bool,
     pub compaction: CompactionConfig,
+    pub context: ContextConfig,
     pub memory: MemoryConfig,
     pub learn: LearnConfig,
     pub router: RouterConfig,
     pub sandbox: SandboxConfig,
     pub tools: ToolsConfig,
-    /// Deck's boundary status endpoint, set by the VM runtime
-    /// (`DECK_BOUNDARY_URL`). Absent outside a Deck task, which is what keeps
-    /// the boundary tools out of the catalog. Skipped when absent so an
-    /// ordinary session's config hash does not change.
+    /// Deck's boundary status endpoint, set by the VM runtime (`DECK_BOUNDARY_URL`).
+    /// Absent outside a Deck task, which keeps the boundary tools out of the
+    /// catalog; skipped when absent so an ordinary session's config hash does not change.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deck: Option<DeckConfig>,
     /// Deck's GitHub gateway (`DECK_GITHUB_URL`); see `config/deck.rs`.
@@ -149,6 +147,7 @@ impl Default for Config {
             context_window: 131_072,
             window_pinned: false,
             compaction: CompactionConfig::default(),
+            context: ContextConfig::default(),
             memory: MemoryConfig::default(),
             learn: LearnConfig::default(),
             router: RouterConfig::default(),
@@ -394,6 +393,7 @@ impl Config {
         if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_WEB_SEARCH") {
             cfg.tools.web.search = v;
         }
+        cfg.context.apply_env();
         cfg.apply_deck_env();
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
         cfg.load_catalog(&paths.models())?;
