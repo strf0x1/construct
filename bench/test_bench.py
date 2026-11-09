@@ -3,6 +3,7 @@
     python3 -m unittest discover -s bench -p 'test_*.py'     (part of `cargo xtask check`)
 """
 
+import importlib.util
 import json
 import os
 import random
@@ -10,15 +11,25 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 import compare as cmp
 import coord_fixtures
 import journal
 import process
 import tasklib
+
+# `python3 -m unittest bench/test_bench.py` imports this file as
+# `bench.test_bench`, so `bench` is already the directory and the tests'
+# `import bench` would bind that namespace package. Bind the script by path.
+_spec = importlib.util.spec_from_file_location("bench", Path(__file__).parent / "bench.py")
+bench = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(bench)
+sys.modules["bench"] = bench
 
 
 def sh(cmd, cwd):

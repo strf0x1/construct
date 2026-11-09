@@ -9,10 +9,12 @@ as a model failure in the bench, so it is checked here first.
 import json
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 import process
 import tasklib
 

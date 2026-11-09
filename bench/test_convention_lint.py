@@ -5,10 +5,12 @@ adds, and never on what the tree already had.
 """
 
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 import convention_lint as cl
 
 TOOL = 'pub struct Read;\nimpl Read {\n    pub const NAME: &str = "read";\n}\npub struct Query;\nimpl Query {\n    pub const NAME: &str = "journal_query";\n}\n'
