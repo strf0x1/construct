@@ -303,8 +303,8 @@ impl Agent {
     /// Learn bytes per token from a request the provider counted. Small
     /// requests are skipped: fixed overheads would skew the ratio.
     fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
-        if prompt_tokens >= 1024 {
-            self.bytes_per_token = (bytes as f64 / prompt_tokens as f64).clamp(1.0, 8.0);
+        if let Some(ratio) = limits::ratio(bytes, prompt_tokens) {
+            self.bytes_per_token = ratio;
         }
     }
 

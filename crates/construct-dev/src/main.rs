@@ -119,6 +119,7 @@ fn main() -> Result<()> {
                     dump_dir: dump,
                     chunk_ms,
                     models_ms: 0,
+                    bytes_per_token: 4.0,
                     cache,
                     window,
                 };

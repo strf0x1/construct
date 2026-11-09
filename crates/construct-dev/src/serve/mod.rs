@@ -51,15 +51,15 @@ pub struct Config {
     pub log: Option<PathBuf>,
     pub dump_dir: Option<PathBuf>,
     pub chunk_ms: u64,
-    /// Act as a model with this context window: a request whose prompt counts
-    /// more tokens is answered 400 `context_length_exceeded`, the way
-    /// providers reject one. Upstream, the count is the provider's own (the
-    /// response is buffered to read it); scripted, it is bytes / 4.
+    /// Act as a model with this context window: a prompt over it is answered
+    /// 400 `context_length_exceeded`. Upstream, the count is the provider's
+    /// (its reply is buffered to read it); scripted, `bytes / bytes_per_token`.
     pub window: Option<u64>,
+    /// Scripted, a prompt token is this many request bytes.
+    pub bytes_per_token: f64,
     /// Report simulated prefix-cache hits and writes in usage.
     pub cache: bool,
-    /// Wait this long before answering a `GET` (the model list): a slow
-    /// server, whose list lands after the UI is up.
+    /// Wait this long before answering a `GET`: a slow model list.
     pub models_ms: u64,
 }
 
@@ -442,7 +442,7 @@ fn over_window(s: &Shared, rec: &mut Value, prompt_tokens: u64) -> Option<Respon
 async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     // Side calls (no tools) don't advance the script; only the agent loop does.
     let side = rec["side"].as_bool().unwrap_or(false);
-    let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
+    let prompt_tokens = (rec["req_bytes"].as_u64().unwrap_or(0) as f64 / s.cfg.bytes_per_token) as u64;
     if let Some(r) = over_window(&s, &mut rec, prompt_tokens) {
         return r;
     }
@@ -497,7 +497,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let mut usage =
         json!({ "prompt_tokens": prompt_tokens, "completion_tokens": 10, "total_tokens": prompt_tokens + 10 });
     if s.cfg.cache {
-        let cached = (cached_bytes(&s, req) / 4).min(prompt_tokens);
+        let cached = ((cached_bytes(&s, req) as f64 / s.cfg.bytes_per_token) as u64).min(prompt_tokens);
         // Only providers that cache on request report writes.
         let written = if req.to_string().contains("\"cache_control\"") { prompt_tokens - cached } else { 0 };
         usage["prompt_tokens_details"] = json!({ "cached_tokens": cached, "cache_write_tokens": written });
