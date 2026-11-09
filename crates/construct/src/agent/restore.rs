@@ -151,6 +151,7 @@ impl Agent {
                 .with_github(cfg.github_gateway.clone()),
         );
         let entries = writer.entries()?;
+        let bytes_per_token = learned_ratio(&entries).unwrap_or(4.0);
         let totals = journal::Totals::session(&journal::Journal::read_only(&file)?, &entries)?;
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
@@ -179,7 +180,7 @@ impl Agent {
             usage: totals.usage,
             last_prompt_tokens: totals.last_prompt,
             window_seen: None,
-            bytes_per_token: 4.0,
+            bytes_per_token,
             turns_since_memory: 0,
             tool_calls_since_skill: 0,
             user_turns: journal::prompts(&entries).len() as u32,
@@ -222,9 +223,67 @@ fn check_window(strategy: &str, window: u64, model: &str) -> Result<()> {
     Ok(())
 }
 
+/// The ratio the session last measured: the newest request and the usage
+/// that answered it. A resumed process starts with it instead of the 4.0
+/// guess; sized by the guess, a dense prompt (logs run near 2.4 bytes a
+/// token) passes the threshold and overflows the window (#218).
+fn learned_ratio(entries: &[journal::Entry]) -> Option<f64> {
+    let mut bytes = None;
+    let mut ratio = None;
+    for e in entries {
+        match &e.event {
+            Event::Request { bytes: b, .. } => bytes = Some(*b),
+            Event::Usage { prompt, .. } => {
+                if let Some(b) = bytes.take() {
+                    ratio = limits::ratio(b, *prompt).or(ratio);
+                }
+            }
+            _ => {}
+        }
+    }
+    ratio
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn entry(seq: i64, event: Event) -> journal::Entry {
+        journal::Entry { seq, at_ms: 0, event }
+    }
+
+    fn request(bytes: u64) -> Event {
+        Event::Request { model: "m".into(), bytes, n_tools: 0, tools: vec![] }
+    }
+
+    fn usage(prompt: u64) -> Event {
+        Event::Usage { prompt, completion: 1, cached: 0, cache_write: 0, cost: None }
+    }
+
+    #[test]
+    fn a_resumed_session_keeps_the_ratio_its_last_request_measured() {
+        // #218: dense content (2.5 bytes a token) at a 64k window. Each user
+        // turn is a new process; sized at the 4.0 default, its first request
+        // passed the threshold and then the window.
+        let entries = [entry(1, request(100_000)), entry(2, usage(40_000))];
+        assert_eq!(learned_ratio(&entries), Some(2.5));
+    }
+
+    #[test]
+    fn a_small_or_unanswered_request_does_not_set_the_ratio() {
+        assert_eq!(learned_ratio(&[entry(1, request(4_000)), entry(2, usage(900))]), None);
+        // A request that failed has no usage; the next request must not be
+        // paired with a later one's usage.
+        let entries = [entry(1, request(400_000)), entry(2, request(4_000)), entry(3, usage(900))];
+        assert_eq!(learned_ratio(&entries), None);
+    }
+
+    #[test]
+    fn the_newest_measured_request_wins() {
+        let entries =
+            [entry(1, request(100_000)), entry(2, usage(50_000)), entry(3, request(120_000)), entry(4, usage(40_000))];
+        assert_eq!(learned_ratio(&entries), Some(3.0));
+    }
 
     #[test]
     fn optchat_refuses_a_window_under_65536_and_compact_accepts_any() {

@@ -5,6 +5,13 @@ use super::Agent;
 use crate::config::Config;
 use crate::llm::Usage;
 
+/// Request bytes per prompt token a completed request measured, when it is
+/// big enough to say: fixed overheads would skew a small one. The same ratio
+/// sizes the next request and, on resume, the first one of the next turn.
+pub(super) fn ratio(bytes: u64, prompt_tokens: u64) -> Option<f64> {
+    (prompt_tokens >= 1024).then(|| (bytes as f64 / prompt_tokens as f64).clamp(1.0, 8.0))
+}
+
 /// The catalog's price for `model` stands in when the provider sent none.
 pub(super) fn price(cfg: &Config, model: &str, u: &mut Usage) {
     if u.cost.is_none()

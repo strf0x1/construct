@@ -84,6 +84,12 @@ impl Env {
 
     /// An `Env` whose model has a `window`-token context (see `serve::Config::window`).
     pub fn with_window(name: &str, steps: Value, window: Option<u64>) -> Self {
+        Self::with_window_bytes(name, steps, window, 4.0)
+    }
+
+    /// Like `with_window`, for a model whose prompt tokens are denser than
+    /// four bytes each: the scripted provider counts `bytes / bytes_per_token`.
+    pub fn with_window_bytes(name: &str, steps: Value, window: Option<u64>, bytes_per_token: f64) -> Self {
         let dir = Self::dir_for(name);
         let _ = std::fs::remove_dir_all(&dir);
         let home = dir.join("home");
@@ -101,6 +107,7 @@ impl Env {
             chunk_ms: steps["chunk_ms"].as_u64().unwrap_or(1),
             models_ms: steps["models_ms"].as_u64().unwrap_or(0),
             window,
+            bytes_per_token,
             cache: true,
         };
         let (port, _) = rt.block_on(serve::serve(cfg, 0)).unwrap();

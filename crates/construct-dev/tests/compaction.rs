@@ -259,3 +259,23 @@ fn a_summary_cut_off_on_overflow_still_fails_the_run() {
         env.journal().into_iter().filter(|r| r.ty == "error").map(|r| r.payload["message"].to_string()).collect();
     assert!(errors.iter().any(|e| e.contains("compaction failed: the summary hit the output limit")), "{errors:?}");
 }
+
+#[test]
+fn a_resumed_turn_is_sized_with_the_ratio_its_last_request_measured() {
+    // #218: dense content (2 bytes a token) at a 64k window. Every user turn
+    // is a new process, and the ratio learned in the last one was thrown away,
+    // so a turn's first request was sized at the 4.0 default: it passed the
+    // 0.7 threshold and then the window. The journal's last request and the
+    // usage that answered it restore the measured ratio.
+    let env = Env::with_window_bytes("compact-resume-ratio", json!({ "steps": [] }), Some(65_536), 2.0);
+    env.config("context_window = 65536\n");
+    for turn in 0..8 {
+        let report = format!("report {turn}: {}", "x".repeat(20_000));
+        let out = env.run(&["run", "--no-learn", "-c", &report]);
+        assert!(out.status.success(), "turn {turn}: {}", text(&out));
+    }
+    let rejected: Vec<Value> = log(&env).into_iter().filter(|r| r["window_rejected"] == true).collect();
+    assert!(rejected.is_empty(), "no request passed the window: {rejected:?}");
+    let cuts = compactions(&env);
+    assert!(cuts.iter().any(|c| c["reason"] == "threshold"), "the threshold cut before the window: {cuts:?}");
+}
