@@ -11,7 +11,7 @@ from pathlib import Path
 
 # One key per probe; `bench/test_bench.py` keeps this list and task.toml's
 # `probes` in sync, and fails if one grows without the other.
-KEYS = ["kernel", "region", "train", "base", "staging", "signing", "flag", "channel"]
+KEYS = ["kernel", "region", "train", "base", "staging", "signing", "flag", "channel", "arm_build", "artifact_digest"]
 
 
 def norm(text):

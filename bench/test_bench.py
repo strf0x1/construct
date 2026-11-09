@@ -117,7 +117,7 @@ SOLUTIONS["compact-recall"] = recall_answer
 
 
 def coord_answer(w, v):
-    """The eight probed decisions: the overrides where there were two."""
+    """The ten probed decisions: the overrides where there were two."""
     answers = {
         "kernel": v["kernel"],
         "region": v["region"],
@@ -127,6 +127,8 @@ def coord_answer(w, v):
         "signing": v["signing"],
         "flag": v["flag"],
         "channel": v["channel"],
+        "arm_build": v["arm_build"],
+        "artifact_digest": v["artifact_digest"],
     }
     (w / "answers.txt").write_text("".join(f"{k}={val}\n" for k, val in answers.items()))
 
@@ -232,9 +234,22 @@ class Tasks(unittest.TestCase):
         kept = [l for l in (work / "answers.txt").read_text().splitlines() if l.split("=")[0] not in wrong]
         (work / "answers.txt").write_text("\n".join(kept + [f"{k}={v}" for k, v in wrong.items()]) + "\n")
         checks, report = tasklib.check_report(task, work, env)
-        self.assertEqual(report["recall"], 0.5)
+        self.assertEqual(report["recall"], 0.6)
         for k in wrong:
             self.assertFalse(checks[f"probe_{k}"], k)
+
+    def test_the_coord_long_probes_need_the_raw_entry(self):
+        """The two buried values live only in a pasted log over 4 KB, never in a probe."""
+        task, vars, work = self.materialize("coord-recall")
+        turns = [tasklib.fill(t, vars) for t in task.turns]
+        probes = [t for t in turns if "answers.txt" in t]
+        for key in ("arm_build", "artifact_digest"):
+            value = vars[key]
+            hits = [t for t in turns if value in t]
+            self.assertEqual(len(hits), 1, f"{key}: planted exactly once")
+            self.assertGreater(len(hits[0].encode()), 4096, f"{key}: only the raw entry over 4 KB holds it")
+            for p in probes:
+                self.assertNotIn(value, p, f"{key}: a probe must not carry its answer")
 
     def curriculum_session(self, task, s, rng_seed=7):
         """A materialized work dir for one curriculum session, as the suite makes it."""
