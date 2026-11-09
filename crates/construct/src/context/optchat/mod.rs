@@ -8,6 +8,7 @@
 //! a turn's older rounds; every write lands in one `Event::Memory`.
 
 mod fit;
+mod guide;
 mod summary;
 mod tree;
 mod view;
@@ -191,6 +192,7 @@ mod tests {
     use crate::context::Complete;
     use crate::llm::{Completion, Usage};
 
+    use super::guide::GUIDE;
     use super::zoom::ZOOM;
 
     /// Answers every summary call with one short line.
@@ -239,6 +241,23 @@ mod tests {
 
     fn leaf(i: u64, text: &str) -> MemoryNode {
         MemoryNode { l: 0, i, text: text.into(), fallback: false }
+    }
+
+    #[test]
+    fn the_guide_follows_the_recorded_system_text_and_stays_out_of_the_log() {
+        let ctx = session();
+        let system = ctx.messages()[0].content.as_deref().expect("a system message");
+        assert!(system.starts_with("system"), "{system:?}");
+        assert!(system.ends_with(GUIDE), "{system:?}");
+        assert_eq!(ctx.log()[0].content.as_deref(), Some("system"), "the log keeps the recorded text");
+    }
+
+    #[test]
+    fn without_a_recorded_system_the_guide_is_the_whole_system_message() {
+        let mut ctx = Optchat::new(vec![]);
+        ctx.push(Message::user("one"));
+        assert_eq!(ctx.messages()[0].content.as_deref(), Some(GUIDE));
+        assert_eq!(ctx.log()[0].content.as_deref(), Some("one"), "no guide in the log");
     }
 
     fn head() -> Event {
@@ -348,6 +367,9 @@ mod tests {
             }
         }
         assert_eq!(replayed.messages(), by_hand.messages());
+        let system = replayed.messages()[0].content.as_deref().expect("a system message");
+        assert!(system.starts_with("system"), "{system:?}");
+        assert!(system.ends_with(GUIDE), "{system:?}");
     }
 
     #[test]

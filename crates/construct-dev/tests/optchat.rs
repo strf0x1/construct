@@ -59,6 +59,8 @@ fn the_third_turn_sees_earlier_turns_as_chat_lines_and_never_raw() {
     let messages = third["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 2, "system and one user message, nothing raw from turns 1-2: {messages:?}");
     assert_eq!(messages[0]["role"], "system");
+    let system = messages[0]["content"].as_str().expect("a system prompt");
+    assert!(system.ends_with("say it in your reply."), "the guide follows the prompt: {system:?}");
     assert_eq!(messages[1]["role"], "user");
     let chat = parts_text(&messages[1]);
     for line in ["user: first", "assistant: answer one", "user: second", "assistant: answer two"] {
@@ -67,7 +69,14 @@ fn the_third_turn_sees_earlier_turns_as_chat_lines_and_never_raw() {
     assert!(chat.contains("<chat>") && chat.contains("</chat>"));
     assert!(chat.trim_end().ends_with("third"), "the opening message is raw and last: {chat:?}");
 
-    let memory = env.journal().into_iter().filter(|r| r.ty == "memory").count();
+    let rows = env.journal();
+    let system_row = rows.iter().find(|r| r.ty == "system").expect("the system event");
+    assert!(
+        !system_row.payload.to_string().contains("# Your memory"),
+        "the guide is render-time only, never journaled: {}",
+        system_row.payload
+    );
+    let memory = rows.iter().filter(|r| r.ty == "memory").count();
     assert!(memory > 0, "the journal records the fits");
 }
 

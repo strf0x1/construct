@@ -24,8 +24,9 @@ pub(super) fn definition() -> Value {
         "type": "function",
         "function": {
             "name": ZOOM,
-            "description": "Open a <chat> line written id+n|text: a node returns its two halves' lines, \
-                            and n = 1 returns the original message, in pages of 32768 bytes.",
+            "description": "Open a <chat> line id+n|text. A node returns the two lines it was made from; \
+                            n = 1 returns the entry in full, in pages of 32768 bytes. Zoom when a line \
+                            only mentions what you need, before you act, guess or ask.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -134,6 +135,12 @@ mod tests {
 
     fn refusal(args: &str) -> String {
         call(&entries(), &node(), args).expect_err("a refusal")
+    }
+
+    #[test]
+    fn the_description_says_when_to_zoom() {
+        let description = definition()["function"]["description"].as_str().expect("a description").to_string();
+        assert!(description.contains("before you act, guess or ask"), "{description}");
     }
 
     #[test]
