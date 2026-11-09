@@ -36,6 +36,11 @@ HIGHER = re.compile(r"(^|[._/])(success|success_rate|checks_passed|correct|recal
 # These get `higher`/`lower` instead of `better`/`worse`.
 NEUTRAL = re.compile(r"(^|[._/])(tool_calls|reads|calls|applied|search\.tool|search\.shell|search\.find|n_tools|cache_write_tokens|cuts|cuts_elide|cuts_summarize|cuts_legacy|diff_lines|diff_files|test_lines|reference_lines|scope_ratio)$")
 LOWER_BOOL = re.compile(r"(^|[._/])(ran_make_release|over_budget|timed_out|stopped|wrong_line|invalid)($|[._])")
+# Metrics only one strategy's arm has: `compact` records `compaction`, an
+# `optchat` arm adds `optchat` beside it. They are listed with the side that
+# has them, so a two-arm comparison shows both strategies' own work; the
+# missing side's cell is "-" and there is no verdict.
+ONE_SIDED = re.compile(r"(^|/)optchat\.")
 
 
 def flatten(run, prefix=""):
@@ -157,18 +162,39 @@ def nonzero(row, metric, a, b, up):
         row["verdict"] = "better" if more == up else "worse"
 
 
+def one_sided(metric, a, b):
+    """A row for a metric only one side has: its median and spread, and no
+    verdict to judge it by."""
+    row = {"metric": metric, "binary": False, "delta": None, "verdict": "one side"}
+    for side, xs in (("a", a), ("b", b)):
+        xs = [float(x) for x in xs] if xs else []
+        row[side] = statistics.median(xs) if xs else None
+        row[f"n_{side}"] = len(xs)
+        row[f"{side}_spread"] = spread(xs) if xs else None
+    return row
+
+
 def compare(a: dict, b: dict, only=None):
-    """Rows for every metric both sides share, in a stable order."""
+    """Rows for every metric both sides share, plus the `optchat` fields only
+    one side has, in a stable order."""
     rows = []
     for metric in sorted(set(a) & set(b)):
         if only and not re.search(only, metric.rpartition("/")[2]):
             continue
         if a[metric] and b[metric]:
             rows.append(verdict(metric, a[metric], b[metric]))
-    return rows
+    for metric in sorted(set(a) ^ set(b)):
+        if not ONE_SIDED.search(metric):
+            continue
+        if only and not re.search(only, metric.rpartition("/")[2]):
+            continue
+        rows.append(one_sided(metric, a.get(metric), b.get(metric)))
+    return sorted(rows, key=lambda r: r["metric"])
 
 
 def fmt(x):
+    if x is None:
+        return "-"
     if isinstance(x, float):
         return f"{x:.3g}" if abs(x) < 1000 else f"{x:.0f}"
     return str(x)
@@ -180,7 +206,10 @@ def table(rows, a_label, b_label):
         if r["binary"]:
             cell = lambda side: f"{r[side]:.0%} (n={r['n_' + side]})"
         else:
-            cell = lambda side: f"{fmt(r[side])} [{fmt(r[side + '_spread'][0])}–{fmt(r[side + '_spread'][1])}] (n={r['n_' + side]})"
+            def cell(side):
+                if r[side] is None:
+                    return "-"
+                return f"{fmt(r[side])} [{fmt(r[side + '_spread'][0])}–{fmt(r[side + '_spread'][1])}] (n={r['n_' + side]})"
         p = f" p={r['p']:.2f}" if "p" in r else ""
         if "nonzero" in r:
             p += f" (runs >0: {r['nonzero'][0]:.0%} vs {r['nonzero'][1]:.0%})"

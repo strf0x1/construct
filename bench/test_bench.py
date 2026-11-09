@@ -581,6 +581,15 @@ class Arms(unittest.TestCase):
         finally:
             bench.ARMS.pop(name, None)
 
+    def test_the_home_config_names_the_context_strategy(self):
+        import bench
+
+        home = tmpdir(self)
+        (home / "config.toml").write_text("")
+        self.assertEqual(bench.context_strategy(home), "compact")
+        (home / "config.toml").write_text('context = { strategy = "optchat" }\n')
+        self.assertEqual(bench.context_strategy(home), "optchat")
+
     def test_an_arm_can_run_another_binary(self):
         import bench
 
@@ -700,6 +709,55 @@ class Compaction(unittest.TestCase):
         self.assertIn("cuts=3", compaction.line(m))
 
 
+class Requests(unittest.TestCase):
+    def test_summary_calls_are_not_agent_requests(self):
+        # One agent request and two summaries, as a proxy log records them:
+        # the side flag, and (for a log an older serve wrote) only n_tools.
+        import bench
+
+        recs = [
+            {"n_tools": 12, "status": 200},
+            {"n_tools": 0, "side": True, "status": 200},
+            {"n_tools": 0, "status": 200},
+        ]
+        self.assertEqual(bench.request_counts(recs), (3, 1))
+
+
+class Optchat(unittest.TestCase):
+    def test_tree_zooms_and_fit_time_from_a_journal(self):
+        import optchat
+
+        home = tmpdir(self)
+        d = home / "projects" / "p"
+        d.mkdir(parents=True)
+        db = sqlite3.connect(d / "journal.sqlite")
+        db.execute("CREATE TABLE events(seq INTEGER PRIMARY KEY, session_id, type, v, at_ms, payload)")
+        rows = [
+            ("memory", {"leaves": [{"l": 0, "i": 1, "text": "user: a", "fallback": False},
+                                   {"l": 0, "i": 2, "text": "[unsummarized] b", "fallback": True}],
+                        "merges": [], "summary_prompt": 100, "summary_completion": 20, "ms": 40}),
+            ("memory", {"leaves": [],
+                        "merges": [{"l": 1, "i": 0, "text": "c", "fallback": False},
+                                   {"l": 2, "i": 0, "text": "d", "fallback": True}],
+                        "view": [[1, 0]], "summary_prompt": 30, "summary_completion": 10, "ms": 70}),
+            ("tool_start", {"id": "z1", "name": "zoom", "args": '{"id":"0+8"}'}),
+            ("tool_start", {"id": "t1", "name": "read", "args": '{"path":"a"}'}),
+        ]
+        for i, (t, p) in enumerate(rows):
+            db.execute("INSERT INTO events VALUES (?, 's', ?, 1, ?, ?)", (i + 1, t, 5000 + i, json.dumps(p)))
+        db.commit()
+        db.close()
+        recs = [
+            {"n_tools": 12, "status": 200, "usage": {"prompt_tokens": 32000}},
+            {"n_tools": 0, "side": True, "usage": {"prompt_tokens": 500}},
+        ]
+        m = optchat.metrics(home, 1, recs, 65536)
+        self.assertEqual((m["leaves"], m["parents"], m["fallbacks"]), (2, 2, 2))
+        self.assertEqual((m["summary_tokens"], m["fit_ms"], m["fit_ms_max"], m["zooms"]), (160, 110, 70, 1))
+        self.assertAlmostEqual(m["peak_fill"], 32000 / 65536)
+        self.assertIn("leaves=2", optchat.line(m))
+
+
 class Compare(unittest.TestCase):
     def test_fisher(self):
         self.assertAlmostEqual(cmp.fisher(0, 3, 3, 3), 0.1)
@@ -762,6 +820,28 @@ class Compare(unittest.TestCase):
         self.assertEqual([r["metric"] for r in rows], ["a/success", "all/success", "b/success"])
         self.assertEqual(s["tools-shape"], {"read": [1.0, 2.0]})
         self.assertEqual(s["loop-shape"], {"sessions.0.requests": [4], "sessions.variance.requests": [6]})
+
+    def test_optchat_fields_one_side_has_are_listed(self):
+        data = {
+            "raw": {
+                "compact": [{"task": "t", "compaction": {"cuts": 2, "peak_fill": 0.9}}],
+                "optchat": [{"task": "t", "compaction": {"cuts": 0, "peak_fill": 0.6},
+                             "optchat": {"leaves": 4, "parents": 2, "zooms": 1}}],
+            }
+        }
+        s = cmp.sides(data)
+        rows = cmp.compare(s["compact"], s["optchat"])
+        self.assertEqual(
+            [r["metric"] for r in rows],
+            ["t/compaction.cuts", "t/compaction.peak_fill", "t/optchat.leaves", "t/optchat.parents", "t/optchat.zooms"],
+        )
+        out = cmp.table(rows, "compact", "optchat")
+        self.assertIn("| t/optchat.leaves | - | 4 ", out)
+        self.assertIn("one side", out)
+        # Both sides having the field is judged as usual.
+        both = cmp.compare(s["optchat"], s["optchat"])
+        self.assertIn("t/optchat.leaves", [r["metric"] for r in both])
+        self.assertTrue(all(r["verdict"] != "one side" for r in both))
 
 
 if __name__ == "__main__":

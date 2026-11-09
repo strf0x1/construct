@@ -43,6 +43,7 @@ from pathlib import Path
 import compaction
 import compare as cmp
 import journal
+import optchat
 import process
 import tasklib
 
@@ -653,6 +654,22 @@ STALLS = {}
 INVALID = {}
 
 
+def is_side(rec) -> bool:
+    """A summary or another tool-less call, not the agent's own step. The
+    proxy marks it `side`; a log written before it did only has the request's
+    `n_tools`, which says the same thing. A record that names neither is
+    treated as the agent's: it is not evidence of a side call."""
+    if rec.get("side"):
+        return True
+    return "n_tools" in rec and not rec["n_tools"]
+
+
+def request_counts(recs) -> tuple:
+    """(requests, agent_requests): everything the proxy answered, and the
+    agent's own steps among them."""
+    return len(recs), sum(1 for r in recs if not is_side(r))
+
+
 def provider_failures(recs) -> int:
     """Upstream answers that were the provider's failure, not the harness's:
     a 5xx, or a 200 stream that ended with no usage and no finish reason (an
@@ -660,7 +677,7 @@ def provider_failures(recs) -> int:
     response"). A window rejection is the bench's own and doesn't count."""
     bad = 0
     for r in recs:
-        if r.get("window_rejected") or r.get("side"):
+        if r.get("window_rejected") or is_side(r):
             continue
         st = r.get("status") or 200
         if st >= 500 or (st == 200 and r.get("usage") is None and r.get("finish_reason") is None):
@@ -700,7 +717,7 @@ def with_stall_retry(name, fn, retries=1):
 def tool_gaps(records):
     """Gap between a response that ended in tool calls and the next request:
     the harness's own overhead to run the tools and build the next call."""
-    rs = [r for r in records if not r.get("side") and "t_arrive" in r]
+    rs = [r for r in records if not is_side(r) and "t_arrive" in r]
     gaps = []
     for a, b in zip(rs, rs[1:]):
         if a.get("resp_tool_calls") and "t_end" in a:
@@ -804,7 +821,7 @@ def suite_tools(args):
         wait_for_learners()
         recs = ep.records()
         ep.close()
-        main = [x for x in recs if not x.get("side")]
+        main = [x for x in recs if not is_side(x)]
         gaps = tool_gaps(recs)
         # steps alternate read, shell
         return res, gaps[0::2], gaps[1::2], len(main)
@@ -867,7 +884,7 @@ def suite_memory(args):
         recs = ep.records()
         ep.close()
         rss = [kb for _, kb in res["rss"]]
-        main = [x for x in recs if not x.get("side")]
+        main = [x for x in recs if not is_side(x)]
         if not main:
             return None
         return {
@@ -968,6 +985,18 @@ def scripted_steps(path):
     return data["steps"] if isinstance(data, dict) else data
 
 
+def context_strategy(home: Path) -> str:
+    """The home's `[context] strategy`; `compact` when it says nothing, which
+    is what a config this bench cannot parse leaves it as."""
+    import tomllib
+
+    try:
+        cfg = tomllib.loads((home / "config.toml").read_text())
+    except (OSError, ValueError):
+        return "compact"
+    return (cfg.get("context") or {}).get("strategy", "compact")
+
+
 def final_message(home: Path, since: float):
     """The agent's last words in the run: what it says it did, for the judge
     (docs/rust-eval.md) to hold against the diff."""
@@ -1041,13 +1070,16 @@ def suite_task(args):
         # work dir (the curriculum suite already reads BENCH_VAR_* the same way).
         checks, report = tasklib.check_report(task, work, {f"BENCH_VAR_{k}": v for k, v in vars.items()})
         unintended = tasklib.unintended(task, work)
-        main = [x for x in recs if not x.get("side")]
+        main = [x for x in recs if not is_side(x)]
+        requests, agent_requests = request_counts(recs)
         failed = run_provider_failures(main, turns)
         first = next((x for x in recs if x.get("n_tools")), None)
         # How it got there, from construct's own tool records.
         proc = process.metrics(process.tool_events(h.home, t0)) if isinstance(h, Construct) else {}
         if isinstance(h, Construct) and (window or task.window):
             proc["compaction"] = compaction.metrics(h.home, t0, recs, window or task.window)
+        if isinstance(h, Construct) and context_strategy(h.home) == "optchat":
+            proc["optchat"] = optchat.metrics(h.home, t0, recs, window or task.window)
         return {
             **proc,
             "provider_failures": failed,
@@ -1059,8 +1091,8 @@ def suite_task(args):
             "unintended": unintended,
             "unintended_changes": len(unintended),
             "wall_s": sum(t["wall_s"] for t in turns),
-            "requests": len(recs),
-            "agent_requests": len(main),
+            "requests": requests,
+            "agent_requests": agent_requests,
             "errors": [x.get("error") for x in recs if x.get("error")][:5],
             "first_request": {
                 "prompt_tokens": usage_of(first, "prompt_tokens") if first else None,
@@ -1090,6 +1122,7 @@ def suite_task(args):
             + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
             + (f" search tool={m['search']['tool']} shell={m['search']['shell']} find={m['search']['find']} failed={m['tool_failures']['failed']}/{m['tool_failures']['calls']}" if "search" in m else "")
             + (f" {compaction.line(m['compaction'])}" if "compaction" in m else "")
+            + (f" {optchat.line(m['optchat'])}" if "optchat" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
             + (" OVER BUDGET" if m["over_budget"] else "")
         )
