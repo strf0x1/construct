@@ -760,13 +760,24 @@ class Optchat(unittest.TestCase):
         db.close()
         recs = [
             {"n_tools": 12, "status": 200, "usage": {"prompt_tokens": 32000}},
-            {"n_tools": 0, "side": True, "usage": {"prompt_tokens": 500}},
+            *({"n_tools": 0, "side": True, "usage": {"prompt_tokens": 500}} for _ in range(6)),
         ]
         m = optchat.metrics(home, 1, recs, 65536)
         self.assertEqual((m["leaves"], m["parents"], m["fallbacks"]), (2, 2, 2))
         self.assertEqual((m["summary_tokens"], m["fit_ms"], m["fit_ms_max"], m["zooms"]), (160, 110, 70, 1))
+        # 6 side requests over 4 nodes (2 leaves + 2 parents).
+        self.assertEqual(m["summary_calls"], 6)
+        self.assertAlmostEqual(m["calls_per_node"], 1.5)
         self.assertAlmostEqual(m["peak_fill"], 32000 / 65536)
         self.assertIn("leaves=2", optchat.line(m))
+        self.assertIn("calls/node=1.50", optchat.line(m))
+
+    def test_no_nodes_means_no_calls_per_node(self):
+        import optchat
+
+        m = optchat.metrics(tmpdir(self), 1, [{"n_tools": 0, "side": True}], 65536)
+        self.assertIsNone(m["calls_per_node"])
+        self.assertIn("calls/node=-", optchat.line(m))
 
 
 class Compare(unittest.TestCase):

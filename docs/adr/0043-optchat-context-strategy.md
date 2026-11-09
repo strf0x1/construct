@@ -172,6 +172,12 @@ This ADR takes A. B stays a possible bench arm.
     decisions. A line that comes back over 512 bytes is retried up to 5
     times, keeping the shortest, then cut at a UTF-8 boundary. The
     strategy measures bytes; it never trusts the model to count them.
+    A retry says why: it sends the over-long line as an `assistant` turn
+    and then a `user` turn naming the line's bytes and the 512-byte limit
+    ("Too long: that line is N bytes; the limit is 512. Write it again,
+    shorter, keeping what matters most."), keeping only the most recent
+    over-long line so a retry is at most four messages. An empty reply is
+    retried with the original request, since there is nothing to name.
     The prompt's text is in "What the model is told", below.
 
 12. **Learning reads the log, not the view.** `Context` gains
