@@ -134,7 +134,8 @@ impl Agent {
                 crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
             ),
         };
-        let system_recorded = context.set_system(Message::system(system));
+        let prompt = Message::system(system);
+        let system_recorded = context.set_system(prompt.clone());
         let jobs = crate::jobs::Jobs::new(&cfg.jobs);
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
@@ -187,7 +188,7 @@ impl Agent {
             notes: Coalescer::default(),
         };
         if !system_recorded {
-            let ev = Event::for_message(agent.messages()[0].clone());
+            let ev = Event::for_message(prompt);
             agent.journal.record(&ev);
             agent.unsent.push(ev);
         }

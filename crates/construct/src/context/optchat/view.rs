@@ -6,6 +6,7 @@
 //! and only the last full block of four lines is cache-marked, so the blocks
 //! before it stay a stable prefix (decision 6).
 
+use super::guide::GUIDE;
 use super::tree::{Tree, raw};
 use crate::llm::{Message, Part};
 
@@ -71,8 +72,9 @@ pub fn render(system: Option<&Message>, entries: &[Message], tree: &Tree, view: 
     }
 
     let mut out = Vec::new();
-    if let Some(system) = system {
-        out.push(system.clone());
+    match system.and_then(|m| m.content.as_deref()) {
+        Some(text) => out.push(Message::system(format!("{text}\n\n{GUIDE}"))),
+        None => out.push(Message::system(GUIDE)),
     }
     out.push(Message::parts("user", parts));
     if view.frontier < turn {
@@ -107,8 +109,9 @@ mod tests {
         for n in [0, 3] {
             let (entries, tree, view) = session(n);
             let out = render(None, &entries, &tree, &view);
-            assert_eq!(out.len(), 1);
-            let parts = &out[0].parts;
+            assert_eq!(out.len(), 2);
+            assert_eq!(out[0].content.as_deref(), Some(GUIDE));
+            let parts = &out[1].parts;
             let view_text: String = (0..n).map(|i| format!("{i}+1|assistant: m{i}\n")).collect();
             assert_eq!(lines(parts)[0], "<chat>\n");
             assert_eq!(lines(parts)[1], format!("{view_text}</chat>\n"));
@@ -121,7 +124,7 @@ mod tests {
     fn four_lines_mark_exactly_the_block() {
         let (entries, tree, view) = session(4);
         let out = render(None, &entries, &tree, &view);
-        let parts = &out[0].parts;
+        let parts = &out[1].parts;
         let block: String = (0..4).map(|i| format!("{i}+1|assistant: m{i}\n")).collect();
         assert_eq!(lines(parts), vec!["<chat>\n".to_string(), block, "</chat>\n".to_string()]);
         assert_eq!(parts.iter().map(|p| p.mark).collect::<Vec<_>>(), [false, true, false]);
@@ -131,7 +134,7 @@ mod tests {
     fn nine_lines_mark_the_last_full_block_and_leave_the_fifth_line_unmarked() {
         let (entries, tree, view) = session(9);
         let out = render(None, &entries, &tree, &view);
-        let parts = &out[0].parts;
+        let parts = &out[1].parts;
         let block =
             |from: usize| -> String { (from..from + BLOCK).map(|i| format!("{i}+1|assistant: m{i}\n")).collect() };
         assert_eq!(
@@ -148,7 +151,7 @@ mod tests {
         let mut view = View::default();
         view.advance(1);
         let out = render(Some(&Message::system("sys")), &entries, &Tree::default(), &view);
-        assert_eq!(out[0].content.as_deref(), Some("sys"));
+        assert_eq!(out[0].content.as_deref(), Some(format!("sys\n\n{GUIDE}").as_str()));
         let parts = &out[1].parts;
         assert_eq!(lines(parts), vec!["<chat>\n", "0+1|assistant: old\n</chat>\n", "open"]);
         assert_eq!(out[2].content.as_deref(), Some("answer"));
@@ -159,10 +162,10 @@ mod tests {
     fn a_frontier_behind_the_turn_leaves_the_older_entries_raw_after_the_user_message() {
         let entries = vec![Message::user("u1"), Message::text("assistant", "a1"), Message::user("u2")];
         let out = render(None, &entries, &Tree::default(), &View::default());
-        let parts = &out[0].parts;
+        let parts = &out[1].parts;
         assert_eq!(lines(parts), vec!["<chat>\n", "</chat>\n", "u2"]);
-        assert_eq!(out[1].content.as_deref(), Some("u1"));
-        assert_eq!(out[2].content.as_deref(), Some("a1"));
-        assert_eq!(out.len(), 3);
+        assert_eq!(out[2].content.as_deref(), Some("u1"));
+        assert_eq!(out[3].content.as_deref(), Some("a1"));
+        assert_eq!(out.len(), 4);
     }
 }
