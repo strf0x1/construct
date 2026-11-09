@@ -176,6 +176,8 @@ async fn chat(State(s): State<Arc<Shared>>, headers: HeaderMap, uri: axum::http:
         let _ = std::fs::write(d.join(format!("req-{idx:04}.json")), &body);
     }
     let mut rec = summarize(&req);
+    // A tool-less request is a summary or another side call, not an agent step.
+    rec["side"] = json!(req["tools"].as_array().is_none_or(|t| t.is_empty()));
     rec["i"] = json!(idx);
     rec["t_arrive"] = json!(t_arrive);
     rec["req_bytes"] = json!(body.len());
@@ -438,10 +440,8 @@ fn over_window(s: &Shared, rec: &mut Value, prompt_tokens: u64) -> Option<Respon
 }
 
 async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
-    // Side calls without tools (opencode's title generation, compaction)
-    // don't advance the script; only the agent loop does.
-    let side = req["tools"].as_array().is_none_or(|t| t.is_empty());
-    rec["side"] = json!(side);
+    // Side calls (no tools) don't advance the script; only the agent loop does.
+    let side = rec["side"].as_bool().unwrap_or(false);
     let prompt_tokens = rec["req_bytes"].as_u64().unwrap_or(0) / 4;
     if let Some(r) = over_window(&s, &mut rec, prompt_tokens) {
         return r;
