@@ -437,3 +437,9 @@ coord-recall (#206), Haiku 5.5, n=3 per arm: recall 8/24 (compact) vs 24/24 (opt
 #218 fix (restore the measured bytes-per-token ratio on resume): compact at a 64k window now cuts at the threshold on resumed turns. coord-recall n=1, Haiku 5.5: 0 overflows and peak_fill 0.679 (was 2-4 and 0.990-0.997, n=3); 10 threshold cuts, all reached, no cut with reason overflow. Recall 1/8 (n=1; 8/24 pooled before, Fisher p≈0.39), so the strategy's recall loss is unchanged.
 
 - `bench/results/task-20261108-225955.json`: model anthropic/claude-haiku-5.5; bench 5a0acb2; compact 338b088 editor=replace router=local
+
+## 2026-11-09 10:35 note
+
+optchat summary retries say why (#227, R1). coord-recall, Haiku 5.5, n=1: 289 nodes, 585 summary calls, 2.02 calls/node, 1,133k summary tokens, 3 fallbacks, recall 8/8, $0.376, 2380 s wall, 25 MB peak. The #216 re-bench it is compared with ran the 10-probe fixture; this run has main's 8 probes, so node counts are not identical. Against that 310-node / 711-call / 2.30-per-node / 1,073k run: calls per node fell 12%, but each retry now carries the over-long line plus its byte count, so summary tokens per call rose 1,509 -> 1,937 and the total rose 5.6%.
+
+- `bench/results/task-20261109-103456.json`: model anthropic/claude-haiku-5.5; bench 9b253b4; optchat 9b253b4 editor=replace router=local
