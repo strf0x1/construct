@@ -431,3 +431,9 @@ The overnight IQ2_XXS invocation (`--arm steps400`, max_steps = 400) never saved
 coord-recall (#206), Haiku 5.5, n=3 per arm: recall 8/24 (compact) vs 24/24 (optchat), pooled Fisher p=6.5e-7. optchat costs 1.8x, 3.7x model requests, 3.1x wall and has 2.5 points lower cached share; compact overflows 2-4 times per run at peak fill 0.99. First attempt discarded: the fixture kept a hash answer key the agent found by grepping; re-run on the fixed task (key only in check.sh's BENCH_VAR_*).
 
 - `bench/results/task-20261108-161422.json`: model anthropic/claude-haiku-5.5; bench ca4e6e5 dirty; compact ca4e6e5 editor=replace router=local; optchat ca4e6e5 editor=replace router=local
+
+## 2026-11-08 23:01 note
+
+#218 fix (restore the measured bytes-per-token ratio on resume): compact at a 64k window now cuts at the threshold on resumed turns. coord-recall n=1, Haiku 5.5: 0 overflows and peak_fill 0.679 (was 2-4 and 0.990-0.997, n=3); 10 threshold cuts, all reached, no cut with reason overflow. Recall 1/8 (n=1; 8/24 pooled before, Fisher p≈0.39), so the strategy's recall loss is unchanged.
+
+- `bench/results/task-20261108-225955.json`: model anthropic/claude-haiku-5.5; bench 5a0acb2; compact 338b088 editor=replace router=local
