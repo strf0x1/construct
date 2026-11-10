@@ -540,6 +540,16 @@ class SearchKeys(unittest.TestCase):
 
 
 class Arms(unittest.TestCase):
+    def test_a_replay_task_runs_without_web_tools_and_keeps_the_arms_overlay(self):
+        import tomllib
+
+        import bench
+
+        h = bench.Construct(tmpdir(self) / "home")
+        h.tools, h.no_web = 'editor="hashline"', True
+        h.configure("http://127.0.0.1:9/v1", "m")
+        self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["tools"], {"editor": "hashline", "disabled": ["web_search", "web_fetch"]})
+
     def test_an_arm_is_construct_with_a_tools_overlay(self):
         import bench
 

@@ -25,9 +25,11 @@ from pathlib import Path
 import journal
 
 MUTATING = ("write", "edit")  # a successful one makes reading the same thing again fair
+DENIED = "\n[sandbox:"  # the hint the shell tool adds to a non-zero exit the sandbox caused: that one is a failure
 BIG = 8000  # bytes of one tool result above which it is a `big` finding
 KINDS = {
     "fail": "a tool call that returned an error",
+    "exit": "a shell command that ran and exited non-zero (a failing test is one): the command's answer, not a tool failure",
     "stuck": "a failure straight after the same tool's previous failure",
     "reread": "a read with the same arguments as an earlier one, nothing written in between",
     "repeat": "any other call repeated with the same arguments, nothing written in between",
@@ -120,12 +122,15 @@ def findings(rows) -> list:
             name, ok, output = p.get("name", ""), p.get("ok", True), p.get("output") or ""
             call = args.get(p.get("id"), "")
             detail = f"{one_line(call, 110)} → {one_line(output, 110)}"
-            if not ok:
-                label = f"{name}:{p.get('code') or 'error'}"
+            failed = not ok and not (p.get("code") == "exit" and DENIED not in output)
+            if failed:
+                label = f"{name}:{'denied' if p.get('code') == 'exit' else p.get('code') or 'error'}"
                 out.append(("fail", seq, label, detail))
                 if last_failed.get(name):
                     out.append(("stuck", seq, label, detail))
-            last_failed[name] = not ok
+            elif not ok:
+                out.append(("exit", seq, name, detail))
+            last_failed[name] = failed
             if (name, call) in seen:
                 out.append(("reread" if name == "read" else "repeat", seq, name, detail))
             seen.add((name, call))
@@ -153,7 +158,7 @@ def summary(session) -> dict:
 def triage(sessions, limit: int = 30) -> str:
     """The sessions with the most findings first, then every (kind, label) with
     its count: the arguments to pass `find` next."""
-    cols = ("fail", "stuck", "reread", "repeat", "big", "error", "note")
+    cols = ("fail", "exit", "stuck", "reread", "repeat", "big", "error", "note")
     rows, totals = [], Counter()
     for s in sessions:
         m = summary(s)

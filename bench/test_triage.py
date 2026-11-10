@@ -40,6 +40,16 @@ class Triage(unittest.TestCase):
             ("fail", 10, "edit:no_match"), ("stuck", 10, "edit:no_match"), ("repeat", 10, "edit"), ("error", 15, "error"),
         ])
 
+    def test_a_non_zero_exit_is_the_commands_answer_unless_the_sandbox_caused_it(self):
+        rows = triage.load(home_with(self, (
+            [head("m", "openai")]
+            + call(1, "shell", '{"command":"pytest"}', "Error: 1 failed\n[exit 1]", ok=False, code="exit")
+            + call(2, "shell", '{"command":"pytest -x"}', "Error: 1 failed\n[exit 1]", ok=False, code="exit")
+            + call(3, "shell", '{"command":"touch /tmp/x"}', "Error: Permission denied\n[exit 1]\n[sandbox: commands can only reach the workspace]", ok=False, code="exit")
+            + turn("m")
+        )))[0]["rows"]
+        self.assertEqual([(k, label) for k, _, label, _ in triage.findings(rows)], [("exit", "shell"), ("exit", "shell"), ("fail", "shell:denied")])
+
     def test_the_table_counts_them_and_skips_an_empty_session(self):
         m = triage.summary(self.sessions[0])
         self.assertEqual((m["turns"], m["calls"], m["tools"], m["first_write"]), (1, 1, 6, 4))

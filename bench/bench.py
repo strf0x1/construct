@@ -294,6 +294,9 @@ class Construct(Harness):
     bin = CONSTRUCT
     # Per task: the model's context window (task.toml `window`), or None.
     window = None
+    # Per task: no web tools. An [external] task replays a public PR, and a
+    # model that can search for the upstream fix is not being measured.
+    no_web = False
 
     def env(self):
         e = {"CONSTRUCT_HOME": str(self.home), "OPENAI_API_KEY": "via-proxy", **read_search_keys()}
@@ -310,8 +313,9 @@ class Construct(Harness):
             cfg += f"context_window = {self.window}\n"
         if self.overlay:
             cfg += self.overlay + "\n"
-        if self.tools:
-            cfg += f"tools = {{ {self.tools} }}\n"
+        tools = ", ".join(t for t in (self.tools, 'disabled = ["web_search", "web_fetch"]' if self.no_web else "") if t)
+        if tools:
+            cfg += f"tools = {{ {tools} }}\n"
         if not self.learn:
             cfg += "\n[learn]\nenabled = false\n"
         if upstream and "openrouter.ai" in upstream:
@@ -1026,7 +1030,7 @@ def suite_task(args):
         upstream = None if args.script else args.upstream
         ep = Endpoint(base / "ep", script=scripted_steps(args.script), upstream=upstream, window=window)
         if isinstance(h, Construct):
-            h.window = window
+            h.window, h.no_web = window, bool(task.external)
         h.configure(ep.url, args.model, upstream=upstream)
         tasklib.seed_home(task, h.home, vars)
         if isinstance(h, Construct) and task.config:
