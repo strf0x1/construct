@@ -18,7 +18,6 @@ Add a regression test that runs against every cache type, and run the tests with
 
 [budget]
 max_requests = 80
-max_prompt_tokens = 2500000
 
 [external]
 url = "https://github.com/tkem/cachetools"

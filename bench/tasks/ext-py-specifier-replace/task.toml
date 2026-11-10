@@ -14,7 +14,6 @@ Document it in docs/specifiers.rst and add tests. A virtualenv is ready: run tes
 
 [budget]
 max_requests = 80
-max_prompt_tokens = 2500000
 
 [external]
 url = "https://github.com/pypa/packaging"

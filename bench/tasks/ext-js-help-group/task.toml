@@ -17,7 +17,6 @@ Add regression tests. The tests need no install: run them with `node --test test
 
 [budget]
 max_requests = 80
-max_prompt_tokens = 2500000
 
 [external]
 url = "https://github.com/tj/commander.js"

@@ -7,5 +7,4 @@ timeout_s = 1200
 changes = ["ledger/*", "tests/*", "SPEC.md", "README.md"]
 
 [budget]
-max_requests = 80
-max_prompt_tokens = 2000000
+max_requests = 120

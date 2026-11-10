@@ -18,7 +18,6 @@ Add a regression test and run the tests with `python3 -m unittest tests.test_mor
 
 [budget]
 max_requests = 80
-max_prompt_tokens = 2500000
 
 [external]
 url = "https://github.com/more-itertools/more-itertools"
