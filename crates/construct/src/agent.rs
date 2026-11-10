@@ -4,9 +4,9 @@
 //! runner and the tests observe the same thing, journaled on the way out.
 
 mod compaction;
-mod cutoff;
 mod deck;
 mod limits;
+mod nudge;
 mod restore;
 mod tools;
 mod user_turn;
@@ -193,7 +193,7 @@ impl Agent {
         let mut interrupted = false;
         // One forced cut and resend per step when the provider says the
         // prompt is too long; a second rejection ends the turn.
-        let (mut overflowed, mut cutoffs) = (false, 0);
+        let (mut overflowed, mut nudges) = (false, 0);
         loop {
             if self.cancelled() {
                 interrupted = true;
@@ -258,11 +258,10 @@ impl Agent {
                 },
                 tx,
             );
-            let calls = completion.message.tool_calls.clone();
-            self.push(completion.message, tx);
-            if !calls.is_empty() {
-                self.run_tools(&calls, tx).await;
-            } else if !self.go_on_after_cutoff(&completion.finish_reason, &mut cutoffs, tx) {
+            self.push(completion.message.clone(), tx);
+            if !completion.message.tool_calls.is_empty() {
+                self.run_tools(&completion.message.tool_calls, tx).await;
+            } else if !self.nudge(&completion, &mut nudges, tx) {
                 break;
             }
         }

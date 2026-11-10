@@ -928,9 +928,52 @@ fn an_answer_cut_off_at_the_output_limit_is_asked_to_go_on() {
     assert!(nudge["content"].as_str().unwrap().contains("cut off at the output limit"), "{nudge}");
     let rows = env.journal();
     let types: Vec<&str> = rows.iter().map(|r| r.ty.as_str()).collect();
-    assert_eq!(types.iter().filter(|t| **t == "cutoff").count(), 1, "{types:?}");
+    assert_eq!(types.iter().filter(|t| **t == "nudge").count(), 1, "{types:?}");
     assert_eq!(types.iter().filter(|t| **t == "user").count(), 1, "the nudge is not a user row: {types:?}");
     assert!(!types.contains(&"error"), "{types:?}");
+}
+
+#[test]
+fn a_tool_call_written_as_text_is_sent_back_not_taken_as_the_answer() {
+    let env = Env::new(
+        "text-tool-call",
+        json!({ "steps": [
+            // The call only in the reasoning, as one free-tier model wrote it.
+            { "text": "", "reasoning": "Let me search.\n<|tool_call_start|>[grep(pattern='x', path='.')]<|tool_call_end|>" },
+            // The call as content, in another model's spelling.
+            { "text": "<tool_call>shell<param_key>command</param_key><param_value>ls</param_value></tool_call>" },
+            { "call": "write", "args": { "path": "out.txt", "content": "done\n" } },
+            // A real answer may mention none of it, and ends the turn.
+            { "text": "Wrote it." }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "write out.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(std::fs::read_to_string(env.work.join("out.txt")).unwrap(), "done\n");
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 4);
+    for req in &reqs[1..3] {
+        let last = req["messages"].as_array().unwrap().last().unwrap();
+        assert!(last["content"].as_str().unwrap().contains("wrote a tool call out as text"), "{last}");
+    }
+    let rows = env.journal();
+    let whys: Vec<&str> = rows.iter().filter(|r| r.ty == "nudge").filter_map(|r| r.payload["why"].as_str()).collect();
+    assert_eq!(whys, ["text_tool_call", "text_tool_call"]);
+    assert!(rows.iter().all(|r| r.ty != "tool_start" || r.payload["name"] == "write"), "the text call never ran");
+}
+
+#[test]
+fn reasoning_with_no_answer_and_no_call_is_asked_to_go_on() {
+    let env = Env::new(
+        "empty-answer",
+        json!({ "steps": [ { "text": "", "reasoning": "I should look at the file." }, { "text": "All done." } ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "look"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(env.requests().len(), 2);
+    let rows = env.journal();
+    let whys: Vec<&str> = rows.iter().filter(|r| r.ty == "nudge").filter_map(|r| r.payload["why"].as_str()).collect();
+    assert_eq!(whys, ["empty"]);
 }
 
 #[test]
@@ -943,7 +986,7 @@ fn a_model_that_keeps_hitting_the_output_limit_ends_the_turn_with_the_error() {
     let errors: Vec<&str> =
         rows.iter().filter(|r| r.ty == "error").filter_map(|r| r.payload["message"].as_str()).collect();
     assert_eq!(errors, ["the model hit its output limit mid-answer"]);
-    assert_eq!(rows.iter().filter(|r| r.ty == "cutoff").count(), 3);
+    assert_eq!(rows.iter().filter(|r| r.ty == "nudge").count(), 3);
 }
 
 #[test]

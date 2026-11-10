@@ -36,9 +36,10 @@ KINDS = {
     "big": f"a tool result over {BIG} bytes",
     "error": "an `error` event (the turn failed)",
     "note": "a `note` event (a provider condition construct recovered from)",
+    "nudge": "a `nudge` event (an answer that was cut off, wrote its tool call as text, or was empty, and was asked to go on)",
 }
 # What `show` prints unless --all: the conversation and what the tools did.
-SHOWN = ("user", "assistant", "tool_start", "tool_end", "error", "note", "compacted", "turn_end", "model")
+SHOWN = ("user", "assistant", "nudge", "tool_start", "tool_end", "error", "note", "compacted", "turn_end", "model")
 
 
 def load(home: Path, since: float = 0) -> list:
@@ -116,6 +117,8 @@ def findings(rows) -> list:
             args[p.get("id")] = norm(p.get("args"))
         elif ty == "error":
             out.append(("error", seq, "error", one_line(p.get("message"), 160)))
+        elif ty == "nudge":
+            out.append(("nudge", seq, p.get("why", ""), ""))
         elif ty == "note":
             out.append(("note", seq, f"{p.get('class')}/{p.get('kind')}", one_line(p.get("detail"), 160)))
         elif ty == "tool_end" and p.get("name") != journal.ENABLE_TOOLS:
@@ -158,13 +161,13 @@ def summary(session) -> dict:
 def triage(sessions, limit: int = 30) -> str:
     """The sessions with the most findings first, then every (kind, label) with
     its count: the arguments to pass `find` next."""
-    cols = ("fail", "exit", "stuck", "reread", "repeat", "big", "error", "note")
+    cols = ("fail", "exit", "stuck", "reread", "repeat", "big", "error", "note", "nudge")
     rows, totals = [], Counter()
     for s in sessions:
         m = summary(s)
         if not m["calls"] and not m["kinds"]:
             continue  # opened and closed: nothing to judge
-        rows.append((sum(m["kinds"][k] for k in cols if k not in ("big", "note")), s, m))
+        rows.append((sum(m["kinds"][k] for k in cols if k not in ("big", "note", "nudge")), s, m))
         totals.update((k, label) for k, _, label, _ in findings(s["rows"]))
     if not rows:
         return "no sessions in range\n"

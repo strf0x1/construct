@@ -285,9 +285,10 @@ pub enum Event {
         /// What the model was sent, verbatim.
         message: Message,
     },
-    /// The model's answer stopped at its output limit before any tool call,
-    /// and it was sent this to go on (`agent/cutoff.rs`).
-    Cutoff {
+    /// An answer with no tool call that was not an answer (`why`: `length`,
+    /// `text_tool_call`, `empty`), and what the model was sent to go on.
+    Nudge {
+        why: String,
         message: Message,
     },
     /// An event from a child session a tool is running, as the parent sees

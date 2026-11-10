@@ -32,7 +32,7 @@ impl App {
             | Event::ToolResult { .. }
             | Event::Note { .. }
             | Event::DeckBoundary { .. }
-            | Event::Cutoff { .. }
+            | Event::Nudge { .. }
             | Event::Request { .. } => {}
             Event::Submitted { .. } => self.turn.submitted(),
             Event::TurnStart => self.turn.start(Instant::now()),
