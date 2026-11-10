@@ -1,0 +1,27 @@
+# Replay of https://github.com/pypa/packaging/pull/1457: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["src/*", "tests/*", "docs/*", "CHANGELOG.rst"]
+turns = [
+"""This is pypa/packaging. Add `__replace__` to `Specifier` and `SpecifierSet`, so that `copy.replace()` (Python 3.13+) and a direct `spec.__replace__(...)` call give a modified copy instead of mutating the `prereleases` attribute.
+
+- `Specifier.__replace__(*, operator=..., version=..., prereleases=...)` returns a new `Specifier`; anything not passed keeps its current value, including an explicit `prereleases` override of `True`, `False` or `None`. The new operator and version are validated like the constructor validates them (`InvalidSpecifier`).
+- `SpecifierSet.__replace__(*, specifiers=..., prereleases=...)` returns a new `SpecifierSet`; `specifiers` takes whatever the constructor takes (a string or an iterable of `Specifier`).
+- An unknown keyword raises `TypeError`. The original object is never changed, and the result compares and hashes like one built directly.
+
+Document it in docs/specifiers.rst and add tests. A virtualenv is ready: run tests with `.venv/bin/python -m pytest tests/test_specifiers.py`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000
+
+[external]
+url = "https://github.com/pypa/packaging"
+pr = 1457
+base = "fc613377731e5211ab6e08e6fd6163f09ae67ce8"
+merge = "ffced26d0a30557a0e181dbaca561a0432ddec53"
+hidden = ["tests/test_specifiers.py"]
+test = ".venv/bin/python -m pytest -q -x tests/test_specifiers.py"
+setup = "python3 -m venv .venv && .venv/bin/pip install -q -e . pytest pretend hypothesis tomli_w"
+exclude = [".venv", "*.egg-info"]

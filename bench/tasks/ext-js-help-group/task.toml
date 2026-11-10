@@ -1,0 +1,28 @@
+# Replay of https://github.com/tj/commander.js/pull/2637: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["lib/*", "tests/*", "CHANGELOG.md"]
+turns = [
+"""This is commander.js. When an application option shadows one of the help option's flags, the help option loses its help group and is listed under the default `Options:` heading:
+
+    const program = new Command()
+      .option('-h, --host <host>')
+      .addHelpOption(new Option('-h, --help', 'display help').helpGroup('Information:'));
+    console.log(program.helpInformation());   // --help appears under "Options:", expected "Information:"
+
+The help option must keep its configured group whichever of its flags (short or long) is shadowed, and whether the group was set with `Option.helpGroup()` or `Command.optionsGroup()`.
+
+Add regression tests. The tests need no install: run them with `node --test tests/helpGroup.test.js`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000
+
+[external]
+url = "https://github.com/tj/commander.js"
+pr = 2637
+base = "3b4365777fe3df372c67226054b1021279b629cb"
+merge = "46c6f6b12829496c1bab71ab11fe00f140d4b3ff"
+hidden = ["tests/helpGroup.test.js"]
+test = "node --test tests/helpGroup.test.js"

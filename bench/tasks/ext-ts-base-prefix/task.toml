@@ -1,0 +1,28 @@
+# Replay of https://github.com/unjs/ufo/pull/313: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["src/*", "test/*", "README.md"]
+turns = [
+"""This is unjs/ufo, a URL utility library in TypeScript. `withoutBase` and `withBase` treat a base as matching whenever the input merely starts with the same characters:
+
+    withoutBase("/admin-dashboard", "/admin/")   // gives "/-dashboard", expected "/admin-dashboard"
+    withBase("/admin-dashboard", "/admin")       // gives "/admin-dashboard", expected "/admin/admin-dashboard"
+
+A base only matches when it ends at a path segment boundary in the input: the next character is `/`, `?`, or the end of the string. Fix both functions and keep every existing behaviour.
+
+Add tests. Dependencies are installed: run tests with `npx vitest run test/base.test.ts`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000
+
+[external]
+url = "https://github.com/unjs/ufo"
+pr = 313
+base = "5fb179d51384301ffb66b48e213863a27cadd1ff"
+merge = "eb29945470c8629309764f026a36e7f477a9a1ff"
+hidden = ["test/base.test.ts"]
+test = "npx vitest run test/base.test.ts"
+setup = "npm install --no-audit --no-fund --silent"
+exclude = ["node_modules", "package-lock.json"]

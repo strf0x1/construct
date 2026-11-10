@@ -1,0 +1,29 @@
+# Replay of https://github.com/tkem/cachetools/pull/408: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["src/*", "tests/*", "docs/*", "CHANGELOG.rst"]
+turns = [
+"""This is the cachetools library. Fix a bug: growing the value of a key that is already in a cache can evict another entry even though everything still fits.
+
+    c = cachetools.LRUCache(maxsize=10, getsizeof=lambda v: v)
+    c["a"] = 3
+    c["b"] = 3
+    c["b"] = 7    # a(3) + b(7) == 10 == maxsize, so it fits
+    # now: {'b': 7}; expected: {'a': 3, 'b': 7}
+
+Updating an existing key must evict only when the cache would really exceed `maxsize`, in every cache class. Mind the case where eviction removes the very key being updated.
+
+Add a regression test that runs against every cache type, and run the tests with `PYTHONPATH=src python3 -m unittest discover -s tests -t .`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2500000
+
+[external]
+url = "https://github.com/tkem/cachetools"
+pr = 408
+base = "13bb86a55e36e501cf0b3e4c35db516ed9409fd7"
+merge = "4296bbde2be128341b17126e43a06271259ae477"
+hidden = ["tests/__init__.py"]
+test = "PYTHONPATH=src python3 -m unittest discover -s tests -t ."

@@ -161,6 +161,10 @@ class Tasks(unittest.TestCase):
             with self.subTest(name):
                 if tasklib.load(name).git and not tasklib.has_rev(tasklib.load(name).git):
                     self.skipTest(f"{name}: a shallow clone has no {tasklib.load(name).git[:8]} (git fetch --unshallow)")
+                if tasklib.load(name).external:
+                    # Its fixture is a clone and an install: network, so not here (test_external.py has a local one).
+                    self.assertTrue(tasklib.load(name).turns and (tasklib.load(name).src / "check.sh").exists())
+                    continue
                 task, vars, work = self.materialize(name)
                 self.assertTrue(task.turns or task.spec.get("sessions"), "a task needs turns or sessions")
                 self.assertTrue((task.src / "check.sh").exists())
