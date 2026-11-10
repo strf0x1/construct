@@ -285,6 +285,11 @@ pub enum Event {
         /// What the model was sent, verbatim.
         message: Message,
     },
+    /// The model's answer stopped at its output limit before any tool call,
+    /// and it was sent this to go on (`agent/cutoff.rs`).
+    Cutoff {
+        message: Message,
+    },
     /// An event from a child session a tool is running, as the parent sees
     /// it. `id` is the delegating call's id, so a UI nests it under that call.
     /// Wire only: the parent journals the inner event under the child's own
