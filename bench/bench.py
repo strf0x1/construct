@@ -46,6 +46,7 @@ import journal
 import optchat
 import process
 import tasklib
+import triage
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
@@ -1110,6 +1111,7 @@ def suite_task(args):
             "learn_wait_s": learn_s,
             **({"report": report} if report is not None else {}),
             **({"final_message": final_message(h.home, t0)} if isinstance(h, Construct) else {}),
+            **({"sessions": triage.ids(h.home, t0)} if isinstance(h, Construct) else {}),
             "records": recs,
         }
 
@@ -1172,7 +1174,11 @@ def suite_task(args):
 
     summary = {n: summarize(v) for n, v in results.items()}
     by_task = {t.name: {n: summarize([x for x in v if x["task"] == t.name]) for n, v in results.items()} for t in tasks}
-    save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "invalid_reruns": INVALID, "jev": args.jev, "arms": ARMS, "learn": Construct.learn, "window": args.window})
+    path = save("task", {"model": args.model, "rounds": args.rounds, "tasks": {t.name: t.turns for t in tasks}, "raw": results, "summary": summary, "by_task": by_task, "stalls": STALLS, "invalid_reruns": INVALID, "jev": args.jev, "arms": ARMS, "learn": Construct.learn, "window": args.window})
+    # The journals outlive the work dir, so a failed run can be read later:
+    # `triage.py --home <that directory> show <a run's sessions[0]>@0`.
+    kept = triage.keep({n: h.home for n, h in homes.items() if isinstance(h, Construct)}, RESULTS / "journals" / path.stem)
+    print(f"kept {kept} journals in {RESULTS / 'journals' / path.stem}")
 
 
 # ---------------------------------------------------------------- routing
