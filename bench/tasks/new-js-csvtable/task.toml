@@ -1,0 +1,11 @@
+description = "Build a CSV-to-Markdown-table library and CLI in JavaScript from a spec, then extend it. Two turns, one session; hidden tests score it."
+turns = [
+  "Implement what SPEC.md describes: `src/csv.js`, `src/table.js` and `bin/csvtable.js`. Write tests with the built-in runner (`node:test`) in a `test/` directory and run them with `node --test`. When you are done, say in two sentences what you built.",
+  "Add a `--sort NAME` option to the CLI, also written `--sort NAME:desc`. It orders the data rows (never the header) by the column whose header is NAME: by number when every value in that column is a number, otherwise as strings; ascending unless `:desc`; rows that compare equal keep their order. An unknown column is the error `no column NAME`. Add it to SPEC.md, add tests, run the whole suite, and tell me in one sentence what changed.",
+]
+timeout_s = 1200
+changes = ["src/*", "bin/*", "test/*", "SPEC.md", "README.md", "package.json"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2000000

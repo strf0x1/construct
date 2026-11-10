@@ -1,0 +1,11 @@
+description = "Build a small accounting CLI in Python from a spec, then extend it. Two turns, one session; hidden tests score it."
+turns = [
+  "Implement the tool SPEC.md describes, as a package `ledger` in this directory that runs with `python3 -m ledger`. Write unit tests for it in a `tests/` directory (unittest, runnable with `python3 -m unittest discover -s tests`) and run them. When you are done, say in two sentences what you built.",
+  "Two additions, for both commands. First, the options `--from DATE` and `--to DATE` (either or both, anywhere after the command name) keep only transactions dated within that inclusive range. Second, transactions are now processed in date order even when the file is not in date order; transactions with the same date keep their file order. Add both to SPEC.md, add tests, run the whole suite, and tell me in one sentence what changed.",
+]
+timeout_s = 1200
+changes = ["ledger/*", "tests/*", "SPEC.md", "README.md"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 2000000
