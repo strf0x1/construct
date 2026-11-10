@@ -11,11 +11,11 @@
 "crates/construct-dev/src/serve/mod.rs" = 593
 "crates/construct-dev/src/style.rs" = 375
 "crates/construct/src/acp/client.rs" = 399
-"crates/construct/src/agent.rs" = 352
+"crates/construct/src/agent.rs" = 351
 "crates/construct/src/child/run.rs" = 324
 "crates/construct/src/compact/mod.rs" = 323
 "crates/construct/src/config.rs" = 427
-"crates/construct/src/event.rs" = 305
+"crates/construct/src/event.rs" = 306
 "crates/construct/src/llm/mod.rs" = 332
 "crates/construct/src/mcp/conn.rs" = 334
 "crates/construct/src/router.rs" = 304
