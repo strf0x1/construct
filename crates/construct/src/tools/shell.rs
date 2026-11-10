@@ -296,7 +296,7 @@ async fn run_once(
             // Landlock denials look like ordinary permission errors; say why.
             let hint = if !policy.off && (out.contains("Permission denied") || out.contains("Operation not permitted"))
             {
-                "\n[sandbox: commands can only reach the workspace, system paths and toolchains]"
+                "\n[sandbox: commands can only reach the workspace, system paths and toolchains; for scratch files use $TMPDIR, not /tmp]"
             } else {
                 ""
             };
