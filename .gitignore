@@ -2,6 +2,7 @@ target/
 research/src/
 research/jev/
 bench/results/logs/*.log
+bench/results/journals/
 __pycache__/
 
 # Local credentials and runtime state

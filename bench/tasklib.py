@@ -37,6 +37,9 @@ task.toml keys:
                 archive`), with no history, so the agent can't read ahead.
                 A warm cargo target for it, if `bench/replay.py warm` made
                 one, is reflinked into the work dir (rust-replay-*)
+    [external]  another repository's merged PR as the task: the fixture is
+                its tree at the PR's parent, the scorer its hidden tests
+                (bench/external.py, which documents the keys)
     check_timeout_s  how long check.sh may run (default 300)
     base        another task whose fixture/, check.sh and other files this one
                 uses; its own directory then holds only task.toml and overlays
@@ -106,6 +109,10 @@ class Task:
         return self.spec.get("git")
 
     @property
+    def external(self):
+        return self.spec.get("external")
+
+    @property
     def check_timeout_s(self) -> int:
         return self.spec.get("check_timeout_s", 300)
 
@@ -167,6 +174,10 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
         generate(task.spec["generate"], dest)
     elif task.git:
         export_tree(task.git, dest)
+    elif task.external:
+        import external
+
+        external.export(task.external, dest)
     else:
         _copy_filled(src or task.src / "fixture", dest, vars)
     for o in overlays:
@@ -181,6 +192,8 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
     git("-c", "user.name=bench", "-c", "user.email=bench@example.com", "commit", "-qm", "init")
     if task.git and warm:
         seed_target(task, dest)
+    if task.external:
+        external.setup(task.external, dest)
 
 
 def generate(spec: str, dest: Path):

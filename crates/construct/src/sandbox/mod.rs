@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 mod beneath;
+mod denied;
 #[cfg(target_os = "linux")]
 mod landlock;
 pub mod open;
@@ -136,6 +137,9 @@ impl Policy {
         let expand = expand_home;
         let tmp = paths.home.join("tmp").join(std::process::id().to_string());
         let _ = std::fs::create_dir_all(&tmp);
+        // Made now: a root that doesn't exist yet is dropped below, and the
+        // first capped output of a fresh home would spill where no tool can read.
+        let _ = std::fs::create_dir_all(paths.spill_dir());
         let mut write = vec![tmp.clone(), paths.spill_dir()];
         if cfg.mode != "read-only" {
             write.push(cwd.to_path_buf());
@@ -280,14 +284,6 @@ impl Policy {
         p.read.extend(read.iter().cloned());
         p.write.extend(write.iter().cloned());
         p
-    }
-
-    fn denied(&self, p: &Path, what: &str) -> String {
-        format!(
-            "blocked by the sandbox: {} is outside the workspace ({what}). Work inside {}. If the user wants this path available, they can add it to [sandbox] allow_{what} in construct's config.toml.",
-            p.display(),
-            self.read.first().map(|p| p.display().to_string()).unwrap_or_default()
-        )
     }
 
     /// Build the command that runs `shell -c script` inside the sandbox.

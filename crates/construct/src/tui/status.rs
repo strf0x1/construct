@@ -169,7 +169,14 @@ mod tests {
     #[test]
     fn reads_window_then_bill() {
         let mut t = Totals::default();
-        t.add(&Event::Usage { prompt: 48_000, completion: 6_200, cached: 12_000, cache_write: 0, cost: Some(0.1234) });
+        t.add(&Event::Usage {
+            prompt: 48_000,
+            completion: 6_200,
+            cached: 12_000,
+            cache_write: 0,
+            cost: Some(0.1234),
+            served: None,
+        });
         assert_eq!(text(&counters(&t, 37, false, false)), "ctx ▰▰▱▱▱ 37% · billed ↑48.0k ↓6.2k · cache 25% · $0.123");
         assert_eq!(text(&counters(&t, 37, true, false)), "ctx ▰▰▱▱▱ ~37% · billed ↑48.0k ↓6.2k · cache 25% · $0.123");
         assert_eq!(text(&counters(&t, 37, false, true)), "ctx 37% · ↑48.0k ↓6.2k · cache 25% · $0.123");
@@ -179,14 +186,14 @@ mod tests {
     fn before_any_request_there_is_no_window_and_free_is_zero() {
         assert_eq!(text(&counters(&Totals::default(), 0, false, false)), "billed ↑0 ↓0 · cache 0%");
         let mut t = Totals::default();
-        t.add(&Event::Usage { prompt: 10, completion: 1, cached: 0, cache_write: 0, cost: Some(0.0) });
+        t.add(&Event::Usage { prompt: 10, completion: 1, cached: 0, cache_write: 0, cost: Some(0.0), served: None });
         assert_eq!(text(&counters(&t, 0, false, false)), "ctx ▱▱▱▱▱ <1% · billed ↑10 ↓1 · cache 0% · $0");
     }
 
     #[test]
     fn the_meter_fills_and_warms() {
         let mut t = Totals::default();
-        t.add(&Event::Usage { prompt: 1, completion: 0, cached: 0, cache_write: 0, cost: None });
+        t.add(&Event::Usage { prompt: 1, completion: 0, cached: 0, cache_write: 0, cost: None, served: None });
         let meter = |p| text(&counters(&t, p, false, false)).split(' ').nth(1).unwrap().to_string();
         assert_eq!(meter(1), "▰▱▱▱▱");
         assert_eq!(meter(100), "▰▰▰▰▰");

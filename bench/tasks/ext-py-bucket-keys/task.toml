@@ -1,0 +1,28 @@
+# Replay of https://github.com/more-itertools/more-itertools/pull/1285: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["more_itertools/*", "tests/*", "docs/*"]
+turns = [
+"""This is the more-itertools library. Fix a bug in `bucket`: testing whether a key is in a bucket permanently adds that key to the keys you get by iterating the bucket.
+
+    >>> s = bucket(['a1', 'b1', 'a2'], key=lambda x: x[0])
+    >>> 'c' in s
+    False
+    >>> sorted(s)
+    ['a', 'b', 'c']          # expected ['a', 'b']
+
+Iterating a bucket must only ever report keys that an item of the source actually has, whatever lookups (`in`, `s[key]`) were made before, including lookups made while the source is only partly consumed. Everything else about `bucket` (laziness, the `validator` argument, the order of values within a key) must keep working.
+
+Add a regression test and run the tests with `python3 -m unittest tests.test_more`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+
+[external]
+url = "https://github.com/more-itertools/more-itertools"
+pr = 1285
+base = "b2f3aff7633057d234ec9186c18a53f4df306d08"
+merge = "3ea9b009b19db0e01a83d51cee43e9935c0d657f"
+hidden = ["tests/test_more.py"]
+test = "python3 -m unittest tests.test_more"

@@ -28,7 +28,7 @@ impl Totals {
     /// Fold in one event. Anything that bills nothing is ignored.
     pub fn add(&mut self, ev: &Event) {
         match ev {
-            Event::Usage { prompt, completion, cached, cache_write, cost } => {
+            Event::Usage { prompt, completion, cached, cache_write, cost, .. } => {
                 self.requests += 1;
                 self.last_prompt = *prompt;
                 self.usage.add(&Usage {
@@ -37,6 +37,7 @@ impl Totals {
                     cached_tokens: *cached,
                     cache_write_tokens: *cache_write,
                     cost: *cost,
+                    served: None,
                 });
             }
             Event::Compacted { summary_prompt, summary_completion, summary_cached, summary_cost, .. }
@@ -50,6 +51,7 @@ impl Totals {
                         cached_tokens: *summary_cached,
                         cache_write_tokens: 0,
                         cost: *summary_cost,
+                        served: None,
                     },
                 );
             }
@@ -106,7 +108,7 @@ mod tests {
     use super::*;
 
     fn usage(prompt: u64, cost: f64) -> Event {
-        Event::Usage { prompt, completion: 10, cached: prompt / 2, cache_write: 0, cost: Some(cost) }
+        Event::Usage { prompt, completion: 10, cached: prompt / 2, cache_write: 0, cost: Some(cost), served: None }
     }
 
     #[test]

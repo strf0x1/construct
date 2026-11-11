@@ -1,0 +1,24 @@
+# Replay of https://github.com/pypa/packaging/pull/1430: redo a merged change from its intent; the PR's own
+# tests, hidden from the model, score it (bench/external.py).
+timeout_s = 1800
+changes = ["src/*", "tests/*", "docs/*", "CHANGELOG.rst"]
+turns = [
+"""This is pypa/packaging. The arbitrary-equality operator `===` is accepted with nothing after it: `Requirement("foo===")`, `Specifier("===")` and `SpecifierSet("===")` all parse, although there is no version to compare with.
+
+Make all three reject it: `Requirement("foo===")` raises `InvalidRequirement`, and `Specifier("===")` and `SpecifierSet("===")` raise `InvalidSpecifier`. A `===` followed by any non-empty string stays valid.
+
+Add regression tests. A virtualenv is ready: run tests with `.venv/bin/python -m pytest tests/test_specifiers.py tests/test_requirements.py`. When you are done, end with a short summary of what you changed and how you verified it.""",
+]
+
+[budget]
+max_requests = 80
+
+[external]
+url = "https://github.com/pypa/packaging"
+pr = 1430
+base = "2c87a33f665828b7aa0f650b1b50243b3ab95695"
+merge = "2aada00b158feb36109d77dc91d62baa91f7d400"
+hidden = ["tests/test_requirements.py", "tests/test_specifiers.py"]
+test = ".venv/bin/python -m pytest -q -x tests/test_requirements.py tests/test_specifiers.py"
+setup = "python3 -m venv .venv && .venv/bin/pip install -q -e . pytest pretend hypothesis tomli_w"
+exclude = [".venv", "*.egg-info"]

@@ -161,6 +161,10 @@ class Tasks(unittest.TestCase):
             with self.subTest(name):
                 if tasklib.load(name).git and not tasklib.has_rev(tasklib.load(name).git):
                     self.skipTest(f"{name}: a shallow clone has no {tasklib.load(name).git[:8]} (git fetch --unshallow)")
+                if tasklib.load(name).external:
+                    # Its fixture is a clone and an install: network, so not here (test_external.py has a local one).
+                    self.assertTrue(tasklib.load(name).turns and (tasklib.load(name).src / "check.sh").exists())
+                    continue
                 task, vars, work = self.materialize(name)
                 self.assertTrue(task.turns or task.spec.get("sessions"), "a task needs turns or sessions")
                 self.assertTrue((task.src / "check.sh").exists())
@@ -536,6 +540,16 @@ class SearchKeys(unittest.TestCase):
 
 
 class Arms(unittest.TestCase):
+    def test_a_replay_task_runs_without_web_tools_and_keeps_the_arms_overlay(self):
+        import tomllib
+
+        import bench
+
+        h = bench.Construct(tmpdir(self) / "home")
+        h.tools, h.no_web = 'editor="hashline"', True
+        h.configure("http://127.0.0.1:9/v1", "m")
+        self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["tools"], {"editor": "hashline", "disabled": ["web_search", "web_fetch"]})
+
     def test_an_arm_is_construct_with_a_tools_overlay(self):
         import bench
 

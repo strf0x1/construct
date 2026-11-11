@@ -39,6 +39,9 @@ fn headless_turn_reads_edits_and_runs_tools_in_parallel() {
     let rows = env.journal();
     assert_eq!(env.sessions().len(), 1);
     assert_eq!((rows[0].ty.as_str(), rows[0].payload["harness"].clone()), ("head", json!("construct")));
+    // Each model call's row names the model the response said served it.
+    let served: Vec<&Value> = rows.iter().filter(|r| r.ty == "usage").map(|r| &r.payload["served"]).collect();
+    assert_eq!(served, vec![&reqs[0]["model"]; 4]);
 }
 
 #[test]
@@ -904,6 +907,92 @@ fn json_events(out: &std::process::Output) -> Vec<Value> {
 }
 
 #[test]
+fn an_answer_cut_off_at_the_output_limit_is_asked_to_go_on() {
+    let env = Env::new(
+        "cutoff",
+        json!({ "steps": [
+            { "text": "Thinking about it at great len", "length": true },
+            { "call": "write", "args": { "path": "out.txt", "content": "done\n" } },
+            { "text": "Wrote it." }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "write out.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(std::fs::read_to_string(env.work.join("out.txt")).unwrap(), "done\n", "the turn went on to do the work");
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 3);
+    let seen = reqs[1]["messages"].as_array().unwrap();
+    let (cut, nudge) = (&seen[seen.len() - 2], &seen[seen.len() - 1]);
+    assert_eq!(
+        (cut["role"].as_str(), cut["content"].as_str()),
+        (Some("assistant"), Some("Thinking about it at great len"))
+    );
+    assert_eq!(nudge["role"], "user");
+    assert!(nudge["content"].as_str().unwrap().contains("cut off at the output limit"), "{nudge}");
+    let rows = env.journal();
+    let types: Vec<&str> = rows.iter().map(|r| r.ty.as_str()).collect();
+    assert_eq!(types.iter().filter(|t| **t == "nudge").count(), 1, "{types:?}");
+    assert_eq!(types.iter().filter(|t| **t == "user").count(), 1, "the nudge is not a user row: {types:?}");
+    assert!(!types.contains(&"error"), "{types:?}");
+}
+
+#[test]
+fn a_tool_call_written_as_text_is_sent_back_not_taken_as_the_answer() {
+    let env = Env::new(
+        "text-tool-call",
+        json!({ "steps": [
+            // The call only in the reasoning, as one free-tier model wrote it.
+            { "text": "", "reasoning": "Let me search.\n<|tool_call_start|>[grep(pattern='x', path='.')]<|tool_call_end|>" },
+            // The call as content, in another model's spelling.
+            { "text": "<tool_call>shell<param_key>command</param_key><param_value>ls</param_value></tool_call>" },
+            { "call": "write", "args": { "path": "out.txt", "content": "done\n" } },
+            // A real answer may mention none of it, and ends the turn.
+            { "text": "Wrote it." }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "write out.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(std::fs::read_to_string(env.work.join("out.txt")).unwrap(), "done\n");
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 4);
+    for req in &reqs[1..3] {
+        let last = req["messages"].as_array().unwrap().last().unwrap();
+        assert!(last["content"].as_str().unwrap().contains("wrote a tool call out as text"), "{last}");
+    }
+    let rows = env.journal();
+    let whys: Vec<&str> = rows.iter().filter(|r| r.ty == "nudge").filter_map(|r| r.payload["why"].as_str()).collect();
+    assert_eq!(whys, ["text_tool_call", "text_tool_call"]);
+    assert!(rows.iter().all(|r| r.ty != "tool_start" || r.payload["name"] == "write"), "the text call never ran");
+}
+
+#[test]
+fn reasoning_with_no_answer_and_no_call_is_asked_to_go_on() {
+    let env = Env::new(
+        "empty-answer",
+        json!({ "steps": [ { "text": "", "reasoning": "I should look at the file." }, { "text": "All done." } ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "look"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(env.requests().len(), 2);
+    let rows = env.journal();
+    let whys: Vec<&str> = rows.iter().filter(|r| r.ty == "nudge").filter_map(|r| r.payload["why"].as_str()).collect();
+    assert_eq!(whys, ["empty"]);
+}
+
+#[test]
+fn a_model_that_keeps_hitting_the_output_limit_ends_the_turn_with_the_error() {
+    let steps: Vec<Value> = (0..6).map(|_| json!({ "text": "still thinking", "length": true })).collect();
+    let env = Env::new("cutoff-gives-up", json!({ "steps": steps }));
+    let out = env.run(&["run", "--no-learn", "write out.txt"]);
+    assert_eq!(env.requests().len(), 4, "three nudges, then it stops: {}", text(&out));
+    let rows = env.journal();
+    let errors: Vec<&str> =
+        rows.iter().filter(|r| r.ty == "error").filter_map(|r| r.payload["message"].as_str()).collect();
+    assert_eq!(errors, ["the model hit its output limit mid-answer"]);
+    assert_eq!(rows.iter().filter(|r| r.ty == "nudge").count(), 3);
+}
+
+#[test]
 fn journal_holds_a_turn_as_the_same_events_json_prints() {
     let env = Env::new(
         "journal",
@@ -1219,6 +1308,34 @@ fn sandbox_keeps_the_journal_out_of_reach() {
     assert!(!r[1].contains("SQL-READ"), "{}", r[1]);
     assert!(r[2].contains("blocked by the sandbox"), "{}", r[2]);
     assert!(r[3].contains("blocked by the sandbox"), "{}", r[3]);
+}
+
+#[test]
+fn sandbox_lets_tools_read_spilled_output_and_names_the_scratch_dir() {
+    let name = "spill-sandbox";
+    let spill = Env::dir_for(name).join("home").join("spill").display().to_string();
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            // A fresh home has no spill dir until this output is capped.
+            { "call": "shell", "args": { "command": "seq 1 60000" } },
+            { "call": "grep", "args": { "pattern": "^31337$", "path": spill } },
+            { "call": "shell", "args": { "command": "echo x > /tmp/construct-e2e-scratch" } },
+            { "call": "write", "args": { "path": "/tmp/construct-e2e-scratch", "content": "x" } },
+            { "call": "shell", "args": { "command": "echo x > \"$TMPDIR/scratch\" && echo SCRATCH-OK" } },
+            { "text": "done" }
+        ] }),
+    );
+    let out = env.run(&["run", "--no-learn", "count"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(r.len(), 5, "{r:#?}");
+    assert!(r[0].contains("full output in") && !r[0].contains("\n31337\n"), "capped: {}", r[0]);
+    assert!(r[1].contains("31337") && !r[1].contains("blocked by the sandbox"), "the spill file is readable: {}", r[1]);
+    assert!(r[2].contains("use $TMPDIR, not /tmp"), "{}", r[2]);
+    assert!(r[3].contains("blocked by the sandbox") && r[3].contains("For scratch files use"), "{}", r[3]);
+    assert!(r[4].contains("SCRATCH-OK"), "{}", r[4]);
+    assert!(!std::path::Path::new("/tmp/construct-e2e-scratch").exists());
 }
 
 // ------------------------------------------------------------------ history

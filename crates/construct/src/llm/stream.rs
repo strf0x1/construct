@@ -39,6 +39,7 @@ pub(super) struct Accumulator {
     calls: BTreeMap<usize, (String, String, String)>,
     usage: Usage,
     finish: String,
+    model: Option<String>,
 }
 
 impl Accumulator {
@@ -72,6 +73,9 @@ impl Accumulator {
     pub(super) fn feed(&mut self, v: &Value, tx: Option<&mpsc::UnboundedSender<Delta>>, notes: &mut Coalescer) {
         if let Some(u) = v.get("usage").filter(|u| u.is_object()) {
             self.usage = Usage::parse(u);
+        }
+        if let Some(m) = v.get("model").and_then(Value::as_str).filter(|m| !m.is_empty()) {
+            self.model = Some(m.to_string());
         }
         let Some(choice) = v.get("choices").and_then(|c| c.get(0)) else { return };
         if let Some(f) = choice.get("finish_reason").and_then(Value::as_str) {
@@ -155,7 +159,7 @@ impl Accumulator {
                 tool_call_id: None,
                 reasoning: if self.reasoning.is_empty() { None } else { Some(self.reasoning) },
             },
-            usage: self.usage,
+            usage: Usage { served: self.model, ..self.usage },
             finish_reason: self.finish,
         })
     }
@@ -220,6 +224,23 @@ mod tests {
             prop_assert!(whole.1, "the [DONE] line always ends the stream");
             prop_assert_eq!(whole, split);
         }
+    }
+
+    #[test]
+    fn the_completion_names_the_model_the_stream_said_served_it() {
+        let (mut acc, mut notes) = (Accumulator::default(), Coalescer::default());
+        acc.feed(
+            &json!({ "model": "vendor/real-model", "choices": [{ "delta": { "content": "hi" } }] }),
+            None,
+            &mut notes,
+        );
+        acc.feed(
+            &json!({ "choices": [{ "delta": {}, "finish_reason": "stop" }], "usage": { "prompt_tokens": 3 } }),
+            None,
+            &mut notes,
+        );
+        let c = acc.finish().unwrap();
+        assert_eq!((c.usage.served.as_deref(), c.usage.prompt_tokens), (Some("vendor/real-model"), 3));
     }
 
     fn call(id: &str, args: &str) -> Value {

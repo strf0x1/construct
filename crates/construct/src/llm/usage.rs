@@ -21,6 +21,10 @@ pub struct Usage {
     /// What the request cost, in the provider's currency (OpenRouter: USD).
     #[serde(default)]
     pub cost: Option<f64>,
+    /// The model the response named: what a router or alias resolved to.
+    /// One call's fact, so `add` leaves it alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub served: Option<String>,
 }
 
 impl Usage {
@@ -33,6 +37,7 @@ impl Usage {
             cached_tokens: n("/prompt_tokens_details/cached_tokens").or(n("/prompt_cache_hit_tokens")).unwrap_or(0),
             cache_write_tokens: n("/prompt_tokens_details/cache_write_tokens").unwrap_or(0),
             cost: u.get("cost").and_then(Value::as_f64),
+            served: None,
         }
     }
 
