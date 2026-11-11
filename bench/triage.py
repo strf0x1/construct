@@ -144,6 +144,17 @@ def findings(rows) -> list:
     return out
 
 
+def served(rows) -> list:
+    """(seq, model) for each model call whose response named the model that
+    served it: under a router such as `openrouter/free` that differs per call."""
+    return [(seq, p["served"]) for seq, ty, _, p in rows if ty == "usage" and p.get("served")]
+
+
+def served_at(calls: list, seq: int) -> str:
+    """The model whose answer led to the event at `seq`: the last call before it."""
+    return next((m for at, m in reversed(calls) if at <= seq), "")
+
+
 def summary(session) -> dict:
     """One session's denominators and its count of each kind of finding."""
     n = Counter(ty for _, ty, _, _ in session["rows"])
@@ -162,13 +173,19 @@ def triage(sessions, limit: int = 30) -> str:
     """The sessions with the most findings first, then every (kind, label) with
     its count: the arguments to pass `find` next."""
     cols = ("fail", "exit", "stuck", "reread", "repeat", "big", "error", "note", "nudge")
-    rows, totals = [], Counter()
+    rows, totals, by_model = [], Counter(), {}
     for s in sessions:
         m = summary(s)
         if not m["calls"] and not m["kinds"]:
             continue  # opened and closed: nothing to judge
         rows.append((sum(m["kinds"][k] for k in cols if k not in ("big", "note", "nudge")), s, m))
         totals.update((k, label) for k, _, label, _ in findings(s["rows"]))
+        calls = served(s["rows"])
+        for _, model in calls:
+            by_model.setdefault(model, Counter())["calls"] += 1
+        for k, seq, *_ in findings(s["rows"]):
+            if model := served_at(calls, seq):
+                by_model[model][k] += 1
     if not rows:
         return "no sessions in range\n"
     rows.sort(key=lambda r: -r[0])
@@ -182,6 +199,9 @@ def triage(sessions, limit: int = 30) -> str:
     tools = sum(m["tools"] for _, _, m in rows)
     out.append(f"\n{len(rows)} sessions, {tools} tool calls. 1stw = tool calls before the first successful write or edit.")
     out += [f"  {kind:<7} {label:<34} {n:>5}" for (kind, label), n in sorted(totals.items(), key=lambda x: (x[0][0], -x[1]))]
+    if len(by_model) > 1:
+        out.append("\nby the model that served the call:")
+        out += [f"  {one_line(m, 44):<44} {c['calls']:>5} calls  " + " ".join(f"{k} {c[k]}" for k in cols if c[k]) for m, c in sorted(by_model.items(), key=lambda x: -x[1]["calls"])]
     return "\n".join(out) + "\n"
 
 
@@ -234,8 +254,11 @@ def show(sessions, anchor: str, around: int = 8, budget: int = 600, everything: 
     centre = next((i for i, r in enumerate(rows) if r[0] >= int(at or 0)), len(rows) - 1)
     part = rows[max(0, centre - around) : centre + around + 1]
     out = [f"{sid} · {found[0]['project']} · {found[0]['model']} · events {part[0][0]}..{part[-1][0]} of {found[0]['rows'][-1][0]}"]
+    calls = served(found[0]["rows"])
     for seq, ty, _, p in part:
         line = render(seq, ty, p, budget)
+        if ty == "assistant" and (model := served_at(calls, seq)) and model != found[0]["model"]:
+            line = line.replace("ASSISTANT", f"ASSISTANT [{model}]", 1)
         out.append("*" + line[1:] if seq == rows[centre][0] else line)
     return "\n".join(out) + "\n"
 

@@ -39,6 +39,9 @@ fn headless_turn_reads_edits_and_runs_tools_in_parallel() {
     let rows = env.journal();
     assert_eq!(env.sessions().len(), 1);
     assert_eq!((rows[0].ty.as_str(), rows[0].payload["harness"].clone()), ("head", json!("construct")));
+    // Each model call's row names the model the response said served it.
+    let served: Vec<&Value> = rows.iter().filter(|r| r.ty == "usage").map(|r| &r.payload["served"]).collect();
+    assert_eq!(served, vec![&reqs[0]["model"]; 4]);
 }
 
 #[test]

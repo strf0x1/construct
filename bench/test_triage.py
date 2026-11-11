@@ -59,6 +59,16 @@ class Triage(unittest.TestCase):
         self.assertNotIn("b/two", text)
         self.assertEqual(triage.triage([]), "no sessions in range\n")
 
+    def test_findings_are_attributed_to_the_model_that_served_the_call(self):
+        usage = lambda m: [{"event": "usage", "prompt": 1, "completion": 1, "cached": 0, "served": m}, {"event": "assistant", "message": {"role": "assistant", "content": "x"}}]
+        rows = [head("router/free", "openrouter")] + usage("v/good") + call(1, "read", "{}") + usage("v/bad") + call(2, "edit", "{}", "Error", ok=False, code="no_match")
+        sessions = triage.load(home_with(self, rows))
+        text = triage.triage(sessions)
+        self.assertRegex(text, r"v/bad +1 calls  fail 1")
+        self.assertRegex(text, r"v/good +1 calls  \n")
+        self.assertIn("ASSISTANT [v/bad] x", triage.show(sessions, "s0@8", around=3))
+        self.assertNotIn("by the model", triage.triage(self.sessions))
+
     def test_find_gives_anchors_and_show_reads_only_around_one(self):
         lines = triage.find(self.sessions, "fail", "edit").splitlines()
         self.assertEqual(len(lines), 2)

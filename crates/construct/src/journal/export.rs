@@ -22,7 +22,7 @@ pub fn export(entries: &[Entry]) -> Vec<Value> {
                 model = m.clone();
                 continue;
             }
-            Event::Usage { prompt, completion, cached, cache_write, cost } => json!({
+            Event::Usage { prompt, completion, cached, cache_write, cost, .. } => json!({
                 "type": "usage", "at": at, "model": model,
                 "usage": {
                     "prompt_tokens": prompt, "completion_tokens": completion, "cached_tokens": cached,

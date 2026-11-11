@@ -255,6 +255,7 @@ impl Agent {
                     cached: completion.usage.cached_tokens,
                     cache_write: completion.usage.cache_write_tokens,
                     cost: completion.usage.cost,
+                    served: completion.usage.served.clone(),
                 },
                 tx,
             );
@@ -296,14 +297,6 @@ impl Agent {
             max_tokens: self.cfg.max_tokens,
             temperature: self.cfg.temperature,
         })
-    }
-
-    /// Learn bytes per token from a request the provider counted. Small
-    /// requests are skipped: fixed overheads would skew the ratio.
-    fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
-        if let Some(ratio) = limits::ratio(bytes, prompt_tokens) {
-            self.bytes_per_token = ratio;
-        }
     }
 
     /// One model call. Returns None when interrupted.
