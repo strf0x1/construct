@@ -1,0 +1,1384 @@
+{
+ "a": "bench/results/task-20261109-003539.json",
+ "b": "bench/results/task-20261109-003539.json",
+ "comparisons": [
+  {
+   "a": "task-20261109-003539:optchat-before",
+   "b": "task-20261109-003539:optchat",
+   "rows": [
+    {
+     "metric": "coord-recall/agent_requests",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 176.0,
+     "b": 162.0,
+     "delta": -14.0,
+     "a_spread": [
+      176.0,
+      176.0
+     ],
+     "b_spread": [
+      162.0,
+      162.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/cache_hit_rate",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.836303138175113,
+     "b": 0.8496389885355354,
+     "delta": 0.013335850360422397,
+     "a_spread": [
+      0.836303138175113,
+      0.836303138175113
+     ],
+     "b_spread": [
+      0.8496389885355354,
+      0.8496389885355354
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/cache_write_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 668827.0,
+     "b": 799695.0,
+     "delta": 130868.0,
+     "a_spread": [
+      668827.0,
+      668827.0
+     ],
+     "b_spread": [
+      799695.0,
+      799695.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/cached_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 4153114.0,
+     "b": 4595083.0,
+     "delta": 441969.0,
+     "a_spread": [
+      4153114.0,
+      4153114.0
+     ],
+     "b_spread": [
+      4595083.0,
+      4595083.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/checks.probe_arm_build",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_artifact_digest",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_base",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_channel",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_flag",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_kernel",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_region",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_signing",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_staging",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/checks.probe_train",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/compaction.cache_hit",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.9153043616719608,
+     "b": 0.9215981839093281,
+     "delta": 0.006293822237367297,
+     "a_spread": [
+      0.9153043616719608,
+      0.9153043616719608
+     ],
+     "b_spread": [
+      0.9215981839093281,
+      0.9215981839093281
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cache_hit_after_cut",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.compact_ms",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts_elide",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts_legacy",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts_overflow",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts_summarize",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.cuts_unreached",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.overflow_errors",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.overflows",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.peak_fill",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.689300537109375,
+     "b": 0.78411865234375,
+     "delta": 0.094818115234375,
+     "a_spread": [
+      0.689300537109375,
+      0.689300537109375
+     ],
+     "b_spread": [
+      0.78411865234375,
+      0.78411865234375
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.stub_reruns",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.summary_fallbacks",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.summary_share",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/compaction.summary_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/completion_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 422838.0,
+     "b": 401003.0,
+     "delta": -21835.0,
+     "a_spread": [
+      422838.0,
+      422838.0
+     ],
+     "b_spread": [
+      401003.0,
+      401003.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/cost_usd",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.350963315,
+     "b": 0.347764105,
+     "delta": -0.003199210000000008,
+     "a_spread": [
+      0.350963315,
+      0.350963315
+     ],
+     "b_spread": [
+      0.347764105,
+      0.347764105
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.applied",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 9.0,
+     "b": 0.0,
+     "delta": -9.0,
+     "a_spread": [
+      9.0,
+      9.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.calls",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 9.0,
+     "b": 0.0,
+     "delta": -9.0,
+     "a_spread": [
+      9.0,
+      9.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.echo_stripped",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.recoveries",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.rejected",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.rereads_after_rejection",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.rewrites",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/edit.unrecovered",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/first_request.bytes",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 5216.0,
+     "b": 6291.0,
+     "delta": 1075.0,
+     "a_spread": [
+      5216.0,
+      5216.0
+     ],
+     "b_spread": [
+      6291.0,
+      6291.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/first_request.n_tools",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 8.0,
+     "b": 8.0,
+     "delta": 0.0,
+     "a_spread": [
+      8.0,
+      8.0
+     ],
+     "b_spread": [
+      8.0,
+      8.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/first_request.prompt_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 2084.0,
+     "b": 2424.0,
+     "delta": 340.0,
+     "a_spread": [
+      2084.0,
+      2084.0
+     ],
+     "b_spread": [
+      2424.0,
+      2424.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/first_request.system_chars",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1062.0,
+     "b": 2043.0,
+     "delta": 981.0,
+     "a_spread": [
+      1062.0,
+      1062.0
+     ],
+     "b_spread": [
+      2043.0,
+      2043.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/first_request.tools_chars",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 3664.0,
+     "b": 3734.0,
+     "delta": 70.0,
+     "a_spread": [
+      3664.0,
+      3664.0
+     ],
+     "b_spread": [
+      3734.0,
+      3734.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/invalid",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/learn_wait_s",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.041471242904663086,
+     "b": 0.03290128707885742,
+     "delta": -0.008569955825805664,
+     "a_spread": [
+      0.041471242904663086,
+      0.041471242904663086
+     ],
+     "b_spread": [
+      0.03290128707885742,
+      0.03290128707885742
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.fallbacks",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 2.0,
+     "b": 0.0,
+     "delta": -2.0,
+     "a_spread": [
+      2.0,
+      2.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.fit_ms",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1383425.0,
+     "b": 1600210.0,
+     "delta": 216785.0,
+     "a_spread": [
+      1383425.0,
+      1383425.0
+     ],
+     "b_spread": [
+      1600210.0,
+      1600210.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.fit_ms_max",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 30611.0,
+     "b": 29640.0,
+     "delta": -971.0,
+     "a_spread": [
+      30611.0,
+      30611.0
+     ],
+     "b_spread": [
+      29640.0,
+      29640.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.leaves",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 187.0,
+     "b": 150.0,
+     "delta": -37.0,
+     "a_spread": [
+      187.0,
+      187.0
+     ],
+     "b_spread": [
+      150.0,
+      150.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.parents",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 177.0,
+     "b": 160.0,
+     "delta": -17.0,
+     "a_spread": [
+      177.0,
+      177.0
+     ],
+     "b_spread": [
+      160.0,
+      160.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.peak_fill",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.689300537109375,
+     "b": 0.78411865234375,
+     "delta": 0.094818115234375,
+     "a_spread": [
+      0.689300537109375,
+      0.689300537109375
+     ],
+     "b_spread": [
+      0.78411865234375,
+      0.78411865234375
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.summary_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 797000.0,
+     "b": 1072627.0,
+     "delta": 275627.0,
+     "a_spread": [
+      797000.0,
+      797000.0
+     ],
+     "b_spread": [
+      1072627.0,
+      1072627.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/optchat.zooms",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/over_budget",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/peak_mb",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 25.00390625,
+     "b": 34.24609375,
+     "delta": 9.2421875,
+     "a_spread": [
+      25.00390625,
+      25.00390625
+     ],
+     "b_spread": [
+      34.24609375,
+      34.24609375
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/prompt_tokens",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 4966039.0,
+     "b": 5408277.0,
+     "delta": 442238.0,
+     "a_spread": [
+      4966039.0,
+      4966039.0
+     ],
+     "b_spread": [
+      5408277.0,
+      5408277.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/provider_failures",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/reads",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 19.0,
+     "b": 0.0,
+     "delta": -19.0,
+     "a_spread": [
+      19.0,
+      19.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/report.correct",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 10.0,
+     "b": 10.0,
+     "delta": 0.0,
+     "a_spread": [
+      10.0,
+      10.0
+     ],
+     "b_spread": [
+      10.0,
+      10.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/report.probes",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 10.0,
+     "b": 10.0,
+     "delta": 0.0,
+     "a_spread": [
+      10.0,
+      10.0
+     ],
+     "b_spread": [
+      10.0,
+      10.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/report.recall",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/requests",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 722.0,
+     "b": 873.0,
+     "delta": 151.0,
+     "a_spread": [
+      722.0,
+      722.0
+     ],
+     "b_spread": [
+      873.0,
+      873.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/search.adoption",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.8888888888888888,
+     "b": 0.75,
+     "delta": -0.13888888888888884,
+     "a_spread": [
+      0.8888888888888888,
+      0.8888888888888888
+     ],
+     "b_spread": [
+      0.75,
+      0.75
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/search.find",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1.0,
+     "b": 0.0,
+     "delta": -1.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/search.shell",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/search.tool",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 8.0,
+     "b": 3.0,
+     "delta": -5.0,
+     "a_spread": [
+      8.0,
+      8.0
+     ],
+     "b_spread": [
+      3.0,
+      3.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/search.tool_failed",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/shell.blocked",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/shell.broad",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/shell.calls",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 3.0,
+     "b": 14.0,
+     "delta": 11.0,
+     "a_spread": [
+      3.0,
+      3.0
+     ],
+     "b_spread": [
+      14.0,
+      14.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/shell.refused",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/shell.stops",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/side_requests_before_first_agent",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/success",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "coord-recall/tool_calls",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 41.0,
+     "b": 18.0,
+     "delta": -23.0,
+     "a_spread": [
+      41.0,
+      41.0
+     ],
+     "b_spread": [
+      18.0,
+      18.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/tool_failures.calls",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 41.0,
+     "b": 18.0,
+     "delta": -23.0,
+     "a_spread": [
+      41.0,
+      41.0
+     ],
+     "b_spread": [
+      18.0,
+      18.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/tool_failures.failed",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 1.0,
+     "b": 0.0,
+     "delta": -1.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/tool_failures.rate",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.024390243902439025,
+     "b": 0.0,
+     "delta": -0.024390243902439025,
+     "a_spread": [
+      0.024390243902439025,
+      0.024390243902439025
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/unintended_changes",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "coord-recall/wall_s",
+     "n_a": 1,
+     "n_b": 1,
+     "binary": false,
+     "a": 2029.8430294201826,
+     "b": 2093.8445431779255,
+     "delta": 64.00151375774294,
+     "a_spread": [
+      2029.8430294201826,
+      2029.8430294201826
+     ],
+     "b_spread": [
+      2093.8445431779255,
+      2093.8445431779255
+     ],
+     "verdict": "inconclusive"
+    }
+   ]
+  }
+ ]
+}

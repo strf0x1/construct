@@ -1,10 +1,11 @@
 """Generates the coordinator-recall task (bench/tasks/coord-recall).
 
 A coordinator-shaped conversation, long enough that a 64k window must cut:
-twelve early turns plant decisions with per-run values, 120 middle turns are
-ordinary status traffic (and override two of the decisions), and eight final
-probes ask for one decision each, recorded in `answers.txt` as `key=value`.
-`check.sh` scores those lines.
+fourteen early turns plant decisions with per-run values (two of them inside
+pasted logs over 4 KB, where only the raw entry holds the answer), 120 middle
+turns are ordinary status traffic (and override two of the decisions), and ten
+final probes ask for one decision each, recorded in `answers.txt` as
+`key=value`. `check.sh` scores those lines.
 
 The generator is seeded: `python3 bench/coord_fixtures.py --seed N` writes the
 same task.toml and fixture for the same N, so the committed task is a diffable
@@ -39,6 +40,9 @@ VARS = {
     "region": "eu-central-1",
     "base": "bookworm",
     "dbkey": "{hex6}",
+    # Buried in the two pasted logs: only the raw entry over 4 KB holds them.
+    "arm_build": "bld-{hex8}",
+    "artifact_digest": "{hex64}",
 }
 
 # One planted decision per turn, in order. `override` is where the decision
@@ -120,6 +124,25 @@ DECISIONS = [
         "key": "secrets",
         "plant": "Never paste a token or a secret into this conversation. Refer to it by name and rotate it if it leaks.",
     },
+    # These two plant nothing in prose: the value is one line inside a pasted
+    # log, and the prose only says which line matters, so a summary that keeps
+    # the prose will not keep the answer.
+    {
+        "key": "arm_build",
+        "long": "matrix",
+        "thing": "arm64 benchmark build id",
+        "probe": True,
+        "exact": True,
+        "want": "{{arm_build}}",
+    },
+    {
+        "key": "artifact_digest",
+        "long": "manifest",
+        "thing": "sha256 digest of the linux-arm64 release artifact",
+        "probe": True,
+        "exact": True,
+        "want": "{{artifact_digest}}",
+    },
 ]
 
 FILLERS = 120
@@ -143,9 +166,10 @@ TEMPLATES = [
 ]
 
 DESCRIPTION = (
-    "A long coordinator conversation: twelve decisions planted early, 120 turns of ordinary traffic "
-    "(two decisions overridden on the way), then eight probes for what was decided. Run at a 64k window: "
-    "`compact` has to cut and `optchat` has to batch. The score is recall of the decisions in answers.txt."
+    "A long coordinator conversation: fourteen decisions planted early (two of them only on one line "
+    "of a pasted log over 4 KB), 120 turns of ordinary traffic (two decisions overridden on the way), "
+    "then ten probes for what was decided. Run at a 64k window: `compact` has to cut and `optchat` has "
+    "to batch. The score is recall of the decisions in answers.txt."
 )
 
 
@@ -164,9 +188,83 @@ def report(rng: random.Random, size: int) -> str:
     return "\n".join(lines)
 
 
-def conversation(rng: random.Random) -> list:
+RUNNERS = ["c6g.4xlarge", "c6i.4xlarge", "m6g.2xlarge", "macos-14", "windows-2022"]
+MATRIX_JOBS = ["linux-x64", "linux-arm64", "darwin-arm64", "darwin-x64", "windows-x64", "linux-riscv64"]
+# Every target but the arm64 Linux one, so exactly one line in the manifest is the answer.
+MANIFEST_TARGETS = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "armv7-unknown-linux-gnueabihf",
+    "riscv64gc-unknown-linux-gnu",
+]
+LONG_BYTES = 5200
+
+
+def matrix_log(rng: random.Random) -> str:
+    """A pasted CI matrix over 4 KB. The one `status=ok` `linux-arm64` line is
+    the planted value `{{arm_build}}`; every other id is noise, including the
+    failed first attempt on the same job."""
+    lines, n = [], 0
+    while n < LONG_BYTES:
+        job = rng.choice(MATRIX_JOBS)
+        if job == "linux-arm64":  # the only successful arm64 line is the planted one
+            attempt, status = 1, "failed"
+        else:
+            attempt, status = rng.randrange(1, 4), rng.choice(["ok", "ok", "failed"])
+        line = (
+            f"2026-10-{rng.randrange(1, 29):02d}T{rng.randrange(24):02d}:{rng.randrange(60):02d}:{rng.randrange(60):02d}Z "
+            f"job={job:<14} attempt={attempt} status={status:<6} "
+            f"build id=bld-{rng.randrange(16 ** 8):08x} runner={rng.choice(RUNNERS)} elapsed={rng.randrange(120, 3600)}s"
+        )
+        lines.append(line)
+        n += len(line) + 1
+    lines.insert(
+        len(lines) // 3,
+        "2026-10-03T05:41:09Z job=linux-arm64   attempt=2 status=ok     "
+        "build id={{arm_build}} runner=arm64-runner-3 elapsed=2418s",
+    )
+    return (
+        "The 1.4.2 benchmark matrix is pasted below. The build id we ship is the one on the "
+        "`status=ok` line of the `linux-arm64` job; the failed first attempt and every other "
+        "platform are not it.\n\n```\n" + "\n".join(lines) + "\n```"
+    )
+
+
+def manifest_log(rng: random.Random) -> str:
+    """A pasted release manifest over 4 KB. The `aarch64-unknown-linux-gnu` line
+    is the planted value `{{artifact_digest}}`; every other digest is noise."""
+    lines, n = [], 0
+    while n < LONG_BYTES:
+        line = (
+            f"2026-10-04T01:{rng.randrange(60):02d}:{rng.randrange(60):02d}Z uploaded "
+            f"construct-1.9.0-{rng.choice(MANIFEST_TARGETS)}.tar.gz "
+            f"bytes={rng.randrange(20_000_000, 40_000_000)} sha256:{rng.randrange(16 ** 64):064x}"
+        )
+        lines.append(line)
+        n += len(line) + 1
+    lines.insert(
+        len(lines) // 2,
+        "2026-10-04T01:47:12Z uploaded construct-1.9.0-aarch64-unknown-linux-gnu.tar.gz "
+        "bytes=28119044 sha256:{{artifact_digest}}",
+    )
+    return (
+        "The 1.9.0 release manifest is pasted below. We pinned the sha256 on the line for the "
+        "`aarch64-unknown-linux-gnu` artifact; the arm64 macOS line and the rest are not it.\n\n```\n"
+        + "\n".join(lines) + "\n```"
+    )
+
+
+LONG_PLANTS = {"matrix": matrix_log, "manifest": manifest_log}
+
+
+def conversation(rng: random.Random, seed: int) -> list:
     """The planted turns, the filler (with both overrides), then the probes."""
-    turns = [d["plant"] for d in DECISIONS]
+    # Its own stream: appending the long plants must not shift the filler bodies
+    # that this seed already fixed, so the committed task stays a pure addition.
+    long_rng = random.Random(seed ^ 0x216)
+    turns = [LONG_PLANTS[d["long"]](long_rng) if "long" in d else d["plant"] for d in DECISIONS]
     overrides = {OVERRIDES[d["key"]]: d["override"] for d in DECISIONS if "override" in d}
     for i in range(FILLERS):
         if i in overrides:
@@ -179,10 +277,11 @@ def conversation(rng: random.Random) -> list:
     for d in DECISIONS:
         if "probe" not in d:
             continue
+        exact = " Give the exact value, character for character." if d.get("exact") else ""
         turns.append(
             f"Record what you know: write one line `{d['key']}=<value>` to answers.txt with the current "
             f"{d['thing']}. Create answers.txt if it does not exist; keep any lines already in it and change "
-            f"nothing else. Write the value you have, and do not ask questions."
+            f"nothing else. Write the value you have, and do not ask questions.{exact}"
         )
     return turns
 
@@ -228,7 +327,7 @@ def fixture(dest: Path):
 
 def write(dest: Path = TASK, seed: int = SEED):
     """Write task.toml and fixture/ for `seed`; `check.sh` is not generated."""
-    turns = conversation(random.Random(seed))
+    turns = conversation(random.Random(seed), seed)
     fixture(dest / "fixture")
     (dest / "task.toml").write_text(render(turns))
     return dest, turns
