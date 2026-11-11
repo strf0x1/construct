@@ -8,7 +8,10 @@ use std::path::Path;
 
 impl Policy {
     pub(super) fn denied(&self, p: &Path, what: &str) -> String {
-        let scratch = if ["/tmp", "/var/tmp"].iter().any(|t| p.starts_with(t)) || p.starts_with(std::env::temp_dir()) {
+        // macOS resolves /tmp to /private/tmp before the check, so compare both forms.
+        let temp = [Path::new("/tmp").into(), Path::new("/var/tmp").into(), std::env::temp_dir()];
+        let under = |t: &std::path::PathBuf| p.starts_with(t) || t.canonicalize().is_ok_and(|c| p.starts_with(c));
+        let scratch = if temp.iter().any(under) {
             format!(" For scratch files use {}, which is writable ($TMPDIR in shell commands).", self.tmp.display())
         } else {
             String::new()

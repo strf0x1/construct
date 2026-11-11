@@ -119,8 +119,8 @@ impl Tool for JournalQuery {
         let file = crate::journal::path(&ctx.paths, &ctx.cwd);
         let cancel = ctx.cancel.clone();
         blocking(move || {
-            let conn = open(file)?;
-            query(&conn, &sql, cancel)
+            let mut conn = open(file)?;
+            query(&mut conn, &sql, cancel)
         })
         .await
     }
@@ -138,7 +138,7 @@ async fn blocking<T: Send + 'static>(
 /// only describe: FTS5 reads `data_version` on every MATCH).
 fn open(file: PathBuf) -> Result<Connection, ToolError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = Connection::open_with_flags(&file, flags)
+    let mut conn = Connection::open_with_flags(&file, flags)
         .map_err(|e| ToolError::new("not_found", format!("this project has no journal yet ({e})")))?;
     let fail = |e: rusqlite::Error| ToolError::new("error", e.to_string());
     conn.pragma_update(None, "query_only", true).map_err(fail)?;
@@ -154,19 +154,19 @@ fn open(file: PathBuf) -> Result<Connection, ToolError> {
     Ok(conn)
 }
 
-fn query(conn: &Connection, sql: &str, cancel: tokio::sync::watch::Receiver<bool>) -> Result<Output, ToolError> {
+fn query(conn: &mut Connection, sql: &str, cancel: tokio::sync::watch::Receiver<bool>) -> Result<Output, ToolError> {
     let word = first_word(sql).to_ascii_lowercase();
     if word != "select" && word != "with" {
         return Err(refused(&format!("{} is not a SELECT", if word.is_empty() { "an empty query" } else { &word })));
     }
+    let deadline = Instant::now() + TIMEOUT;
+    conn.progress_handler(1000, Some(move || Instant::now() > deadline || *cancel.borrow()))
+        .map_err(|e| ToolError::from(e.to_string()))?;
     let mut st = conn.prepare(sql).map_err(sql_error)?;
     // `WITH ... DELETE` passes the keyword check; the statement itself knows.
     if !st.readonly() {
         return Err(refused("this statement writes"));
     }
-    let deadline = Instant::now() + TIMEOUT;
-    conn.progress_handler(1000, Some(move || Instant::now() > deadline || *cancel.borrow()))
-        .map_err(|e| ToolError::from(e.to_string()))?;
 
     let cols: Vec<String> = st.column_names().into_iter().map(String::from).collect();
     let mut text = cols.join(" | ");
