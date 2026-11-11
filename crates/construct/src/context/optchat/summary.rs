@@ -1,6 +1,7 @@
 //! One summary line from the summary model (ADR 0043 decision 11): a fixed
 //! system prompt, a clipped input, up to five tries while the reply is over
-//! `LINE` bytes, and a `[unsummarized]` fallback that always yields a line.
+//! `LINE` bytes (each saying how long the last one was), and a
+//! `[unsummarized]` fallback that always yields a line.
 //!
 //! The one choice a reader must know: the strategy measures bytes itself and
 //! never trusts the model's count, and a failed or refused call still returns
@@ -112,9 +113,14 @@ pub async fn merge(env: &Env<'_>, first: String, second: String) -> Summary {
 
 /// Ask the summary model, retrying a missing or over-long reply, then fall
 /// back to the input's head. Every call's usage is summed.
+///
+/// An over-long retry says why: the request carries the over-long line as an
+/// `assistant` turn and its byte count, so the model is not rolling blind.
+/// Only the most recent one is kept, which bounds the request at four
+/// messages.
 pub async fn write(env: &Env<'_>, input: Input) -> Summary {
     let text = input.text();
-    let request = vec![Message::system(SUMMARY_SYSTEM), Message::user(text.clone())];
+    let mut request = vec![Message::system(SUMMARY_SYSTEM), Message::user(text.clone())];
     let mut usage = Usage::default();
     let mut shortest: Option<String> = None;
     for _ in 0..TRIES {
@@ -128,15 +134,22 @@ pub async fn write(env: &Env<'_>, input: Input) -> Summary {
             return fallback(&text, usage);
         }
         let line = flatten(&completion.message.content.unwrap_or_default()).trim().to_string();
+        request.truncate(2);
         if line.is_empty() {
             continue;
         }
         if line.len() <= LINE {
             return Summary { text: line, fallback: false, usage };
         }
+        let feedback = format!(
+            "Too long: that line is {} bytes; the limit is {LINE}. Write it again, shorter, keeping what matters most.",
+            line.len()
+        );
         if shortest.as_ref().is_none_or(|best| line.len() < best.len()) {
-            shortest = Some(line);
+            shortest = Some(line.clone());
         }
+        request.push(Message::text("assistant", line));
+        request.push(Message::user(feedback));
     }
     match shortest {
         Some(line) => Summary { text: cut(&line, LINE).to_string(), fallback: false, usage },
@@ -241,6 +254,58 @@ mod tests {
         assert!(!s.fallback);
         assert_eq!(fake.calls(), 2);
         assert_eq!(s.usage.prompt_tokens, 6, "every call is counted");
+    }
+
+    #[tokio::test]
+    async fn an_over_long_retry_carries_the_line_and_its_size() {
+        let cfg = cfg();
+        let long = "x".repeat(600);
+        let fake = Fake::new(vec![Ok(long.clone()), Ok("y".repeat(400))]);
+        let s = leaf(&env(&cfg, &fake), "long entry".into()).await;
+        assert_eq!(s.text, "y".repeat(400));
+        assert!(!s.fallback);
+        assert_eq!(fake.calls(), 2);
+        let requests = fake.requests();
+        assert_eq!(requests[0].len(), 2, "the first try is the plain request");
+        assert_eq!(requests[1].len(), 4);
+        assert_eq!(requests[1][0], Message::system(SUMMARY_SYSTEM));
+        assert_eq!(requests[1][1], Message::user("long entry"));
+        assert_eq!(requests[1][2], Message::text("assistant", long));
+        assert_eq!(
+            requests[1][3],
+            Message::user(
+                "Too long: that line is 600 bytes; the limit is 512. Write it again, shorter, keeping what matters most."
+            ),
+            "the retry names the size and the limit"
+        );
+    }
+
+    #[tokio::test]
+    async fn each_retry_carries_only_the_latest_over_long_reply() {
+        let cfg = cfg();
+        let first = "x".repeat(600);
+        let second = "y".repeat(700);
+        let fake = Fake::new(vec![Ok(first), Ok(second.clone()), Ok("short enough".into())]);
+        let s = leaf(&env(&cfg, &fake), "long entry".into()).await;
+        assert_eq!(s.text, "short enough");
+        assert_eq!(fake.calls(), 3);
+        let requests = fake.requests();
+        assert_eq!(requests[2].len(), 4, "the history of tries is not carried");
+        assert_eq!(requests[2][2], Message::text("assistant", second));
+        assert!(requests[2][3].content.as_deref().is_some_and(|t| t.contains("700")));
+    }
+
+    #[tokio::test]
+    async fn an_empty_reply_is_retried_with_the_original_request() {
+        let cfg = cfg();
+        let fake = Fake::new(vec![Ok(String::new()), Ok("short enough".into())]);
+        let s = leaf(&env(&cfg, &fake), "long entry".into()).await;
+        assert_eq!(s.text, "short enough");
+        assert_eq!(fake.calls(), 2);
+        let requests = fake.requests();
+        assert_eq!(requests[1].len(), 2, "an empty reply gets no feedback");
+        assert_eq!(requests[1][0], Message::system(SUMMARY_SYSTEM));
+        assert_eq!(requests[1][1], Message::user("long entry"));
     }
 
     #[tokio::test]
