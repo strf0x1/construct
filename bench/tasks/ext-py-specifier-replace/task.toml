@@ -7,7 +7,7 @@ turns = [
 
 - `Specifier.__replace__(*, operator=..., version=..., prereleases=...)` returns a new `Specifier`; anything not passed keeps its current value, including an explicit `prereleases` override of `True`, `False` or `None`. The new operator and version are validated like the constructor validates them (`InvalidSpecifier`).
 - `SpecifierSet.__replace__(*, specifiers=..., prereleases=...)` returns a new `SpecifierSet`; `specifiers` takes whatever the constructor takes (a string or an iterable of `Specifier`).
-- An unknown keyword raises `TypeError`. The original object is never changed, and the result compares and hashes like one built directly.
+- An unknown keyword raises `TypeError`. The original object is never changed, and the result compares and hashes like one built directly. A call that passes nothing returns the same object, not a copy.
 
 Document it in docs/specifiers.rst and add tests. A virtualenv is ready: run tests with `.venv/bin/python -m pytest tests/test_specifiers.py`. When you are done, end with a short summary of what you changed and how you verified it.""",
 ]
