@@ -168,7 +168,7 @@ fn query(conn: &mut Connection, sql: &str, cancel: tokio::sync::watch::Receiver<
         return Err(refused("this statement writes"));
     }
 
-    let cols: Vec<String> = st.column_names().into_iter().map(String::from).collect();
+    let cols: Vec<String> = st.column_names().map(String::from).collect();
     let mut text = cols.join(" | ");
     let (mut n, mut cut) = (0, None);
     let mut rows = st.query([]).map_err(sql_error)?;
