@@ -76,7 +76,10 @@ def hidden_tests(spec: dict, work: Path, timeout: int = 600):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(subprocess.run(["git", "show", f"{spec['merge']}:{path}"], cwd=repo, check=True, capture_output=True).stdout)
     try:
-        r = subprocess.run(["bash", "-c", spec["test"]], cwd=work, capture_output=True, text=True, errors="replace", timeout=timeout)
+        # No bytecode cache: a .pyc is trusted by its source's size and mtime to
+        # the second, so a same-length edit scored within a second ran stale code.
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        r = subprocess.run(["bash", "-c", spec["test"]], cwd=work, capture_output=True, text=True, errors="replace", timeout=timeout, env=env)
         ok, out = r.returncode == 0, r.stdout + r.stderr
     except subprocess.TimeoutExpired:
         ok, out = False, f"`{spec['test']}` ran past {timeout}s"
