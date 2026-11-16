@@ -107,16 +107,24 @@ fn tool_results_of(req: &Value) -> Vec<String> {
 
 #[test]
 fn a_child_with_nothing_granted_cannot_reach_the_parents_files_or_secrets() {
+    let dir = Env::dir_for("delegate-sandbox");
+    let home = construct::config::Paths { home: dir.join("home") };
+    let journal = construct::journal::path(&home, &dir.join("work"));
+    // The workspace, the parent's home, every project's journals, this
+    // project's journal file and the parent's config.
+    let probes = [dir.join("work"), home.home.clone(), home.home.join("projects"), journal, home.config()]
+        .map(|p| p.display().to_string());
     let env = Env::new(
         "delegate-sandbox",
         json!({ "steps": [
             delegate("look around"),
             { "call": "read", "args": { "path": env_path("delegate-sandbox", "work/note.txt") } },
+            // The shell opens `<` itself, so the probe doesn't depend on which
+            // coreutils is installed: uutils' `cat` (Ubuntu 26.04) only stats a
+            // directory and says "Is a directory" without opening it.
             { "call": "shell", "args": { "command": format!(
-                "ls {work} 2>&1; ls {home} 2>&1; cat {journal} 2>&1; env | sort",
-                work = env_path("delegate-sandbox", "work"),
-                home = env_path("delegate-sandbox", "home"),
-                journal = env_path("delegate-sandbox", "home/projects"),
+                "ls {work} 2>&1; ls {home} 2>&1; cat 2>&1 <{projects}; cat 2>&1 <{journal}; cat {config} 2>&1; env | sort",
+                work = probes[0], home = probes[1], projects = probes[2], journal = probes[3], config = probes[4],
             ) } },
             { "text": "looked" },
             { "text": "done" }
@@ -139,9 +147,14 @@ tools = ["read", "shell"]
     // Its shell can't list the workspace or the parent's home, and its
     // environment holds none of the parent's secrets (nor the model key).
     let shell = last_tool_result(&reqs[3]);
-    // EACCES from Landlock, EPERM from Seatbelt.
-    let denied = shell.matches("Permission denied").count() + shell.matches("Operation not permitted").count();
-    assert!(denied >= 3, "{shell}");
+    // Each one refused by name: EACCES from Landlock, EPERM from Seatbelt.
+    for p in &probes {
+        let refused = shell.lines().any(|l| {
+            (l.contains(&format!("{p}:")) || l.contains(&format!("{p}'")))
+                && (l.contains("Permission denied") || l.contains("Operation not permitted"))
+        });
+        assert!(refused, "{p} not refused:\n{shell}");
+    }
     assert!(!shell.contains("leak-me-please") && !shell.contains("SECRET_DEPLOY_TOKEN"), "{shell}");
     assert!(!shell.contains("OPENAI_API_KEY"), "{shell}");
     assert!(shell.contains("PATH="), "a working environment: {shell}");
