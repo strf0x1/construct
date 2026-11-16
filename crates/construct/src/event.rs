@@ -121,9 +121,8 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         code: Option<String>,
     },
-    /// One model call's accounting. `cached` of `prompt` came from the
-    /// provider's cache; `cache_write` were written to it; `cost` only when
-    /// the provider reports one.
+    /// One model call's accounting: `cached` of `prompt` read from the cache,
+    /// `cache_write` written; `cost` and `served` (the model the response named) when the provider reports them.
     Usage {
         prompt: u64,
         completion: u64,
@@ -132,6 +131,7 @@ pub enum Event {
         cache_write: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cost: Option<f64>,
+        served: Option<String>,
     },
     /// The model was switched mid-session (`/model`), with the limits its
     /// catalog entry (or the defaults) gave it. The head row has the first.
@@ -283,6 +283,12 @@ pub enum Event {
         /// The approval ids this note consumed.
         ids: Vec<String>,
         /// What the model was sent, verbatim.
+        message: Message,
+    },
+    /// An answer with no tool call that was not an answer (`why`: `length`,
+    /// `text_tool_call`, `empty`), and what the model was sent to go on.
+    Nudge {
+        why: String,
         message: Message,
     },
     /// An event from a child session a tool is running, as the parent sees

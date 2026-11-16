@@ -257,7 +257,7 @@ mod tests {
     }
 
     fn usage(prompt: u64) -> Event {
-        Event::Usage { prompt, completion: 1, cached: 0, cache_write: 0, cost: None }
+        Event::Usage { prompt, completion: 1, cached: 0, cache_write: 0, cost: None, served: None }
     }
 
     #[test]

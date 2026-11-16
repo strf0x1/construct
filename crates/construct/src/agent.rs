@@ -6,6 +6,7 @@
 mod compaction;
 mod deck;
 mod limits;
+mod nudge;
 mod restore;
 mod tools;
 mod user_turn;
@@ -192,7 +193,7 @@ impl Agent {
         let mut interrupted = false;
         // One forced cut and resend per step when the provider says the
         // prompt is too long; a second rejection ends the turn.
-        let mut overflowed = false;
+        let (mut overflowed, mut nudges) = (false, 0);
         loop {
             if self.cancelled() {
                 interrupted = true;
@@ -254,18 +255,16 @@ impl Agent {
                     cached: completion.usage.cached_tokens,
                     cache_write: completion.usage.cache_write_tokens,
                     cost: completion.usage.cost,
+                    served: completion.usage.served.clone(),
                 },
                 tx,
             );
-            let calls = completion.message.tool_calls.clone();
-            self.push(completion.message, tx);
-            if calls.is_empty() {
-                if completion.finish_reason == "length" {
-                    self.journal.emit(Event::Error { message: "the model hit its output limit mid-answer".into() }, tx);
-                }
+            self.push(completion.message.clone(), tx);
+            if !completion.message.tool_calls.is_empty() {
+                self.run_tools(&completion.message.tool_calls, tx).await;
+            } else if !self.nudge(&completion, &mut nudges, tx) {
                 break;
             }
-            self.run_tools(&calls, tx).await;
         }
         self.notes.flush_suppressed(&self.journal, tx);
         self.journal.emit(
@@ -298,14 +297,6 @@ impl Agent {
             max_tokens: self.cfg.max_tokens,
             temperature: self.cfg.temperature,
         })
-    }
-
-    /// Learn bytes per token from a request the provider counted. Small
-    /// requests are skipped: fixed overheads would skew the ratio.
-    fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
-        if let Some(ratio) = limits::ratio(bytes, prompt_tokens) {
-            self.bytes_per_token = ratio;
-        }
     }
 
     /// One model call. Returns None when interrupted.
