@@ -122,6 +122,10 @@ pub(super) struct App {
     pub(super) generation: String,
     pub(super) canceller: Option<watch::Sender<bool>>,
     pub(super) quit_armed: Option<Instant>,
+    /// A ctrl-c sent a cancel during this turn. The agent may have finished
+    /// before it looked (the reply is drawn before `TurnEnd` arrives), so a
+    /// `TurnEnd` that says not interrupted takes the key as the quit arm.
+    pub(super) quit_on_end: bool,
     /// The session's tools, once the agent is built; display hints come from here.
     pub(super) catalog: Option<Arc<Catalog>>,
     /// Questions waiting for a key, oldest first; the front one is on screen.
@@ -166,6 +170,7 @@ impl App {
             generation: String::new(),
             canceller: None,
             quit_armed: None,
+            quit_on_end: false,
             catalog: None,
             prompts: VecDeque::new(),
             palette: None,

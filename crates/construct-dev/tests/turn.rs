@@ -103,9 +103,11 @@ fn a_skill_that_vanishes_before_it_runs_ends_the_turn() {
 }
 
 /// ctrl-c pressed as the reply ends arms quit rather than interrupting a turn
-/// that has already finished. The reply is drawn before `TurnEnd` is folded
-/// in, so the key must see the events that already arrived; on a loaded runner
-/// the key used to win that race and the toast never appeared.
+/// that has already finished. The reply is drawn before `TurnEnd` arrives, so
+/// the key can send a cancel the agent no longer reads; on a loaded runner it
+/// did, and the toast never appeared. The TUI now takes that key as the quit
+/// arm when the `TurnEnd` after it says not interrupted. This test can only
+/// hit the gap by chance; `tui::input`'s unit tests pin it every time.
 #[test]
 fn a_quit_pressed_as_the_reply_ends_arms_instead_of_interrupting() {
     let env = Env::new("turn-quit-gap", json!({"steps":[{"text":"done"}]}));

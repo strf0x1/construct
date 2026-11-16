@@ -10,6 +10,12 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 impl App {
+    /// The first ctrl-c at an idle prompt: a second within two seconds quits.
+    pub(super) fn arm_quit(&mut self) {
+        self.quit_armed = Some(Instant::now());
+        self.toast = Some(("press ctrl+c again to quit".into(), theme::YELLOW, Instant::now()));
+    }
+
     pub(super) fn insert(&mut self, s: &str) {
         self.input.insert_str(self.cursor, s);
         self.cursor += s.len();
@@ -133,12 +139,12 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             } else if app.turn.busy() {
                 if let Some(c) = &app.canceller {
                     c.send_replace(true);
+                    app.quit_on_end = true;
                 }
             } else if app.quit_armed.is_some_and(|t| t.elapsed() < Duration::from_secs(2)) {
                 return true;
             } else {
-                app.quit_armed = Some(Instant::now());
-                app.toast = Some(("press ctrl+c again to quit".into(), theme::YELLOW, Instant::now()));
+                app.arm_quit();
             }
         }
         KeyCode::Char('d') if ctrl && app.input.is_empty() => return true,
@@ -355,6 +361,59 @@ mod tests {
             }
             prop_assert!(usize::from(col) <= room, "cursor column {col} > {room}");
         }
+    }
+
+    fn turn_end(interrupted: bool) -> crate::event::Event {
+        crate::event::Event::TurnEnd { steps: 1, prompt: 0, completion: 0, ms: 5, interrupted, cached: 0, cost: None }
+    }
+
+    /// Press `k` during a turn, then let it end as the agent reports.
+    fn press_then_end(k: KeyEvent, interrupted: bool) -> (App, bool) {
+        let mut app = App::new(Config::default());
+        let (cancel, seen) = tokio::sync::watch::channel(false);
+        app.canceller = Some(cancel);
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        app.on_event(crate::event::Event::TurnStart);
+        assert!(!handle_key(&mut app, k, &tx));
+        let sent = *seen.borrow();
+        app.on_event(turn_end(interrupted));
+        (app, sent)
+    }
+
+    fn armed(app: &App) -> bool {
+        app.quit_armed.is_some() && app.toast.as_ref().is_some_and(|t| t.0 == "press ctrl+c again to quit")
+    }
+
+    #[test]
+    fn a_ctrl_c_the_finished_turn_ignored_arms_quit() {
+        // The reply is drawn before `TurnEnd` arrives; a ctrl-c in that gap
+        // sends a cancel the agent never reads, and the turn ends normally.
+        let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        let (app, sent) = press_then_end(ctrl_c, false);
+        assert!(sent, "ctrl-c during a turn sends the cancel");
+        assert!(armed(&app), "the ctrl-c was lost: quit is not armed");
+        // A second ctrl-c now quits.
+        let mut app = app;
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        assert!(handle_key(&mut app, ctrl_c, &tx));
+    }
+
+    #[test]
+    fn a_ctrl_c_that_interrupts_or_an_esc_does_not_arm_quit() {
+        let (app, _) = press_then_end(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), true);
+        assert!(!armed(&app), "an interrupt also armed quit");
+        let (app, sent) = press_then_end(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE), false);
+        assert!(sent && !armed(&app), "esc armed quit");
+        // A cancel the agent dropped at the next `TurnStart` does not carry over.
+        let mut app = App::new(Config::default());
+        app.canceller = Some(tokio::sync::watch::channel(false).0);
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        app.on_event(crate::event::Event::TurnStart);
+        handle_key(&mut app, KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), &tx);
+        app.on_event(turn_end(true));
+        app.on_event(crate::event::Event::TurnStart);
+        app.on_event(turn_end(false));
+        assert!(!armed(&app), "an old ctrl-c armed quit at a later turn's end");
     }
 
     #[test]

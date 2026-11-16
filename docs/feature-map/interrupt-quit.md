@@ -2,7 +2,7 @@
 id: interrupt-quit
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/input.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/status.rs, crates/construct/src/agent.rs, crates/construct/src/tui/mod.rs]
+depends: [crates/construct/src/tui/input.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/status.rs, crates/construct/src/agent.rs, crates/construct/src/tui/mod.rs, crates/construct/src/tui/app_events.rs]
 verified_at: e9abf9b
 verified_deps: 3de3d269fbda3b07
 ---
@@ -41,4 +41,4 @@ Preconditions:
 ## Gotchas
 
 - The arm lasts two seconds; a ctrl-c after it re-arms instead of quitting.
-- A ctrl-c that lands as a turn is ending must arm quit, not interrupt a finished turn: the TUI folds the agent events already received before deciding, and `crates/construct-dev/tests/turn.rs` presses ctrl-c the instant the reply is drawn.
+- A ctrl-c that lands as a turn is ending must arm quit, not interrupt a finished turn. The TUI folds the agent events already received before deciding, but the reply is drawn before the agent has emitted `TurnEnd`, so a ctrl-c can still send a cancel the agent never reads. The TUI remembers that ctrl-c and, when the `TurnEnd` after it says `interrupted: false`, arms quit (esc never does). `tui::input`'s unit tests pin that gap; `crates/construct-dev/tests/turn.rs` presses ctrl-c the instant the reply is drawn.
