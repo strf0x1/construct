@@ -26,6 +26,34 @@ pub const DEFAULT: &str = "default";
 pub struct ProviderConfig {
     pub dialect: Dialect,
     pub cache: CacheMode,
+    #[serde(skip_serializing_if = "Reasoning::is_echo")]
+    pub reasoning: Reasoning,
+    /// Seconds the stream may go silent once the model has started sending;
+    /// then the call fails rather than hang the turn. Default 120.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idle_timeout: Option<u64>,
+    /// Seconds to wait for the response and its first bytes. A local server
+    /// can read a long prompt this long in silence. Default 600.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_byte_timeout: Option<u64>,
+}
+
+/// `"echo"` sends an assistant's reasoning back under the key the server
+/// streamed it in (DeepSeek and Kimi reject a tool-calling history without
+/// it; OpenRouter needs `reasoning_details` to keep signed thinking).
+/// `"drop"` never sends it, for a server that rejects the field. ADR 0044.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Reasoning {
+    #[default]
+    Echo,
+    Drop,
+}
+
+impl Reasoning {
+    fn is_echo(&self) -> bool {
+        *self == Reasoning::Echo
+    }
 }
 
 /// `"auto"` picks by `base_url`: openrouter.ai is `"openrouter"`, anything
@@ -80,6 +108,9 @@ pub struct Provider {
     pub headers: BTreeMap<String, String>,
     pub dialect: Option<Dialect>,
     pub cache: Option<CacheMode>,
+    pub reasoning: Option<Reasoning>,
+    pub idle_timeout: Option<u64>,
+    pub first_byte_timeout: Option<u64>,
     /// How to learn its models and their windows; `off` asks nothing.
     pub discover: Discover,
     /// Defaults for this provider's models, under any model entry. A
@@ -154,6 +185,9 @@ impl Provider {
         let provider = ProviderConfig {
             dialect: self.dialect.or(p.map(|p| p.dialect)).unwrap_or_default(),
             cache: self.cache.unwrap_or_default(),
+            reasoning: self.reasoning.unwrap_or_default(),
+            idle_timeout: self.idle_timeout,
+            first_byte_timeout: self.first_byte_timeout,
         };
         Endpoint::named(name, base_url, &secret, self.headers.clone(), provider)
     }

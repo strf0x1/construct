@@ -9,7 +9,7 @@
 //! fields.
 
 use super::{Message, Request};
-use crate::config::{CacheMode, Dialect, ProviderConfig};
+use crate::config::{CacheMode, Dialect, ProviderConfig, Reasoning};
 use crate::endpoint::Endpoint;
 use serde_json::{Value, json};
 
@@ -32,6 +32,7 @@ pub struct Provider {
     /// Resolved: never `Dialect::Auto`.
     pub dialect: Dialect,
     pub cache: CacheMode,
+    pub reasoning: Reasoning,
 }
 
 impl Provider {
@@ -43,7 +44,7 @@ impl Provider {
             Dialect::Auto => Dialect::OpenAi,
             d => d,
         };
-        Self { dialect, cache: cfg.cache }
+        Self { dialect, cache: cfg.cache, reasoning: cfg.reasoning }
     }
 
     /// The dialect `ep` speaks.
@@ -73,6 +74,9 @@ impl Provider {
 
     /// Adjust a standard body for this provider.
     pub fn shape(&self, model: &str, body: &mut Value) {
+        if self.reasoning == Reasoning::Drop {
+            drop_reasoning(body);
+        }
         match self.breakpoint(model) {
             Breakpoint::None => {
                 shape_part_marks(body, false);
@@ -107,6 +111,16 @@ pub(super) fn standard_body(req: &Request<'_>) -> Value {
         body["temperature"] = json!(t);
     }
     body
+}
+
+/// Remove every echoed reasoning field from the assistant messages.
+fn drop_reasoning(body: &mut Value) {
+    let Some(msgs) = body["messages"].as_array_mut() else { return };
+    for m in msgs.iter_mut().filter_map(Value::as_object_mut) {
+        for key in super::stream::REASONING_KEYS.iter().chain([&super::stream::DETAILS]) {
+            m.remove(*key);
+        }
+    }
 }
 
 pub(super) fn ephemeral() -> Value {
@@ -160,7 +174,7 @@ mod tests {
     use super::*;
 
     fn provider(dialect: Dialect, cache: CacheMode, url: &str) -> Provider {
-        Provider::new(&ProviderConfig { dialect, cache }, url)
+        Provider::new(&ProviderConfig { dialect, cache, ..ProviderConfig::default() }, url)
     }
 
     fn body() -> Value {
@@ -286,5 +300,15 @@ mod tests {
         provider(Dialect::OpenRouter, CacheMode::Auto, "").shape("deepseek/deepseek-v4.1-flash", &mut b);
         assert!(b.get("cache_control").is_none());
         assert_eq!(marks(&b), 0);
+    }
+
+    #[test]
+    fn reasoning_drop_strips_every_echoed_field() {
+        let cfg = ProviderConfig { reasoning: Reasoning::Drop, ..ProviderConfig::default() };
+        let mut b = json!({ "messages": [
+            { "role": "assistant", "content": "a", "reasoning_content": "r", "reasoning": "r", "reasoning_details": [] },
+        ]});
+        Provider::new(&cfg, "http://localhost/v1").shape("m", &mut b);
+        assert_eq!(b["messages"][0], json!({ "role": "assistant", "content": "a" }));
     }
 }

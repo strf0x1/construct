@@ -1,7 +1,7 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
-pub use crate::providers::{CacheMode, Dialect, ProviderConfig};
+pub use crate::providers::{CacheMode, Dialect, ProviderConfig, Reasoning};
 pub use crate::tools::web::WebConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
