@@ -35,7 +35,11 @@ impl App {
             | Event::Nudge { .. }
             | Event::Request { .. } => {}
             Event::Submitted { .. } => self.turn.submitted(),
-            Event::TurnStart => self.turn.start(Instant::now()),
+            Event::TurnStart => {
+                // The agent clears its cancel flag as a turn starts.
+                self.quit_on_end = false;
+                self.turn.start(Instant::now());
+            }
             Event::Route { groups, skills, source, ms, note } => {
                 for g in &groups { if !self.groups.contains(g) { self.groups.push(g.clone()); } }
                 self.turn.set_phase(Phase::Waiting);
@@ -143,6 +147,11 @@ impl App {
                     self.refresh_palette();
                 }
                 let secs = ms as f32 / 1000.0;
+                if std::mem::take(&mut self.quit_on_end) && !interrupted {
+                    // The ctrl-c came after the agent's last look: the turn
+                    // finished anyway, so the key arms quit instead.
+                    self.arm_quit();
+                }
                 if interrupted {
                     self.notice(theme::YELLOW, format!("■ interrupted after {secs:.1}s"));
                 } else if steps > 1 {
