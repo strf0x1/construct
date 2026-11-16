@@ -708,9 +708,11 @@ fn a_childs_shell_command_runs_again_after_approval_and_succeeds() {
     play(
         &mut d,
         &format!(
-            "{}wait \"PERMISSION\" {}\nexpect \"runs the command again\"\nsleep 600\ntype y\nwait \"the scout reported\" {}\n",
+            // `wait`, not `expect`: the panel's title can be on screen before the rest of a large frame is read.
+            "{}wait \"PERMISSION\" {}\nwait \"runs the command again\" {}\nsleep 600\ntype y\nwait \"the scout reported\" {}\n",
             ask_scout_script(),
             budget(10000),
+            budget(3000),
             budget(10000)
         ),
     );

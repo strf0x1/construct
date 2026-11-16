@@ -22,6 +22,14 @@ pub(super) fn price(cfg: &Config, model: &str, u: &mut Usage) {
 }
 
 impl Agent {
+    /// Learn bytes per token from a request the provider counted. Small
+    /// requests are skipped: fixed overheads would skew the ratio.
+    pub(super) fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
+        if let Some(ratio) = ratio(bytes, prompt_tokens) {
+            self.bytes_per_token = ratio;
+        }
+    }
+
     pub(super) fn price(&self, model: &str, u: &mut Usage) {
         price(&self.cfg, model, u);
     }
