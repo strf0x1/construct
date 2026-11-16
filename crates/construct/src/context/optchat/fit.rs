@@ -307,6 +307,7 @@ mod tests {
             id: id.into(),
             kind: "function".into(),
             function: FunctionCall { name: "read".into(), arguments: "{}".into() },
+            extra_content: None,
         }
     }
 

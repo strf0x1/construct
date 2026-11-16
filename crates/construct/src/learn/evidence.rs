@@ -135,6 +135,7 @@ mod tests {
             id: id.into(),
             kind: "function".into(),
             function: FunctionCall { name: "shell".into(), arguments: args.into() },
+            extra_content: None,
         }];
         m
     }

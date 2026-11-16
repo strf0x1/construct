@@ -5,16 +5,14 @@ use crate::llm::{FunctionCall, ToolCall};
 
 fn call(id: &str) -> Message {
     Message {
-        role: "assistant".into(),
         content: None,
-        parts: vec![],
         tool_calls: vec![ToolCall {
             id: id.into(),
             kind: "function".into(),
             function: FunctionCall { name: "read".into(), arguments: "{}".into() },
+            extra_content: None,
         }],
-        tool_call_id: None,
-        reasoning: None,
+        ..Message::text("assistant", "")
     }
 }
 

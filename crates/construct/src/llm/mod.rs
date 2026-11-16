@@ -8,6 +8,7 @@ pub mod catalog;
 pub mod deck;
 pub mod dialect;
 pub mod discover;
+mod message;
 pub mod notes;
 pub mod overlay;
 mod stream;
@@ -15,128 +16,17 @@ mod switch;
 mod usage;
 
 pub use dialect::Provider;
+pub use message::{FunctionCall, Message, Part, ToolCall};
 pub use usage::Usage;
 
 use crate::endpoint::Endpoint;
 use crate::journal::notes::Coalescer;
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::sync::mpsc;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Message {
-    pub role: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    /// The message as content parts, sent instead of `content` when non-empty.
-    /// A marked part is where the provider should cache (ADR 0043 decision 6).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub parts: Vec<Part>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tool_calls: Vec<ToolCall>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
-    /// Reasoning text some providers stream separately. Kept for the log and
-    /// the UI, never sent back (most endpoints reject or ignore it).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reasoning: Option<String>,
-}
-
-/// One text part of a [`Message`]. `mark` asks the dialect to put the cache
-/// breakpoint on this part; only a strategy that splits a message sets it.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Part {
-    pub text: String,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub mark: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ToolCall {
-    pub id: String,
-    #[serde(rename = "type", default = "function_type")]
-    pub kind: String,
-    pub function: FunctionCall,
-}
-
-fn function_type() -> String {
-    "function".into()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FunctionCall {
-    pub name: String,
-    pub arguments: String,
-}
-
-impl Message {
-    pub fn system(text: impl Into<String>) -> Self {
-        Self::text("system", text)
-    }
-    pub fn user(text: impl Into<String>) -> Self {
-        Self::text("user", text)
-    }
-    pub fn text(role: &str, text: impl Into<String>) -> Self {
-        Self {
-            role: role.into(),
-            content: Some(text.into()),
-            parts: vec![],
-            tool_calls: vec![],
-            tool_call_id: None,
-            reasoning: None,
-        }
-    }
-    /// A message sent as content parts rather than one string.
-    pub fn parts(role: &str, parts: Vec<Part>) -> Self {
-        Self { role: role.into(), content: None, parts, tool_calls: vec![], tool_call_id: None, reasoning: None }
-    }
-    pub fn tool(id: &str, text: impl Into<String>) -> Self {
-        Self {
-            role: "tool".into(),
-            content: Some(text.into()),
-            parts: vec![],
-            tool_calls: vec![],
-            tool_call_id: Some(id.into()),
-            reasoning: None,
-        }
-    }
-    /// The wire form: reasoning stripped, empty assistant content as null.
-    fn wire(&self) -> Value {
-        let mut v = json!({ "role": self.role });
-        if self.parts.is_empty() {
-            match (&self.content, self.role.as_str()) {
-                (Some(c), _) => v["content"] = json!(c),
-                (None, "assistant") => v["content"] = Value::Null,
-                (None, _) => v["content"] = json!(""),
-            }
-        } else {
-            let parts: Vec<Value> = self
-                .parts
-                .iter()
-                .filter(|p| !p.text.is_empty())
-                .map(|p| {
-                    let mut part = json!({ "type": "text", "text": p.text });
-                    if p.mark {
-                        part["cache_control"] = dialect::ephemeral();
-                    }
-                    part
-                })
-                .collect();
-            v["content"] = json!(parts);
-        }
-        if !self.tool_calls.is_empty() {
-            v["tool_calls"] = json!(self.tool_calls);
-        }
-        if let Some(id) = &self.tool_call_id {
-            v["tool_call_id"] = json!(id);
-        }
-        v
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Delta {
@@ -165,7 +55,15 @@ pub struct Client {
     pub headers: BTreeMap<String, String>,
     pub provider: Provider,
     prefix: String, // `Endpoint::error_prefix`, before every error
+    /// How long a request may wait for its first bytes, and how long the
+    /// stream may then go quiet, before the call fails.
+    first_byte: Duration,
+    idle: Duration,
 }
+
+/// Default `[provider] idle_timeout` and `first_byte_timeout`, in seconds.
+const IDLE_SECS: u64 = 120;
+const FIRST_BYTE_SECS: u64 = 600;
 
 pub struct Request<'a> {
     pub model: &'a str,
@@ -190,6 +88,8 @@ impl Client {
             headers: ep.headers.clone(),
             provider: Provider::of(ep),
             prefix: ep.error_prefix(),
+            first_byte: Duration::from_secs(ep.provider.first_byte_timeout.unwrap_or(FIRST_BYTE_SECS)),
+            idle: Duration::from_secs(ep.provider.idle_timeout.unwrap_or(IDLE_SECS)),
         })
     }
 
@@ -232,7 +132,10 @@ impl Client {
         notes: &mut Coalescer,
     ) -> Result<Completion> {
         let mut attempt = 0u32;
-        let resp = loop {
+        let (resp, first_deadline) = loop {
+            // Nothing a stalled server does may hang the turn: the response
+            // and its first bytes get one deadline, every later chunk `idle`.
+            let first_deadline = tokio::time::Instant::now() + self.first_byte;
             let mut rb = self
                 .http
                 .post(format!("{}/chat/completions", self.base_url))
@@ -244,7 +147,13 @@ impl Client {
             for (k, v) in &self.headers {
                 rb = rb.header(k, v);
             }
-            let res = rb.send().await;
+            let Ok(res) = tokio::time::timeout_at(first_deadline, rb.send()).await else {
+                bail!(
+                    "{}model endpoint sent no response in {}s ([provider] first_byte_timeout)",
+                    self.prefix,
+                    self.first_byte.as_secs()
+                );
+            };
             let r = match res {
                 Ok(r) => r,
                 Err(e) => {
@@ -260,7 +169,7 @@ impl Client {
             };
             let status = r.status();
             if status.is_success() {
-                break r;
+                break (r, first_deadline);
             }
             // The body decides retryability for a Deck gateway: a 503
             // `deck_credential_missing` is policy and must not be retried,
@@ -298,7 +207,15 @@ impl Client {
         let mut sse = stream::Sse::default();
         let mut stream = resp.bytes_stream();
         let mut done = false;
-        'read: while let Some(chunk) = stream.next().await {
+        let (mut deadline, mut started) = (first_deadline, false);
+        'read: loop {
+            let Ok(next) = tokio::time::timeout_at(deadline, stream.next()).await else {
+                let (what, knob) =
+                    if !started { (self.first_byte, "first_byte_timeout") } else { (self.idle, "idle_timeout") };
+                bail!("{}model stream stalled: nothing for {}s ([provider] {knob})", self.prefix, what.as_secs());
+            };
+            let Some(chunk) = next else { break };
+            (deadline, started) = (tokio::time::Instant::now() + self.idle, true);
             let chunk = chunk.context("model stream interrupted")?;
             for data in sse.push(&chunk) {
                 if acc.data(&data, tx, notes)? {
@@ -328,38 +245,4 @@ pub fn truncate(s: &str, max: usize) -> String {
         return s.to_string();
     }
     format!("{}…", crate::text::head(s, max))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn part(text: &str, mark: bool) -> Part {
-        Part { text: text.into(), mark }
-    }
-
-    #[test]
-    fn a_message_without_parts_serializes_as_before() {
-        let v = serde_json::to_value(Message::user("hi")).unwrap();
-        assert!(v.get("parts").is_none());
-        // Old journal rows have no `parts` key and still load.
-        let old: Message = serde_json::from_value(json!({ "role": "user", "content": "hi" })).unwrap();
-        assert_eq!(old, Message::user("hi"));
-    }
-
-    #[test]
-    fn marked_parts_wire_as_content_parts() {
-        let m = Message::parts("user", vec![part("a", false), part("b", true)]);
-        let v = m.wire();
-        assert_eq!(v["content"][0], json!({ "type": "text", "text": "a" }));
-        assert_eq!(v["content"][1], json!({ "type": "text", "text": "b", "cache_control": { "type": "ephemeral" } }));
-    }
-
-    #[test]
-    fn empty_parts_are_skipped() {
-        let m = Message::parts("user", vec![part("a", true), part("", false), part("", true)]);
-        let v = m.wire();
-        assert_eq!(v["content"].as_array().unwrap().len(), 1);
-        assert_eq!(v["content"][0]["text"], "a");
-    }
 }

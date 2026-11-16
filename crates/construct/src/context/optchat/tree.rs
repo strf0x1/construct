@@ -156,6 +156,7 @@ mod tests {
             id: "c".into(),
             kind: "function".into(),
             function: FunctionCall { name: name.into(), arguments: args.into() },
+            extra_content: None,
         }
     }
 

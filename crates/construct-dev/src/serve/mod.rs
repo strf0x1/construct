@@ -21,6 +21,7 @@
 mod models;
 mod script;
 
+use script::adapt;
 pub use script::{Side, Step};
 
 use anyhow::Result;
@@ -352,47 +353,6 @@ fn tokio_stream(
     futures::stream::poll_fn(move |cx| rx.poll_recv(cx))
 }
 
-/// Pick the harness's tool matching an abstract name, and its argument names.
-fn adapt(req: &Value, call: &str, args: &Value) -> (String, Value) {
-    let tools = req["tools"].as_array().cloned().unwrap_or_default();
-    let names: &[&str] = match call {
-        "read" => &["read", "read_file", "Read", "view"],
-        "shell" => &["shell", "bash", "terminal", "Bash", "run_shell_command"],
-        "write" => &["write", "write_file", "Write"],
-        "edit" => &["edit", "patch", "Edit", "replace"],
-        "grep" => &["grep", "search", "search_files", "Grep"],
-        other => return (other.to_string(), args.clone()),
-    };
-    let found =
-        tools.iter().find(|t| names.contains(&t.pointer("/function/name").and_then(Value::as_str).unwrap_or("")));
-    let Some(tool) = found else { return (names[0].to_string(), args.clone()) };
-    let name = tool.pointer("/function/name").and_then(Value::as_str).unwrap_or(names[0]).to_string();
-    let props = tool.pointer("/function/parameters/properties").cloned().unwrap_or(json!({}));
-    let mut out = serde_json::Map::new();
-    if let Some(obj) = args.as_object() {
-        for (k, v) in obj {
-            let candidates: Vec<&str> = match k.as_str() {
-                "path" => vec!["path", "filePath", "file_path", "filename"],
-                "command" => vec!["command", "cmd"],
-                "content" => vec!["content", "contents"],
-                "pattern" => vec!["pattern", "query", "regex"],
-                k => vec![k],
-            };
-            let key = candidates.iter().find(|c| props.get(**c).is_some()).copied().unwrap_or(candidates[0]);
-            out.insert(key.to_string(), v.clone());
-        }
-    }
-    // opencode's bash wants a description; give required strings a value.
-    if let Some(req_fields) = tool.pointer("/function/parameters/required").and_then(Value::as_array) {
-        for f in req_fields.iter().filter_map(Value::as_str) {
-            if !out.contains_key(f) && props[f]["type"] == "string" {
-                out.insert(f.to_string(), json!("bench step"));
-            }
-        }
-    }
-    (name, Value::Object(out))
-}
-
 /// Bytes of the longest prefix of `req` (tools, then messages) that an
 /// earlier request already sent; every prefix of this one is cached after.
 fn cached_bytes(s: &Shared, req: &Value) -> u64 {
@@ -452,7 +412,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
         *n += 1;
         Some(match reply {
             Side::Text(text) => {
-                Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false, length: false }
+                Step::Text { text, delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false, length: false, stall_ms: 0 }
             }
             Side::Step(st) => st,
         })
@@ -473,9 +433,15 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     };
     let step = match step {
         Some(st) => st,
-        None => {
-            Step::Text { text: "done".into(), delay_ms: 0, reasoning: None, bad_chunks: 0, cut: false, length: false }
-        }
+        None => Step::Text {
+            text: "done".into(),
+            delay_ms: 0,
+            reasoning: None,
+            bad_chunks: 0,
+            cut: false,
+            length: false,
+            stall_ms: 0,
+        },
     };
     if let Step::Fail { status, retry_after, body } = &step {
         rec["status"] = json!(status);
@@ -506,7 +472,7 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
     let mut message = json!({ "role": "assistant", "content": Value::Null });
     let mut n_calls = 0;
     match &step {
-        Step::Text { text, delay_ms, reasoning, bad_chunks, cut: cut_here, length } => {
+        Step::Text { text, delay_ms, reasoning, bad_chunks, cut: cut_here, length, stall_ms } => {
             cut = *cut_here;
             let mut first = *delay_ms;
             for _ in 0..*bad_chunks {
@@ -524,15 +490,21 @@ async fn scripted(s: Arc<Shared>, req: &Value, mut rec: Value) -> Response {
                 chunks.push((d, sse(base(json!({ "content": w }), Value::Null))));
             }
             if !cut {
-                chunks.push((0, sse(base(json!({}), json!(if *length { "length" } else { "stop" })))));
+                chunks.push((*stall_ms, sse(base(json!({}), json!(if *length { "length" } else { "stop" })))));
             }
             message["content"] = json!(text);
         }
-        Step::Call { call, args, delay_ms } => {
+        Step::Call { call, args, delay_ms, reasoning } => {
             let (name, a) = adapt(req, call, args);
             n_calls = 1;
+            let mut delay_ms = *delay_ms;
+            if let Some(r) = reasoning {
+                chunks.push((delay_ms, sse(base(json!({ "role": "assistant", "reasoning_content": r }), Value::Null))));
+                message["reasoning_content"] = json!(r);
+                delay_ms = 0;
+            }
             let tc = json!([{ "index": 0, "id": format!("call_{}", rec["i"]), "type": "function", "function": { "name": name, "arguments": a.to_string() } }]);
-            chunks.push((*delay_ms, sse(base(json!({ "role": "assistant", "tool_calls": tc }), Value::Null))));
+            chunks.push((delay_ms, sse(base(json!({ "role": "assistant", "tool_calls": tc }), Value::Null))));
             chunks.push((0, sse(base(json!({}), json!("tool_calls")))));
             message["tool_calls"] = tc;
         }

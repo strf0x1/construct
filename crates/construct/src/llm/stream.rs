@@ -1,6 +1,8 @@
 //! Folding a chat-completions SSE stream into one `Completion`: text and
 //! reasoning deltas forwarded as they arrive, tool-call fragments joined by
-//! index, and the usage from whichever chunk carries it. Framing works on
+//! index, reasoning kept with the key it came under (and OpenRouter's
+//! `reasoning_details` merged block by block) so it can be sent back, and the
+//! usage from whichever chunk carries it. Framing works on
 //! bytes and decodes whole lines only, so a chunk boundary inside a
 //! multibyte character never reaches the decoder.
 
@@ -32,11 +34,28 @@ impl Sse {
     }
 }
 
+/// The delta key of OpenRouter's structured reasoning, and the message key it
+/// goes back under.
+pub(super) const DETAILS: &str = "reasoning_details";
+
+/// The key of provider data on a tool call (Gemini's thought signature).
+const EXTRA: &str = "extra_content";
+
+/// The delta keys reasoning text streams under, in order of preference.
+pub(super) const REASONING_KEYS: [&str; 2] = ["reasoning_content", "reasoning"];
+
+/// The string fields of a `reasoning_details` block that stream in pieces.
+const DETAIL_TEXT: [&str; 3] = ["text", "summary", "data"];
+
 #[derive(Default)]
 pub(super) struct Accumulator {
     content: String,
     reasoning: String,
+    reasoning_field: Option<&'static str>,
+    details: Vec<Value>,
     calls: BTreeMap<usize, (String, String, String)>,
+    /// A call's `extra_content`, by index, as the provider last sent it.
+    extras: BTreeMap<usize, Value>,
     usage: Usage,
     finish: String,
     model: Option<String>,
@@ -90,15 +109,21 @@ impl Accumulator {
                 let _ = tx.send(Delta::Text(t.to_string()));
             }
         }
-        for key in ["reasoning_content", "reasoning"] {
+        for key in REASONING_KEYS {
             if let Some(t) = d.get(key).and_then(Value::as_str) {
                 if !t.is_empty() {
+                    self.reasoning_field.get_or_insert(key);
                     self.reasoning.push_str(t);
                     if let Some(tx) = tx {
                         let _ = tx.send(Delta::Reasoning(t.to_string()));
                     }
                 }
                 break;
+            }
+        }
+        if let Some(blocks) = d.get(DETAILS).and_then(Value::as_array) {
+            for b in blocks {
+                self.detail(b);
             }
         }
         if let Some(calls) = d.get("tool_calls").and_then(Value::as_array) {
@@ -112,6 +137,9 @@ impl Accumulator {
                         notes.record(notes::INDEX_COLLISION, &format!("index {index}: {} then {id}", entry.0));
                     }
                     entry.0 = id.to_string();
+                }
+                if let Some(x) = c.get(EXTRA).filter(|x| !x.is_null()) {
+                    self.extras.insert(index, x.clone());
                 }
                 if let Some(f) = c.get("function") {
                     if let Some(n) = f.get("name").and_then(Value::as_str)
@@ -131,12 +159,44 @@ impl Accumulator {
         }
     }
 
+    /// Fold one streamed `reasoning_details` piece: a piece of the block
+    /// before it (same type and index) extends its text, anything else starts
+    /// a block. The provider wants the sequence back unchanged.
+    fn detail(&mut self, b: &Value) {
+        let Some(piece) = b.as_object() else { return };
+        let same = |prev: &Value| {
+            prev.get("type") == piece.get("type")
+                && prev.get("index") == piece.get("index")
+                && match (prev.get("id").filter(|v| !v.is_null()), piece.get("id").filter(|v| !v.is_null())) {
+                    (Some(a), Some(b)) => a == b,
+                    _ => true,
+                }
+        };
+        let Some(prev) = self.details.last_mut().filter(|p| same(p)).and_then(Value::as_object_mut) else {
+            self.details.push(b.clone());
+            return;
+        };
+        for (k, v) in piece {
+            // A null (a signature not yet known) never erases a value.
+            if v.is_null() {
+                prev.entry(k.clone()).or_insert(Value::Null);
+                continue;
+            }
+            match (prev.get_mut(k), v.as_str()) {
+                (Some(Value::String(acc)), Some(more)) if DETAIL_TEXT.contains(&k.as_str()) => acc.push_str(more),
+                _ => {
+                    prev.insert(k.clone(), v.clone());
+                }
+            }
+        }
+    }
+
     /// Whether the provider said why it stopped.
     pub(super) fn finished(&self) -> bool {
         !self.finish.is_empty()
     }
 
-    pub(super) fn finish(self) -> Result<Completion> {
+    pub(super) fn finish(mut self) -> Result<Completion> {
         let tool_calls: Vec<ToolCall> = self
             .calls
             .into_iter()
@@ -145,9 +205,15 @@ impl Accumulator {
                 id: if id.is_empty() { format!("call_{i}") } else { id },
                 kind: "function".into(),
                 function: FunctionCall { name, arguments: if args.trim().is_empty() { "{}".into() } else { args } },
+                extra_content: self.extras.remove(&i),
             })
             .collect();
-        if self.content.is_empty() && tool_calls.is_empty() && self.reasoning.is_empty() && self.finish.is_empty() {
+        if self.content.is_empty()
+            && tool_calls.is_empty()
+            && self.reasoning.is_empty()
+            && self.details.is_empty()
+            && self.finish.is_empty()
+        {
             return Err(anyhow!("model returned an empty stream"));
         }
         Ok(Completion {
@@ -157,7 +223,9 @@ impl Accumulator {
                 parts: vec![],
                 tool_calls,
                 tool_call_id: None,
+                reasoning_field: self.reasoning_field.filter(|_| !self.reasoning.is_empty()).map(String::from),
                 reasoning: if self.reasoning.is_empty() { None } else { Some(self.reasoning) },
+                reasoning_details: if self.details.is_empty() { None } else { Some(Value::Array(self.details)) },
             },
             usage: Usage { served: self.model, ..self.usage },
             finish_reason: self.finish,
@@ -262,5 +330,57 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    fn delta(d: Value) -> Value {
+        json!({ "choices": [{ "delta": d }] })
+    }
+
+    #[test]
+    fn reasoning_remembers_the_key_it_came_in() {
+        let mut acc = Accumulator::default();
+        let mut notes = Coalescer::default();
+        acc.feed(&delta(json!({ "reasoning": "think" })), None, &mut notes);
+        acc.feed(&delta(json!({ "reasoning": "ing" })), None, &mut notes);
+        let m = acc.finish().unwrap().message;
+        assert_eq!((m.reasoning.as_deref(), m.reasoning_field.as_deref()), (Some("thinking"), Some("reasoning")));
+    }
+
+    #[test]
+    fn reasoning_details_pieces_join_into_blocks_in_order() {
+        let mut acc = Accumulator::default();
+        let mut notes = Coalescer::default();
+        let text = |t: &str, sig: Value| json!({ "type": "reasoning.text", "text": t, "signature": sig, "id": "r1", "format": "anthropic-claude-v1", "index": 0 });
+        acc.feed(&delta(json!({ DETAILS: [text("Let me ", Value::Null)] })), None, &mut notes);
+        acc.feed(&delta(json!({ DETAILS: [text("look.", Value::Null)] })), None, &mut notes);
+        acc.feed(&delta(json!({ DETAILS: [text("", json!("sig=="))] })), None, &mut notes);
+        acc.feed(
+            &delta(json!({ DETAILS: [{ "type": "reasoning.encrypted", "data": "xyz", "index": 1 }] })),
+            None,
+            &mut notes,
+        );
+        let m = acc.finish().unwrap().message;
+        assert_eq!(
+            m.reasoning_details,
+            Some(json!([
+                { "type": "reasoning.text", "text": "Let me look.", "signature": "sig==", "id": "r1", "format": "anthropic-claude-v1", "index": 0 },
+                { "type": "reasoning.encrypted", "data": "xyz", "index": 1 },
+            ]))
+        );
+        assert!(m.reasoning.is_none(), "details alone are not plain reasoning");
+    }
+
+    #[test]
+    fn a_thought_signature_stays_with_its_call() {
+        let mut acc = Accumulator::default();
+        let mut notes = Coalescer::default();
+        let sig = json!({ "google": { "thought_signature": "c2ln" } });
+        let first =
+            json!({ "index": 0, "id": "a", "function": { "name": "read", "arguments": "{}" }, "extra_content": sig });
+        let second = json!({ "index": 1, "id": "b", "function": { "name": "read", "arguments": "{}" } });
+        acc.feed(&delta(json!({ "tool_calls": [first, second] })), None, &mut notes);
+        let calls = acc.finish().unwrap().message.tool_calls;
+        assert_eq!(calls[0].extra_content, Some(sig), "parallel calls: only the first is signed");
+        assert_eq!(calls[1].extra_content, None);
     }
 }
