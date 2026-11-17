@@ -24,6 +24,8 @@ mod catalog;
 mod child;
 #[path = "compaction.rs"]
 mod compaction;
+#[path = "crash_sweep.rs"]
+mod crash_sweep;
 #[path = "deck.rs"]
 mod deck;
 #[path = "deck_github.rs"]
