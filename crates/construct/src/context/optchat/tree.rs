@@ -97,7 +97,11 @@ fn zoom_result(entries: &[Message], i: usize) -> Option<String> {
         .iter()
         .rev()
         .flat_map(|a| a.tool_calls.iter())
-        .find(|c| c.id == call_id && c.function.name == ZOOM)?;
+        // Stop at the call that made this result, a few entries back, then ask
+        // whether it was `zoom`: searching for a `zoom` call with this id
+        // walked the whole log for every other result (#246).
+        .find(|c| c.id == call_id)
+        .filter(|c| c.function.name == ZOOM)?;
     let args: Value = serde_json::from_str(&call.function.arguments).ok()?;
     Some(format!("result: zoom {}+{}", args.get("id")?.as_u64()?, args.get("n")?.as_u64()?))
 }
