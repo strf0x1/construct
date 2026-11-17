@@ -112,6 +112,37 @@ It takes about 5 minutes, most of it the scorer's `cargo xtask check`. Expect `s
 `xtask_check` and `conventions` true. The fixture is untouched, so it still
 builds and breaks no rules.
 
+### Prompt-cache diagnostics
+
+Task runs include `prompt_cache` from Construct's journal, alongside the
+existing endpoint-wide `cache_hit_rate`. The journal report covers agent
+calls (including separately journaled children); endpoint totals also include
+side calls such as summaries and learning. `prompt_cache.cache_hit_rate` is
+Σcached / Σprompt, and `prompt_cache.drops` counts strict decreases from the
+preceding call on the same model within each session. Both are comparable
+with `bench.py compare --only '^prompt_cache\.'`: higher share and fewer
+drops are better. A drop is an observation, not proof of prefix invalidation.
+
+`prompt_cache.series` retains each session's weighted share, `first_drop`
+(the 1-based usage-bearing call number, or null), and its individual calls. `compare` skips
+this diagnostic series rather than scoring call indices or timestamps.
+Model changes and zero-prompt calls reset the comparison; an equal share is
+not a drop. An absent cached count means zero reported hits; it does not
+establish that a provider supports caching. Zero total prompt tokens produce
+null share.
+
+Inspect a home or a retained bench journal without contacting a provider:
+
+```sh
+python3 bench/journal.py cache --home /path/to/home
+python3 bench/journal.py cache --home /path/to/home --since 7d --json
+```
+
+`--since` filters usage, not only session start times. Call numbers remain
+relative to the complete session's usage-bearing calls, but drop comparisons
+use only included calls. Failed attempts without a usage row are absent. This measures #187's first step; auditing or changing the prompt
+prefix and verifying a caching provider's real behavior remain separate work.
+
 ### Real models, N repeats each
 
 Models are nondeterministic, so run every task several times per model. Five

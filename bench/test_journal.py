@@ -102,5 +102,71 @@ class Errors(unittest.TestCase):
         self.assertEqual(types, ["session"])
 
 
+class Cache(unittest.TestCase):
+    def usage(self, prompt, cached=0):
+        return {"event": "usage", "prompt": prompt, "cached": cached, "completion": 1}
+
+    def test_weighted_share_first_drop_and_session_boundaries(self):
+        home = home_with(self,
+            [head("m", "openai"), self.usage(100), self.usage(100, 90), self.usage(200, 20)],
+            [head("m", "openai"), self.usage(100, 5)])
+        m = journal.cache_metrics(home)
+        self.assertAlmostEqual(m["cache_hit_rate"], 115 / 500)
+        self.assertEqual(m["drops"], 1)
+        first, second = m["series"]
+        self.assertEqual([c["cache_hit_rate"] for c in first["calls"]], [0, .9, .1])
+        self.assertEqual(first["first_drop"], 3)
+        self.assertAlmostEqual(first["cache_hit_rate"], 110 / 400)
+        self.assertIsNone(second["first_drop"])
+        self.assertIn("call 3 m: 10.0% (20/200) DROP", journal.cache_report(m))
+
+    def test_model_switch_zero_prompt_and_equal_share_do_not_mark_drops(self):
+        events = [head("a", "openai"), self.usage(100, 90), self.usage(200, 180),
+                  {"event": "request", "model": "b"}, self.usage(100, 5),
+                  self.usage(0), self.usage(100), self.usage(100, 80), self.usage(100, 40)]
+        m = journal.cache_metrics(home_with(self, events))
+        calls = m["series"][0]["calls"]
+        self.assertEqual(m["drops"], 1)
+        self.assertEqual(m["series"][0]["first_drop"], 7)
+        self.assertIsNone(calls[3]["cache_hit_rate"])
+        self.assertEqual(calls[2]["model"], "b")
+
+    def test_since_excludes_old_usage_but_keeps_session_call_numbers(self):
+        home = home_with(self, [head("m", "openai"), self.usage(100, 90), self.usage(100, 10)])
+        db = sqlite3.connect(next(home.glob("projects/*/journal.sqlite")))
+        db.execute("UPDATE events SET at_ms = seq * 1000")
+        db.commit()
+        db.close()
+        m = journal.cache_metrics(home, since=2.5)
+        self.assertEqual(m["prompt_tokens"], 100)
+        self.assertEqual(m["series"][0]["calls"][0]["index"], 2)
+        self.assertEqual(m["drops"], 0)
+
+    def test_empty_and_missing_usage(self):
+        m = journal.cache_metrics(home_with(self, [head("m", "openai")]))
+        self.assertIsNone(m["cache_hit_rate"])
+        self.assertEqual(m["series"], [])
+        m = journal.cache_metrics(home_with(self, [head("m", "openai"), {"event": "usage", "prompt": 100}]))
+        self.assertEqual(m["cache_hit_rate"], 0)
+
+    def test_legacy_sessions_and_json_cli(self):
+        import contextlib
+        import io
+
+        home = home_with(self)
+        folder = home / "sessions"
+        folder.mkdir()
+        rows = [{"type": "session", "id": "old", "model": "m"},
+                {"type": "usage", "at": int(time.time() * 1000),
+                 "usage": {"prompt_tokens": 20, "cached_tokens": 10}}]
+        (folder / "old.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            journal.main(["cache", "--home", str(home), "--json"])
+        m = json.loads(out.getvalue())
+        self.assertEqual(m["cache_hit_rate"], .5)
+        self.assertEqual(m["series"][0]["session"], "old")
+
+
 if __name__ == "__main__":
     unittest.main()

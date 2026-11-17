@@ -1081,6 +1081,8 @@ def suite_task(args):
         first = next((x for x in recs if x.get("n_tools")), None)
         # How it got there, from construct's own tool records.
         proc = process.metrics(process.tool_events(h.home, t0)) if isinstance(h, Construct) else {}
+        if isinstance(h, Construct):
+            proc["prompt_cache"] = journal.cache_metrics(h.home, t0)
         if isinstance(h, Construct) and (window or task.window):
             proc["compaction"] = compaction.metrics(h.home, t0, recs, window or task.window)
         if isinstance(h, Construct) and context_strategy(h.home) == "optchat":
@@ -1127,6 +1129,8 @@ def suite_task(args):
             + (f" ${m['cost_usd']:.3f}" if m["cost_usd"] is not None else "")
             + (f" edits={m['edit']['applied']}/{m['edit']['calls']} rejected={m['rejection_codes'] or 0} recovered={m['edit']['recoveries']}" if "edit" in m else "")
             + (f" search tool={m['search']['tool']} shell={m['search']['shell']} find={m['search']['find']} failed={m['tool_failures']['failed']}/{m['tool_failures']['calls']}" if "search" in m else "")
+            + (f" agent_cache={m['prompt_cache']['cache_hit_rate']:.0%} drops={m['prompt_cache']['drops']}"
+               if m.get("prompt_cache", {}).get("cache_hit_rate") is not None else "")
             + (f" {compaction.line(m['compaction'])}" if "compaction" in m else "")
             + (f" {optchat.line(m['optchat'])}" if "optchat" in m else "")
             + (f" unintended={m['unintended']}" if m["unintended"] else "")
