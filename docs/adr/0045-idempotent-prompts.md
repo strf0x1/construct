@@ -1,7 +1,7 @@
 # 0045 — A resent prompt with its key never runs twice
 
-Status: proposed, 2026-11-17. Implements #245 against contract 1.3.0 §12
-(strf0x1/sprawlcommons-acp#9, a candidate pin until it is tagged). Builds on
+Status: accepted, 2026-11-17. Implements #245 against contract 1.3.0 §12
+(strf0x1/sprawlcommons-acp#9, released as `v1.3.0`). Builds on
 0029 (recovery never resumes generation) and 0033 (live attach).
 
 ## Context
@@ -92,7 +92,8 @@ with a different prompt: answer it as a retry (pi's choice), or refuse it.
 - #245: the pi-durable source check, the proposed design, and the decision
   to refuse a reused key.
 - Contract: strf0x1/sprawlcommons-acp#8 (issue) and #9 (draft PR, 1.3.0).
-  `CONTRACT.lock` pins candidate commit `b5014aa`.
+  `CONTRACT.lock` pins release `v1.3.0` (`dd86e24`); its vendored files hash
+  the same as the candidate commit `b5014aa` the tests first ran against.
 - e2e `acp_keys::a_prompt_resent_after_a_kill_is_answered_cancelled_and_never_runs_again`:
   kill during a shell call, reload, resend with the same key. The answer is
   `cancelled`, no model request is sent, the effect happened once, and the

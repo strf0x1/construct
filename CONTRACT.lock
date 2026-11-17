@@ -4,6 +4,6 @@
 # `scripts/acp-contract.sh update <version> [ref]`.
 repo = "strf0x1/sprawlcommons-acp"
 version = "1.3.0"
-commit = "b5014aa8d9e23f85529d86bc2a6974be9126ed11"
+commit = "dd86e2480186a6b9ddbf0634effc31305db1b508"
 vendored = "crates/construct/tests/fixtures/acp-contract/1.3.0"
 sha256 = "c92e55bbd5fc4ccd4ff3c43b684ea90d4ef4379eae4f5b7ff2b8f25e842a0a46"
