@@ -206,24 +206,24 @@ impl Client {
         let mut acc = stream::Accumulator::default();
         let mut sse = stream::Sse::default();
         let mut stream = resp.bytes_stream();
-        let mut done = false;
         let (mut deadline, mut started) = (first_deadline, false);
-        'read: loop {
+        let done = 'read: loop {
             let Ok(next) = tokio::time::timeout_at(deadline, stream.next()).await else {
                 let (what, knob) =
                     if !started { (self.first_byte, "first_byte_timeout") } else { (self.idle, "idle_timeout") };
                 bail!("{}model stream stalled: nothing for {}s ([provider] {knob})", self.prefix, what.as_secs());
             };
-            let Some(chunk) = next else { break };
+            let Some(chunk) = next else {
+                break 'read sse.finish().map(|data| acc.data(&data, tx, notes)).transpose()?.unwrap_or(false);
+            };
             (deadline, started) = (tokio::time::Instant::now() + self.idle, true);
             let chunk = chunk.context("model stream interrupted")?;
             for data in sse.push(&chunk) {
                 if acc.data(&data, tx, notes)? {
-                    done = true;
-                    break 'read;
+                    break 'read true;
                 }
             }
-        }
+        };
         if !done && !acc.finished() {
             notes.record(notes::TRUNCATED, "stream ended without a finish reason or [DONE]");
         }
