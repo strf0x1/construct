@@ -88,6 +88,16 @@ work dirs on the same btrfs/xfs filesystem as the cache, so set
 the default `/tmp`) each run builds from scratch: it works, but it takes
 minutes longer and counts against the model's turn time.
 
+Historical fixtures can predate the #179 tool-contract fix. Their default
+sandbox policy allows cache directories, so with `TMPDIR` under `~/.cache`
+the fixture's supposedly denied `outside/secret.txt` is actually readable.
+Updating current `main` does not update those pinned source commits or the
+hidden tests overlaid from their original merges. Treat this as a fixture
+failure, not a model failure. Any fixture repair must be applied consistently
+to the baseline, oracle and candidate runs and recorded with their results.
+Keep the supplied writable `TMPDIR`; redirecting it to `/tmp` can violate an
+outer sandbox's boundary and break compilation.
+
 ### A dry run (no cost)
 
 A scripted model checks the plumbing end to end:
