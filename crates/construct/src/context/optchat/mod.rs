@@ -32,13 +32,21 @@ pub struct Optchat {
     tree: Tree,
     view: View,
     /// `messages()` hands out a slice, so the rendered request is kept here.
-    rendered: Vec<Message>,
+    /// Rendered on first read after a change, not on every change: replay
+    /// pushes a whole session one message at a time, and rendering after each
+    /// made a restore quadratic in its length (#246).
+    rendered: std::sync::OnceLock<Vec<Message>>,
 }
 
 impl Optchat {
     pub fn new(messages: Vec<Message>) -> Self {
-        let mut ctx =
-            Self { log: vec![], has_system: false, tree: Tree::default(), view: View::default(), rendered: vec![] };
+        let mut ctx = Self {
+            log: vec![],
+            has_system: false,
+            tree: Tree::default(),
+            view: View::default(),
+            rendered: Default::default(),
+        };
         for m in messages {
             ctx.push(m);
         }
@@ -57,8 +65,7 @@ impl Optchat {
     }
 
     fn refresh(&mut self) {
-        let rendered = view::render(self.system(), self.entries(), &self.tree, &self.view);
-        self.rendered = rendered;
+        self.rendered = std::sync::OnceLock::new();
     }
 
     /// One past the log's entries, for a strict range check.
@@ -99,7 +106,7 @@ impl Context for Optchat {
     }
 
     fn messages(&self) -> &[Message] {
-        &self.rendered
+        self.rendered.get_or_init(|| view::render(self.system(), self.entries(), &self.tree, &self.view))
     }
 
     fn log(&self) -> &[Message] {

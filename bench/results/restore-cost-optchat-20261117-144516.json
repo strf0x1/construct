@@ -1,0 +1,41 @@
+{
+  "rows": [
+    {
+      "strategy": "optchat",
+      "turns": 400,
+      "rows": 6002,
+      "compactions": 0,
+      "journal_bytes": 7630848,
+      "record_s": 2.84,
+      "resume_ms": 1573.3,
+      "resume_rss_mib": 43.9,
+      "load_ms": 1682.4,
+      "load_rss_mib": 42.8
+    },
+    {
+      "strategy": "optchat",
+      "turns": 800,
+      "rows": 12002,
+      "compactions": 0,
+      "journal_bytes": 20729856,
+      "record_s": 8.52,
+      "resume_ms": 6373.0,
+      "resume_rss_mib": 88.2,
+      "load_ms": 6775.4,
+      "load_rss_mib": 87.5
+    },
+    {
+      "strategy": "optchat",
+      "turns": 1600,
+      "rows": 24002,
+      "compactions": 0,
+      "journal_bytes": 57262080,
+      "record_s": 25.02,
+      "resume_ms": 20298.0,
+      "resume_rss_mib": 212.4,
+      "load_ms": 21439.6,
+      "load_rss_mib": 210.7
+    }
+  ],
+  "commit": "eb96cf729ca119a5d2827d475ab342f5a6a6ac63"
+}

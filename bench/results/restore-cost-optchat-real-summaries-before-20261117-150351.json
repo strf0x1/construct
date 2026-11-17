@@ -1,0 +1,57 @@
+{
+  "rows": [
+    {
+      "strategy": "optchat",
+      "turns": 400,
+      "summary_bytes": 300,
+      "rows": 6002,
+      "compactions": 0,
+      "journal_bytes": 7446528,
+      "record_s": 3.65,
+      "resume_ms": 1143.7,
+      "resume_rss_mib": 41.9,
+      "load_ms": 1229.1,
+      "load_rss_mib": 41.2
+    },
+    {
+      "strategy": "optchat",
+      "turns": 800,
+      "summary_bytes": 300,
+      "rows": 12002,
+      "compactions": 0,
+      "journal_bytes": 14913536,
+      "record_s": 7.4,
+      "resume_ms": 2086.8,
+      "resume_rss_mib": 67.9,
+      "load_ms": 2259.8,
+      "load_rss_mib": 66.1
+    },
+    {
+      "strategy": "optchat",
+      "turns": 1600,
+      "summary_bytes": 300,
+      "rows": 24002,
+      "compactions": 0,
+      "journal_bytes": 29892608,
+      "record_s": 14.35,
+      "resume_ms": 4054.5,
+      "resume_rss_mib": 113.4,
+      "load_ms": 4370.8,
+      "load_rss_mib": 111.5
+    },
+    {
+      "strategy": "optchat",
+      "turns": 3200,
+      "summary_bytes": 300,
+      "rows": 48002,
+      "compactions": 0,
+      "journal_bytes": 60084224,
+      "record_s": 29.22,
+      "resume_ms": 8628.6,
+      "resume_rss_mib": 204.1,
+      "load_ms": 9273.8,
+      "load_rss_mib": 204.6
+    }
+  ],
+  "commit": "eb96cf729ca119a5d2827d475ab342f5a6a6ac63"
+}
