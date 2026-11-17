@@ -178,7 +178,6 @@ fn malformed_status_does_not_disable_a_later_corrected_response() {
 fn boundary_wait_returns_allowed_with_its_scope() {
     let server = boundary::Server::start();
     server.pending("a1f3", "index.crates.io:443");
-    server.resolve_after("a1f3", "allowed", Some("task"), Duration::from_millis(150));
     let env = Env::new(
         "deck-wait",
         json!({ "steps": [
@@ -187,6 +186,7 @@ fn boundary_wait_returns_allowed_with_its_scope() {
         ] }),
     );
     let started = Instant::now();
+    server.resolve_after("a1f3", "allowed", Some("task"), Duration::from_millis(150));
     let out = env.run_with(&[("DECK_BOUNDARY_URL", server.url().as_str())], &["run", "--no-learn", "wait for it"]);
     assert!(out.status.success(), "{}", text(&out));
     assert!(started.elapsed() >= Duration::from_millis(140), "{:?}", started.elapsed());
