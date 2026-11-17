@@ -443,3 +443,9 @@ coord-recall (#206), Haiku 5.5, n=3 per arm: recall 8/24 (compact) vs 24/24 (opt
 optchat summary retries say why (#227, R1). coord-recall, Haiku 5.5, n=1: 289 nodes, 585 summary calls, 2.02 calls/node, 1,133k summary tokens, 3 fallbacks, recall 8/8, $0.376, 2380 s wall, 25 MB peak. The #216 re-bench it is compared with ran the 10-probe fixture; this run has main's 8 probes, so node counts are not identical. Against that 310-node / 711-call / 2.30-per-node / 1,073k run: calls per node fell 12%, but each retry now carries the over-long line plus its byte count, so summary tokens per call rose 1,509 -> 1,937 and the total rose 5.6%.
 
 - `bench/results/task-20261109-103456.json`: model anthropic/claude-haiku-5.5; bench 9b253b4; optchat 9b253b4 editor=replace router=local
+
+## 2026-11-17 13:01 note
+
+FIFO/device read fix: Tier 1 tools, five interleaved rounds per arm, 10 reads and shell calls per round, both debug binaries from f506587 (before/after the descriptor type check). compare reports same for read, shell and wall time; no stalled runs. Tier 0 regression first failed on a writerless FIFO, then passed for both editors in workspace and off modes.
+
+- `bench/results/tools-20261117-130044.json`: model None; bench f506587 dirty; before f506587 editor=replace router=local; after f506587 dirty editor=replace router=local

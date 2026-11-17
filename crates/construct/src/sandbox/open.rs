@@ -144,9 +144,18 @@ fn file(fd: OwnedFd) -> File {
     File::from(fd)
 }
 
-/// Open `path` for reading: a file, or a directory (for its metadata).
+/// Open `path` for reading: a regular file, or a directory (for its metadata).
+/// FIFOs and devices are refused without waiting for another process.
 pub fn open_read(policy: &Policy, path: &Path) -> Result<File, String> {
-    locate(policy, path, false)?.open(libc::O_RDONLY, 0).map(file)
+    let at = locate(policy, path, false)?;
+    // A FIFO must not block before we can inspect its type. Check the opened
+    // descriptor, not the path, which could be swapped after a metadata check.
+    let f = file(at.open(libc::O_RDONLY | libc::O_NONBLOCK, 0)?);
+    let meta = f.metadata().map_err(|e| at.fail(e))?;
+    if !meta.is_file() && !meta.is_dir() {
+        return Err(format!("{}: unsupported file type; expected a regular file or directory", path.display()));
+    }
+    Ok(f)
 }
 
 /// The bytes of a file.

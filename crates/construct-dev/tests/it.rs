@@ -54,6 +54,8 @@ mod sessions;
 mod slash;
 #[path = "snapshots.rs"]
 mod snapshots;
+#[path = "special_files.rs"]
+mod special_files;
 #[path = "stream.rs"]
 mod stream;
 #[path = "turn.rs"]
