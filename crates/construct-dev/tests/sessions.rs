@@ -101,7 +101,8 @@ fn in_app_a_b_a_restores_transcripts_context_models_and_names() {
         "sessions-switch",
         json!({"steps":[
             {"call":"read","args":{"path":"note.txt"}}, {"text":"A historical answer"},
-            {"text":"B isolated answer"}, {"text":"A continued answer"}, {"text":"B continued answer"}
+            {"text":"B isolated answer"}, {"text":"A continued answer"},
+            {"text":"B continued answer", "stall_ms":1000}
         ]}),
     );
     env.config("model = 'model-a'\n[router]\nmode = 'local'\n[learn]\nenabled = false\n");
@@ -134,11 +135,14 @@ fn in_app_a_b_a_restores_transcripts_context_models_and_names() {
     assert_eq!(b["model"], "model-b");
     assert!(!b.to_string().contains("First A prompt"));
     assert!(b.to_string().contains("First B prompt"));
+    // Streamed text can appear before usage, assistant and turn_end are
+    // journaled. Compare only the idle state around these no-op commands.
+    play(&mut d, "gone \"esc to interrupt\" 3000\n");
     let before = env.journal().len();
     play(
         &mut d,
         &format!(
-            "gone \"esc to interrupt\" 3000\ntype /resume {}\nkey enter\ntype /resume\nkey enter\nwait \"Resume session\" 3000\nkey esc\ngone \"Resume session\" 3000\ntype /rename\nkey enter\nkey enter\nwait \"non-empty title\" 3000\n",
+            "type /resume {}\nkey enter\ntype /resume\nkey enter\nwait \"Resume session\" 3000\nkey esc\ngone \"Resume session\" 3000\ntype /rename\nkey enter\nkey enter\nwait \"non-empty title\" 3000\n",
             ids[1]
         ),
     );
