@@ -180,7 +180,8 @@ impl Client {
             let text = r.text().await.unwrap_or_default();
             let denial = deck::Denial::parse(status.as_u16(), approval.as_deref(), &text);
             let retryable = denial.as_ref().is_some_and(deck::Denial::retryable)
-                || (denial.is_none() && (status.as_u16() == 429 || status.is_server_error()));
+                || (denial.is_none()
+                    && ((status.as_u16() == 429 && !insufficient_quota(&text)) || status.is_server_error()));
             if retryable && attempt < 4 {
                 attempt += 1;
                 notes.record(notes::RETRY, &format!("status {status}"));
@@ -238,6 +239,16 @@ impl Client {
     pub async fn complete(&self, req: Request<'_>) -> Result<Completion> {
         self.stream(req, None).await
     }
+}
+
+/// Billing exhaustion cannot recover after a rate-limit backoff. Match the
+/// structured error fields only; prose and unknown bodies keep normal retries.
+fn insufficient_quota(body: &str) -> bool {
+    serde_json::from_str::<Value>(body).ok().is_some_and(|v| {
+        ["/error/code", "/error/type"]
+            .iter()
+            .any(|p| v.pointer(p).and_then(Value::as_str) == Some("insufficient_quota"))
+    })
 }
 
 pub fn truncate(s: &str, max: usize) -> String {

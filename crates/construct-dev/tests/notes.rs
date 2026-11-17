@@ -83,3 +83,41 @@ fn a_rejected_parameter_is_noted_beside_the_error() {
     let errors = env.journal().into_iter().filter(|r| r.ty == "error").count();
     assert_eq!(errors, 1);
 }
+
+#[test]
+fn insufficient_quota_is_fatal_without_retrying() {
+    for field in ["code", "type"] {
+        let body =
+            json!({ "error": { field: "insufficient_quota", "message": "billing quota exhausted" } }).to_string();
+        let env = Env::new(
+            &format!("notes-quota-{field}"),
+            json!({ "steps": [{ "status": 429, "retry_after": 0, "body": body }, { "text": "should not retry" }] }),
+        );
+        let out = env.run(&["run", "--no-learn", "hi"]);
+        assert!(!out.status.success(), "{field}: {}", text(&out));
+        assert!(text(&out).contains("billing quota exhausted"), "{field}: {}", text(&out));
+        assert_eq!(env.requests().len(), 1, "{field}: a billing error is not transient");
+        assert!(notes(&env).is_empty(), "{field}: no retry note");
+        assert_eq!(env.journal().iter().filter(|r| r.ty == "error").count(), 1);
+    }
+}
+
+#[test]
+fn rate_limits_and_unrecognized_429_bodies_still_retry() {
+    let bodies = [
+        r#"{"error":{"code":"rate_limit_exceeded","message":"slow down"}}"#,
+        r#"{"error":{"code":"rate_limit_exceeded","message":"insufficient_quota is not this error"}}"#,
+        "not JSON",
+        r#"{"error":{"code":null,"type":429}}"#,
+    ];
+    for (i, body) in bodies.iter().enumerate() {
+        let env = Env::new(
+            &format!("notes-rate-limit-{i}"),
+            json!({ "steps": [{ "status": 429, "retry_after": 0, "body": body }, { "text": "recovered" }] }),
+        );
+        let out = env.run(&["run", "--no-learn", "hi"]);
+        assert!(out.status.success(), "{body}: {}", text(&out));
+        assert_eq!(env.requests().len(), 2, "{body}: one retry");
+        assert_eq!(kinds(&notes(&env)), [("retry".into(), 1)], "{body}");
+    }
+}
