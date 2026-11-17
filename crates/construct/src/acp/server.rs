@@ -27,7 +27,6 @@ use super::live::{Command, Phase, Session, Turn};
 use super::map::{self, META_KEY};
 use super::questions::Questions;
 use super::replay::Transcript;
-use super::turn::Prompt;
 use super::{Start, VERSION, rpc};
 use crate::agent::Agent;
 use crate::config::{Config, Paths};
@@ -199,21 +198,7 @@ impl Server {
                 }
                 self.reply(&id, Ok(json!({})));
             }
-            "session/prompt" => {
-                let sid = params["sessionId"].as_str().unwrap_or_default();
-                let Some(s) = self.sessions.get_mut(sid) else {
-                    return self.reply(&id, Err((rpc::INVALID_PARAMS, format!("no session {sid:?}"))));
-                };
-                let blocks = params["prompt"].as_array().cloned().unwrap_or_default();
-                let prompt = Prompt {
-                    generation: s.generation,
-                    id,
-                    attachment: self.attachment,
-                    text: map::prompt_text(&blocks),
-                };
-                s.prompts.push_back(prompt);
-                self.start_prompt(sid, turns);
-            }
+            "session/prompt" => self.prompt(id, &params, turns),
             _ => self.reply(&id, Err((rpc::METHOD_NOT_FOUND, format!("unknown method {method}")))),
         }
     }
@@ -246,8 +231,10 @@ impl Server {
         let mut transcript = Transcript::default();
         let mut turn = Turn { number: 0, phase: Phase::Idle(None) };
         let mut reason = None;
+        let mut keys = super::keys::Keys::default();
         for entry in &entries {
             transcript.observe(&entry.event, &|name| agent.catalog.kind_of(name));
+            keys.observe(&entry.event);
             match &entry.event {
                 crate::event::Event::TurnStart => {
                     turn.number += 1;
@@ -285,6 +272,7 @@ impl Server {
                 agent: Arc::new(Mutex::new(agent)),
                 attached: self.attachment,
                 prompts: Default::default(),
+                keys,
             },
         );
         Ok(sid)

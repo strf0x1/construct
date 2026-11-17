@@ -14,6 +14,8 @@ mod common;
 
 #[path = "acp.rs"]
 mod acp;
+#[path = "acp_keys.rs"]
+mod acp_keys;
 #[path = "acp_live.rs"]
 mod acp_live;
 #[path = "acp_payloads.rs"]

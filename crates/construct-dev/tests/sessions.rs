@@ -39,7 +39,7 @@ fn seed(env: &Env, label: &str, cwd: &str, child: bool, prompt: bool) -> String 
     })
     .unwrap();
     if prompt {
-        writer.record(&Event::Submitted { text: label.into() });
+        writer.record(&Event::submitted(label));
         writer.record(&Event::User {
             message: Message::user(format!("{label}\n\n<system-reminder>injected</system-reminder>")),
         });
@@ -79,7 +79,7 @@ fn archive_filters_all_sessions_and_navigates_old_unicode_rows() {
     seed(&env, "wrong directory", "/another/directory", false, true);
     let db = Journal::open(&env.journal_path(&env.work)).unwrap();
     db.append(&oldest, &Event::SessionName { title: "A manual 雪 title".into() }).unwrap();
-    db.append(&oldest, &Event::Submitted { text: "last unique request".into() }).unwrap();
+    db.append(&oldest, &Event::submitted("last unique request")).unwrap();
     let rows = journal::browse(&paths(&env), &env.work).unwrap();
     assert_eq!(rows.len(), 66);
     assert_eq!(rows[0].id, oldest, "activity rather than start time");
@@ -282,7 +282,7 @@ fn compacted_model_view_keeps_the_full_historical_tui_transcript() {
         ("A very old original user request", "A very old original assistant answer"),
         ("Latest user request", "Latest assistant answer"),
     ] {
-        w.record(&Event::Submitted { text: user.into() });
+        w.record(&Event::submitted(user));
         w.record(&Event::User { message: Message::user(user) });
         w.record(&Event::Assistant { message: Message::text("assistant", assistant) });
     }

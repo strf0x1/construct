@@ -11,6 +11,7 @@
 pub mod ask;
 pub mod client;
 mod deck;
+mod keys;
 mod live;
 mod load;
 pub mod map;

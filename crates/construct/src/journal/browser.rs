@@ -61,7 +61,7 @@ pub fn prompts(entries: &[Entry]) -> Vec<String> {
     let mut submitted = false;
     for e in entries {
         match &e.event {
-            Event::Submitted { text } => {
+            Event::Submitted(crate::event::Submission { text, .. }) => {
                 out.push(text.clone());
                 submitted = true;
             }

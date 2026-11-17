@@ -25,7 +25,7 @@ struct Pending {
 impl Transcript {
     pub fn observe(&mut self, event: &Event, kind_of: &dyn Fn(&str) -> ToolKind) {
         match event {
-            Event::Submitted { text } => {
+            Event::Submitted(crate::event::Submission { text, .. }) => {
                 self.finish_partial();
                 self.committed.push(chunk("user_message_chunk", text));
                 self.raw = true;

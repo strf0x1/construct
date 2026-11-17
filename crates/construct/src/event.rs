@@ -44,9 +44,7 @@ pub enum Event {
         message: Message,
     },
     /// Original user text, committed before routing or skill injection.
-    Submitted {
-        text: String,
-    },
+    Submitted(Submission),
     /// A local, manually chosen session name. Does not count as activity.
     SessionName {
         title: String,
@@ -303,4 +301,6 @@ pub enum Event {
 }
 
 mod projection;
+mod submission;
 pub use projection::MemoryNode;
+pub use submission::Submission;
