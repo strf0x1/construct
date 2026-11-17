@@ -64,6 +64,10 @@ should fail within a couple of minutes.
   either deadline fails the call with an error that names the setting. It
   is not retried: a server that stayed silent for that long would usually
   stay silent again.
+  For a non-success response, the complete error body must arrive within
+  the original `first_byte_timeout` deadline before it can be classified for
+  retry. A timeout or unreadable body fails the call with the HTTP status;
+  a body-read failure retains its underlying cause.
 
 ## Consequences
 

@@ -81,6 +81,89 @@ fn a_silent_endpoint_fails_at_the_first_byte_deadline() {
     assert!(took < Duration::from_millis(budget(10_000)), "took {took:?}");
 }
 
+#[test]
+fn stalled_http_error_bodies_fail_at_the_first_byte_deadline() {
+    use axum::{body::Body, http::StatusCode};
+    use futures::{StreamExt, stream};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    for (status, prefix, tail) in [
+        (StatusCode::BAD_REQUEST, "", r#"{"error":"late rejection"}"#),
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            r#"{"error":"#,
+            r#"{"code":"deck_credential_missing","message":"missing key"}}"#,
+        ),
+    ] {
+        let env = Env::new(&format!("stream-error-body-{}", status.as_u16()), json!({ "steps": [] }));
+        env.config("[provider]\nfirst_byte_timeout = 1\n");
+        let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        let port = rt.block_on(async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let app = axum::Router::new().route(
+                "/v1/chat/completions",
+                axum::routing::post(move || {
+                    count.fetch_add(1, Ordering::SeqCst);
+                    async move {
+                        let body = stream::once(async move { Ok::<_, std::io::Error>(prefix) }).chain(stream::once(
+                            async move {
+                                // Eventually finish, so the old bug fails without hanging the suite.
+                                tokio::time::sleep(Duration::from_secs(3)).await;
+                                Ok::<_, std::io::Error>(tail)
+                            },
+                        ));
+                        (status, Body::from_stream(body))
+                    }
+                }),
+            );
+            tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            port
+        });
+
+        let out = env
+            .run_with(&[("CONSTRUCT_BASE_URL", &format!("http://127.0.0.1:{port}/v1"))], &["run", "--no-learn", "hi"]);
+        let output = text(&out);
+        assert!(!out.status.success(), "{status}: {output}");
+        assert!(output.contains("error body") && output.contains("first_byte_timeout"), "{status}: {output}");
+        assert!(output.contains(&status.as_u16().to_string()), "{output}");
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "a stalled error body must not be retried");
+        assert_eq!(env.journal().iter().filter(|r| r.ty == "error").count(), 1);
+    }
+}
+
+#[tokio::test]
+async fn an_unreadable_http_error_body_keeps_its_status_and_cause() {
+    use construct::config::Config;
+    use construct::endpoint::Endpoint;
+    use construct::llm::{Client, Message, Request};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0; 4096];
+        assert!(socket.read(&mut request).await.unwrap() > 0, "client closed before sending its request");
+        socket
+            .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 1000\r\nConnection: close\r\n\r\npartial")
+            .await
+            .unwrap();
+    });
+    let cfg = Config { base_url: url, ..Config::default() };
+    let client = Client::new(&Endpoint::declared(&cfg), None).unwrap();
+    let messages = [Message::user("hi")];
+    let request = Request { model: "mock", messages: &messages, tools: &[], max_tokens: None, temperature: None };
+    let error = tokio::time::timeout(Duration::from_secs(5), client.stream(request, None)).await.unwrap().unwrap_err();
+    let message = error.to_string();
+    assert!(message.contains("400") && message.contains("unreadable error body"), "{error:#}");
+    assert!(error.chain().count() > 1, "body-read failure lost its cause: {error:#}");
+    server.await.unwrap();
+}
+
 /// A local HTTP response whose final data line has no trailing newline.
 fn unterminated(env: &Env, body: &'static str) -> std::process::Output {
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();

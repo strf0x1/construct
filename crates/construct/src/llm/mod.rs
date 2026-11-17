@@ -177,7 +177,18 @@ impl Client {
             let retry_after =
                 r.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u64>().ok());
             let approval = r.headers().get("x-deck-approval").and_then(|v| v.to_str().ok()).map(str::to_string);
-            let text = r.text().await.unwrap_or_default();
+            // Error bodies must finish under the same deadline as the response;
+            // receiving headers alone must not leave the turn waiting forever.
+            let Ok(text) = tokio::time::timeout_at(first_deadline, r.text()).await else {
+                bail!(
+                    "{}model endpoint returned {status} but its error body did not finish in {}s ([provider] first_byte_timeout)",
+                    self.prefix,
+                    self.first_byte.as_secs()
+                );
+            };
+            let text = text.with_context(|| {
+                format!("{}model endpoint returned {status} with an unreadable error body", self.prefix)
+            })?;
             let denial = deck::Denial::parse(status.as_u16(), approval.as_deref(), &text);
             let retryable = denial.as_ref().is_some_and(deck::Denial::retryable)
                 || (denial.is_none()
