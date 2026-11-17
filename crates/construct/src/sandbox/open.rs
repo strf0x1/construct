@@ -144,9 +144,18 @@ fn file(fd: OwnedFd) -> File {
     File::from(fd)
 }
 
-/// Open `path` for reading: a file, or a directory (for its metadata).
+/// Open `path` for reading: a regular file, or a directory (for its metadata).
+/// FIFOs and devices are refused without waiting for another process.
 pub fn open_read(policy: &Policy, path: &Path) -> Result<File, String> {
-    locate(policy, path, false)?.open(libc::O_RDONLY, 0).map(file)
+    let at = locate(policy, path, false)?;
+    // A FIFO must not block before we can inspect its type. Check the opened
+    // descriptor, not the path, which could be swapped after a metadata check.
+    let f = file(at.open(libc::O_RDONLY | libc::O_NONBLOCK, 0)?);
+    let meta = f.metadata().map_err(|e| at.fail(e))?;
+    if !meta.is_file() && !meta.is_dir() {
+        return Err(format!("{}: unsupported file type; expected a regular file or directory", path.display()));
+    }
+    Ok(f)
 }
 
 /// The bytes of a file.
@@ -157,10 +166,19 @@ pub fn read_file(policy: &Policy, path: &Path) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// Flags for a metadata-only open. Linux's `O_PATH` refuses `O_NONBLOCK`
+/// (EINVAL) and never opens the file anyway; macOS's `O_EVTONLY` is mapped by
+/// `FFLAGS` to `FREAD`, and `fifo_open` then sleeps for a writer unless
+/// `O_NONBLOCK` is set.
+#[cfg(target_os = "linux")]
+const O_META: i32 = O_PATH;
+#[cfg(target_os = "macos")]
+const O_META: i32 = O_PATH | libc::O_NONBLOCK;
+
 /// Metadata of what `path` really is, without opening it for reading.
 pub fn metadata(policy: &Policy, path: &Path) -> Result<std::fs::Metadata, String> {
     let at = locate(policy, path, false)?;
-    at.open(O_PATH, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
+    at.open(O_META, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
 }
 
 /// Whether anything is at `path`, as far as the policy lets us see.
