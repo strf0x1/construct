@@ -11,6 +11,8 @@ Run as a script it reports what went wrong, from the journal alone:
 `python3 bench/journal.py errors --since 7d [--provider X] [--model Y]`.
 It prints a summary to review and paste into an issue yourself; nothing here
 posts anywhere (issue #48).
+`python3 bench/journal.py cache --home HOME [--since 7d] [--json]` reports
+journaled cached-input share and its drops, per session and model call.
 """
 
 import argparse
@@ -94,6 +96,67 @@ def sessions(home: Path, since: float = 0) -> list:
     return out
 
 
+def cache_totals(calls: list) -> dict:
+    """Token-weighted cache share; an empty prompt has no defined share."""
+    prompt = sum(c["prompt_tokens"] for c in calls)
+    cached = sum(c["cached_tokens"] for c in calls)
+    return {"prompt_tokens": prompt, "cached_tokens": cached,
+            "cache_hit_rate": cached / prompt if prompt else None,
+            "drops": sum(c["drop"] for c in calls)}
+
+
+def cache_metrics(home: Path, since: float = 0) -> dict:
+    """Journaled agent-call usage, with per-session and per-call diagnostics.
+
+    Usage-bearing calls are numbered from 1 within their complete session; only usage at
+    or after `since` is included. A drop is a strictly smaller share than the
+    preceding included call on the same model. Model switches and zero-token
+    calls reset that comparison. Missing cached counts mean zero reported
+    hits, not proof that a provider supports caching. `series` is diagnostic
+    data, excluded by bench compare's existing series rule.
+    """
+    series, all_calls = [], []
+    for rows in sessions(home, since):
+        header = next((r for r in rows if r.get("type") == "session"), {})
+        calls, previous, index = [], None, 0
+        for row in rows:
+            if row.get("type") != "usage":
+                continue
+            index += 1
+            if row.get("at", 0) < since * 1000:
+                continue
+            usage = row.get("usage") or {}
+            prompt = usage.get("prompt_tokens") or 0
+            cached = usage.get("cached_tokens") or 0
+            share = cached / prompt if prompt else None
+            model = row.get("model") or header.get("model", "")
+            drop = bool(previous and share is not None and model == previous[0] and share < previous[1])
+            calls.append({"index": index, "at": row.get("at"), "model": model,
+                          "prompt_tokens": prompt, "cached_tokens": cached,
+                          "cache_hit_rate": share, "drop": drop})
+            previous = (model, share) if share is not None else None
+        if calls:
+            series.append({"session": header.get("id", ""), **cache_totals(calls),
+                           "first_drop": next((c["index"] for c in calls if c["drop"]), None), "calls": calls})
+            all_calls.extend(calls)
+    return {**cache_totals(all_calls), "series": series}
+
+
+def cache_report(metrics: dict) -> str:
+    """A cache report with each call's share and the first drop per session."""
+    percent = lambda v: f"{v:.1%}" if v is not None else "n/a"
+    out = [f"reported cache share {percent(metrics['cache_hit_rate'])} "
+           f"({metrics['cached_tokens']}/{metrics['prompt_tokens']} input tokens), {metrics['drops']} drops"]
+    for session in metrics["series"]:
+        first = session["first_drop"]
+        out.append(f"session {session['session']}: {percent(session['cache_hit_rate'])}, "
+                   f"first drop: {first if first is not None else 'none'}")
+        for call in session["calls"]:
+            out.append(f"  call {call['index']} {call['model']}: {percent(call['cache_hit_rate'])} "
+                       f"({call['cached_tokens']}/{call['prompt_tokens']})" + (" DROP" if call["drop"] else ""))
+    return "\n".join(out) + "\n"
+
+
 def errors(home: Path, since: float = 0, provider: str = "", model: str = "") -> dict:
     """What went wrong, grouped by (provider, model): turns and model calls as
     the denominators, and a counter each for `note` rows (summed by their
@@ -171,8 +234,16 @@ def main(argv=None):
     e.add_argument("--provider", default="", help="only this provider name or dialect (substring)")
     e.add_argument("--model", default="", help="only this model (substring)")
     e.add_argument("--home", type=Path, default=Path(os.environ.get("CONSTRUCT_HOME") or Path.home() / ".construct"))
+    c = sub.add_parser("cache", help="reported cached-input share per session and model call")
+    c.add_argument("--since", type=parse_since, default=0, help="only usage within this duration (default all)")
+    c.add_argument("--home", type=Path, default=Path(os.environ.get("CONSTRUCT_HOME") or Path.home() / ".construct"))
+    c.add_argument("--json", action="store_true", help="emit the complete metrics and call series as JSON")
     a = ap.parse_args(argv)
-    print(report(errors(a.home, a.since, a.provider, a.model)), end="")
+    if a.cmd == "cache":
+        metrics = cache_metrics(a.home, a.since)
+        print(json.dumps(metrics, indent=2) if a.json else cache_report(metrics), end="\n" if a.json else "")
+    else:
+        print(report(errors(a.home, a.since, a.provider, a.model)), end="")
 
 
 if __name__ == "__main__":

@@ -810,6 +810,13 @@ class Optchat(unittest.TestCase):
 
 
 class Compare(unittest.TestCase):
+    def test_prompt_cache_aggregates_compare_but_call_series_does_not(self):
+        run = {"prompt_cache": {"cache_hit_rate": .5, "drops": 2,
+                                "series": [{"first_drop": 3, "calls": [{"index": 3, "cache_hit_rate": .1}]}]}}
+        self.assertEqual(cmp.flatten(run), {"prompt_cache.cache_hit_rate": .5, "prompt_cache.drops": 2})
+        self.assertEqual(cmp.verdict("prompt_cache.cache_hit_rate", [.1] * 3, [.8] * 3)["verdict"], "better")
+        self.assertEqual(cmp.verdict("prompt_cache.drops", [3] * 3, [1] * 3)["verdict"], "better")
+
     def test_fisher(self):
         self.assertAlmostEqual(cmp.fisher(0, 3, 3, 3), 0.1)
         self.assertAlmostEqual(cmp.fisher(0, 6, 6, 6), 0.002164, places=5)
