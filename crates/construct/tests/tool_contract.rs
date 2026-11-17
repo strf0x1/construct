@@ -4,7 +4,7 @@
 //! refuse what the sandbox denies, and output stays under `OUTPUT_MAX`.
 //! Each check runs under every editor in `EDITORS`.
 
-use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct::config::{MemoryConfig, Paths, ToolsConfig};
 use construct::memory::Store;
 use construct::sandbox::Policy;
 use construct::tools::{Catalog, Ctx, Group, OUTPUT_MAX};
@@ -33,7 +33,14 @@ impl Fixture {
         std::fs::write(root.join("outside/secret.txt"), "secret\n").unwrap();
         let paths = Paths { home: root.join("home") };
         let memory = Store::new(&paths, &MemoryConfig::default());
-        let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
+        // This contract tests tool enforcement, not the default allowlist.
+        // A production policy allows caches/toolchains that may contain
+        // TMPDIR, which would also allow our sibling `outside` directory.
+        let sandbox = Policy {
+            read: vec![work.canonicalize().unwrap()],
+            write: vec![work.canonicalize().unwrap()],
+            ..Default::default()
+        };
         let (_tx, rx) = tokio::sync::watch::channel(false);
         let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
         let catalog = Catalog::build(&ToolsConfig { editor: editor.into(), ..Default::default() }, None).unwrap();
@@ -119,9 +126,32 @@ async fn file_tools_refuse_what_the_sandbox_denies() {
     }
 }
 
+#[test]
+fn sandbox_refusals_with_tmpdir_in_an_allowed_cache() {
+    // Change environment only in a child: other contracts run concurrently.
+    // The old fixture's Policy::new allowed HOME/.cache, including `outside`.
+    let f = Fixture::new("cache-parent");
+    let cache = f.root.join(".cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "tool_contract::file_tools_refuse_what_the_sandbox_denies"])
+        .env("HOME", &f.root)
+        .env("TMPDIR", &cache)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "cache TMPDIR contract failed:\n{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 async fn sandbox_refusals(f: &Fixture, editor: &str) {
     let secret = f.root.join("outside/secret.txt");
     let outside = f.root.join("outside");
+    assert!(f.ctx.sandbox.check_read(&secret).is_err());
+    assert!(f.ctx.sandbox.check_write(&outside.join("new.txt")).is_err());
     let s = |p: &PathBuf| p.display().to_string();
     let cases = [
         ("read", json!({ "path": s(&secret) })),
