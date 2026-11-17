@@ -80,3 +80,53 @@ fn a_silent_endpoint_fails_at_the_first_byte_deadline() {
     assert!(text(&out).contains("first_byte_timeout"), "{}", text(&out));
     assert!(took < Duration::from_millis(budget(10_000)), "took {took:?}");
 }
+
+/// A local HTTP response whose final data line has no trailing newline.
+fn unterminated(env: &Env, body: &'static str) -> std::process::Output {
+    let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+    let port = rt.block_on(async {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let app = axum::Router::new().route(
+            "/v1/chat/completions",
+            axum::routing::post(move || async move { ([("content-type", "text/event-stream")], body) }),
+        );
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        port
+    });
+    env.run_with(&[("CONSTRUCT_BASE_URL", &format!("http://127.0.0.1:{port}/v1"))], &["run", "--no-learn", "hi"])
+}
+
+#[test]
+fn eof_keeps_the_final_text_finish_reason_and_usage() {
+    let env = Env::new("stream-eof-json", json!({ "steps": [] }));
+    let out = unterminated(
+        &env,
+        r#"data: {"choices":[{"delta":{"content":"last 🌱"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#,
+    );
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("last 🌱"));
+    let rows = env.journal();
+    let assistant = rows.iter().find(|r| r.ty == "assistant").unwrap();
+    assert_eq!(assistant.payload["message"]["content"], "last 🌱");
+    let usage = rows.iter().find(|r| r.ty == "usage").unwrap();
+    assert_eq!((usage.payload["prompt"].as_u64(), usage.payload["completion"].as_u64()), (Some(7), Some(3)));
+    assert!(!rows.iter().any(|r| r.ty == "note"), "{rows:?}");
+}
+
+#[test]
+fn eof_recognizes_done_without_a_spurious_truncation_note() {
+    let env = Env::new("stream-eof-done", json!({ "steps": [] }));
+    let out = unterminated(&env, "data: {\"choices\":[{\"delta\":{\"content\":\"done\"}}]}\n\ndata: [DONE]");
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(!env.journal().iter().any(|r| r.ty == "note"));
+}
+
+#[test]
+fn eof_surfaces_a_final_provider_error() {
+    let env = Env::new("stream-eof-error", json!({ "steps": [] }));
+    let out = unterminated(&env, r#"data: {"error":{"message":"final provider failure"}}"#);
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("final provider failure"), "{}", text(&out));
+    assert!(env.journal().iter().any(|r| r.ty == "error"));
+}

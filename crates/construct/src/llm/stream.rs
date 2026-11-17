@@ -32,6 +32,11 @@ impl Sse {
         }
         out
     }
+
+    /// EOF completes the last data line even if the provider omitted its LF.
+    pub(super) fn finish(&mut self) -> Option<String> {
+        self.push(b"\n").into_iter().next()
+    }
 }
 
 /// The delta key of OpenRouter's structured reasoning, and the message key it
@@ -261,7 +266,8 @@ mod tests {
         let framed =
             (prop_oneof![3 => line(), 1 => Just(": keep-alive".to_string()), 1 => Just(String::new())], any::<bool>())
                 .prop_map(|(l, crlf)| format!("{l}{}", if crlf { "\r\n" } else { "\n" }));
-        proptest::collection::vec(framed, 0..24).prop_map(|ls| format!("{}data: [DONE]\n", ls.concat()).into_bytes())
+        (proptest::collection::vec(framed, 0..24), any::<bool>())
+            .prop_map(|(ls, lf)| format!("{}data: [DONE]{}", ls.concat(), if lf { "\n" } else { "" }).into_bytes())
     }
 
     fn fold<'a>(chunks: impl Iterator<Item = &'a [u8]>) -> (Option<(Message, String)>, bool) {
@@ -273,7 +279,8 @@ mod tests {
                 }
             }
         }
-        (acc.finish().ok().map(|c| (c.message, c.finish_reason)), false)
+        let done = sse.finish().is_some_and(|data| acc.data(&data, None, &mut notes).unwrap());
+        (acc.finish().ok().map(|c| (c.message, c.finish_reason)), done)
     }
 
     proptest! {
@@ -291,6 +298,27 @@ mod tests {
             let split = fold(at.windows(2).map(|w| &bytes[w[0]..w[1]]));
             prop_assert!(whole.1, "the [DONE] line always ends the stream");
             prop_assert_eq!(whole, split);
+        }
+    }
+
+    #[test]
+    fn eof_flushes_a_fragmented_unicode_data_line_once() {
+        let mut sse = Sse::default();
+        let data = r#"{"choices":[{"delta":{"content":"last 🌱"},"finish_reason":"stop"}]}"#;
+        for byte in format!("data: {data}").as_bytes() {
+            assert!(sse.push(&[*byte]).is_empty());
+        }
+        assert_eq!(sse.finish().as_deref(), Some(data));
+        assert_eq!(sse.finish(), None);
+    }
+
+    #[test]
+    fn eof_does_not_repeat_terminated_lines_or_emit_comments() {
+        for tail in ["", ": keep-alive", "event: message"] {
+            let mut sse = Sse::default();
+            assert_eq!(sse.push(b"data: first\r\n"), ["first"]);
+            assert!(sse.push(tail.as_bytes()).is_empty());
+            assert_eq!(sse.finish(), None);
         }
     }
 
