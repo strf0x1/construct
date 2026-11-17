@@ -26,8 +26,9 @@ const RESOLVE_NO_MAGICLINKS: u64 = 0x02;
 const RESOLVE_BENEATH: u64 = 0x08;
 
 /// An fd for metadata and directory walking that needs no read permission.
-/// macOS has no `O_PATH`; `O_EVTONLY` is its closest match (and, unlike
-/// `O_RDONLY`, does not block opening a FIFO).
+/// macOS has no `O_PATH`; `O_EVTONLY` is its closest match, but it still asks
+/// for `FREAD` (see `FFLAGS` in `sys/fcntl.h`), so a FIFO open needs
+/// `O_NONBLOCK` alongside it or `fifo_open` sleeps for a writer.
 #[cfg(target_os = "linux")]
 pub(super) const O_PATH: i32 = libc::O_PATH;
 #[cfg(target_os = "macos")]

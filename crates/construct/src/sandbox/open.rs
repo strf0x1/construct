@@ -166,10 +166,19 @@ pub fn read_file(policy: &Policy, path: &Path) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// Flags for a metadata-only open. Linux's `O_PATH` refuses `O_NONBLOCK`
+/// (EINVAL) and never opens the file anyway; macOS's `O_EVTONLY` is mapped by
+/// `FFLAGS` to `FREAD`, and `fifo_open` then sleeps for a writer unless
+/// `O_NONBLOCK` is set.
+#[cfg(target_os = "linux")]
+const O_META: i32 = O_PATH;
+#[cfg(target_os = "macos")]
+const O_META: i32 = O_PATH | libc::O_NONBLOCK;
+
 /// Metadata of what `path` really is, without opening it for reading.
 pub fn metadata(policy: &Policy, path: &Path) -> Result<std::fs::Metadata, String> {
     let at = locate(policy, path, false)?;
-    at.open(O_PATH, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
+    at.open(O_META, 0).map(file).and_then(|f| f.metadata().map_err(|e| at.fail(e)))
 }
 
 /// Whether anything is at `path`, as far as the policy lets us see.
