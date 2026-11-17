@@ -40,6 +40,8 @@ mod developer;
 mod e2e;
 #[path = "jobs.rs"]
 mod jobs;
+#[path = "mcp.rs"]
+mod mcp;
 #[path = "models.rs"]
 mod models;
 #[path = "notes.rs"]

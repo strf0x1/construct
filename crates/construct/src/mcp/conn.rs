@@ -14,12 +14,15 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Weak};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::{Child, ChildStdin};
 use tokio::sync::{Mutex, Notify, oneshot};
+
+mod request;
+use request::write;
 
 /// Protocol versions this client speaks; it asks for the first.
 const VERSIONS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -93,43 +96,6 @@ impl Conn {
         !self.state.lock().dead
     }
 
-    /// Send `method` and wait for its response. The wait is `idle` long, and
-    /// starts over on every progress notification for this request. A request
-    /// that times out or is dropped (the turn was interrupted) leaves no
-    /// pending entry and tells the server with `notifications/cancelled`.
-    pub async fn request(&self, method: &str, mut params: Value, idle: Duration) -> Result<Value> {
-        let id = self.next.fetch_add(1, Ordering::Relaxed);
-        let (tx, mut rx) = oneshot::channel();
-        let progress = Arc::new(Notify::new());
-        if !self.state.insert(id, Waiter { tx, progress: progress.clone() }) {
-            bail!("MCP server closed");
-        }
-        let mut guard = Guard { id, method: method.to_string(), state: self.state.clone(), stdin: self.stdin.clone() };
-        if method == "tools/call" {
-            params["_meta"] = json!({ "progressToken": id });
-        }
-        write(&self.stdin, &json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })).await?;
-        let v = loop {
-            tokio::select! {
-                r = &mut rx => break r.map_err(|_| {
-                    guard.method.clear(); // nothing to cancel on a dead server
-                    anyhow!("MCP server closed")
-                })?,
-                _ = progress.notified() => continue,
-                _ = tokio::time::sleep(idle) => bail!("{method} timed out after {}s with no response or progress", idle.as_secs()),
-            }
-        };
-        guard.method.clear();
-        if let Some(e) = v.get("error") {
-            bail!("{method}: {}", e["message"].as_str().unwrap_or(&e.to_string()));
-        }
-        Ok(v["result"].clone())
-    }
-
-    async fn notify(&self, method: &str) -> Result<()> {
-        write(&self.stdin, &json!({ "jsonrpc": "2.0", "method": method })).await
-    }
-
     /// `e` with the tail of the server's stderr, once the server has exited
     /// or half a second has passed.
     async fn with_stderr(&mut self, e: anyhow::Error) -> anyhow::Error {
@@ -140,32 +106,6 @@ impl Conn {
         match tail {
             Ok(t) if !t.trim().is_empty() => anyhow!("{e:#}\nserver stderr:\n{}", t.trim_end()),
             _ => e,
-        }
-    }
-}
-
-/// Undoes a request that did not complete: the pending entry goes, and the
-/// server is told to stop (except for `initialize`, which must not be
-/// cancelled). An empty `method` means it completed.
-struct Guard {
-    id: u64,
-    method: String,
-    state: Arc<State>,
-    stdin: Stdin,
-}
-
-impl Drop for Guard {
-    fn drop(&mut self) {
-        self.state.take(self.id);
-        if self.method.is_empty() || self.method == "initialize" {
-            return;
-        }
-        let msg = json!({ "jsonrpc": "2.0", "method": "notifications/cancelled", "params": { "requestId": self.id, "reason": "timed out or interrupted" } });
-        let stdin = self.stdin.clone();
-        if let Ok(h) = tokio::runtime::Handle::try_current() {
-            h.spawn(async move {
-                let _ = write(&stdin, &msg).await;
-            });
         }
     }
 }
@@ -195,13 +135,6 @@ impl Drop for Conn {
             Err(_) => term(&child),
         }
     }
-}
-
-async fn write(stdin: &Mutex<ChildStdin>, msg: &Value) -> Result<()> {
-    let mut w = stdin.lock().await;
-    w.write_all(format!("{msg}\n").as_bytes()).await?;
-    w.flush().await?;
-    Ok(())
 }
 
 pub(super) async fn start(cfg: &McpServer, policy: &Policy) -> Result<Conn> {
@@ -311,7 +244,7 @@ async fn read(stdout: tokio::process::ChildStdout, stdin: Weak<Mutex<ChildStdin>
                     json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32601, "message": format!("method not found: {method}") } })
                 };
                 if let Some(stdin) = stdin.upgrade() {
-                    let _ = write(&stdin, &reply).await;
+                    let _ = write(&stdin, &state, &reply, START_TIMEOUT).await;
                 }
             }
             (Some("notifications/progress"), None) => {

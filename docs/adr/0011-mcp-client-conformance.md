@@ -36,6 +36,12 @@ server.
   notification. A call that times out or is dropped removes its pending
   entry and sends `notifications/cancelled`. `initialize` is never
   cancelled.
+  Writing a request, including waiting for stdin's lock, has the same
+  timeout. Protocol notifications and replies also have a bounded write.
+  An interrupted, failed or timed-out partial write retires the connection
+  and fails its pending calls: another JSON line cannot safely follow half
+  a request. No cancellation is written to that damaged stream; the next
+  call starts a new server.
 - **Initialize is checked.** The negotiated version must be 2025-06-18,
   2025-03-26 or 2024-11-05; any other version is an error, and the server is
   shut down. A server that doesn't declare `capabilities.tools` is never
@@ -78,5 +84,11 @@ server.
     refused.
   - A server name with `__` is refused when the config loads.
 - Unit: `wire_name` and `check_server_name`, plus `content::render`.
+- e2e (`crates/construct-dev/tests/mcp.rs`): a server that stops reading
+  stdin makes a large request hit its 1 s write timeout; the next call
+  starts a new server and succeeds.
+- Unit (`conn/request.rs`): timed-out and dropped partial writes invalidate
+  the connection and fail pending calls. Waiting for stdin's lock is bounded
+  without damaging a writer that already owns it.
 - `context7_answers_from_inside_the_sandbox` (`--ignored`, real network)
   still passes.

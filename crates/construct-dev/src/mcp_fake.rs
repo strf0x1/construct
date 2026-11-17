@@ -30,6 +30,10 @@ pub struct Opts {
     /// Write a reason to stderr and exit before reading anything.
     #[arg(long)]
     fail_start: bool,
+    /// Stop reading stdin for 30s after tools/list on the first start; the
+    /// marker file lets a restarted server respond normally.
+    #[arg(long)]
+    stall_stdin_once: Option<std::path::PathBuf>,
 }
 
 /// A tool name past the 64 characters an API accepts once prefixed.
@@ -186,6 +190,15 @@ pub fn run(o: Opts) -> Result<()> {
             _ => json!({}),
         };
         send(json!({ "jsonrpc": "2.0", "id": id, "result": result }))?;
+        if method == "tools/list"
+            && let Some(marker) = &o.stall_stdin_once
+        {
+            match std::fs::OpenOptions::new().write(true).create_new(true).open(marker) {
+                Ok(_) => std::thread::sleep(Duration::from_secs(30)),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
     Ok(())
 }
