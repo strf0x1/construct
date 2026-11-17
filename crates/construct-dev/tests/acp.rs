@@ -121,7 +121,22 @@ impl Client {
 
     /// Stop the agent the way a crash or a stopped VM does: no shutdown, no
     /// closing the journal by hand.
-    fn kill(mut self) {
+    /// Read until a line contains `needle`, keeping any response for later.
+    pub(super) fn until(&mut self, needle: &str) {
+        loop {
+            let v = self.read();
+            if v["method"].is_null()
+                && let Some(id) = v["id"].as_u64()
+            {
+                self.pending.insert(id, v.clone());
+            }
+            if v.to_string().contains(needle) {
+                return;
+            }
+        }
+    }
+
+    pub(super) fn kill(mut self) {
         self.child.kill().unwrap();
         let _ = self.child.wait();
     }

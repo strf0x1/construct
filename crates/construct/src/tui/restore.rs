@@ -58,7 +58,7 @@ impl App {
         let mut raw = false;
         for e in ready.entries {
             match e.event {
-                Event::Submitted { text } => {
+                Event::Submitted(crate::event::Submission { text, .. }) => {
                     self.history.push(text.clone());
                     self.push(Block::new(Kind::User, text));
                     raw = true;

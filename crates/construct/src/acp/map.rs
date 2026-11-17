@@ -35,6 +35,13 @@ pub const BOUNDARY_METHOD: &str = "_com.sprawlcommons/deck/boundary";
 /// (contract 1.2.0 §11.1).
 pub const GITHUB_OPERATIONS: &str = "github_operations";
 pub const GITHUB_OPERATIONS_VERSION: u64 = 1;
+/// Idempotent prompts (contract 1.3.0 §12): the agent capability under the
+/// current key, the key's field in `session/prompt` `_meta` (ACP v2's name),
+/// its length bound, and `error.data.reason` for a reused key.
+pub const IDEMPOTENT_PROMPTS: &str = "idempotentPrompts";
+pub const IDEMPOTENCY_KEY: &str = "idempotencyKey";
+pub const IDEMPOTENCY_KEY_MAX: usize = 255;
+pub const IDEMPOTENCY_CONFLICT: &str = "idempotency_key_conflict";
 
 /// The bare names released builds use. Construct advertises both capability
 /// keys and accepts both notification names for one release, so an old Deck
@@ -218,7 +225,7 @@ mod tests {
         use crate::llm::Message;
         let e = |seq, event| Entry { seq, at_ms: 0, event };
         let entries = vec![
-            e(1, Event::Submitted { text: "go".into() }),
+            e(1, Event::submitted("go")),
             e(2, Event::User { message: Message::user("go\n\n<system-reminder>injected</system-reminder>") }),
             e(3, Event::Assistant { message: Message::text("assistant", "on it") }),
             e(4, Event::ToolStart { id: "c1".into(), name: "read".into(), args: r#"{"path":"a"}"#.into() }),

@@ -40,7 +40,7 @@ fn repairs(entries: &[Entry]) -> Result<Vec<Event>> {
         match e {
             Event::TurnStart => open_turn = true,
             Event::TurnEnd { .. } | Event::Recovered { .. } => open_turn = false,
-            Event::Submitted { text } => pending_prompt = Some(text),
+            Event::Submitted(crate::event::Submission { text, .. }) => pending_prompt = Some(text),
             Event::User { .. } => pending_prompt = None,
             Event::ToolStart { id, name, args } => {
                 starts.insert(id.clone(), (name.clone(), args.clone()));
@@ -122,7 +122,7 @@ fn repairs(entries: &[Entry]) -> Result<Vec<Event>> {
 pub(super) fn activity(e: &Event) -> bool {
     matches!(
         e,
-        Event::Submitted { .. }
+        Event::Submitted(_)
             | Event::User { .. }
             | Event::Assistant { .. }
             | Event::ToolStart { .. }

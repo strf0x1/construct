@@ -163,14 +163,9 @@ impl Agent {
         .await
     }
 
-    /// One turn. `text` is what the user typed; `None` is a turn that job
+    /// One turn. `user` is what the user submitted; `None` is a turn that job
     /// completions start (`wake`), which has no user message to route or answer.
-    async fn run_turn(
-        &mut self,
-        text: Option<&str>,
-        invoked: Option<(&str, String, String)>,
-        tx: &Events,
-    ) -> Result<()> {
+    async fn run_turn(&mut self, user: Option<user_turn::UserTurn<'_>>, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.cancel_tx.send_replace(false);
         self.ctx.turn_began();
@@ -182,9 +177,9 @@ impl Agent {
         if self.user_turns == 0 {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
-        if let Some(text) = text {
+        if let Some(user) = user {
             self.ctx.jobs.activate_recovered();
-            self.begin_user_turn(text, invoked, tx).await;
+            self.begin_user_turn(user, tx).await;
         }
         self.deliver_jobs(tx);
 

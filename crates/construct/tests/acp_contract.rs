@@ -89,3 +89,20 @@ fn the_accepted_forms_are_the_legacy_and_current_constants() {
     assert_eq!(list(&accept["start_meta_keys"]), [map::META_KEY, map::LEGACY_META_KEY]);
     assert_eq!(list(&accept["load_snapshot_keys"]), [map::META_KEY, map::LEGACY_META_KEY]);
 }
+
+#[test]
+fn idempotent_prompts_are_the_contracts() {
+    let m = matrix();
+    let idem = &m["idempotent_prompts"];
+    assert_eq!(idem["capability_key"], map::META_KEY, "current key only (acp/deck.rs)");
+    assert_eq!(idem["meta_key"], map::META_KEY);
+    assert_eq!(idem["capability"], map::IDEMPOTENT_PROMPTS);
+    assert_eq!(idem["field"], map::IDEMPOTENCY_KEY);
+    assert_eq!(idem["max_length"], json!(map::IDEMPOTENCY_KEY_MAX));
+    assert_eq!(idem["invalid_error"], json!(construct::acp::rpc::INVALID_PARAMS));
+    assert_eq!(idem["conflict_error"]["code"], json!(construct::acp::rpc::INVALID_PARAMS));
+    assert_eq!(idem["conflict_error"]["reason"], map::IDEMPOTENCY_CONFLICT);
+    // Each recorded state is driven end to end in construct-dev's acp_keys.rs.
+    let cases: Vec<&str> = idem["cases"].as_array().unwrap().iter().filter_map(|c| c["case"].as_str()).collect();
+    assert_eq!(cases, ["new-key", "queued", "running", "ended", "cut-off", "conflict", "invalid-key"]);
+}

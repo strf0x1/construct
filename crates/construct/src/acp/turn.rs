@@ -14,6 +14,9 @@ pub(super) struct Prompt {
     pub id: Value,
     pub attachment: u64,
     pub text: String,
+    /// The client's idempotency key, and resends of it waiting on this prompt.
+    pub key: Option<String>,
+    pub waiters: Vec<super::keys::Waiter>,
 }
 
 pub(super) async fn run(
@@ -62,7 +65,7 @@ pub(super) async fn run(
         if ask_client {
             agent.ctx.perms.set_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
         }
-        let result = agent.turn(&prompt.text, &tx).await;
+        let result = agent.turn_keyed(&prompt.text, prompt.key.clone(), &tx).await;
         drop(tx);
         result
     };

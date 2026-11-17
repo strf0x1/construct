@@ -211,7 +211,7 @@ fn recovered_jobs_wait_for_user_and_completed_results_are_delivered_once() {
     })
     .unwrap();
     w.record(&Event::TurnStart);
-    w.record(&Event::Submitted { text: "Run background work".into() });
+    w.record(&Event::submitted("Run background work"));
     w.record(&Event::User { message: Message::user("Run background work") });
     for id in ["j1", "j2"] {
         w.record(&Event::JobStart(construct::jobs::Started {

@@ -7,9 +7,24 @@ use crate::llm::Message;
 use crate::tools::Group;
 use anyhow::Result;
 
+/// What the user submitted: the text, a `/<skill>` invocation (name, SKILL.md,
+/// the exact slash line) and the client's idempotency key, if any.
+pub(super) struct UserTurn<'a> {
+    pub text: &'a str,
+    pub invoked: Option<(&'a str, String, String)>,
+    pub key: Option<String>,
+}
+
 impl Agent {
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
-        self.run_turn(Some(text), None, tx).await
+        self.turn_keyed(text, None, tx).await
+    }
+
+    /// A turn whose prompt carries the client's idempotency key, journaled on
+    /// its `Submitted` row (contract 1.3.0 §12). The caller has already made
+    /// sure the key is new to this session.
+    pub async fn turn_keyed(&mut self, text: &str, key: Option<String>, tx: &Events) -> Result<()> {
+        self.run_turn(Some(UserTurn { text, invoked: None, key }), tx).await
     }
 
     /// A turn the user started with `/<skill> text`: the skill's SKILL.md (as
@@ -24,7 +39,10 @@ impl Agent {
     /// False when no turn ran: the skill was gone, which is only an `Error`.
     pub async fn invoke_as(&mut self, skill: &str, text: &str, original: &str, tx: &Events) -> Result<bool> {
         match crate::tools::skill::load(&self.ctx, skill, None) {
-            Ok(body) => self.run_turn(Some(text), Some((skill, body, original.to_string())), tx).await.map(|()| true),
+            Ok(body) => {
+                let invoked = Some((skill, body, original.to_string()));
+                self.run_turn(Some(UserTurn { text, invoked, key: None }), tx).await.map(|()| true)
+            }
             Err(e) => {
                 self.journal.emit(Event::Error { message: e }, tx);
                 Ok(false)
@@ -32,12 +50,14 @@ impl Agent {
         }
     }
 
-    pub(super) async fn begin_user_turn(&mut self, text: &str, invoked: Option<(&str, String, String)>, tx: &Events) {
+    pub(super) async fn begin_user_turn(&mut self, user: UserTurn<'_>, tx: &Events) {
+        let UserTurn { text, invoked, key } = user;
         let original = match &invoked {
             Some((_, _, original)) => original.clone(),
             None => text.to_string(),
         };
-        self.journal.emit(Event::Submitted { text: original }, tx);
+        let submission = crate::event::Submission { text: original, idempotency_key: key };
+        self.journal.emit(Event::Submitted(submission), tx);
         self.enable(self.groups.clone(), tx).await;
         let mut route = self.route(text).await;
         // Project skills are listed in the system prompt, so the tool that

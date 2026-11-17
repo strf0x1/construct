@@ -34,7 +34,7 @@ impl App {
             | Event::DeckBoundary { .. }
             | Event::Nudge { .. }
             | Event::Request { .. } => {}
-            Event::Submitted { .. } => self.turn.submitted(),
+            Event::Submitted(_) => self.turn.submitted(),
             Event::TurnStart => {
                 // The agent clears its cancel flag as a turn starts.
                 self.quit_on_end = false;

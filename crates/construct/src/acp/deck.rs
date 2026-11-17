@@ -37,6 +37,8 @@ impl Server {
             caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
             caps["_meta"][map::META_KEY]["liveAttach"] = json!(true);
             caps["_meta"][map::LEGACY_META_KEY]["liveAttach"] = json!(true);
+            // Current key only; the bare key has no form of it (contract 1.3.0 §12.1).
+            caps["_meta"][map::META_KEY][map::IDEMPOTENT_PROMPTS] = json!(true);
         }
         caps
     }

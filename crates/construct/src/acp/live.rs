@@ -41,6 +41,7 @@ pub(super) struct Session {
     pub turn: Turn,
     pub attached: u64,
     pub prompts: VecDeque<Prompt>,
+    pub keys: super::keys::Keys,
 }
 
 pub(super) struct Turn {
@@ -119,7 +120,8 @@ impl Server {
         if !matches!(s.turn.phase, Phase::Idle(_)) {
             return;
         }
-        let Some(prompt) = s.prompts.pop_front() else { return };
+        let Some(mut prompt) = s.prompts.pop_front() else { return };
+        s.keys.start(&mut prompt);
         s.turn.number += 1;
         s.turn.phase = Phase::Working;
         turns.spawn(turn::run(
@@ -140,12 +142,13 @@ impl Server {
                 // was already seeded from the journal at registration.
                 if !matches!(*event, Event::Recovered { .. }) {
                     s.transcript.observe(&event, &|name| s.catalog.kind_of(name));
+                    s.keys.observe(&event);
                 }
                 if s.attached != self.attachment {
                     return;
                 }
                 let line = if self.wire.lossless {
-                    rpc::notification(self.wire.event, json!({ "sessionId": session, "event": event }))
+                    rpc::notification(self.wire.event, json!({ "sessionId": session, "event": event.private() }))
                 } else if let Some(update) = s.update(&event) {
                     rpc::notification("session/update", json!({ "sessionId": session, "update": update }))
                 } else {
@@ -172,16 +175,18 @@ impl Server {
                 }
             }
             Command::Finished { session, prompt, result } => {
+                let mut waiters = vec![];
                 if let Some(s) = self.sessions.get_mut(&session).filter(|s| s.generation == prompt.generation) {
                     s.transcript.finish_partial();
                     s.turn.phase = Phase::Idle(Some(result.as_ref().copied().unwrap_or("error").to_string()));
+                    waiters = s.keys.finish(&result);
                     self.turn_notice(&session);
                 }
-                if prompt.attachment == self.attachment {
-                    self.reply(
-                        &prompt.id,
-                        result.map(|reason| json!({ "stopReason": reason })).map_err(|e| (rpc::INTERNAL, e)),
-                    );
+                // A resent prompt waiting on this one gets the same answer (§12.4).
+                waiters.insert(0, (prompt.id.clone(), prompt.attachment));
+                for (id, _) in waiters.into_iter().filter(|(_, a)| *a == self.attachment) {
+                    let reply = result.clone().map(|reason| json!({ "stopReason": reason }));
+                    self.reply(&id, reply.map_err(|e| (rpc::INTERNAL, e)));
                 }
                 if self.sessions.get(&session).is_some_and(|s| s.generation == prompt.generation) {
                     self.start_prompt(&session, turns);
