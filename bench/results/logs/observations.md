@@ -449,3 +449,9 @@ optchat summary retries say why (#227, R1). coord-recall, Haiku 5.5, n=1: 289 no
 FIFO/device read fix: Tier 1 tools, five interleaved rounds per arm, 10 reads and shell calls per round, both debug binaries from f506587 (before/after the descriptor type check). compare reports same for read, shell and wall time; no stalled runs. Tier 0 regression first failed on a writerless FIFO, then passed for both editors in workspace and off modes.
 
 - `bench/results/tools-20261117-130044.json`: model None; bench f506587 dirty; before f506587 editor=replace router=local; after f506587 dirty editor=replace router=local
+
+## 2026-11-17 15:51 note
+
+MCP bounded-write fix: Tier 1 normal MCP echo, five interleaved rounds per debug binary, 20 calls per round after warmup, same eb96cf7 base and scripted server. Every tool result was checked in the journal. bench.py compare judges normal MCP echo and total wall time the same; no failed or timed-out trials. The result embeds its standalone driver.
+
+- `bench/results/mcp-writes-20261117-155056.json`: model None; bench eb96cf7 dirty; before eb96cf7 dirty editor=replace router=local; after eb96cf7 dirty editor=replace router=local
