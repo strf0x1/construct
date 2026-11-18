@@ -138,7 +138,13 @@ prompt = "You are a scout."
 tools = ["read", "shell"]
 "#,
     );
-    let out = env.run_with(&[("SECRET_DEPLOY_TOKEN", "leak-me-please")], &["run", "--no-learn", "go"]);
+    // The parent is a Deck coordinator: its child never controls tasks.
+    let control = [
+        ("SECRET_DEPLOY_TOKEN", "leak-me-please"),
+        ("DECK_CONTROL_URL", "http://127.0.0.1:9"),
+        ("DECK_CONTROL_TOKEN", "dct_q8Zr1vKcY3nT0fWb6LmE2pXhS9aJ4uGd"),
+    ];
+    let out = env.run_with(&control, &["run", "--no-learn", "go"]);
     assert!(out.status.success(), "{}", text(&out));
     let reqs = env.requests();
     assert_eq!(reqs.len(), 5, "{}", text(&out));
@@ -157,6 +163,9 @@ tools = ["read", "shell"]
     }
     assert!(!shell.contains("leak-me-please") && !shell.contains("SECRET_DEPLOY_TOKEN"), "{shell}");
     assert!(!shell.contains("OPENAI_API_KEY"), "{shell}");
+    assert!(!shell.contains("DECK_CONTROL") && !shell.contains("dct_q8Zr1v"), "{shell}");
+    assert!(tool_names(&reqs[0]).contains(&"deck".to_string()), "the coordinator has the deck tool");
+    assert!(!tool_names(&reqs[1]).contains(&"deck".to_string()), "its child does not: {:?}", tool_names(&reqs[1]));
     assert!(shell.contains("PATH="), "a working environment: {shell}");
 }
 

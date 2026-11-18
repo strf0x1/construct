@@ -14,6 +14,8 @@
 mod acp_contract;
 #[path = "acp_kinds.rs"]
 mod acp_kinds;
+#[path = "deck_control.rs"]
+mod deck_control;
 #[path = "edit_contract.rs"]
 mod edit_contract;
 #[path = "grep_search.rs"]

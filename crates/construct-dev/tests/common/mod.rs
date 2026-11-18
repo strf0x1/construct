@@ -132,6 +132,8 @@ impl Env {
             ("CONSTRUCT_TOOLS_EDITOR".into(), String::new()),
             ("DECK_BOUNDARY_URL".into(), String::new()),
             ("DECK_MANAGED".into(), String::new()),
+            ("DECK_CONTROL_URL".into(), String::new()),
+            ("DECK_CONTROL_TOKEN".into(), String::new()),
             ("CONSTRUCT_TRACE".into(), String::new()),
         ]
     }

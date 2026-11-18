@@ -146,11 +146,15 @@ pub(super) fn chunk(kind: &str, text: &str) -> Value {
     json!({ "sessionUpdate": kind, "content": { "type": "text", "text": text } })
 }
 
+/// The tool and its first string argument; for a tool with an `operation`,
+/// the operation and its target (`deck create <project>`, `deck prompt <id>`).
 fn title(name: &str, args: &str) -> String {
-    let arg = serde_json::from_str::<Value>(args)
-        .ok()
-        .and_then(|v| v.as_object().and_then(|o| o.values().find_map(|x| x.as_str().map(str::to_string))))
-        .unwrap_or_default();
+    let v = serde_json::from_str::<Value>(args).unwrap_or_default();
+    let s = |k: &str| v.get(k).and_then(Value::as_str);
+    let arg = match s("operation") {
+        Some(op) => [Some(op), s("id").or(s("project"))].into_iter().flatten().collect::<Vec<_>>().join(" "),
+        None => v.as_object().and_then(|o| o.values().find_map(|x| x.as_str().map(str::to_string))).unwrap_or_default(),
+    };
     if arg.is_empty() {
         name.to_string()
     } else {
@@ -201,6 +205,15 @@ mod tests {
         // The category is ACP's, the name stays in the title.
         assert_eq!((s["title"].as_str(), s["kind"].as_str()), (Some("read a.txt"), Some("read")));
         assert_eq!(s["rawInput"]["path"], "a.txt");
+        // An operation tool's title names the operation and its target.
+        for (args, want) in [
+            (r#"{"operation":"create","brief":"Fix\nit","project":"git:abc"}"#, "deck create git:abc"),
+            (r#"{"operation":"prompt","id":"w1","text":"go"}"#, "deck prompt w1"),
+            (r#"{"operation":"tasks"}"#, "deck tasks"),
+        ] {
+            let start = Event::ToolStart { id: "c2".into(), name: "deck".into(), args: args.into() };
+            assert_eq!(update(&start, &|_| ToolKind::Execute).unwrap()["title"], want);
+        }
         let e = update(
             &Event::ToolEnd {
                 id: "c1".into(),

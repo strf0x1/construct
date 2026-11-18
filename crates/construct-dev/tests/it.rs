@@ -30,6 +30,8 @@ mod compaction;
 mod crash_sweep;
 #[path = "deck.rs"]
 mod deck;
+#[path = "deck_control.rs"]
+mod deck_control;
 #[path = "deck_github.rs"]
 mod deck_github;
 #[path = "delegate.rs"]

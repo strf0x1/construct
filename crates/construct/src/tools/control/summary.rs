@@ -1,0 +1,133 @@
+//! What the model reads of a control reply (§13.4): one line per task
+//! summary, with the last message capped, and nothing unbounded.
+//!
+//! The design choice: replies are open, so every field is read leniently and
+//! an unknown one is ignored; a summary that lacks a field still prints.
+
+use serde_json::{Value, json};
+
+/// How much of a task's last message a listing line shows.
+pub const LINE_MESSAGE: usize = 200;
+
+/// The text and the journal's data for a successful reply to `body`.
+pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
+    let operation = body["operation"].as_str().unwrap_or_default();
+    let id = body["id"].as_str().unwrap_or_default();
+    match operation {
+        "tasks" => {
+            let tasks = reply["tasks"].as_array().map(Vec::as_slice).unwrap_or_default();
+            let truncated = reply["truncated"].as_bool().unwrap_or(false);
+            let mut text = match (tasks.len(), truncated) {
+                (0, _) => "No tasks in scope.".to_string(),
+                (n, false) => format!("{n} task{}:", if n == 1 { "" } else { "s" }),
+                (n, true) => format!("{n} most recent tasks (more exist; narrow with project):"),
+            };
+            for task in tasks {
+                text.push('\n');
+                text.push_str(&line(task, true));
+            }
+            let ids: Vec<&Value> = tasks.iter().map(|t| &t["id"]).collect();
+            (
+                text,
+                json!({ "operation": operation, "count": tasks.len(), "truncated": truncated, "ids": ids, "changed": false }),
+            )
+        }
+        "task" => (detail(&reply["task"]), read(operation, reply)),
+        "wait" => {
+            let ms = body["wait_ms"].as_u64().unwrap_or(0);
+            let head = if reply["timed_out"].as_bool().unwrap_or(false) {
+                format!("Still going after {ms} ms; wait again or do something else.")
+            } else {
+                "Woke:".to_string()
+            };
+            (format!("{head}\n{}", detail(&reply["task"])), read(operation, reply))
+        }
+        "create" => {
+            let id = reply["id"].as_str().unwrap_or_default();
+            let text = format!(
+                "Created task {id} in {}; its brief is its first prompt. Call deck wait with id {id} to see that turn end.",
+                body["project"].as_str().unwrap_or_default()
+            );
+            (text, json!({ "operation": operation, "id": id }))
+        }
+        "prompt" => {
+            let turn = reply["turn"].as_u64().unwrap_or(0);
+            let text = format!(
+                "Task {id} began turn {turn}. Call deck wait with id {id} and after_turn {} to see it end.",
+                turn.saturating_sub(1)
+            );
+            (text, json!({ "operation": operation, "id": id, "turn": turn }))
+        }
+        _ => {
+            let state = reply["state"].as_str().unwrap_or("unknown");
+            (format!("Task {id} is {state}."), json!({ "operation": operation, "id": id, "state": state }))
+        }
+    }
+}
+
+fn read(operation: &str, reply: &Value) -> Value {
+    let mut data = reply.clone();
+    data["operation"] = json!(operation);
+    data["changed"] = json!(false);
+    data
+}
+
+/// One task: its line, then its whole last message (Deck caps it at 2048 bytes).
+fn detail(task: &Value) -> String {
+    let mut out = line(task, false);
+    if let Some(message) = task["last_message"].as_str().filter(|m| !m.is_empty()) {
+        let cut = if task["last_message_truncated"].as_bool().unwrap_or(false) { " (cut by Deck)" } else { "" };
+        out.push_str(&format!("\nLast message{cut}:\n{message}"));
+    }
+    out
+}
+
+/// One line for a task summary; `message` adds its last message, capped.
+pub fn line(task: &Value, message: bool) -> String {
+    let s = |k: &str| task[k].as_str();
+    let mut out = format!("{} [{}] {}", s("id").unwrap_or("?"), s("project").unwrap_or("?"), s("state").unwrap_or("?"));
+    let turn = &task["turn"];
+    match turn["number"].as_u64() {
+        Some(n) => {
+            out.push_str(&format!(", turn {n} {}", turn["state"].as_str().unwrap_or("?")));
+            if let Some(reason) = turn["stopReason"].as_str() {
+                out.push_str(&format!(" ({reason})"));
+            }
+        }
+        None => out.push_str(", no turn yet"),
+    }
+    if let Some(title) = s("title") {
+        out.push_str(&format!(" \"{}\"", crate::llm::truncate(title, 80)));
+    }
+    match s("attention") {
+        Some(known @ ("approval" | "question" | "finished" | "failed")) => {
+            out.push_str(&format!("; needs you: {known}"))
+        }
+        Some(other) => out.push_str(&format!("; needs a person: {}", crate::llm::truncate(other, 64))),
+        None => {}
+    }
+    if let Some(n) = task["pending_approvals"].as_u64().filter(|n| *n > 0) {
+        out.push_str(&format!("; {n} approval{} pending with the user", if n == 1 { "" } else { "s" }));
+    }
+    let pr = &task["pull_request"];
+    let publication = &task["publication"];
+    if let Some(n) = pr["number"].as_u64() {
+        let state = match (pr["merged"].as_bool(), pr["draft"].as_bool()) {
+            (Some(true), _) => "merged",
+            (_, Some(true)) => "draft",
+            _ => pr["state"].as_str().unwrap_or("?"),
+        };
+        out.push_str(&format!("; PR #{n} {state}"));
+    } else if publication["kind"] == "pull_request" {
+        out.push_str(&format!("; PR #{}", publication["number"]));
+    } else if publication["kind"] == "branch" {
+        let commit = publication["commit"].as_str().unwrap_or_default();
+        let branch = publication["branch"].as_str().unwrap_or("?");
+        out.push_str(&format!("; published {branch}@{}", crate::text::head(commit, 12)));
+    }
+    if message && let Some(last) = s("last_message").filter(|m| !m.is_empty()) {
+        let flat = last.split_whitespace().collect::<Vec<_>>().join(" ");
+        out.push_str(&format!(" | last: {}", crate::llm::truncate(&flat, LINE_MESSAGE)));
+    }
+    out
+}
