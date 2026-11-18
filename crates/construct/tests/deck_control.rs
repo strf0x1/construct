@@ -1,4 +1,4 @@
-//! Contract: the coordinator's `deck` tool against the vendored 1.4.0
+//! Contract: the coordinator's `deck` tool against the vendored
 //! `control` matrix (contract §13). Every exchange is replayed through the
 //! tool, with and without a bearer token, against a stub gateway that answers
 //! with the exchange's reply: the request the tool sends must be the
@@ -179,7 +179,7 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
     let ctx = ctx(&root);
     let m = matrix();
     let exchanges = m["control"]["exchanges"].as_array().unwrap();
-    assert_eq!(exchanges.len(), 45);
+    assert_eq!(exchanges.len(), 47);
     let mut sent = 0;
     for case in exchanges {
         let name = case["case"].as_str().unwrap();
@@ -220,6 +220,11 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
                 if let Some(id) = reply.pointer("/task/id").or(reply.get("id")).and_then(Value::as_str) {
                     assert!(out.text.contains(id), "{name}: {}", out.text);
                 }
+                // Since 1.5.0 a listing names the projects, even when empty.
+                for project in reply["projects"].as_array().into_iter().flatten() {
+                    let id = project["id"].as_str().unwrap();
+                    assert!(out.text.starts_with("Your projects: ") && out.text.contains(id), "{name}: {}", out.text);
+                }
             }
             (200, Err(e)) => panic!("{name}: a success decoded as {}", e.message),
             (_, Ok(out)) => panic!("{name}: a refusal read as success: {}", out.text),
@@ -234,6 +239,11 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
         }
     }
     assert!(sent >= 35, "most exchanges are requests this client sends: {sent}");
+    for name in ["create-default-project-vm", "create-default-project-local"] {
+        let case = exchanges.iter().find(|c| c["case"] == name).unwrap_or_else(|| panic!("{name} is in the matrix"));
+        assert!(case["body"].get("project").is_none(), "{name}");
+        assert_eq!(producible(&case["body"]).as_ref(), Some(&case["body"]), "{name}: sent as is, with no project");
+    }
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -259,6 +269,22 @@ async fn a_refused_token_or_a_malformed_body_is_not_sent_again() {
     refused(&tool, &ctx, json!({ "operation": "task", "id": "w2" })).await;
     assert_eq!(stub.seen().len(), 2, "the identical body is refused here; a changed one is sent");
     let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_scope_refusal_points_at_the_projects_deck_names() {
+    let m = matrix();
+    let exchanges = m["control"]["exchanges"].as_array().unwrap();
+    let scope = exchanges.iter().filter(|c| c["expect"]["code"] == "deck_control_scope");
+    let mut n = 0;
+    for case in scope {
+        n += 1;
+        let e = control::refusal(403, &case["expect"]["body"], true);
+        assert!(e.message.contains("its projects are git:"), "Deck's list is shown: {}", e.message);
+        assert!(e.message.contains("names the projects you may use"), "{}", e.message);
+        assert!(!e.message.contains("try again"), "never resent unchanged: {}", e.message);
+    }
+    assert!(n > 0, "the matrix has scope refusals");
 }
 
 #[tokio::test(flavor = "multi_thread")]

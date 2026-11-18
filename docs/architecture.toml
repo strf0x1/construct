@@ -88,7 +88,7 @@ may_use = ["config", "event", "journal", "sandbox", "tools"]
 may_use = ["config"]
 
 [modules.prompt]
-may_use = ["journal", "learn", "llm", "memory", "skills", "tools"]
+may_use = ["config", "journal", "learn", "llm", "memory", "skills", "tools"]
 
 [modules.providers]
 may_use = ["config", "endpoint", "models"]

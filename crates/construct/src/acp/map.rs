@@ -147,7 +147,8 @@ pub(super) fn chunk(kind: &str, text: &str) -> Value {
 }
 
 /// The tool and its first string argument; for a tool with an `operation`,
-/// the operation and its target (`deck create <project>`, `deck prompt <id>`).
+/// the operation and its target (`deck create <project>`, `deck prompt <id>`;
+/// a create that leaves its project to Deck is `deck create`).
 fn title(name: &str, args: &str) -> String {
     let v = serde_json::from_str::<Value>(args).unwrap_or_default();
     let s = |k: &str| v.get(k).and_then(Value::as_str);
@@ -208,6 +209,7 @@ mod tests {
         // An operation tool's title names the operation and its target.
         for (args, want) in [
             (r#"{"operation":"create","brief":"Fix\nit","project":"git:abc"}"#, "deck create git:abc"),
+            (r#"{"operation":"create","brief":"Fix it"}"#, "deck create"),
             (r#"{"operation":"prompt","id":"w1","text":"go"}"#, "deck prompt w1"),
             (r#"{"operation":"tasks"}"#, "deck tasks"),
         ] {
