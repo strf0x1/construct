@@ -1,5 +1,5 @@
 # What the dock and the peek panel showed came from the children's real rows:
-# the shell commands on screen are tool_start rows of the child's own session
+# the bash commands on screen are tool_start rows of the child's own session
 # (not the parent's) that ran ok, the peek showed the finished one with its
 # check mark, the background child's job is tied to the delegate call it was
 # filed under, and the Child wrapper is never journaled.
@@ -10,13 +10,13 @@ sed 's/⟦[^⟧]*⟧//g' "$EVIDENCE/transcript.txt" >"$t"
 parent=$(grep '|user|.*"send the scout"' "$j" | head -1 | cut -d'|' -f2)
 [ -n "$parent" ] || { echo "no parent session in the journal"; exit 1; }
 for n in 4 6; do
-  grep -q "shell sleep $n" "$t" || { echo "the screen never showed the child's sleep $n"; exit 1; }
+  grep -q "bash sleep $n" "$t" || { echo "the screen never showed the child's sleep $n"; exit 1; }
   row=$(grep "|tool_start|.*sleep $n" "$j" | grep -v "^[0-9]*|$parent|" | head -1)
   [ -n "$row" ] || { echo "no child tool_start for sleep $n under a session other than the parent's"; exit 1; }
   id=$(echo "$row" | grep -o '"id":"[^"]*"' | head -1)
   grep "|tool_end|" "$j" | grep -F "$id" | grep -q '"ok":true' || { echo "the child's sleep $n did not end ok"; exit 1; }
 done
-grep -q "✓ shell sleep 4" "$t" || { echo "the peek panel never showed the finished tool"; exit 1; }
+grep -q "✓ bash sleep 4" "$t" || { echo "the peek panel never showed the finished tool"; exit 1; }
 grep -q "esc close" "$t" || { echo "the peek panel never opened"; exit 1; }
 grep -q "· found" "$t" || { echo "the screen never showed the child's words"; exit 1; }
 grep -q '|assistant|.*found the notes and am checking them now' "$j" || { echo "the child never said what the screen showed"; exit 1; }

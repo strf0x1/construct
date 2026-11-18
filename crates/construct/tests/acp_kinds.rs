@@ -14,6 +14,8 @@ fn core_tools_map_to_the_acp_categories() {
         ("write", ToolKind::Edit),
         ("grep", ToolKind::Search),
         ("glob", ToolKind::Search),
+        ("bash", ToolKind::Execute),
+        // The shell tool's old name still reaches it (ADR 0046).
         ("shell", ToolKind::Execute),
     ] {
         assert_eq!(cat.kind_of(tool), kind, "{tool}");

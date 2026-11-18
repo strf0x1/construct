@@ -46,7 +46,7 @@ impl Tool for Developer {
         if self.gateway {
             return def(
                 Self::NAME,
-                gateway::DESCRIPTION,
+                &gateway::DESCRIPTION.replace("{shell}", super::shell::Shell::NAME),
                 json!({"type":"object", "properties": {
                     "operation":{"type":"string", "enum": gateway::OPERATIONS},
                     "workdir":{"type":"string", "description":"commit/push: repository directory, defaults to session working directory"},
@@ -63,7 +63,10 @@ impl Tool for Developer {
         }
         def(
             Self::NAME,
-            "Request approval for a concrete developer operation using the host's authentication. Use instead of probing credentials with shell. Stage files with shell before commit; commits are unsigned and skip hooks. Push sends the captured branch commit to the named remote without force or hooks. PR creation never pushes. Each operation is approved separately. After an unknown remote outcome, reconcile with a read-only query before proceeding; never repeat a write automatically.",
+            &format!(
+                "Request approval for a concrete developer operation using the host's authentication. Use instead of probing credentials with {sh}. Stage files with {sh} before commit; commits are unsigned and skip hooks. Push sends the captured branch commit to the named remote without force or hooks. PR creation never pushes. Each operation is approved separately. After an unknown remote outcome, reconcile with a read-only query before proceeding; never repeat a write automatically.",
+                sh = super::shell::Shell::NAME
+            ),
             json!({"type":"object", "properties": {
                 "operation":{"type":"string", "enum":["issue_create","commit","push","pr_create"]},
                 "repo":{"type":"string", "description":"issue_create/pr_create: required explicit OWNER/REPO on github.com"},

@@ -267,7 +267,7 @@ wait "all done" {}
     let got = results(&env);
     assert!(got[0].contains("delta") && !got[0].contains("exit"), "the rerun succeeded: {}", got[0]);
     let rows = access_rows(&env);
-    assert_eq!((rows[0]["tool"].as_str(), rows[0]["decision"].as_str()), (Some("shell"), Some("once")));
+    assert_eq!((rows[0]["tool"].as_str(), rows[0]["decision"].as_str()), (Some("bash"), Some("once")));
     assert_eq!(rows[0]["paths"][0].as_str(), Some(file.canonicalize().unwrap().to_str().unwrap()));
 }
 
@@ -812,7 +812,7 @@ wait "all done" {}
     assert!(got[0].contains("other.txt") && !got[0].contains("does not exist"), "{}", got[0]);
     assert!(!got[0].contains("[sandbox:"), "{}", got[0]);
     let rows = access_rows(&env);
-    assert_eq!((rows[0]["tool"].as_str(), rows[0]["decision"].as_str()), (Some("shell"), Some("once")));
+    assert_eq!((rows[0]["tool"].as_str(), rows[0]["decision"].as_str()), (Some("bash"), Some("once")));
 }
 
 /// #64: headless, nobody can be asked, and the commands hide their errors
@@ -858,7 +858,7 @@ fn hidden_sandbox_denials_still_reach_the_model_and_a_hunt_is_stopped() {
     let boxed: Vec<Value> = env
         .journal()
         .into_iter()
-        .filter(|r| r.ty == "tool_end" && r.payload["name"] == "shell")
+        .filter(|r| r.ty == "tool_end" && r.payload["name"] == "bash")
         .filter_map(|r| r.payload["data"].get("sandbox").cloned())
         .collect();
     assert_eq!(boxed.len(), 4, "{boxed:?}");

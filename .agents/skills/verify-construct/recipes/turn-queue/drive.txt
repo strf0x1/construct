@@ -3,7 +3,7 @@
 wait "ask construct" 5000
 type first
 key enter
-wait "running shell" 5000
+wait "running bash" 5000
 wait "queue a message… (esc to interrupt)" 2000
 snap --style busy
 image {evidence}/busy.png

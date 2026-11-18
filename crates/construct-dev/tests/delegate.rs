@@ -135,7 +135,7 @@ fn a_child_with_nothing_granted_cannot_reach_the_parents_files_or_secrets() {
         r#"
 [agents.scout]
 prompt = "You are a scout."
-tools = ["read", "shell"]
+tools = ["read", "bash"]
 "#,
     );
     // The parent is a Deck coordinator: its child never controls tasks.
@@ -240,6 +240,7 @@ fn sleeper_config(env: &Env) -> String {
         r#"
 [agents.scout]
 prompt = "You are a scout."
+# The tool's old name, on purpose: it still names bash (ADR 0046).
 tools = ["shell"]
 allow_write = ["{}"]
 timeout = 120

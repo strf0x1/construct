@@ -12,7 +12,7 @@ done
 [ -n "$start" ] || { echo "no snap caught the starting frame"; exit 1; }
 if echo "$start" | grep -Eq '[0-9]+\.[0-9]s'; then echo "starting line has a timer: $start"; exit 1; fi
 if ! echo "$start" | grep -q 'esc to interrupt'; then echo "starting line lacks the interrupt hint: $start"; exit 1; fi
-tool=$(sec tool | grep 'running shell' | grep -v '^--- snap' | head -1)
+tool=$(sec tool | grep 'running bash' | grep -v '^--- snap' | head -1)
 if ! echo "$tool" | grep -Eq '[0-9]+\.[0-9]s'; then echo "the tool line has no timer: $tool"; exit 1; fi
 think=$(sec thinking | grep 'thinking' | grep -v '^--- snap' | head -1)
 if ! echo "$think" | grep -Eq '[0-9]+\.[0-9]s'; then echo "the thinking line has no timer: $think"; exit 1; fi

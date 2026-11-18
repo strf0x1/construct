@@ -5,7 +5,7 @@
 wait "ask construct" 5000
 type send the scout
 key enter
-wait "shell sleep 4" 8000
+wait "bash sleep 4" 8000
 sleep 300
 snap --style foreground-dock
 expect "ctrl+t peek"
@@ -15,7 +15,7 @@ wait "· found" 8000
 key ctrl-t
 sleep 300
 expect "esc close"
-expect "✓ shell sleep 4"
+expect "✓ bash sleep 4"
 snap --style foreground-peek
 image {evidence}/foreground-peek.png
 key esc
@@ -27,7 +27,7 @@ type send another
 key enter
 wait "started it" 8000
 wait "job j1 started" 3000
-wait "shell sleep 6" 3000
+wait "bash sleep 6" 3000
 sleep 300
 snap --style background-dock
 expect "1 job running"
@@ -36,7 +36,7 @@ key pgup
 sleep 300
 snap scrolled-away
 expect "scrolled"
-expect "shell sleep 6"
+expect "bash sleep 6"
 key esc
 sleep 200
 key ctrl-t
@@ -55,7 +55,7 @@ gone "ctrl+t peek" 2000
 type send a third
 key enter
 wait "started the third" 8000
-wait "shell sleep 20" 3000
+wait "bash sleep 20" 3000
 sleep 300
 key ctrl-t
 sleep 200

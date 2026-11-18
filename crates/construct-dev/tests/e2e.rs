@@ -59,7 +59,7 @@ fn first_request_is_lean_and_router_adds_groups_on_demand() {
     let names = tool_names(first);
     assert_eq!(
         names,
-        ["shell", "read", "write", "edit", "grep", "glob", "enable_tools"],
+        ["bash", "read", "write", "edit", "grep", "glob", "enable_tools"],
         "plain turn gets only core tools"
     );
     let bytes = serde_json::to_vec(first).unwrap().len();
@@ -120,7 +120,7 @@ fn hashline_rejects_a_stale_anchor_with_a_window_and_the_retry_lands() {
         env.run_with(&[("CONSTRUCT_TOOLS_EDITOR", "hashline")], &["run", "--json", "--no-learn", "capitalise beta"]);
     assert!(out.status.success(), "{}", text(&out));
     let reqs = env.requests();
-    assert_eq!(tool_names(&reqs[0]), ["shell", "read", "write", "edit", "grep", "glob", "enable_tools"]);
+    assert_eq!(tool_names(&reqs[0]), ["bash", "read", "write", "edit", "grep", "glob", "enable_tools"]);
     let edit = reqs[0]["tools"].as_array().unwrap().iter().find(|t| t["function"]["name"] == "edit").unwrap();
     assert!(edit["function"]["parameters"]["properties"]["edits"].is_object(), "{edit}");
     assert_eq!(last_tool_result(&reqs[1]), "1:jk|alpha\n2:ds|beta\n3:ab|gamma\n4:ld|delta\n");
@@ -253,7 +253,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     assert!(out.status.success(), "{}", text(&out));
     let reqs = env.requests();
     // Absent from definitions, and from what enable_tools offers.
-    assert_eq!(tool_names(&reqs[0]), ["shell", "read", "edit", "grep", "glob", "enable_tools"]);
+    assert_eq!(tool_names(&reqs[0]), ["bash", "read", "edit", "grep", "glob", "enable_tools"]);
     let enable = reqs[0]["tools"].as_array().unwrap().iter().find(|t| t["function"]["name"] == "enable_tools").unwrap();
     let offer = enable["function"]["parameters"]["properties"]["groups"]["items"]["enum"].to_string();
     assert!(!offer.contains("memory") && !offer.contains("web"), "{offer}");
@@ -268,7 +268,7 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
         String::from_utf8_lossy(&out.stdout).lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
     let end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "write").expect("tool_end");
     assert_eq!((end["ok"].clone(), end["code"].clone()), (json!(false), json!("unknown_tool")));
-    let shell_end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "shell").unwrap();
+    let shell_end = events.iter().find(|e| e["event"] == "tool_end" && e["name"] == "bash").unwrap();
     assert_eq!((shell_end["code"].clone(), shell_end["kind"].clone()), (json!("exit"), json!("tail")));
     let manifest = events.iter().find(|e| e["event"] == "manifest").expect("manifest event");
     assert!(!manifest["tools"].to_string().contains("\"write\""), "{manifest}");
@@ -285,6 +285,29 @@ fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
         .find(|r| r["messages"][0]["content"].as_str().unwrap_or("").contains("learning pass"))
         .expect("review request");
     assert!(!tool_names(&review).contains(&"memory".to_string()), "{:?}", tool_names(&review));
+}
+
+#[test]
+fn an_old_config_that_disables_shell_still_disables_bash() {
+    // `shell` is the tool's name before ADR 0046. A config written then must
+    // keep meaning what it said: no shell tool, under either name.
+    let env = Env::new(
+        "disabled-shell",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "touch ran-old" } },
+            { "call": "bash", "args": { "command": "touch ran-new" } },
+            { "text": "done" }
+        ] }),
+    );
+    env.config("[router]\nmode = \"local\"\n[tools]\ndisabled = [\"shell\"]\n");
+    let out = env.run(&["run", "--json", "--no-learn", "touch a file"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = env.requests();
+    let names = tool_names(&reqs[0]);
+    assert!(!names.iter().any(|n| n == "bash" || n == "shell"), "{names:?}");
+    assert_eq!(last_tool_result(&reqs[1]), "Error: unknown tool shell");
+    assert_eq!(last_tool_result(&reqs[2]), "Error: unknown tool bash");
+    assert!(!env.work.join("ran-old").exists() && !env.work.join("ran-new").exists());
 }
 
 #[test]
@@ -329,7 +352,7 @@ fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     let review = reqs.iter().find(is_review).expect("review request");
     let names = tool_names(review);
     assert!(!names.contains(&"skill_manage".into()), "one session doesn't earn a skill: {names:?}");
-    assert!(!names.contains(&"shell".into()), "the learning pass can only touch memory and skills");
+    assert!(!names.contains(&"bash".into()), "the learning pass can only touch memory and skills");
     assert!(review["messages"][1]["content"].as_str().unwrap().contains("USER: release the crate"));
     assert!(reqs.iter().any(|r| last_tool_result(r).contains("over the cap")), "over-cap write refused and explained");
     assert_eq!(std::fs::read_to_string(env.home.join("memory/USER.md")).unwrap(), "Releases crates on Fridays");

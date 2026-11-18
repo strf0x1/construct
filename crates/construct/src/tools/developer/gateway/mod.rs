@@ -22,7 +22,8 @@ use serde_json::{Value, json};
 /// The operations the tool offers in a gateway task.
 pub const OPERATIONS: &[&str] = &["commit", "push", "pr_create", "pr_update", "pr_review", "issue_create"];
 
-pub const DESCRIPTION: &str = "Commit locally and publish this task's work through Deck's GitHub gateway. In this sandbox `git push` and `gh` fail by design: this tool is the only route to GitHub, so never look for another remote or credential. commit makes an unsigned local commit of what you staged with shell (hooks skipped). push publishes your local task branch (the gateway names it; default) as new commits only: if it reports the branch moved, rebase onto the commit it names and push again. pr_create opens a pull request from the task branch to the project's base, as a draft unless draft is false. pr_update changes the title, body or base, or marks it ready with draft false. pr_review reads its state, mergeability and checks. issue_create is not available here.";
+/// `{shell}` stands for the shell tool's name, filled in where it is used.
+pub const DESCRIPTION: &str = "Commit locally and publish this task's work through Deck's GitHub gateway. In this sandbox `git push` and `gh` fail by design: this tool is the only route to GitHub, so never look for another remote or credential. commit makes an unsigned local commit of what you staged with {shell} (hooks skipped). push publishes your local task branch (the gateway names it; default) as new commits only: if it reports the branch moved, rebase onto the commit it names and push again. pr_create opens a pull request from the task branch to the project's base, as a draft unless draft is false. pr_update changes the title, body or base, or marks it ready with draft false. pr_review reads its state, mergeability and checks. issue_create is not available here.";
 
 fn allowed(operation: &str) -> &'static [&'static str] {
     match operation {

@@ -17,7 +17,7 @@ expression: "screen(&env, &d)"
 
 ▌ run it
 
-  ✓ shell echo from-the-shell [T]
+  ✓ bash echo from-the-shell [T]
     │ from-the-shell
 
   Done

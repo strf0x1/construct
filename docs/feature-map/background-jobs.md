@@ -3,8 +3,8 @@ id: background-jobs
 status: verified
 surfaces: [tui, cli]
 depends: [crates/construct/src/jobs, crates/construct/src/cli/headless.rs, crates/construct/src/agent/wake.rs, crates/construct/src/tools/shell_job.rs, crates/construct/src/tools/job.rs, crates/construct/src/tools/delegate/background.rs, crates/construct/src/tui/jobs.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct-dev/tests/jobs.rs]
-verified_at: d3c072e
-verified_deps: d60dc7878c549bc8
+verified_at: f7f6aba
+verified_deps: ff9fa1f569a22614
 ---
 # Background jobs
 
@@ -57,7 +57,7 @@ Preconditions:
 
 Preconditions:
 
-- `[agents.scout]` with `tools = ["shell"]`. Model: a delegate with `background = true` and a `sleep 1`, the child's `sleep 4`, a parent `sleep 120`, the child's summary `scout-done: found nothing`, `the scout found nothing`, then a second background delegate. Recipe: `.agents/skills/verify-construct/recipes/background-delegate`.
+- `[agents.scout]` with `tools = ["bash"]`. Model: a delegate with `background = true` and a `sleep 1`, the child's `sleep 4`, a parent `sleep 120`, the child's summary `scout-done: found nothing`, `the scout found nothing`, then a second background delegate. Recipe: `.agents/skills/verify-construct/recipes/background-delegate`.
 
 - **Interrupt.** Drive: `type send the scout`, `key enter`, `wait "job j1 started"`, `wait "sleep 120"`, `key esc`, `expect "1 job running"`. Expect: the turn is interrupted and the child is still counted.
 - **Wake.** Drive: `wait "job j1 completed" 10000`, `wait "the scout found nothing"`, `gone "1 job running"`. Expect: the summary starts a turn with nothing typed.

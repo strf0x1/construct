@@ -200,7 +200,7 @@ fn a_background_delegate_returns_a_handle_and_its_summary_starts_a_turn() {
     let reqs = env.requests();
     assert_eq!(reqs.len(), 5, "{}", text(&out));
     // The child asked for its own prompt and tools, while the parent went on.
-    assert_eq!(tool_names(&reqs[1]), vec!["shell"]);
+    assert_eq!(tool_names(&reqs[1]), vec!["bash"]);
     assert_eq!(reqs[1]["messages"][0]["content"], "You are a scout.");
     let handle = tool_results(&reqs[2]).remove(0);
     assert!(handle.contains("started job j1") && handle.contains("don't poll"), "{handle}");
