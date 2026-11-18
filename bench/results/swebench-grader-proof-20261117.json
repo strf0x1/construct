@@ -1,0 +1,58 @@
+{
+  "kind": "official SWE-bench v5 Docker grading proof; no agent inference",
+  "cases": [
+    {
+      "arm": "reference",
+      "run_id": "construct-reference-r0-386d5a1b5440466d9a1d7e50a31bde27",
+      "resolved": 1,
+      "total": 1,
+      "evaluator_revision": "02e7a74ffd0b707aab73d203fe87bdc7c76afc8e",
+      "task_revision": "3d07b464b7b311a0cbfb5ed5b2d8a3b96f84a33d",
+      "instance_ids": [
+        "sympy__sympy-20590"
+      ],
+      "dataset": {
+        "id": "https://github.com/SWE-bench/swe-bench-tasks",
+        "revision": "3d07b464b7b311a0cbfb5ed5b2d8a3b96f84a33d",
+        "source_sha256": "9a08252c05356d50389b0c8ea923367394c6bb9a2db97dfd86ea17311c2de78e",
+        "selected_sha256": "9a08252c05356d50389b0c8ea923367394c6bb9a2db97dfd86ea17311c2de78e",
+        "public_sha256": "a6cee52170356f0fcea6a42d502660df52e895928e3c8ec0d0e787af272a84c8"
+      },
+      "image_manifest_digests": [
+        "sha256:a3a81dbea1662662cfc711c6c6005031c24d6c0fd44c1bbba5c26d0699b85c2d"
+      ],
+      "source_build_completed": true,
+      "runtime_fallback_observed": false,
+      "raw_evidence": "/tmp/construct-swebench-proof-236/evaluations/construct-reference-r0-386d5a1b5440466d9a1d7e50a31bde27"
+    },
+    {
+      "arm": "untouched",
+      "run_id": "construct-untouched-r0-f419d743294946cb89ca1e1f44ea434f",
+      "resolved": 0,
+      "total": 1,
+      "evaluator_revision": "02e7a74ffd0b707aab73d203fe87bdc7c76afc8e",
+      "task_revision": "3d07b464b7b311a0cbfb5ed5b2d8a3b96f84a33d",
+      "instance_ids": [
+        "sympy__sympy-20590"
+      ],
+      "dataset": {
+        "id": "https://github.com/SWE-bench/swe-bench-tasks",
+        "revision": "3d07b464b7b311a0cbfb5ed5b2d8a3b96f84a33d",
+        "source_sha256": "9a08252c05356d50389b0c8ea923367394c6bb9a2db97dfd86ea17311c2de78e",
+        "selected_sha256": "9a08252c05356d50389b0c8ea923367394c6bb9a2db97dfd86ea17311c2de78e",
+        "public_sha256": "a6cee52170356f0fcea6a42d502660df52e895928e3c8ec0d0e787af272a84c8"
+      },
+      "image_manifest_digests": [
+        "sha256:77a552c627680f33b3fe2acc34ad56b7365c46f40edfb2ea0d7ad124de7102ee"
+      ],
+      "source_build_completed": true,
+      "runtime_fallback_observed": false,
+      "raw_evidence": "/tmp/construct-swebench-proof-236/evaluations/construct-untouched-r0-f419d743294946cb89ca1e1f44ea434f"
+    }
+  ],
+  "last_image_id": "sha256:77a552c627680f33b3fe2acc34ad56b7365c46f40edfb2ea0d7ad124de7102ee",
+  "last_image_repo_digests": [
+    "swebench/sweb.eval.x86_64.sympy_1776_sympy-20590@sha256:77a552c627680f33b3fe2acc34ad56b7365c46f40edfb2ea0d7ad124de7102ee"
+  ],
+  "model_credits_spent": 0
+}

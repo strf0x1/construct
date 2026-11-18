@@ -52,6 +52,8 @@ mod optchat;
 mod permission;
 #[path = "providers.rs"]
 mod providers;
+#[path = "proxy.rs"]
+mod proxy;
 #[path = "recovery.rs"]
 mod recovery;
 #[path = "sessions.rs"]

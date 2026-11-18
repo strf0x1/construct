@@ -38,6 +38,9 @@ enum Cmd {
         /// Env var holding the upstream key.
         #[arg(long, default_value = "OPENROUTER_API_KEY")]
         key_env: String,
+        /// Resolve this upstream key through SecretSpec (env or OS keyring).
+        #[arg(long, conflicts_with = "key_env", requires = "upstream")]
+        key_secret: Option<String>,
         #[arg(long)]
         log: Option<PathBuf>,
         /// Save every request body here.
@@ -93,7 +96,20 @@ enum Cmd {
 
 fn main() -> Result<()> {
     match Cli::parse().cmd {
-        Cmd::Serve { port, script, repeat, upstream, key_env, log, dump, chunk_ms, cache, port_file, window } => {
+        Cmd::Serve {
+            port,
+            script,
+            repeat,
+            upstream,
+            key_env,
+            key_secret,
+            log,
+            dump,
+            chunk_ms,
+            cache,
+            port_file,
+            window,
+        } => {
             let (steps, side) = match script {
                 Some(p) => {
                     let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p)?)?;
@@ -106,7 +122,11 @@ fn main() -> Result<()> {
                 Some(v) => Some((serde_json::from_str(&v[0]).context("parsing repeat step")?, v[1].parse()?)),
                 None => None,
             };
-            let key = if upstream.is_some() { std::env::var(&key_env).ok() } else { None };
+            let key = match (upstream.is_some(), key_secret) {
+                (true, Some(name)) => Some(serve::resolve_key(&name)?),
+                (true, None) => std::env::var(&key_env).ok(),
+                (false, _) => None,
+            };
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async move {
                 let cfg = serve::Config {
