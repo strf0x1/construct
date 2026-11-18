@@ -52,7 +52,14 @@ else:
 /bench/construct --version > /export/construct.version
 
 status=0
-/bench/construct run --json -- "$(cat /bench/issue.txt)" || status=$?
+/bench/construct run --json -- "$(cat /bench/issue.txt)" &
+agent=$!
+trap 'kill -INT "$agent" 2>/dev/null || true' INT
+wait "$agent" || status=$?
+# A trap interrupts Bash's wait before the agent has finished journaling.
+if kill -0 "$agent" 2>/dev/null; then
+    wait "$agent" || status=$?
+fi
 echo "$status" > /export/agent.exit
 "$relay_python" -I -c '
 import sys

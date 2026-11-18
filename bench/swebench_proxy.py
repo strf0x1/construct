@@ -6,6 +6,7 @@ from decimal import Decimal
 import http.client
 import http.server
 import json
+import os
 import socketserver
 import threading
 import time
@@ -23,24 +24,53 @@ class Limits:
     seconds: int
     context: int
     output: int
-    usd: Decimal
-    request_usd: Decimal
 
     def __post_init__(self):
         if (min(self.requests, self.tokens, self.seconds, self.context, self.output) <= 0
-                or self.output >= self.context
-                or not all(d.is_finite() and d >= 0 for d in (self.usd, self.request_usd))):
+                or self.output >= self.context):
             raise ValueError("invalid benchmark limits")
+
+
+class Spend:
+    """Track settled spend and any outstanding reservation across all tasks."""
+
+    def __init__(self, limit, per_request):
+        if not all(d.is_finite() and d >= 0 for d in (limit, per_request)) or per_request > limit:
+            raise ValueError("invalid spend limits")
+        self.limit = limit
+        self.per_request = per_request
+        self.settled = self.reserved = Decimal(0)
+        self.stop = None
+        self.receipts = set()
+
+    def available(self):
+        return self.stop is None and self.settled + self.reserved + self.per_request <= self.limit
+
+    def reserve(self):
+        self.reserved += self.per_request
+
+    def finish(self, cost):
+        if cost is None:
+            self.stop = "unaccounted_request"
+            return
+        self.reserved -= self.per_request
+        self.settled += cost
+        if cost > self.per_request:
+            self.stop = "cost_reservation_exceeded"
+
+
+@dataclasses.dataclass(frozen=True)
+class Receipt:
+    usd: Decimal
+    tokens: int
 
 
 class Budget:
     """Reserve before dispatch. A failed or unaccounted call retains its reservation."""
 
-    def __init__(self, limits, ledger, *, scripted):
-        if not scripted and limits.request_usd <= 0:
-            raise ValueError("charged requests require a positive cost reservation")
+    def __init__(self, limits, ledger, spend):
         self.limits = limits
-        self.scripted = scripted
+        self.spend = spend
         self.ledger = ledger
         self.deadline = time.monotonic() + limits.seconds
         self.requests = self.tokens = 0
@@ -50,44 +80,65 @@ class Budget:
     def log(self, event, **fields):
         with self.ledger.open("a") as stream:
             stream.write(json.dumps({"event": event, "requests": self.requests, "tokens": self.tokens,
-                                     "usd": str(self.usd), **fields}) + "\n")
+                                     "usd": str(self.usd), "run_settled_usd": str(self.spend.settled),
+                                     "run_reserved_usd": str(self.spend.reserved), **fields}) + "\n")
+            stream.flush()
+            if event == "admitted" and self.spend.per_request:
+                os.fsync(stream.fileno())
 
-    def admit(self):
+    def admit(self, reserve_tokens):
         cap = self.limits
-        reason = self.stop
+        reason = self.stop or self.spend.stop
         if not reason:
             if time.monotonic() >= self.deadline:
                 reason = "time_limit"
             elif self.requests >= cap.requests:
                 reason = "request_limit"
-            elif self.tokens + cap.context > cap.tokens:
+            elif self.tokens + reserve_tokens > cap.tokens:
                 reason = "token_limit"
-            elif self.usd + cap.request_usd > cap.usd:
+            elif not self.spend.available():
                 reason = "spend_limit"
         if reason:
             self.stop = reason
             self.log("rejected", reason=reason)
             return False
         self.requests += 1
-        self.tokens += cap.context
-        self.usd += cap.request_usd
-        self.log("admitted")
+        self.tokens += reserve_tokens
+        self.spend.reserve()
+        try:
+            self.log("admitted", reserved_tokens=reserve_tokens)
+        except OSError:
+            self.spend.stop = "ledger_error"
+            raise
         return True
 
-    def finish(self, usage, status, error=None):
-        tokens = sum_usage(usage)
-        cost = Decimal(0) if self.scripted else usage.get("cost_usd")
-        known_cost = type(cost) in (int, Decimal) and Decimal(cost).is_finite() and cost >= 0
+    def finish(self, usage, status, receipt, reserve_tokens, request_id=None, error=None):
+        if request_id:
+            if request_id in self.spend.receipts:
+                receipt, error = None, "duplicate_receipt"
+            else:
+                self.spend.receipts.add(request_id)
+        tokens = receipt.tokens if receipt else sum_usage(usage)
+        cost = receipt.usd if receipt else None
+        self.spend.finish(cost)
         if tokens is not None:
-            self.tokens += tokens - self.limits.context
-        if known_cost:
-            self.usd += cost - self.limits.request_usd
-        if error or tokens is None or not known_cost:
-            self.stop = "unaccounted_request"
-        elif tokens > self.limits.context or cost > self.limits.request_usd:
-            self.stop = "reservation_exceeded"
-        self.log("finished", status=status, usage=json.loads(json.dumps(usage, default=str)),
-                 error=error, stop=self.stop)
+            self.tokens += tokens - reserve_tokens
+        if cost is not None:
+            self.usd += cost
+        if self.stop is None:
+            if self.spend.stop:
+                self.stop = self.spend.stop
+            elif error or tokens is None:
+                self.stop = "unaccounted_request"
+            elif tokens > reserve_tokens:
+                self.stop = "token_reservation_exceeded"
+        try:
+            self.log("finished", status=status, usage=json.loads(json.dumps(usage, default=str)),
+                     error=error, stop=self.stop, request_id=request_id,
+                     settled_usd=None if cost is None else str(cost), billed_tokens=tokens)
+        except OSError:
+            self.spend.stop = "ledger_error"
+            raise
 
 
 def sum_usage(usage):
@@ -126,14 +177,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         budget = self.server.budget
-        if self.path != CHAT:
-            self.reply(404, b'{"error":{"message":"only chat completions are available"}}')
-            return
         try:
             length = int(self.headers.get("Content-Length", 0))
             if not 0 < length <= MAX_REQUEST_BYTES:
                 raise ValueError("invalid request size")
-            request = json.loads(self.rfile.read(length))
+            raw = self.rfile.read(length)
+            if self.path != CHAT:
+                self.reply(404, b'{"error":{"message":"only chat completions are available"}}')
+                return
+            request = json.loads(raw)
             if not isinstance(request, dict) or request.get("model") != self.server.model:
                 raise ValueError("request must use the pinned model")
             messages = request.get("messages")
@@ -152,21 +204,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if set(request) - {"messages", "model", "stream", "stream_options", "temperature",
                                "max_tokens", "tools", "tool_choice"}:
                 raise ValueError("unsupported completion fields")
+            if self.server.provider is not None:
+                self.server.provider.configure(request)
             payload = json.dumps(request, allow_nan=False)
         except (ValueError, UnicodeError) as error:
             self.reply(400, json.dumps({"error": {"message": str(error)}}).encode())
             return
-        if not budget.admit():
+        reserve_tokens = budget.limits.context
+        if self.server.provider is not None:
+            # UTF-8 bytes overestimate text tokens. Leave room for provider
+            # framing and the full requested output when a history gets large.
+            reserve_tokens = max(reserve_tokens, len(payload.encode()) + request["max_tokens"]
+                                 + 64 * (len(messages) + len(tools) + 1))
+        if not budget.admit(reserve_tokens):
             self.reply(403, json.dumps({"error": {"code": budget.stop, "message": "benchmark stopped"}}).encode())
             return
         remaining = max(0.001, budget.deadline - time.monotonic())
         conn = http.client.HTTPConnection("127.0.0.1", self.server.port, timeout=remaining)
+        response = None
+        content_type = "application/json"
+        chunks = bytearray()
+        error = None
         try:
             conn.request("POST", CHAT, body=payload,
-                         headers={"Content-Type": "application/json", "Authorization": "Bearer via-proxy"})
+                         headers={"Content-Type": "application/json", "Authorization": "Bearer via-proxy",
+                                  "X-OrcaRouter-Session-Id": self.server.session_id})
             response = conn.getresponse()
             content_type = response.getheader("Content-Type", "application/json")
-            chunks = bytearray()
             while True:
                 if time.monotonic() >= budget.deadline:
                     raise TimeoutError("budget deadline while reading upstream")
@@ -176,14 +240,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 chunks.extend(chunk)
                 if len(chunks) > MAX_RESPONSE_BYTES:
                     raise ValueError("response exceeds size limit")
-        except (OSError, ValueError, http.client.HTTPException) as error:
-            budget.finish({}, None, type(error).__name__)
-            self.reply(502, b'{"error":{"message":"upstream response could not be accounted for"}}')
-        else:
-            budget.finish(response_usage(chunks, content_type), response.status)
-            self.reply(response.status, chunks, content_type)
+        except (OSError, ValueError, http.client.HTTPException) as failure:
+            error = type(failure).__name__
+            if isinstance(failure, TimeoutError) and time.monotonic() >= budget.deadline:
+                budget.stop = budget.stop or "time_limit"
         finally:
             conn.close()
+        usage = response_usage(chunks, content_type)
+        request_id = response.getheader("x-orca-request-id") if response else None
+        status = response.status if response else None
+        if self.server.provider is None:
+            receipt = Receipt(Decimal(0), sum_usage(usage))
+        else:
+            receipt = self.server.provider.receipt(request_id, self.server.model)
+        budget.finish(usage, status, receipt, reserve_tokens, request_id, error)
+        if error or receipt is None or budget.spend.stop:
+            self.reply(502, b'{"error":{"message":"upstream response could not be accounted for"}}')
+        else:
+            self.reply(status, chunks, content_type)
 
 
 class Server(socketserver.UnixStreamServer):
@@ -200,10 +274,11 @@ class Server(socketserver.UnixStreamServer):
 
 
 @contextlib.contextmanager
-def guard(socket_path, port, model, budget):
+def guard(socket_path, port, model, budget, *, provider=None, session_id="scripted"):
     socket_path = Path(socket_path)
     with Server(str(socket_path), Handler) as server:
         server.port, server.model, server.budget = port, model, budget
+        server.provider, server.session_id = provider, session_id
         socket_path.chmod(0o666)  # Parent directory on the host is private.
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()

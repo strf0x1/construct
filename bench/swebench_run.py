@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a scripted Construct smoke on selected, pinned SWE-bench task images."""
+"""Run Construct on selected, pinned SWE-bench task images."""
 
 import argparse
 import contextlib
@@ -17,6 +17,7 @@ import time
 import uuid
 
 import swebench
+import swebench_orca
 import swebench_proxy
 import swebench_relay
 
@@ -69,12 +70,13 @@ print(json.dumps({row['instance_id']: row['image'] for row in actual}))
 
 
 @contextlib.contextmanager
-def recording_proxy(binary, script, work):
+def recording_proxy(binary, script, work, paid):
     port_file = work / "port"
+    mode_args = paid.proxy_args() if paid else ["--script", str(script)]
     with (work / "proxy.stderr").open("w") as errors, subprocess.Popen(
-        [str(binary), "serve", "--script", str(script), "--port-file", str(port_file),
+        [str(binary), "serve", *mode_args, "--port-file", str(port_file),
          "--log", str(work / "requests.jsonl"), "--dump", str(work / "requests")],
-        env={}, stdout=subprocess.DEVNULL, stderr=errors,
+        env=paid.env if paid else {}, stdout=subprocess.DEVNULL, stderr=errors,
     ) as process:
         try:
             for _ in range(200):
@@ -139,18 +141,26 @@ def container_run(container, work, row, image, socket_path, inputs, budget):
                "--entrypoint", "/bin/bash", image["id"],
                "/bench/swebench_container.sh", row["base_commit"], row["repo"]]
     subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-    with (work / "events.jsonl").open("w") as out, (work / "container.stderr").open("w") as err:
+    with (
+        (work / "events.jsonl").open("w") as out,
+        (work / "container.stderr").open("w") as err,
+        subprocess.Popen(["docker", "start", "--attach", container], stdout=out, stderr=err) as process,
+    ):
         try:
-            subprocess.run(["docker", "start", "--attach", container], timeout=max(0.01, budget.deadline - time.monotonic()),
-                           stdout=out, stderr=err)
+            process.wait(timeout=max(0.01, budget.deadline - time.monotonic()))
         except subprocess.TimeoutExpired:
             budget.stop = budget.stop or "time_limit"
-            subprocess.run(["docker", "kill", container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["docker", "kill", "--signal", "INT", container],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                subprocess.run(["docker", "kill", container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     state = subprocess.check_output(["docker", "inspect", "--format", "{{json .State}}", container], text=True)
     return json.loads(state)
 
 
-def attempt(row, image, model, limits, binary, dev, script, work, evidence):
+def attempt(row, image, model, budget, binary, dev, script, paid, work, evidence):
     work.mkdir(mode=0o700)
     container = f"construct-swe-{uuid.uuid4().hex}"
     inputs = work / "inputs"
@@ -159,26 +169,24 @@ def attempt(row, image, model, limits, binary, dev, script, work, evidence):
         shutil.copyfile(BENCH / filename, inputs / filename)
     shutil.copyfile(binary, inputs / "construct")
     (inputs / "construct").chmod(0o555)
-    shutil.copyfile(script, work / "script.json")
+    if script:
+        shutil.copyfile(script, work / "script.json")
+        evidence["script_sha256"] = swebench.sha256(work / "script.json")
     (inputs / "issue.txt").write_text(row["problem_statement"])
-    (inputs / "config.toml").write_text(config(model, limits))
-    evidence.update({"container": container, "inputs": {p.name: swebench.sha256(p) for p in inputs.iterdir()},
-                     "script_sha256": swebench.sha256(work / "script.json")})
+    (inputs / "config.toml").write_text(config(model, budget.limits))
+    evidence.update({"container": container, "inputs": {p.name: swebench.sha256(p) for p in inputs.iterdir()}})
     swebench.write_json(work / "attempt.json", evidence)
     try:
         with (
             tempfile.TemporaryDirectory(prefix="construct-swe-") as transport,
-            recording_proxy(dev, work / "script.json", work) as port,
+            recording_proxy(dev, work / "script.json", work, paid) as port,
         ):
             socket_path = Path(transport) / "model.sock"
-            budget = swebench_proxy.Budget(limits, work / "budget.jsonl", scripted=True)
-            with swebench_proxy.guard(socket_path, port, model, budget):
+            with swebench_proxy.guard(socket_path, port, model, budget, provider=paid, session_id=container):
                 state = container_run(container, work, row, image, socket_path, inputs, budget)
                 copy_artifacts(container, "/export", work, lambda p: p.parts in {
                     ("export", "agent.patch"), ("export", "agent.exit"), ("export", "construct.version")})
                 journals = copy_artifacts(container, "/state/construct/projects", work, is_journal)
-            evidence.update({"budget_stop": budget.stop, "requests": budget.requests, "tokens": budget.tokens,
-                             "usd": str(budget.usd)})
         patch_file = work / "export/agent.patch"
         status = work / "export/agent.exit"
         evidence.update({"container_exit": state["ExitCode"], "oom_killed": state["OOMKilled"],
@@ -189,6 +197,8 @@ def attempt(row, image, model, limits, binary, dev, script, work, evidence):
             raise ValueError("task container exited without a patch, agent exit status, or journal")
         return patch_file.read_text() if patch_file.is_file() else ""
     finally:
+        evidence.update({"budget_stop": budget.stop, "requests": budget.requests, "tokens": budget.tokens,
+                         "usd": str(budget.usd)})
         swebench.write_json(work / "attempt.json", evidence)
         subprocess.run(["docker", "rm", "--force", container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -198,9 +208,19 @@ def run(args):
     data, rows = swebench.load(manifest)
     selected = images(manifest, data, args.evaluator.resolve(), args.task_repo.resolve(), args.python,
                       json.loads(args.images.read_text()))
-    limits = swebench_proxy.Limits(args.requests, args.tokens, args.seconds, args.context, args.output_tokens,
-                                   Decimal(0), Decimal(0))
-    binary, dev, script = (p.resolve() for p in (args.construct, args.construct_dev, args.script))
+    limits = swebench_proxy.Limits(args.requests, args.tokens, args.seconds, args.context, args.output_tokens)
+    binary, dev = (p.resolve() for p in (args.construct, args.construct_dev))
+    paid = None
+    spend = swebench_proxy.Spend(Decimal(0), Decimal(0))
+    if args.upstream:
+        if data["phase"] != "pilot" or not args.spend_usd or not Decimal("0") < args.spend_usd <= Decimal("2"):
+            raise ValueError("paid pilots require an explicit spend cap of at most $2")
+        if args.wallet_usd is None or args.wallet_usd - args.spend_usd < Decimal("5"):
+            raise ValueError("paid pilots require a starting wallet balance that preserves $5 after the cap")
+        paid = swebench_orca.Orca(dev, args.upstream, data["model"])
+        spend = swebench_proxy.Spend(args.spend_usd, swebench_orca.RESERVATION)
+    elif args.spend_usd is not None or args.wallet_usd is not None:
+        raise ValueError("wallet and spend limits apply to paid pilots")
     output = args.output.resolve()
     output.mkdir(mode=0o700)
     source = {"revision": swebench.git(BENCH, "rev-parse", "HEAD"),
@@ -208,18 +228,33 @@ def run(args):
               "runner_sha256": swebench.sha256(__file__),
               "budget_proxy_sha256": swebench.sha256(swebench_proxy.__file__),
               "recording_proxy_sha256": swebench.sha256(dev)}
-    summary = {"mode": "scripted", "manifest_sha256": swebench.sha256(manifest), "source": source,
-               "model": data["model"], "limits": dataclasses.asdict(limits) | {"usd": "0", "request_usd": "0"},
+    summary = {"mode": "paid" if paid else "scripted", "manifest_sha256": swebench.sha256(manifest), "source": source,
+               "model": data["model"], "limits": dataclasses.asdict(limits) |
+               {"usd": str(spend.limit), "request_usd": str(spend.per_request)},
                "attempts": []}
+    if paid:
+        summary.update({"upstream": paid.upstream, "reasoning_effort": swebench_orca.EFFORT,
+                        "pricing": swebench_orca.PRICING, "wallet_reserve_usd": "5"})
+        source["receipt_adapter_sha256"] = swebench.sha256(swebench_orca.__file__)
+    swebench.write_json(output / "run.json", summary)
     patches = {}
     for row in rows:
         task = row["instance_id"]
         evidence = {"instance_id": task, "base_commit": row["base_commit"], "image": selected[task]}
         summary["attempts"].append(evidence)
+        if not spend.available():
+            evidence["not_started"] = spend.stop or "spend_limit"
+            continue
+        work = output / task
+        budget = swebench_proxy.Budget(limits, work / "budget.jsonl", spend)
         try:
-            patches[task] = attempt(row, selected[task], data["model"], limits, binary, dev, script, output / task, evidence)
+            patches[task] = attempt(row, selected[task], data["model"], budget, binary, dev, args.script, paid,
+                                    work, evidence)
         except (OSError, ValueError, subprocess.CalledProcessError, tarfile.TarError) as error:
             evidence["runner_error"] = str(error)
+        summary.update({"settled_usd": str(spend.settled), "reserved_usd": str(spend.reserved),
+                        "spend_stop": spend.stop})
+        swebench.write_json(output / "run.json", summary)
     swebench.write_predictions(data, patches, output / "predictions.jsonl")
     summary["predictions_sha256"] = swebench.sha256(output / "predictions.jsonl")
     swebench.write_json(output / "run.json", summary)
@@ -230,8 +265,13 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("manifest", "evaluator", "task-repo", "images", "construct", "construct-dev", "script", "output"):
+    for name in ("manifest", "evaluator", "task-repo", "images", "construct", "construct-dev", "output"):
         parser.add_argument(f"--{name}", required=True, type=Path)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--script", type=Path, help="drive the task with a local script")
+    mode.add_argument("--upstream", help="paid endpoint with a supported receipt adapter")
+    parser.add_argument("--spend-usd", type=dollars, help="maximum total settled spend plus reservations")
+    parser.add_argument("--wallet-usd", type=dollars, help="confirmed starting wallet balance")
     parser.add_argument("--python", required=True, type=Path, help="pinned evaluator environment's Python")
     for name, default in (("requests", 12), ("tokens", 100_000), ("seconds", 90), ("context", 16_384),
                           ("output-tokens", 2048)):
@@ -241,6 +281,16 @@ def main():
         return run(args)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"{error}\n")
+
+
+def dollars(value):
+    try:
+        amount = Decimal(value)
+    except ArithmeticError:
+        raise argparse.ArgumentTypeError("expected a USD amount") from None
+    if not amount.is_finite() or amount < 0:
+        raise argparse.ArgumentTypeError("expected a nonnegative, finite USD amount")
+    return amount
 
 
 if __name__ == "__main__":

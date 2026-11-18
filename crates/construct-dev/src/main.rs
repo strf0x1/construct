@@ -58,6 +58,14 @@ enum Cmd {
         #[arg(long)]
         window: Option<u64>,
     },
+    /// Fetch one settled OrcaRouter receipt using the proxy's credential source.
+    OrcaReceipt {
+        request_id: String,
+        #[arg(long, conflicts_with = "key_env")]
+        key_secret: Option<String>,
+        #[arg(long)]
+        key_env: Option<String>,
+    },
     /// A tiny stdio MCP server (tools: add, echo) for tests.
     McpFake(mcp_fake::Opts),
     /// A scripted ACP agent on stdio (one permission request) for tests.
@@ -151,6 +159,17 @@ fn main() -> Result<()> {
                 let _ = h.await;
                 Ok(())
             })
+        }
+        Cmd::OrcaReceipt { request_id, key_secret, key_env } => {
+            print!(
+                "{}",
+                tokio::runtime::Runtime::new()?.block_on(serve::orca_receipt(
+                    &request_id,
+                    key_secret.as_deref(),
+                    key_env.as_deref(),
+                ))?
+            );
+            Ok(())
         }
         Cmd::McpFake(o) => mcp_fake::run(o),
         Cmd::AcpFake(o) => acp_fake::run(o),
