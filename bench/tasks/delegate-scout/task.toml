@@ -8,7 +8,7 @@ config = '''
 [agents.scout]
 description = "Knows the codeword and can run one shell command"
 prompt = "You are the scout. The codeword is 7f3a9c1e. When asked, run `uname -s` with the shell tool and reply with exactly: the codeword, a space, the command's output."
-tools = ["shell"]
+tools = ["bash"]
 timeout = 120
 '''
 

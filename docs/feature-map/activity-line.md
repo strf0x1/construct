@@ -34,7 +34,7 @@ Preconditions:
 - Baseline state. The scripted model answers one short reply, then calls a shell tool, then streams a delayed reply. Recipe: `.agents/skills/verify-construct/recipes/activity-line`; its `setup.sh` writes a local-model config and `serve.args` slows the stream so the writing phase lasts.
 
 - **Starting.** Drive: `type first`, `key enter`, then five `snap --style starting-N` in a row. Expect: one snap holds `⠋ starting  esc to interrupt` and no `N.Ns` timer.
-- **Tool, thinking, writing.** Drive: `type phases`, `key enter`, `wait "running shell"`, `snap --style tool`, `wait "thinking"`, `snap --style thinking`, `wait "writing"`, `snap --style writing`. Expect: each label on the activity line with the timer, and `chars/s` while writing.
+- **Tool, thinking, writing.** Drive: `type phases`, `key enter`, `wait "running bash"`, `snap --style tool`, `wait "thinking"`, `snap --style thinking`, `wait "writing"`, `snap --style writing`. Expect: each label on the activity line with the timer, and `chars/s` while writing.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/activity-line`. Expect: `ok: starting has no timer; tool, thinking and writing keep the timer; writing shows chars/s`.
 
 ## Gotchas

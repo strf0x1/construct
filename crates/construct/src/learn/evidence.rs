@@ -134,7 +134,7 @@ mod tests {
         m.tool_calls = vec![ToolCall {
             id: id.into(),
             kind: "function".into(),
-            function: FunctionCall { name: "shell".into(), arguments: args.into() },
+            function: FunctionCall { name: "bash".into(), arguments: args.into() },
             extra_content: None,
         }];
         m
@@ -153,12 +153,12 @@ mod tests {
         ];
         let c = contrasts(&msgs);
         assert_eq!(c.len(), 1);
-        assert_eq!(c[0].fixed.as_deref(), Some("shell ./tools/test"));
+        assert_eq!(c[0].fixed.as_deref(), Some("bash ./tools/test"));
         assert!(c[0].error.contains("No module named"));
         let f = followups(&msgs);
         assert_eq!(f.len(), 1);
         assert_eq!(f[0].after, "done");
-        assert!(section(&msgs).contains("then worked: shell ./tools/test"));
+        assert!(section(&msgs).contains("then worked: bash ./tools/test"));
     }
 
     #[test]
@@ -174,7 +174,7 @@ mod tests {
         ];
         let c = contrasts(&msgs);
         assert_eq!(c.len(), 1, "only the missing command is a failure");
-        assert_eq!(c[0].fixed.as_deref(), Some("shell make test 2>&1 | tail -3"));
+        assert_eq!(c[0].fixed.as_deref(), Some("bash make test 2>&1 | tail -3"));
     }
 
     #[test]

@@ -47,6 +47,17 @@ use serde_json::{Value, json};
 /// answers it itself; it is not a catalog tool.
 pub const ENABLE_TOOLS: &str = "enable_tools";
 
+/// Old wire names and the tool each now is (ADR 0046). An alias is accepted
+/// wherever a user or an old journal names a tool, never offered to the model.
+const RENAMED: &[(&[&str], &str)] = &[(shell::Shell::ALIASES, shell::Shell::NAME)];
+
+/// The current name for `name`: itself, unless it is a renamed tool's old name.
+/// Callers look `name` up as given first, so a tool that really has an old
+/// name (a custom `search_name`, say) still wins.
+pub fn canonical(name: &str) -> &str {
+    RENAMED.iter().find(|(old, _)| old.contains(&name)).map_or(name, |(_, new)| new)
+}
+
 /// One tool: everything about it lives in its `impl`, and its wire name is
 /// declared there and nowhere else.
 #[async_trait::async_trait]

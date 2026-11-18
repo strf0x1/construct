@@ -298,15 +298,16 @@ class SearchMetrics(unittest.TestCase):
         return {"name": name, "ok": ok, "code": code, "args": {"command": command} if command else {}}
 
     def test_adoption_counts_searching_not_piping(self):
+        # `bash` and `shell` are the same tool, before and after ADR 0046.
         events = [
             self.ev("grep"),
             self.ev("search"),
             self.ev("shell", "rg -n retry src/"),
             self.ev("shell", "cd pkg && grep -rn legacy_charge ."),
-            self.ev("shell", "git grep -n foo"),
-            self.ev("shell", "find . -name '*.py' | xargs grep -l foo"),
+            self.ev("bash", "git grep -n foo"),
+            self.ev("bash", "find . -name '*.py' | xargs grep -l foo"),
             self.ev("shell", "python3 -m unittest 2>&1 | grep FAIL"),  # a filter, not a search
-            self.ev("shell", "find . -name '*.toml'"),
+            self.ev("bash", "find . -name '*.toml'"),
             self.ev("shell", "ls -la"),
             self.ev("read"),
         ]

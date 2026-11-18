@@ -34,7 +34,7 @@ fn a_message_typed_during_a_turn_waits_for_it_and_leaves_the_tui_idle() {
     let mut d = tui(&env, 100, 30);
     play(
         &mut d,
-        "wait \"ask construct\" 5000\ntype first\nkey enter\nwait \"running shell\" 5000\n\
+        "wait \"ask construct\" 5000\ntype first\nkey enter\nwait \"running bash\" 5000\n\
          wait \"queue a message… (esc to interrupt)\" 3000\ntype second\nkey enter\n\
          wait \"answer one\" 10000\nwait \"answer two\" 10000\n\
          wait \"ask construct anything… (/help)\" 5000\ngone \"queue a message\" 2000\n",

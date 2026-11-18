@@ -81,13 +81,19 @@ impl Catalog {
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
             bail!("tools.search_name: {:?} is already a tool", t.name());
         }
-        for d in &cfg.disabled {
+        // An old name in `disabled` still disables the tool it became.
+        let disabled: Vec<String> = cfg
+            .disabled
+            .iter()
+            .map(|d| if tools.iter().any(|t| t.name() == d) { d.as_str() } else { canonical(d) }.to_string())
+            .collect();
+        for d in &disabled {
             if crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
                 bail!("tools.disabled: unknown tool {d:?}");
             }
         }
-        tools.retain(|t| !cfg.disabled.iter().any(|d| d == t.name()));
-        Ok(Catalog { tools: RwLock::new(tools), mcp, disabled: cfg.disabled.clone() })
+        tools.retain(|t| !disabled.iter().any(|d| d == t.name()));
+        Ok(Catalog { tools: RwLock::new(tools), mcp, disabled })
     }
 
     /// Start an MCP server if needed and add the tools it lists, minus
@@ -122,8 +128,12 @@ impl Catalog {
         self.tools.write().unwrap().push(tool);
     }
 
+    /// The tool called `name`, or the one it was renamed to: a model that
+    /// learned the old name, or an old journal replayed, still reaches it.
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
-        self.tools().iter().find(|t| t.name() == name).cloned()
+        let tools = self.tools();
+        let find = |n: &str| tools.iter().find(|t| t.name() == n).cloned();
+        find(name).or_else(|| find(canonical(name)))
     }
 
     /// The kind of the named tool; `other` for one the catalog doesn't have.
@@ -152,7 +162,7 @@ impl Catalog {
         if let Some(t) = self.get(name) {
             return Some(t.group());
         }
-        if self.disabled.iter().any(|d| d == name) {
+        if self.disabled.iter().any(|d| d == name || d == canonical(name)) {
             return None;
         }
         // A server's tools join the catalog when it starts; naming one of

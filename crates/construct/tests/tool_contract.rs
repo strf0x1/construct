@@ -169,7 +169,7 @@ async fn sandbox_refusals(f: &Fixture, editor: &str) {
         },
         ("grep", json!({ "pattern": "secret", "path": s(&outside) })),
         ("glob", json!({ "pattern": "*.txt", "path": s(&outside) })),
-        ("shell", json!({ "command": "true", "workdir": s(&outside) })),
+        ("bash", json!({ "command": "true", "workdir": s(&outside) })),
     ];
     for (name, args) in cases {
         let (msg, code) = f.call(name, args).await.expect_err(name);
@@ -217,7 +217,7 @@ async fn other_encodings_are_refused_with_the_way_out() {
     let args = json!({ "path": "latin1.txt", "old_string": "caf", "new_string": "bar" });
     let (msg, code) = f.call("edit", args).await.unwrap_err();
     assert_eq!(code, "not_utf8");
-    assert!(msg.contains("shell"), "{msg}");
+    assert!(msg.contains("bash"), "{msg}");
     assert_eq!(std::fs::read(f.ctx.cwd.join("latin1.txt")).unwrap(), b"caf\xe9\n");
     std::fs::write(f.ctx.cwd.join("utf16.txt"), b"\xff\xfea\0\n\0").unwrap();
     for (name, args) in [
@@ -243,6 +243,29 @@ fn disabled_tools_are_not_in_the_catalog() {
     assert!(Catalog::build(&bad, None).err().unwrap().to_string().contains("unknown tool \"wirte\""));
     let bad = ToolsConfig { editor: "nope".into(), ..Default::default() };
     assert!(Catalog::build(&bad, None).is_err());
+}
+
+#[test]
+fn the_shell_tools_old_name_still_reaches_it() {
+    // ADR 0046: `shell` became `bash`. Old configs, agent definitions,
+    // journals and models still say `shell`; only `bash` is offered.
+    let c = Catalog::build(&ToolsConfig::default(), None).unwrap();
+    assert!(c.names().contains(&"bash".to_string()) && !c.names().contains(&"shell".to_string()));
+    assert_eq!(c.get("shell").map(|t| t.name().to_string()).as_deref(), Some("bash"));
+    assert_eq!(c.group_of("shell"), Some(Group::Core));
+    let off = Catalog::build(&ToolsConfig { disabled: vec!["shell".into()], ..Default::default() }, None).unwrap();
+    assert!(off.get("bash").is_none() && off.get("shell").is_none());
+    assert_eq!(off.group_of("shell"), None);
+    assert_eq!(off.group_of("bash"), None);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_call_by_the_old_name_runs_the_shell_tool() {
+    // The shell tool's own workdir check answers, not "unknown tool".
+    let f = Fixture::new("old-shell-name");
+    let outside = f.root.join("outside").display().to_string();
+    let (msg, code) = f.call("shell", json!({ "command": "true", "workdir": outside })).await.unwrap_err();
+    assert_eq!(code, "sandbox", "{msg}");
 }
 
 #[test]

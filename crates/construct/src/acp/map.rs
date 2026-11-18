@@ -255,7 +255,7 @@ mod tests {
                     code: Some("interrupted_unknown".into()),
                 },
             ),
-            e(6, Event::ToolStart { id: "c2".into(), name: "shell".into(), args: r#"{"command":"ls"}"#.into() }),
+            e(6, Event::ToolStart { id: "c2".into(), name: "bash".into(), args: r#"{"command":"ls"}"#.into() }),
             e(7, Event::Recovered { message: "interrupted".into() }),
         ];
         let h = history(&entries, &|_| ToolKind::Read);

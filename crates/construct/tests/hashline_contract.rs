@@ -283,11 +283,11 @@ async fn other_encodings_are_refused_with_the_way_out() {
     // Latin-1: shown so the model can see it, but without anchors.
     std::fs::write(f.ctx.cwd.join("latin1.txt"), b"caf\xe9\nbar\n").unwrap();
     let (text, _) = f.call("read", json!({ "path": "latin1.txt" })).await.unwrap();
-    assert!(text.contains("not valid UTF-8") && text.contains("shell"), "{text}");
+    assert!(text.contains("not valid UTF-8") && text.contains("bash"), "{text}");
     assert!(text.contains("1|caf\u{fffd}\n2|bar\n"), "{text}");
     let e = f.edit("latin1.txt", json!([{ "op": "delete", "anchor": "2:aa" }])).await.unwrap_err();
     assert_eq!(e.code, "not_utf8");
-    assert!(e.message.contains("shell"), "{}", e.message);
+    assert!(e.message.contains("bash"), "{}", e.message);
     // The lossy view doesn't count as read, so write can't flatten the bad bytes.
     let e = f.call("write", json!({ "path": "latin1.txt", "content": "café\nbar\n" })).await.unwrap_err();
     assert_eq!(e.code, "not_read");

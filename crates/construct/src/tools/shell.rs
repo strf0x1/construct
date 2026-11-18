@@ -25,7 +25,9 @@ pub struct Shell {
 }
 
 impl Shell {
-    pub const NAME: &str = "shell";
+    pub const NAME: &str = "bash";
+    /// Old names, still accepted in config, agent definitions and calls; never offered (ADR 0046).
+    pub const ALIASES: &[&str] = &["shell"];
 
     pub fn new(cfg: &ShellConfig) -> Self {
         Self { background_timeout: cfg.background_timeout.max(1) }
@@ -65,10 +67,8 @@ impl Tool for Shell {
         self.call_with(ctx, &Call::detached(""), a).await
     }
     async fn call_with(&self, ctx: &Ctx, call: &Call, a: Value) -> Result<Output, ToolError> {
-        run(ctx, call, self.background_timeout, &a).await.map(|o| o.with_kind(OutputKind::Tail)).map_err(|mut e| {
-            e.kind = OutputKind::Tail;
-            e
-        })
+        let r = run(ctx, call, self.background_timeout, &a).await;
+        r.map(|o| o.with_kind(OutputKind::Tail)).map_err(|e| ToolError { kind: OutputKind::Tail, ..e })
     }
 }
 

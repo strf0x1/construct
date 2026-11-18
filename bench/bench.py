@@ -1297,7 +1297,7 @@ def landmine_hits(home: Path, since: float):
         for d in session:
             m = d.get("message") or {}
             for t in m.get("tool_calls") or []:
-                if t.get("function", {}).get("name") == "shell":
+                if t.get("function", {}).get("name") in journal.SHELL_TOOLS:
                     shell_ids.add(t.get("id"))
             if m.get("role") == "tool" and m.get("tool_call_id") in shell_ids and failed.search(str(m.get("content") or "")):
                 hits += 1
@@ -1408,7 +1408,7 @@ def curriculum_facts(home: Path, since: float):
             m = d.get("message") or {}
             for t in m.get("tool_calls") or []:
                 f = t.get("function", {})
-                if f.get("name") == "shell":
+                if f.get("name") in journal.SHELL_TOOLS:
                     shell_ids.add(t.get("id"))
                     lore += bool(LORE.search(f.get("arguments") or ""))
                 if f.get("name") == "skill":

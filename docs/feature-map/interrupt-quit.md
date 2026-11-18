@@ -33,7 +33,7 @@ Preconditions:
 
 - Baseline state. The scripted model runs a shell `sleep 8` for each of two turns. Recipe: `.agents/skills/verify-construct/recipes/interrupt-quit`.
 
-- **Esc.** Drive: `type interrupt me`, `key enter`, `wait "running shell"`, `key esc`, `wait "■ interrupted after"`. Expect: the notice and the idle prompt.
+- **Esc.** Drive: `type interrupt me`, `key enter`, `wait "running bash"`, `key esc`, `wait "■ interrupted after"`. Expect: the notice and the idle prompt.
 - **Ctrl-c.** Drive: a second turn, then `key ctrl-c`. Expect: the same notice; two `turn_end` rows with `"interrupted":true` in `journal.txt`.
 - **Quit arm.** Drive: `key ctrl-c` at idle, `wait "press ctrl+c again to quit"`, `sleep 2100`, `key ctrl-c`, `wait "press ctrl+c again to quit"`, `key ctrl-c`. Expect: the toast, an expiry after two seconds, a fresh arm, then exit.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/interrupt-quit`. Expect: `ok: esc and ctrl-c each interrupted a turn; idle ctrl-c armed quit and the second press quit`, with two interrupted `turn_end` rows.

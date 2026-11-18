@@ -13,7 +13,7 @@ snap --style starting-5
 wait "warm reply" 12000
 type phases
 key enter
-wait "running shell" 8000
+wait "running bash" 8000
 snap --style tool
 image {evidence}/tool.png
 wait "thinking" 6000

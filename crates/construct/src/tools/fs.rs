@@ -18,14 +18,16 @@ pub fn encoding_error(shown: &str, utf16: bool) -> ToolError {
         ToolError::new(
             "utf16",
             format!(
-                "{shown} is UTF-16 text, which read and edit can't handle. Use shell instead: view it with `iconv -f UTF-16 -t UTF-8 {shown}`, and edit it with shell tools or convert it to UTF-8 first."
+                "{shown} is UTF-16 text, which read and edit can't handle. Use {sh} instead: view it with `iconv -f UTF-16 -t UTF-8 {shown}`, and edit it with shell tools or convert it to UTF-8 first.",
+                sh = super::shell::Shell::NAME
             ),
         )
     } else {
         ToolError::new(
             "not_utf8",
             format!(
-                "{shown} is not valid UTF-8 (probably Latin-1 or another legacy encoding), so edit can't change it without corrupting it. Edit it with shell instead (sed works byte for byte), or convert it to UTF-8 first with iconv."
+                "{shown} is not valid UTF-8 (probably Latin-1 or another legacy encoding), so edit can't change it without corrupting it. Edit it with {sh} instead (sed works byte for byte), or convert it to UTF-8 first with iconv.",
+                sh = super::shell::Shell::NAME
             ),
         )
     }

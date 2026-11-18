@@ -93,7 +93,7 @@ pub(super) fn elapsed(c: &Child) -> String {
     if s < 60 { format!("{s}s") } else { format!("{}m{:02}s", s / 60, s % 60) }
 }
 
-/// One child: `⠧ j1  scout  shell sleep 6 · "words so far"      4s  ctrl+t peek`.
+/// One child: `⠧ j1  scout  bash sleep 6 · "words so far"      4s  ctrl+t peek`.
 fn row(c: &Child, width: usize, phase: f32, hint: bool) -> Line<'static> {
     let id = c.job.as_deref().unwrap_or("·");
     let head = format!(" {} {id:<3} ", theme::spinner(phase));

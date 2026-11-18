@@ -32,7 +32,7 @@ Preconditions:
 
 - Baseline state. The scripted model runs `sleep 2`, then answers `answer one` and `answer two`, one request per turn. Recipe: `.agents/skills/verify-construct/recipes/turn-queue`.
 
-- **Queue.** Drive: `type first`, `key enter`, `wait "running shell"`, `wait "queue a message… (esc to interrupt)"`, `type second`, `key enter`. Expect: the busy placeholder and both messages in the transcript.
+- **Queue.** Drive: `type first`, `key enter`, `wait "running bash"`, `wait "queue a message… (esc to interrupt)"`, `type second`, `key enter`. Expect: the busy placeholder and both messages in the transcript.
 - **Settle.** Drive: `wait "answer one"`, `wait "answer two"`, `wait "ask construct anything… (/help)"`, `gone "queue a message"`. Expect: idle after both replies.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/turn-queue`. Expect: `ok: two queued turns ran; the third request carried the queued text; idle placeholder back, no spinner` — two `turn_start`/`turn_end` rows and two `user` rows in `journal.txt`, and `"content":"second"` in the last request.
 

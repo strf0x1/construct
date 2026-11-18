@@ -57,7 +57,7 @@ Preconditions:
 
 Preconditions:
 
-- `[agents.scout]` with `tools = ["shell"]`. Model: a delegate with `background = true` and a `sleep 1`, the child's `sleep 4`, a parent `sleep 120`, the child's summary `scout-done: found nothing`, `the scout found nothing`, then a second background delegate. Recipe: `.agents/skills/verify-construct/recipes/background-delegate`.
+- `[agents.scout]` with `tools = ["bash"]`. Model: a delegate with `background = true` and a `sleep 1`, the child's `sleep 4`, a parent `sleep 120`, the child's summary `scout-done: found nothing`, `the scout found nothing`, then a second background delegate. Recipe: `.agents/skills/verify-construct/recipes/background-delegate`.
 
 - **Interrupt.** Drive: `type send the scout`, `key enter`, `wait "job j1 started"`, `wait "sleep 120"`, `key esc`, `expect "1 job running"`. Expect: the turn is interrupted and the child is still counted.
 - **Wake.** Drive: `wait "job j1 completed" 10000`, `wait "the scout found nothing"`, `gone "1 job running"`. Expect: the summary starts a turn with nothing typed.

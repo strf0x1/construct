@@ -25,6 +25,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ENABLE_TOOLS = "enable_tools"  # never had a tool record: it switches state, not the world
+# construct's shell tool: `bash` since ADR 0046, `shell` in older journals. Match both.
+SHELL_TOOLS = frozenset({"bash", "shell"})
 
 
 def legacy(rows):

@@ -3,26 +3,29 @@
 
 use crate::memory;
 use crate::tools::grep::Grep;
+use crate::tools::shell::Shell;
 use std::path::Path;
 
 const BASE: &str = "You are construct, a coding agent working in the user's terminal. Use your tools to do what the user asks, then stop.
 
 - Read before you edit. Make the smallest change that does the job and match the surrounding code.
-- Prefer read/grep/glob/edit over shell for files. Run independent tool calls in parallel.
+- Prefer read/grep/glob/edit over {shell} for files. Run independent tool calls in parallel.
 - Verify your work (build, test, run) when you can, and report failures honestly.
 - Be brief. Use GitHub markdown. Refer to code as path:line.
 - Don't narrate before tool calls. When done, say what changed and how you verified it in a few sentences.
-- The skill library is outside the workspace; read and change skills only with the skill and skill_manage tools, never file tools or shell.
+- The skill library is outside the workspace; read and change skills only with the skill and skill_manage tools, never file tools or {shell}.
 - Tools see only the workspace, system paths and toolchains. Search the workspace, not the whole filesystem; if something isn't there, ask the user where it is.
 - <system-reminder> blocks come from the harness, not the user.";
 
-/// The fixed part of the prompt, naming the content-search tool as it is called.
+/// The fixed part of the prompt, naming the shell tool through its constant
+/// and the content-search tool as it is called.
 fn base(search: Option<&str>) -> String {
+    let base = BASE.replace("{shell}", Shell::NAME);
     let named = format!("/{}/", Grep::NAME);
     match search {
-        Some(n) if n == Grep::NAME => BASE.into(),
-        Some(n) => BASE.replace(&named, &format!("/{n}/")),
-        None => BASE.replace(&named, "/"),
+        Some(n) if n == Grep::NAME => base,
+        Some(n) => base.replace(&named, &format!("/{n}/")),
+        None => base.replace(&named, "/"),
     }
 }
 
@@ -112,12 +115,13 @@ mod tests {
     use super::*;
 
     fn tools_line(search: Option<&str>) -> String {
-        base(search).lines().find(|l| l.contains("over shell for files")).unwrap().to_string()
+        base(search).lines().find(|l| l.contains(&format!("over {} for files", Shell::NAME))).unwrap().to_string()
     }
 
     #[test]
     fn the_prompt_names_the_search_tool_as_it_is_called() {
-        assert_eq!(base(Some("grep")), BASE, "the default prompt must not change");
+        assert_eq!(base(Some("grep")), BASE.replace("{shell}", Shell::NAME), "the default prompt must not change");
+        assert!(!base(Some("grep")).contains("{shell}"));
         assert!(tools_line(Some("grep")).contains("read/grep/glob/edit"));
         assert!(tools_line(Some("search")).contains("read/search/glob/edit"));
         // No search tool: the prompt must not offer one.

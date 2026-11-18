@@ -2,7 +2,7 @@
 wait "ask construct" 5000
 type interrupt me
 key enter
-wait "running shell" 5000
+wait "running bash" 5000
 sleep 300
 key esc
 wait "■ interrupted after" 6000
@@ -11,7 +11,7 @@ snap after-esc
 image {evidence}/after-esc.png
 type second try
 key enter
-wait "running shell" 5000
+wait "running bash" 5000
 sleep 300
 key ctrl-c
 wait "ask construct anything… (/help)" 4000

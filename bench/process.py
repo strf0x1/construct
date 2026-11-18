@@ -98,7 +98,7 @@ def metrics(events: list) -> dict:
     for i in rejected:
         codes[events[i].get("code") or "error"] = codes.get(events[i].get("code") or "error", 0) + 1
     edit_tokens = sum(events[i]["completion_tokens"] for i in edits)
-    shells = [e for e in events if e["name"] == "shell"]
+    shells = [e for e in events if e["name"] in journal.SHELL_TOOLS]
     boxed = [(e.get("data") or {}).get("sandbox") for e in shells]
     boxed = [b for b in boxed if b]
     return {
@@ -142,7 +142,7 @@ def search_metrics(events: list) -> dict:
                       path, a bad regex or a timeout is.
     """
     tool = sum(1 for e in events if e["name"] in SEARCH_TOOLS)
-    commands = [str(e["args"].get("command") or "") for e in events if e["name"] == "shell"]
+    commands = [str(e["args"].get("command") or "") for e in events if e["name"] in journal.SHELL_TOOLS]
     shell = sum(1 for c in commands if CONTENT_SEARCH.search(c))
     find = sum(1 for c in commands if FILE_SEARCH.search(c) and not CONTENT_SEARCH.search(c))
     failed = [e for e in events if not e["ok"]]

@@ -252,6 +252,8 @@ impl AgentDef {
         let group_of = |t: &str| table.iter().find(|(n, _)| n == t).map(|(_, g)| g);
         let mut names = vec![];
         for t in &self.tools {
+            // An old tool name still names the tool it became (ADR 0046).
+            let t = &if group_of(t).is_some() { t.clone() } else { crate::tools::canonical(t).to_string() };
             let Some(group) = group_of(t) else { bail!("[agents.{name}] tools: the parent has no tool {t:?}") };
             if matches!(group, Group::Mcp(_)) {
                 bail!("[agents.{name}] tools: {t:?} is an MCP tool; a child has no MCP servers");
