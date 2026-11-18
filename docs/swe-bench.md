@@ -11,10 +11,10 @@ from private grading data, exports official patch predictions, invokes the
 pinned official v5 evaluator, and imports its reports. It uses only Python's
 standard library. Grading requires an environment with upstream dependencies.
 
-This is the preparation/grading foundation. It does **not** yet launch Construct
-or mini-SWE-agent inside SWE-bench containers, preserve learning across tasks,
-enforce the experiment's dollar budget, or claim a completed SWE-bench result.
-Do not mount the whole prepared directory into an agent: only `agent/` is public.
+`bench/swebench_run.py` drives Construct with a scripted model inside an
+official task image. It proves the agent boundary, budget admission and
+prediction export without paid inference. Learning is disabled and each
+attempt starts with a fresh Construct home.
 
 The default pins, inspected November 17, 2026, are:
 
@@ -26,8 +26,8 @@ The default pins, inspected November 17, 2026, are:
 The dataset's own revision and file digest are recorded separately. The official
 task repo takes precedence during v5 grading, so the bridge refuses a different
 repo, base commit or issue text under the same instance ID. Checkouts must be
-clean and match the manifest pins. Actual image digests still need recording
-by the forthcoming environment runner.
+clean and match the manifest pins. The runner requires and records the image
+ID, repository digests when present, and platform for each selected task.
 
 ## Prepare a subset before inference
 
@@ -49,6 +49,57 @@ This writes `manifest.json`, `agent/tasks.jsonl`, and owner-private
 `base_commit`, `problem_statement`, and `created_at` reach the agent input.
 For a dataset exported from a task-repo checkout, use `--dataset-id` to record
 that source URL and its actual Git revision rather than claiming a Hub snapshot.
+
+## Run an isolated scripted smoke
+
+Use a Linux Docker daemon, clean pinned evaluator and task checkouts, and
+locally available official images. Record each image ID from `docker image
+inspect`. Supply an image mapping such as
+`{"sympy__sympy-20590": "sha256:<full-image-id>"}`. Build Construct
+against a libc supported by the task image. The release workflow uses Ubuntu
+22.04 for the Linux build. Build `construct-dev` for the host.
+
+```sh
+python3 bench/swebench_run.py \
+  --manifest /outside-agent/pilot/manifest.json \
+  --evaluator /outside-agent/SWE-bench \
+  --task-repo /outside-agent/swe-bench-tasks \
+  --python /outside-agent/evaluator-venv/bin/python \
+  --images /outside-agent/images.json \
+  --construct /outside-agent/build/construct \
+  --construct-dev target/debug/construct-dev \
+  --script bench/fixtures/swebench-sympy-container.json \
+  --requests 2 --seconds 60 \
+  --output /outside-agent/scripted-run
+```
+
+The example script is specific to `sympy__sympy-20590`. It verifies repository
+setup and tool isolation, adds a marker file, and runs SymPy's bundled tests.
+The third model request hits the guard, so the command exits with status 1
+and records `budget_stop: request_limit`. Use `--requests 3` to complete
+the same scripted turn.
+
+The container starts at the original base in a shallow checkout. It can run
+the task's installed toolchain against the working tree. The container has
+no external network and sees read-only inputs plus a Unix socket. The socket
+leads to a host process that accepts only chat completions for the pinned
+model. The recording proxy runs on the host with an empty environment in
+scripted mode. The grader data, task source checkout, and provider credentials
+stay on the host.
+
+`run.json` binds the prepared manifest, binaries, configuration, source and
+images to `predictions.jsonl`. Each attempt retains the Construct events,
+SQLite journal, proxy records and budget ledger. Patches are extracted with
+the bridge's exporter inside the container. The runner exports a row for
+every selected task, including empty patches when setup fails.
+
+The guard reserves request and context-token capacity before forwarding
+any completion, including calls with no tools. The ledger records actual
+reported tokens when known and retains unknown reservations. The response
+is buffered until usage can be accounted for, so use this runner for quality
+and isolation checks. The money-reservation tests use a local fixture with
+synthetic costs. Before paid use, verify a provider spending cap, reconcile
+settled receipts and carry one ledger across the entire pilot.
 
 ## Export predictions from completed work
 
@@ -132,7 +183,8 @@ or Orca's automatic prefix affinity. Both client and benchmark read
 `usage.cost_usd` before legacy `usage.cost`, preserving an explicit zero and an
 unknown cost. The recording log retains Orca's request ID for receipt lookup.
 Inline figures are provider-reported estimates; settled receipts remain the
-authority. The benchmark does not yet reconcile receipts or enforce a dollar cap.
+authority. The scripted runner exercises the admission code with synthetic
+costs. Live receipt reconciliation and a provider spending cap are pending.
 
 `BENCH_CONSTRUCT=/absolute/path/to/construct` selects the binary under test
 (default `target/release/construct`). A debug binary is useful for plumbing
@@ -149,9 +201,9 @@ repo identity, not previous patches, and exclude grader data from reflection.
 
 Start with a five-task environment/pilot proof, spend at most $2 on the initial
 inference pilot, and retain $5 of the roughly $20 budget. Final sample size and
-repeats depend on actual inference/learning costs. Container execution, image
-identity recording, total-spend enforcement, sequence orchestration, matched
-mini-SWE-agent runs and the paid SWE-bench pilot remain work in #236.
+repeats depend on actual inference and learning costs. The five-task
+environment proof, paid admission and reconciliation, sequence orchestration,
+and matched mini-SWE-agent runs remain work in #236.
 
 References: [official evaluator](https://github.com/SWE-bench/SWE-bench),
 [official evaluation guide](https://www.swebench.com/SWE-bench/guides/evaluation/),
