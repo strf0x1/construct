@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Prepare a fixed SWE-bench subset, export patches, and bind official grades.
 
-This bridge does not run an agent or implement a scorer. Only agent/tasks.jsonl
-may enter an agent sandbox. The private grader data and pinned upstream code
-stay outside it; the official v5 CLI builds and grades its own environments.
+The task runner uses only public rows from agent/tasks.jsonl. The private
+grader data and pinned upstream code stay on the host with the official v5
+evaluator.
 """
 
 import argparse
@@ -95,7 +95,10 @@ def load(manifest):
     for relative, field in [("grader/dataset.jsonl", "selected_sha256"), ("agent/tasks.jsonl", "public_sha256")]:
         if sha256(manifest.parent / relative) != data["dataset"][field]:
             raise ValueError(f"{relative} changed after task selection")
-    return data, read_rows(manifest.parent / "agent/tasks.jsonl")
+    rows = read_rows(manifest.parent / "agent/tasks.jsonl")
+    if [row["instance_id"] for row in rows] != data["instance_ids"]:
+        raise ValueError("selected instance IDs do not match public task inputs")
+    return data, rows
 
 
 def git(work, *args):
@@ -126,9 +129,14 @@ def export(manifest, worktrees, output):
     data, rows = load(manifest)
     if set(worktrees) - set(data["instance_ids"]):
         raise ValueError("worktree mapping contains an unselected instance")
-    predictions = [{"instance_id": row["instance_id"], "model_name_or_path": data["model"],
-                    "model_patch": patch(worktrees[row["instance_id"]], row["base_commit"])
-                    if worktrees.get(row["instance_id"]) else ""} for row in rows]
+    patches = {row["instance_id"]: patch(worktrees[row["instance_id"]], row["base_commit"])
+               for row in rows if worktrees.get(row["instance_id"])}
+    write_predictions(data, patches, output)
+
+
+def write_predictions(data, patches, output):
+    predictions = [{"instance_id": instance, "model_name_or_path": data["model"],
+                    "model_patch": patches.get(instance, "")} for instance in data["instance_ids"]]
     with Path(output).open("x") as stream:
         stream.write("".join(json.dumps(r) + "\n" for r in predictions))
 
@@ -142,7 +150,7 @@ def check_checkout(path, expected):
 
 # The task repo supersedes the dataset in upstream v5. Refuse a mismatched
 # public task instead of grading a different base/prompt under a familiar id.
-ENTRYPOINT = """import json, sys
+TASK_CHECK = """import json, sys
 from pathlib import Path
 from swebench.task.repo import load_task_repo
 public_path, task_repo = sys.argv[1:3]
@@ -153,6 +161,9 @@ for want, have in zip(expected, actual):
         if want[field] != have[field]:
             raise ValueError('pinned task differs from selected dataset: ' + want['instance_id'] + ' / ' + field)
 del sys.argv[1:3]
+"""
+
+ENTRYPOINT = TASK_CHECK + """
 from swebench.cli.cli import main
 main()
 """

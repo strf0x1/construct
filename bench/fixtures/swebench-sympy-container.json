@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "call": "shell",
+      "args": {
+        "command": "set -e\ntest \"$(git rev-list --count HEAD)\" = 1\ntest \"$(git rev-parse HEAD)\" = cffd4e0f86fefd4802349a9f9b19ed70934ea354\ntest ! -e /grader\ntest ! -e /var/run/docker.sock\ntest -z \"${ORCAROUTER_API_KEY:-}\"\ntest -z \"${OPENAI_API_KEY:-}\"\ntest \"$(ls /sys/class/net)\" = lo\npython -c 'import sys, sympy; assert \"/testbed\" in sympy.__file__; print(sys.executable)'\nprintf 'scripted proof\n' > runner-proof.txt\necho isolated\n"
+      }
+    },
+    {
+      "call": "shell",
+      "args": {
+        "command": "set -e\ntest \"$(cat runner-proof.txt)\" = \"scripted proof\"\nbin/test -C sympy/core/tests/test_numbers.py -k igcd\necho task-environment-ok\n"
+      }
+    },
+    {
+      "text": "Scripted task complete."
+    }
+  ]
+}
