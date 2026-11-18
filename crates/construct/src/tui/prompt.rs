@@ -277,7 +277,7 @@ mod tests {
     fn shell(detail: &str) -> Prompt {
         ask(Request::Path(PathAsk {
             agent: String::new(),
-            tool: "bash".into(),
+            tool: "shell".into(),
             access: Access::Read,
             paths: vec!["/home/me/.ssh/id_ed25519".into()],
             folder: None,

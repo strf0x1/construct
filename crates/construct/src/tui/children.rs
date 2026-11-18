@@ -173,7 +173,7 @@ mod tests {
     fn the_log_is_a_ring_and_the_text_a_tail() {
         let mut c = Child::new("c1", "scout".into());
         for i in 0..LOG + 10 {
-            c.tool_start(format!("t{i}"), "bash".into(), "ls".into());
+            c.tool_start(format!("t{i}"), "shell".into(), "ls".into());
         }
         assert_eq!(c.log.len(), LOG);
         c.say(&"é".repeat(SAID));

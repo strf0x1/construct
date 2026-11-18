@@ -256,9 +256,9 @@ mod tests {
         t.wrote(5);
         assert_eq!(t, Turn::Idle);
         t.start(Instant::now());
-        t.set_phase(Phase::Tool("bash".into()));
+        t.set_phase(Phase::Tool("shell".into()));
         t.opened();
-        assert_eq!(t.running().map(|r| r.phase.clone()), Some(Phase::Tool("bash".into())));
+        assert_eq!(t.running().map(|r| r.phase.clone()), Some(Phase::Tool("shell".into())));
         t.set_phase(Phase::Waiting);
         t.opened();
         t.wrote(3);
