@@ -12,9 +12,9 @@ pinned official v5 evaluator, and imports its reports. It uses only Python's
 standard library. Grading requires an environment with upstream dependencies.
 
 `bench/swebench_run.py` drives Construct with a scripted model inside an
-official task image. It proves the agent boundary, budget admission and
-prediction export without paid inference. Learning is disabled and each
-attempt starts with a fresh Construct home.
+official task image. It also supports a paid pilot through a host-side recording
+proxy and settled receipts. Learning is disabled and each attempt starts with
+a fresh Construct home.
 
 The default pins, inspected November 17, 2026, are:
 
@@ -93,13 +93,32 @@ SQLite journal, proxy records and budget ledger. Patches are extracted with
 the bridge's exporter inside the container. The runner exports a row for
 every selected task, including empty patches when setup fails.
 
-The guard reserves request and context-token capacity before forwarding
-any completion, including calls with no tools. The ledger records actual
-reported tokens when known and retains unknown reservations. The response
-is buffered until usage can be accounted for, so use this runner for quality
-and isolation checks. The money-reservation tests use a local fixture with
-synthetic costs. Before paid use, verify a provider spending cap, reconcile
-settled receipts and carry one ledger across the entire pilot.
+## Run the capped paid pilot
+
+For a paid run, select `--upstream https://api.orcarouter.ai/v1` and pass
+`--spend-usd 2` with `--wallet-usd <confirmed-usd>`.
+Keep at least $5 available in the starting wallet after the cap. The paid
+pilot uses the manifest's pinned DeepSeek 1017 model and requests high reasoning
+effort through OrcaRouter. Record the requested budget and limits before any call.
+Use explicit per-task limits for request count, tokens, wall time, context and
+maximum output.
+
+Every completion reserves tokens and $0.85 before dispatch. The reservation
+covers the model's full upstream input window and maximum output at published
+peak rates, with rounding headroom. The guard accepts text and client-side
+function tools. A single admission is in flight, and a successful settlement
+releases the unused reservation. The money limit applies across all selected
+tasks. A missing or duplicate receipt holds its reservation and stops the
+paid run. Subsequent tasks get empty predictions and retain their place in
+the denominator. [DeepSeek model limits and peak pricing](https://api-docs.deepseek.com/quick_start/pricing/)
+
+The recording proxy keeps the real key on the host. The receipt process
+uses the same credential to look up the charge by request ID before the next
+call can run. The per-attempt ledger preserves both inline usage and settled
+cost. A wall-time stop gives Construct a brief grace period to journal and
+export the partial patch after admission has closed. The guard buffers the
+provider response while it accounts for usage, so use this runner to measure
+quality and spend. [OrcaRouter receipts](https://docs.orcarouter.ai/operations/per-request-cost)
 
 ## Export predictions from completed work
 
@@ -183,8 +202,8 @@ or Orca's automatic prefix affinity. Both client and benchmark read
 `usage.cost_usd` before legacy `usage.cost`, preserving an explicit zero and an
 unknown cost. The recording log retains Orca's request ID for receipt lookup.
 Inline figures are provider-reported estimates; settled receipts remain the
-authority. The scripted runner exercises the admission code with synthetic
-costs. Live receipt reconciliation and a provider spending cap are pending.
+authority. The paid runner uses `construct-dev orca-receipt` to reconcile
+each request before releasing its reservation.
 
 `BENCH_CONSTRUCT=/absolute/path/to/construct` selects the binary under test
 (default `target/release/construct`). A debug binary is useful for plumbing
@@ -202,8 +221,8 @@ repo identity, not previous patches, and exclude grader data from reflection.
 Start with a five-task environment/pilot proof, spend at most $2 on the initial
 inference pilot, and retain $5 of the roughly $20 budget. Final sample size and
 repeats depend on actual inference and learning costs. The five-task
-environment proof, paid admission and reconciliation, sequence orchestration,
-and matched mini-SWE-agent runs remain work in #236.
+environment proof and paid pilot are tracked in #236. The matched
+mini-SWE-agent baseline and learning sequences follow the pilot.
 
 References: [official evaluator](https://github.com/SWE-bench/SWE-bench),
 [official evaluation guide](https://www.swebench.com/SWE-bench/guides/evaluation/),

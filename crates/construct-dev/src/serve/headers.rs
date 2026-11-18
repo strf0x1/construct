@@ -4,10 +4,14 @@ use axum::http::HeaderMap;
 use reqwest::RequestBuilder;
 use serde_json::{Value, json};
 
+pub(super) const ORCA_REQUEST_ID: &str = "x-orca-request-id";
+
+pub(super) fn is_orca(upstream: &str) -> bool {
+    reqwest::Url::parse(upstream).is_ok_and(|url| url.host_str() == Some("api.orcarouter.ai"))
+}
+
 pub(super) fn forward(headers: &HeaderMap, mut request: RequestBuilder, upstream: &str) -> RequestBuilder {
-    if !headers.contains_key("x-orcarouter-include-cost")
-        && reqwest::Url::parse(upstream).is_ok_and(|url| url.host_str() == Some("api.orcarouter.ai"))
-    {
+    if !headers.contains_key("x-orcarouter-include-cost") && is_orca(upstream) {
         request = request.header("x-orcarouter-include-cost", "true");
     }
     for (name, value) in headers {
@@ -22,7 +26,7 @@ pub(super) fn forward(headers: &HeaderMap, mut request: RequestBuilder, upstream
 }
 
 pub(super) fn record(headers: &HeaderMap, record: &mut Value) {
-    for (header, field) in [("x-orca-request-id", "upstream_request_id"), ("x-orca-resolved-model", "resolved_model")] {
+    for (header, field) in [(ORCA_REQUEST_ID, "upstream_request_id"), ("x-orca-resolved-model", "resolved_model")] {
         if let Some(value) = headers.get(header).and_then(|v| v.to_str().ok()) {
             record[field] = json!(value);
         }
