@@ -79,8 +79,9 @@ The third model request hits the guard, so the command exits with status 1
 and records `budget_stop: request_limit`. Use `--requests 3` to complete
 the same scripted turn.
 
-The container starts at the original base in a shallow checkout. It can run
-the task's installed toolchain against the working tree. The container has
+The container starts at the original base in a shallow checkout. It retains
+ignored build products from the pinned official image so the task's installed
+toolchain works against the working tree. The container has
 no external network and sees read-only inputs plus a Unix socket. The socket
 leads to a host process that accepts only chat completions for the pinned
 model. The recording proxy runs on the host with an empty environment in
@@ -106,11 +107,11 @@ maximum output.
 Every completion reserves tokens and $0.85 before dispatch. The reservation
 covers the model's full upstream input window and maximum output at published
 peak rates, with rounding headroom. The guard accepts text and client-side
-function tools. A single admission is in flight, and a successful settlement
-releases the unused reservation. The money limit applies across all selected
-tasks. A missing or duplicate receipt holds its reservation and stops the
-paid run. Subsequent tasks get empty predictions and retain their place in
-the denominator. [DeepSeek model limits and peak pricing](https://api-docs.deepseek.com/quick_start/pricing/)
+function tools. The guard serializes admission within each task. Parallel
+tasks share the arm's reserved and settled totals. A missing or duplicate
+receipt holds its reservation and stops new admissions. Skipped tasks get
+empty predictions and retain their place in the denominator.
+[DeepSeek model limits and peak pricing](https://api-docs.deepseek.com/quick_start/pricing/)
 
 The recording proxy keeps the real key on the host. The receipt process
 uses the same credential to look up the charge by request ID before the next
@@ -119,6 +120,49 @@ cost. A wall-time stop gives Construct a brief grace period to journal and
 export the partial patch after admission has closed. The guard buffers the
 provider response while it accounts for usage, so use this runner to measure
 quality and spend. [OrcaRouter receipts](https://docs.orcarouter.ai/operations/per-request-cost)
+
+## Run the matched comparison
+
+The [frozen sample](../bench/fixtures/swebench-paired-236.json) selects 24
+unused Verified tasks across six repositories. Within each repository, it
+takes one short issue, two medium issues, and one issue rated at least an
+hour. The JSON records the seed, membership source, and all selected IDs.
+Verify the official environments with the reference fixes and no-change
+controls before starting the paid arms.
+
+Build a portable mini-SWE-agent runtime for the Linux x86_64 task images.
+Use the standalone CPython 3.12.14 distribution installed by uv and the clean
+upstream [v2.4.6 source](https://github.com/SWE-agent/mini-swe-agent/tree/a83fcae82d2a08f0ee0c688f9d137b3566c097f8).
+
+```sh
+mkdir "$runtime" "$runtime/site"
+portable_python=$(realpath "$(uv python find 3.12.14 --managed-python)")
+cp -a "$(dirname "$(dirname "$portable_python")")" "$runtime/python"
+uv pip install --python "$runtime/python/bin/python3" --only-binary ':all:' \
+  --require-hashes --target "$runtime/site" -r bench/fixtures/swebench-mini-requirements.txt
+cp -a "$mini_checkout/src/minisweagent" "$runtime/site/"
+git -C "$mini_checkout" rev-parse HEAD > "$runtime/mini-revision"
+```
+
+For the Construct arm, select `--construct /path/to/construct`. For the
+mini-SWE-agent arm, select `--mini-runtime "$runtime"`. Use the same prepared
+manifest, image IDs, model and request, token, output, wall-time and worker
+limits for both. Each arm has its own $2 cap, so the combined cap is $4.
+Allow for the other arm's full reservation when checking the confirmed
+wallet balance. The arm's guard accounts for retries and can wait for an
+outstanding reservation to settle before admitting another request.
+
+Mini-SWE-agent uses its upstream SWE-bench instructions, Bash tool, action
+loop, and trajectory format. The local transport adapter sends its model calls
+to the shared guard. The portable runtime runs the harness while Bash runs in
+the original task environment. The container exports the explicitly submitted
+mini-SWE-agent patch and retains the working-tree patch at a budget stop.
+
+Grade each arm separately with `swebench.py grade` and a distinct arm name.
+Pass both run directories and imported `result.json` files to
+`swebench_compare.py` with the frozen sample. It checks input and image
+identity, reports paired outcomes, and resamples repositories for an
+exploratory interval on the score difference.
 
 ## Export predictions from completed work
 

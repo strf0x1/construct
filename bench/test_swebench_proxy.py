@@ -1,6 +1,7 @@
 """The gate counts calls before dispatch, including side calls and failures."""
 
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor
 import http.client
 import http.server
 import json
@@ -8,6 +9,7 @@ from pathlib import Path
 import socket
 import tempfile
 import threading
+import time
 import unittest
 
 import swebench_proxy as proxy
@@ -154,6 +156,26 @@ class BudgetTests(unittest.TestCase):
         input_cost = PRICING["context_tokens"] * Decimal(PRICING["peak_uncached_input_usd_per_million"])
         output_cost = PRICING["maximum_output_tokens"] * Decimal(PRICING["peak_output_usd_per_million"])
         self.assertGreater(RESERVATION, (input_cost + output_cost) / 1_000_000)
+
+    def test_parallel_admission_waits_for_settlement(self):
+        spend = proxy.Spend(Decimal("1"), Decimal("0.85"))
+        deadline = time.monotonic() + 5
+        waiting = threading.Event()
+        original_wait = spend.changed.wait
+
+        def wait(timeout):
+            waiting.set()
+            return original_wait(timeout)
+
+        spend.changed.wait = wait
+        self.assertIsNone(spend.reserve(deadline))
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(spend.reserve, deadline)
+            self.assertTrue(waiting.wait(2), "parallel reservation never waited for credit")
+            self.assertEqual(spend.snapshot()["reserved_usd"], "0.85")
+            spend.finish(Decimal("0.10"), "first")
+            self.assertIsNone(pending.result(timeout=2))
+        self.assertEqual(spend.snapshot(), {"settled_usd": "0.10", "reserved_usd": "0.85", "spend_stop": None})
 
     def test_receipt_is_bound_to_request_model_currency_and_token_count(self):
         sample = {"id": "id-1", "model": "pinned", "cost_currency": "USD", "total_cost": 0.11,
