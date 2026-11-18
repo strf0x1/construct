@@ -1,6 +1,10 @@
 //! The system prompt. Kept short on purpose: no skill index (the router puts
 //! at most three suggestions on the user turn instead) and no tool essays.
+//! The one exception is the sandbox: its limits are stated up front, from the
+//! config in force, so the model works within them instead of finding them
+//! one failed call at a time.
 
+use crate::config::SandboxConfig;
 use crate::memory;
 use crate::tools::grep::Grep;
 use std::path::Path;
@@ -13,7 +17,6 @@ const BASE: &str = "You are construct, a coding agent working in the user's term
 - Be brief. Use GitHub markdown. Refer to code as path:line.
 - Don't narrate before tool calls. When done, say what changed and how you verified it in a few sentences.
 - The skill library is outside the workspace; read and change skills only with the skill and skill_manage tools, never file tools or shell.
-- Tools see only the workspace, system paths and toolchains. Search the workspace, not the whole filesystem; if something isn't there, ask the user where it is.
 - <system-reminder> blocks come from the harness, not the user.";
 
 /// The fixed part of the prompt, naming the content-search tool as it is called.
@@ -30,7 +33,13 @@ fn base(search: Option<&str>) -> String {
 /// (`learn::prompt_block`) adds it here. `search` is what the content-search
 /// tool is called this session (`ToolsConfig::search_tool`), or `None` when
 /// it does not exist: the prompt never names a tool the model does not have.
-pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str, search: Option<&str>) -> String {
+pub fn build(
+    cwd: &Path,
+    memory: &memory::Store,
+    strategy: &str,
+    search: Option<&str>,
+    sandbox: &SandboxConfig,
+) -> String {
     let mut s = base(search);
     s.push_str("\n\n# Environment\n");
     s.push_str(&format!("- cwd: {}\n", cwd.display()));
@@ -39,6 +48,7 @@ pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str, search: Option<
         s.push_str("- git repo: yes\n");
     }
     s.push_str(&format!("- date: {}\n", today()));
+    s.push_str(&sandbox_block(sandbox));
     for name in ["AGENTS.md", "CLAUDE.md"] {
         if let Ok(text) = std::fs::read_to_string(cwd.join(name)) {
             s.push_str(&format!("\n# Project instructions ({name})\n{}\n", crate::llm::truncate(text.trim(), 8000)));
@@ -59,6 +69,38 @@ pub fn build(cwd: &Path, memory: &memory::Store, strategy: &str, search: Option<
             }
         }
     }
+    s
+}
+
+/// What the tools can and cannot reach, as the model needs to know it. It
+/// mirrors `sandbox::Policy::new` for the main agent, which never blocks the
+/// network itself; a delegated child's prompt comes from its definition.
+fn sandbox_block(cfg: &SandboxConfig) -> String {
+    let secrets = "- Credentials and secrets are removed from the tools' environment.\n";
+    let network = "- The network is not blocked by construct, but the machine may be offline. If a fetch fails, don't retry it; work from what is on disk.\n";
+    if cfg.mode == "off" {
+        return format!("\n# Sandbox\n- None: tools run with the user's own permissions.\n{secrets}{network}");
+    }
+    let mut s = String::from("\n# Sandbox\nTools run in a sandbox; work within it rather than around it.\n");
+    if cfg.mode == "read-only" {
+        s.push_str("- Read-only: the working directory, system paths and installed toolchains.\n");
+        s.push_str("- Writable: only $TMPDIR, for scratch files (/tmp is not writable).\n");
+    } else {
+        s.push_str("- Read and write: the working directory, and $TMPDIR for scratch files (/tmp is not writable).\n");
+        s.push_str("- Read-only: system paths and installed toolchains.\n");
+    }
+    if !cfg.allow_read.is_empty() {
+        s.push_str(&format!("- Also readable: {}\n", cfg.allow_read.join(", ")));
+    }
+    if !cfg.allow_write.is_empty() {
+        s.push_str(&format!("- Also writable: {}\n", cfg.allow_write.join(", ")));
+    }
+    s.push_str("- Everything else on disk is hidden, so a search outside these finds nothing. Search the workspace; if something isn't there, ask the user where it is.\n");
+    s.push_str(
+        "- A call that goes past these limits asks the user when someone can answer, and is denied otherwise.\n",
+    );
+    s.push_str(secrets);
+    s.push_str(network);
     s
 }
 
@@ -110,6 +152,23 @@ pub fn skill_reminder(skills: &[(String, f32)], all: &[crate::skills::Skill]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn sandbox(mode: &str) -> SandboxConfig {
+        SandboxConfig { mode: mode.into(), ..SandboxConfig::default() }
+    }
+
+    #[test]
+    fn the_sandbox_block_states_the_limits_in_force() {
+        let ws = sandbox_block(&sandbox("workspace"));
+        assert!(ws.contains("Read and write: the working directory"), "{ws}");
+        assert!(ws.contains("/tmp is not writable") && ws.contains("may be offline"), "{ws}");
+        let ro = sandbox_block(&sandbox("read-only"));
+        assert!(ro.contains("Writable: only $TMPDIR") && !ro.contains("Read and write"), "{ro}");
+        let off = sandbox_block(&sandbox("off"));
+        assert!(off.contains("None: tools run with the user's own permissions") && !off.contains("hidden"), "{off}");
+        let extra = SandboxConfig { allow_read: vec!["~/notes".into()], ..sandbox("workspace") };
+        assert!(sandbox_block(&extra).contains("Also readable: ~/notes"));
+    }
 
     fn tools_line(search: Option<&str>) -> String {
         base(search).lines().find(|l| l.contains("over shell for files")).unwrap().to_string()
