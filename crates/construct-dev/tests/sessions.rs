@@ -77,6 +77,9 @@ fn archive_filters_all_sessions_and_navigates_old_unicode_rows() {
     seed(&env, "hidden child", &cwd, true, true);
     seed(&env, "unused head", &cwd, false, false);
     seed(&env, "wrong directory", "/another/directory", false, true);
+    // Activity is ordered by millisecond, ties by the newer id: let the clock
+    // move past the last seed so the oldest session is strictly the latest.
+    std::thread::sleep(std::time::Duration::from_millis(5));
     let db = Journal::open(&env.journal_path(&env.work)).unwrap();
     db.append(&oldest, &Event::SessionName { title: "A manual 雪 title".into() }).unwrap();
     db.append(&oldest, &Event::submitted("last unique request")).unwrap();
