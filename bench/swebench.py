@@ -169,10 +169,12 @@ main()
 """
 
 
-def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sys.executable):
+def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sys.executable, workers=1):
     data, _ = load(manifest)
     if not re.fullmatch(r"[A-Za-z0-9_-]+", arm) or repeat < 0:
         raise ValueError("arm must be a simple name and repeat must be nonnegative")
+    if workers < 1:
+        raise ValueError("workers must be positive")
     evaluator, tasks, predictions = [Path(p).resolve() for p in (evaluator, tasks, predictions)]
     check_checkout(evaluator, data["evaluator"]["revision"])
     check_checkout(tasks, data["tasks"]["revision"])
@@ -187,7 +189,7 @@ def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sy
     manifest = Path(manifest).resolve()
     command = [str(python), "-c", ENTRYPOINT, str(manifest.parent / "agent/tasks.jsonl"), str(tasks),
                "eval", str(manifest.parent / "grader/dataset.jsonl"), "-p", str(predictions),
-               "--task-repo", str(tasks), "--run-id", run_id, "-j", "1"]
+               "--task-repo", str(tasks), "--run-id", run_id, "-j", str(workers)]
     for instance_id in data["instance_ids"]:
         command += ["-i", instance_id]
     destination = cwd / "evaluation.json"
@@ -257,6 +259,7 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--arm", required=True)
     p.add_argument("--repeat", type=int, default=0)
+    p.add_argument("--workers", type=int, default=1)
     p.add_argument("--python", default=sys.executable)
     p.add_argument("--execute", action="store_true")
     p = commands.add_parser("collect", help="import official reports without changing the selected denominator")
@@ -272,7 +275,7 @@ def main():
             print(json.dumps(collect(args.evaluation), indent=2))
         else:
             destination = plan(args.manifest, args.predictions, args.evaluator, args.task_repo,
-                               args.output, args.arm, args.repeat, args.python)
+                               args.output, args.arm, args.repeat, args.python, args.workers)
             print(destination)
             if args.execute:
                 meta = json.loads(destination.read_text())

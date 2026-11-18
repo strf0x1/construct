@@ -1,0 +1,141 @@
+{
+  "suite": "SWE-bench/SWE-bench_Verified",
+  "membership_revision": "78f471bf655a3137b2e8a75af1501690ec009ec3",
+  "membership_parquet_sha256": "030cfd7f2a704c4c0226e7f104c725a3b41230b1d3517f9c915ad7ea5be3fa25",
+  "seed": "construct-issue-236-paired-v1",
+  "sampler": "Take lowest SHA-256(seed:instance_id) per repository and difficulty bucket. Run in listed order.",
+  "quotas_per_repository": {
+    "<15 min fix": 1,
+    "15 min - 1 hour": 2,
+    "1 hour or more": 1
+  },
+  "pilot_excluded": [
+    "sympy__sympy-20590",
+    "pytest-dev__pytest-5262",
+    "pallets__flask-5014",
+    "django__django-9296",
+    "sphinx-doc__sphinx-7440"
+  ],
+  "instances": [
+    {
+      "instance_id": "django__django-14376",
+      "repo": "django/django",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "django__django-13028",
+      "repo": "django/django",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "django__django-15732",
+      "repo": "django/django",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "django__django-16631",
+      "repo": "django/django",
+      "difficulty": "1-4 hours"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5809",
+      "repo": "pytest-dev/pytest",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7236",
+      "repo": "pytest-dev/pytest",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "repo": "pytest-dev/pytest",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "difficulty": "1-4 hours"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8595",
+      "repo": "sphinx-doc/sphinx",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11445",
+      "repo": "sphinx-doc/sphinx",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10673",
+      "repo": "sphinx-doc/sphinx",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9461",
+      "repo": "sphinx-doc/sphinx",
+      "difficulty": "1-4 hours"
+    },
+    {
+      "instance_id": "sympy__sympy-17655",
+      "repo": "sympy/sympy",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "sympy__sympy-22080",
+      "repo": "sympy/sympy",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "sympy__sympy-22914",
+      "repo": "sympy/sympy",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "sympy__sympy-12489",
+      "repo": "sympy/sympy",
+      "difficulty": "1-4 hours"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13142",
+      "repo": "scikit-learn/scikit-learn",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-26323",
+      "repo": "scikit-learn/scikit-learn",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10908",
+      "repo": "scikit-learn/scikit-learn",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25102",
+      "repo": "scikit-learn/scikit-learn",
+      "difficulty": "1-4 hours"
+    },
+    {
+      "instance_id": "pydata__xarray-6461",
+      "repo": "pydata/xarray",
+      "difficulty": "<15 min fix"
+    },
+    {
+      "instance_id": "pydata__xarray-4695",
+      "repo": "pydata/xarray",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "pydata__xarray-2905",
+      "repo": "pydata/xarray",
+      "difficulty": "15 min - 1 hour"
+    },
+    {
+      "instance_id": "pydata__xarray-3993",
+      "repo": "pydata/xarray",
+      "difficulty": "1-4 hours"
+    }
+  ]
+}

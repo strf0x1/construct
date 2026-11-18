@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Run Construct on selected, pinned SWE-bench task images."""
+"""Run Construct or mini-SWE-agent on selected, pinned SWE-bench task images."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import contextlib
 import dataclasses
 from decimal import Decimal
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -17,6 +19,7 @@ import time
 import uuid
 
 import swebench
+import swebench_mini
 import swebench_orca
 import swebench_proxy
 import swebench_relay
@@ -132,9 +135,11 @@ def is_journal(path):
             and parts[2] in ("journal.sqlite", "journal.sqlite-wal", "journal.sqlite-shm"))
 
 
-def container_run(container, work, row, image, socket_path, inputs, budget):
+def container_run(container, work, row, image, socket_path, inputs, budget, mini_runtime):
     mounts = [f"type=bind,src={inputs},dst=/bench,readonly",
               f"type=bind,src={socket_path},dst={swebench_relay.SOCKET},readonly"]
+    if mini_runtime:
+        mounts.append(f"type=bind,src={mini_runtime},dst=/mini-runtime,readonly")
     command = ["docker", "create", "--name", container, "--pull", "never", "--network", "none", "--init",
                "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "256",
                *[arg for mount in mounts for arg in ("--mount", mount)],
@@ -160,20 +165,27 @@ def container_run(container, work, row, image, socket_path, inputs, budget):
     return json.loads(state)
 
 
-def attempt(row, image, model, budget, binary, dev, script, paid, work, evidence):
+def attempt(row, image, model, budget, binary, mini_runtime, dev, script, paid, work, evidence):
     work.mkdir(mode=0o700)
     container = f"construct-swe-{uuid.uuid4().hex}"
     inputs = work / "inputs"
     inputs.mkdir()
     for filename in ("swebench.py", "swebench_container.sh", "swebench_relay.py"):
         shutil.copyfile(BENCH / filename, inputs / filename)
-    shutil.copyfile(binary, inputs / "construct")
-    (inputs / "construct").chmod(0o555)
+    if mini_runtime:
+        shutil.copyfile(BENCH / "swebench_mini.py", inputs / "swebench_mini.py")
+        swebench.write_json(inputs / "mini-config.json", {
+            "model": model, "endpoint": f"http://127.0.0.1:{swebench_relay.PORT}/v1/chat/completions",
+            "max_tokens": budget.limits.output, "requests": budget.limits.requests, "seconds": budget.limits.seconds,
+        })
+    else:
+        shutil.copyfile(binary, inputs / "construct")
+        (inputs / "construct").chmod(0o555)
+        (inputs / "config.toml").write_text(config(model, budget.limits))
     if script:
         shutil.copyfile(script, work / "script.json")
         evidence["script_sha256"] = swebench.sha256(work / "script.json")
     (inputs / "issue.txt").write_text(row["problem_statement"])
-    (inputs / "config.toml").write_text(config(model, budget.limits))
     evidence.update({"container": container, "inputs": {p.name: swebench.sha256(p) for p in inputs.iterdir()}})
     swebench.write_json(work / "attempt.json", evidence)
     try:
@@ -183,18 +195,27 @@ def attempt(row, image, model, budget, binary, dev, script, paid, work, evidence
         ):
             socket_path = Path(transport) / "model.sock"
             with swebench_proxy.guard(socket_path, port, model, budget, provider=paid, session_id=container):
-                state = container_run(container, work, row, image, socket_path, inputs, budget)
+                state = container_run(container, work, row, image, socket_path, inputs, budget, mini_runtime)
                 copy_artifacts(container, "/export", work, lambda p: p.parts in {
-                    ("export", "agent.patch"), ("export", "agent.exit"), ("export", "construct.version")})
-                journals = copy_artifacts(container, "/state/construct/projects", work, is_journal)
+                    ("export", "agent.patch"), ("export", "agent.exit"), ("export", "construct.version"),
+                    ("export", "mini.traj.json")})
+                journals = set() if mini_runtime else copy_artifacts(container, "/state/construct/projects", work, is_journal)
         patch_file = work / "export/agent.patch"
         status = work / "export/agent.exit"
         evidence.update({"container_exit": state["ExitCode"], "oom_killed": state["OOMKilled"],
                          "agent_exit": int(status.read_text()) if status.is_file() else None,
                          "journals": sorted(str(path) for path in journals),
                          "patch_sha256": swebench.sha256(patch_file) if patch_file.is_file() else None})
-        if state["ExitCode"] == 0 and (not patch_file.is_file() or not status.is_file() or not journals):
-            raise ValueError("task container exited without a patch, agent exit status, or journal")
+        if mini_runtime:
+            trajectory = work / "export/mini.traj.json"
+            if trajectory.is_file():
+                evidence["trajectory_sha256"] = swebench.sha256(trajectory)
+                info = json.loads(trajectory.read_text()).get("info", {})
+                evidence["mini_exit_status"] = info.get("exit_status")
+        if state["ExitCode"] == 0 and (
+            not patch_file.is_file() or not status.is_file() or not (journals or "trajectory_sha256" in evidence)
+        ):
+            raise ValueError("task container exited without a patch, status, or trajectory")
         return patch_file.read_text() if patch_file.is_file() else ""
     finally:
         evidence.update({"budget_stop": budget.stop, "requests": budget.requests, "tokens": budget.tokens,
@@ -203,18 +224,37 @@ def attempt(row, image, model, budget, binary, dev, script, paid, work, evidence
         subprocess.run(["docker", "rm", "--force", container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def runtime_digest(runtime):
+    """Fingerprint portable Python, pinned package source and installed wheels."""
+    if (runtime / "mini-revision").read_text().strip() != swebench_mini.MINI_REVISION:
+        raise ValueError("mini-SWE-agent checkout must match the pinned revision")
+    if not (runtime / "python/bin/python3").is_file() or not (runtime / "site/minisweagent").is_dir():
+        raise ValueError("mini runtime requires python/bin/python3 and site/minisweagent")
+    entries = []
+    for path in sorted(runtime.rglob("*")):
+        if path.is_symlink():
+            entries.append((str(path.relative_to(runtime)), "symlink", os.readlink(path)))
+        elif path.is_file():
+            entries.append((str(path.relative_to(runtime)), "file", swebench.sha256(path)))
+    return hashlib.sha256(json.dumps(entries).encode()).hexdigest()
+
+
 def run(args):
+    if args.workers < 1:
+        raise ValueError("workers must be positive")
     manifest = args.manifest.resolve()
     data, rows = swebench.load(manifest)
     selected = images(manifest, data, args.evaluator.resolve(), args.task_repo.resolve(), args.python,
                       json.loads(args.images.read_text()))
     limits = swebench_proxy.Limits(args.requests, args.tokens, args.seconds, args.context, args.output_tokens)
-    binary, dev = (p.resolve() for p in (args.construct, args.construct_dev))
+    dev = args.construct_dev.resolve()
+    binary = args.construct.resolve() if args.construct else None
+    mini_runtime = args.mini_runtime.resolve() if args.mini_runtime else None
     paid = None
     spend = swebench_proxy.Spend(Decimal(0), Decimal(0))
     if args.upstream:
-        if data["phase"] != "pilot" or not args.spend_usd or not Decimal("0") < args.spend_usd <= Decimal("2"):
-            raise ValueError("paid pilots require an explicit spend cap of at most $2")
+        if not args.spend_usd or not Decimal("0") < args.spend_usd <= Decimal("2"):
+            raise ValueError("each paid arm requires an explicit spend cap of at most $2")
         if args.wallet_usd is None or args.wallet_usd - args.spend_usd < Decimal("5"):
             raise ValueError("paid pilots require a starting wallet balance that preserves $5 after the cap")
         paid = swebench_orca.Orca(dev, args.upstream, data["model"])
@@ -229,32 +269,41 @@ def run(args):
               "budget_proxy_sha256": swebench.sha256(swebench_proxy.__file__),
               "recording_proxy_sha256": swebench.sha256(dev)}
     summary = {"mode": "paid" if paid else "scripted", "manifest_sha256": swebench.sha256(manifest), "source": source,
+               "harness": "mini-swe-agent" if mini_runtime else "construct",
                "model": data["model"], "limits": dataclasses.asdict(limits) |
                {"usd": str(spend.limit), "request_usd": str(spend.per_request)},
-               "attempts": []}
+               "workers": args.workers, "attempts": []}
+    if mini_runtime:
+        source.update({"mini_version": swebench_mini.MINI_VERSION, "mini_revision": swebench_mini.MINI_REVISION,
+                       "mini_runtime_sha256": runtime_digest(mini_runtime)})
     if paid:
         summary.update({"upstream": paid.upstream, "reasoning_effort": swebench_orca.EFFORT,
                         "pricing": swebench_orca.PRICING, "wallet_reserve_usd": "5"})
         source["receipt_adapter_sha256"] = swebench.sha256(swebench_orca.__file__)
     swebench.write_json(output / "run.json", summary)
-    patches = {}
-    for row in rows:
+    def run_task(row):
         task = row["instance_id"]
         evidence = {"instance_id": task, "base_commit": row["base_commit"], "image": selected[task]}
-        summary["attempts"].append(evidence)
         if not spend.available():
-            evidence["not_started"] = spend.stop or "spend_limit"
-            continue
+            evidence["not_started"] = spend.snapshot()["spend_stop"] or "spend_limit"
+            return evidence, ""
         work = output / task
         budget = swebench_proxy.Budget(limits, work / "budget.jsonl", spend)
         try:
-            patches[task] = attempt(row, selected[task], data["model"], budget, binary, dev, args.script, paid,
-                                    work, evidence)
+            patch = attempt(row, selected[task], data["model"], budget, binary, mini_runtime, dev, args.script,
+                            paid, work, evidence)
         except (OSError, ValueError, subprocess.CalledProcessError, tarfile.TarError) as error:
             evidence["runner_error"] = str(error)
-        summary.update({"settled_usd": str(spend.settled), "reserved_usd": str(spend.reserved),
-                        "spend_stop": spend.stop})
-        swebench.write_json(output / "run.json", summary)
+            patch = ""
+        return evidence, patch
+
+    patches = {}
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        for evidence, patch in pool.map(run_task, rows):
+            summary["attempts"].append(evidence)
+            patches[evidence["instance_id"]] = patch
+            summary.update(spend.snapshot())
+            swebench.write_json(output / "run.json", summary)
     swebench.write_predictions(data, patches, output / "predictions.jsonl")
     summary["predictions_sha256"] = swebench.sha256(output / "predictions.jsonl")
     swebench.write_json(output / "run.json", summary)
@@ -265,15 +314,18 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("manifest", "evaluator", "task-repo", "images", "construct", "construct-dev", "output"):
+    for name in ("manifest", "evaluator", "task-repo", "images", "construct-dev", "output"):
         parser.add_argument(f"--{name}", required=True, type=Path)
+    harness = parser.add_mutually_exclusive_group(required=True)
+    harness.add_argument("--construct", type=Path, help="Linux Construct executable")
+    harness.add_argument("--mini-runtime", type=Path, help="pinned mini-SWE-agent runtime directory")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--script", type=Path, help="drive the task with a local script")
     mode.add_argument("--upstream", help="paid endpoint with a supported receipt adapter")
     parser.add_argument("--spend-usd", type=dollars, help="maximum total settled spend plus reservations")
     parser.add_argument("--wallet-usd", type=dollars, help="confirmed starting wallet balance")
     parser.add_argument("--python", required=True, type=Path, help="pinned evaluator environment's Python")
-    for name, default in (("requests", 12), ("tokens", 100_000), ("seconds", 90), ("context", 16_384),
+    for name, default in (("workers", 1), ("requests", 12), ("tokens", 100_000), ("seconds", 90), ("context", 16_384),
                           ("output-tokens", 2048)):
         parser.add_argument(f"--{name}", type=int, default=default)
     args = parser.parse_args()

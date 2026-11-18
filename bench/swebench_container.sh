@@ -7,7 +7,6 @@ cd /testbed
 export HOME=/state/home CONSTRUCT_HOME=/state/construct GIT_CONFIG_NOSYSTEM=1
 export OPENAI_API_KEY=via-proxy
 mkdir -p "$HOME" "$CONSTRUCT_HOME" /export
-cp /bench/config.toml "$CONSTRUCT_HOME/config.toml"
 
 # Give the agent the exact base, with no extra image-build commits, remotes,
 # reflogs, or unreachable objects. Keep the installed environment in the image.
@@ -18,7 +17,9 @@ rm -rf .git
 mv "$seed/.git" .git
 rmdir "$seed"
 git reset -q --hard "$base"
-git clean -q -fdx
+# Keep ignored build products from the pinned official image. Editable
+# installs can generate modules and native extensions under /testbed.
+git clean -q -fd
 git remote add origin "https://github.com/$repo.git"
 git config user.name "Benchmark agent"
 git config user.email "agent@example.invalid"
@@ -49,10 +50,16 @@ for _ in range(100):
 else:
     raise RuntimeError("container model relay did not start")
 '
-/bench/construct --version > /export/construct.version
+if [[ -e /bench/swebench_mini.py ]]; then
+    command=(/mini-runtime/python/bin/python3 -I /bench/swebench_mini.py /bench/mini-config.json /bench/issue.txt)
+else
+    cp /bench/config.toml "$CONSTRUCT_HOME/config.toml"
+    /bench/construct --version > /export/construct.version
+    command=(/bench/construct run --json -- "$(cat /bench/issue.txt)")
+fi
 
 status=0
-/bench/construct run --json -- "$(cat /bench/issue.txt)" &
+"${command[@]}" &
 agent=$!
 trap 'kill -INT "$agent" 2>/dev/null || true' INT
 wait "$agent" || status=$?
@@ -61,6 +68,13 @@ if kill -0 "$agent" 2>/dev/null; then
     wait "$agent" || status=$?
 fi
 echo "$status" > /export/agent.exit
+if [[ -f /export/agent.patch ]]; then
+    # mini-SWE-agent submitted an explicit patch.
+    exit 0
+fi
+if [[ -e /bench/swebench_mini.py && -f patch.txt && -z "$(git ls-files -- patch.txt)" ]]; then
+    mv patch.txt /state/mini-patch-draft.txt
+fi
 "$relay_python" -I -c '
 import sys
 sys.path.insert(0, "/bench")

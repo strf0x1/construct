@@ -42,21 +42,52 @@ class Spend:
         self.settled = self.reserved = Decimal(0)
         self.stop = None
         self.receipts = set()
+        self.changed = threading.Condition()
 
     def available(self):
-        return self.stop is None and self.settled + self.reserved + self.per_request <= self.limit
+        with self.changed:
+            return self.stop is None and self.settled + self.per_request <= self.limit
 
-    def reserve(self):
-        self.reserved += self.per_request
+    def snapshot(self):
+        with self.changed:
+            return {"settled_usd": str(self.settled), "reserved_usd": str(self.reserved), "spend_stop": self.stop}
 
-    def finish(self, cost):
-        if cost is None:
-            self.stop = "unaccounted_request"
-            return
-        self.reserved -= self.per_request
-        self.settled += cost
-        if cost > self.per_request:
-            self.stop = "cost_reservation_exceeded"
+    def reserve(self, deadline):
+        with self.changed:
+            while True:
+                if self.stop:
+                    return self.stop
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return "time_limit"
+                if self.settled + self.per_request > self.limit:
+                    return "spend_limit"
+                if self.settled + self.reserved + self.per_request <= self.limit:
+                    self.reserved += self.per_request
+                    return None
+                self.changed.wait(remaining)
+
+    def block(self, reason):
+        with self.changed:
+            self.stop = self.stop or reason
+            self.changed.notify_all()
+
+    def finish(self, cost, request_id):
+        with self.changed:
+            if request_id and request_id in self.receipts:
+                self.stop = self.stop or "duplicate_receipt"
+                cost = None
+            if request_id:
+                self.receipts.add(request_id)
+            if cost is None:
+                self.stop = self.stop or "unaccounted_request"
+            else:
+                self.reserved -= self.per_request
+                self.settled += cost
+                if cost > self.per_request:
+                    self.stop = self.stop or "cost_reservation_exceeded"
+            self.changed.notify_all()
+            return cost, self.stop
 
 
 @dataclasses.dataclass(frozen=True)
@@ -78,17 +109,18 @@ class Budget:
         self.stop = None
 
     def log(self, event, **fields):
+        spend = self.spend.snapshot()
         with self.ledger.open("a") as stream:
             stream.write(json.dumps({"event": event, "requests": self.requests, "tokens": self.tokens,
-                                     "usd": str(self.usd), "run_settled_usd": str(self.spend.settled),
-                                     "run_reserved_usd": str(self.spend.reserved), **fields}) + "\n")
+                                     "usd": str(self.usd), "run_settled_usd": spend["settled_usd"],
+                                     "run_reserved_usd": spend["reserved_usd"], **fields}) + "\n")
             stream.flush()
             if event == "admitted" and self.spend.per_request:
                 os.fsync(stream.fileno())
 
     def admit(self, reserve_tokens):
         cap = self.limits
-        reason = self.stop or self.spend.stop
+        reason = self.stop
         if not reason:
             if time.monotonic() >= self.deadline:
                 reason = "time_limit"
@@ -96,38 +128,31 @@ class Budget:
                 reason = "request_limit"
             elif self.tokens + reserve_tokens > cap.tokens:
                 reason = "token_limit"
-            elif not self.spend.available():
-                reason = "spend_limit"
+            else:
+                reason = self.spend.reserve(self.deadline)
         if reason:
             self.stop = reason
             self.log("rejected", reason=reason)
             return False
         self.requests += 1
         self.tokens += reserve_tokens
-        self.spend.reserve()
         try:
             self.log("admitted", reserved_tokens=reserve_tokens)
         except OSError:
-            self.spend.stop = "ledger_error"
+            self.spend.block("ledger_error")
             raise
         return True
 
     def finish(self, usage, status, receipt, reserve_tokens, request_id=None, error=None):
-        if request_id:
-            if request_id in self.spend.receipts:
-                receipt, error = None, "duplicate_receipt"
-            else:
-                self.spend.receipts.add(request_id)
         tokens = receipt.tokens if receipt else sum_usage(usage)
-        cost = receipt.usd if receipt else None
-        self.spend.finish(cost)
+        cost, spend_stop = self.spend.finish(receipt.usd if receipt else None, request_id)
         if tokens is not None:
             self.tokens += tokens - reserve_tokens
         if cost is not None:
             self.usd += cost
         if self.stop is None:
-            if self.spend.stop:
-                self.stop = self.spend.stop
+            if spend_stop:
+                self.stop = spend_stop
             elif error or tokens is None:
                 self.stop = "unaccounted_request"
             elif tokens > reserve_tokens:
@@ -137,7 +162,7 @@ class Budget:
                      error=error, stop=self.stop, request_id=request_id,
                      settled_usd=None if cost is None else str(cost), billed_tokens=tokens)
         except OSError:
-            self.spend.stop = "ledger_error"
+            self.spend.block("ledger_error")
             raise
 
 
@@ -254,7 +279,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             receipt = self.server.provider.receipt(request_id, self.server.model)
         budget.finish(usage, status, receipt, reserve_tokens, request_id, error)
-        if error or receipt is None or budget.spend.stop:
+        if error or receipt is None or budget.stop in ("duplicate_receipt", "cost_reservation_exceeded"):
             self.reply(502, b'{"error":{"message":"upstream response could not be accounted for"}}')
         else:
             self.reply(status, chunks, content_type)
