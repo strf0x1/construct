@@ -1,4 +1,4 @@
-//! The HTTP side of Deck's coordinator task control (contract 1.4.0 §13):
+//! The HTTP side of Deck's coordinator task control (contract 1.5.0 §13):
 //! one bounded JSON operation per `POST <DECK_CONTROL_URL>/control`, and
 //! every refusal turned into prose that says what the model should change.
 //!
@@ -38,7 +38,7 @@ pub const REFUSALS: &[(&str, bool, &str)] = &[
     (
         "deck_control_scope",
         false,
-        "The project is outside this coordinator's project set. Choose a project in scope, or report it: only the user can widen the set, in Deck.",
+        "The project is outside this coordinator's project set; Deck's message names the projects you may use. Choose one of those (or leave project out if you have only one), or report it: only the user can widen the set, in Deck.",
     ),
     (
         "deck_control_cap",

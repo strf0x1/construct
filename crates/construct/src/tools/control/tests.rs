@@ -30,6 +30,12 @@ fn each_operation_takes_exactly_the_wire_s_fields() {
             .contains("cost")
     );
     assert!(refused(json!({ "operation": "wait", "id": "t", "after_turn": -1 })).contains("after_turn"));
+    assert_eq!(
+        request(&json!({ "operation": "create", "brief": "b" })).unwrap(),
+        json!({ "operation": "create", "brief": "b" }),
+        "a create may leave its project to Deck (1.5.0)"
+    );
+    assert!(refused(json!({ "operation": "create", "project": "p" })).contains("create needs brief"));
     assert_eq!(request(&json!({ "operation": "tasks" })).unwrap(), json!({ "operation": "tasks" }));
     assert_eq!(request(&json!({ "operation": "task", "id": "t", "project": null })).unwrap()["id"], "t");
 }
@@ -75,7 +81,20 @@ fn replies_read_as_what_to_do_next() {
     assert!(text.contains("began turn 2") && text.contains("after_turn 1"), "{text}");
     assert!(data["turn"] == 2);
     let (text, data) = reply(&json!({ "operation": "tasks" }), &json!({ "tasks": [], "truncated": false }));
-    assert_eq!((text.as_str(), &data["changed"]), ("No tasks in scope.", &json!(false)));
+    assert_eq!((text.as_str(), &data["changed"]), ("No tasks in scope.", &json!(false)), "a 1.4 reply has no projects");
+    let one = json!({ "tasks": [], "truncated": false, "projects": [{ "id": "git:abc", "name": "app" }] });
+    let (text, data) = reply(&json!({ "operation": "tasks" }), &one);
+    assert_eq!(
+        text, "Your projects: app (git:abc) (create uses it when you leave project out)\nNo tasks in scope.",
+        "an empty listing still names the projects"
+    );
+    assert_eq!(data["projects"], json!(["git:abc"]));
+    let two = json!({ "tasks": [{ "id": "w1", "project": "git:abc", "state": "created" }],
+        "projects": [{ "id": "git:abc", "name": "app" }, { "id": "git:def" }] });
+    let (text, _) = reply(&json!({ "operation": "tasks" }), &two);
+    assert!(text.starts_with("Your projects: app (git:abc), git:def\n1 task:\nw1 [git:abc]"), "{text}");
+    let (text, _) = reply(&json!({ "operation": "create", "brief": "b" }), &json!({ "id": "w9" }));
+    assert!(text.starts_with("Created task w9; its brief"), "{text}");
     let task = json!({ "id": "w1", "project": "p", "state": "running", "last_message": "done", "last_message_truncated": true });
     let (text, _) =
         reply(&json!({ "operation": "wait", "id": "w1", "wait_ms": 5 }), &json!({ "timed_out": true, "task": task }));

@@ -1,5 +1,6 @@
-//! What the model reads of a control reply (§13.4): one line per task
-//! summary, with the last message capped, and nothing unbounded.
+//! What the model reads of a control reply (§13.4): the coordinator's
+//! projects, then one line per task summary, with the last message capped,
+//! and nothing unbounded.
 //!
 //! The design choice: replies are open, so every field is read leniently and
 //! an unknown one is ignored; a summary that lacks a field still prints.
@@ -8,6 +9,8 @@ use serde_json::{Value, json};
 
 /// How much of a task's last message a listing line shows.
 pub const LINE_MESSAGE: usize = 200;
+/// The most projects a `tasks` reply's projects line names.
+const MAX_PROJECTS: usize = 32;
 
 /// The text and the journal's data for a successful reply to `body`.
 pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
@@ -17,19 +20,29 @@ pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
         "tasks" => {
             let tasks = reply["tasks"].as_array().map(Vec::as_slice).unwrap_or_default();
             let truncated = reply["truncated"].as_bool().unwrap_or(false);
-            let mut text = match (tasks.len(), truncated) {
+            // Since 1.5.0 every reply names the projects; a 1.4 Deck does not.
+            let mut text = projects(&reply["projects"]).map(|p| format!("{p}\n")).unwrap_or_default();
+            text.push_str(&match (tasks.len(), truncated) {
                 (0, _) => "No tasks in scope.".to_string(),
                 (n, false) => format!("{n} task{}:", if n == 1 { "" } else { "s" }),
                 (n, true) => format!("{n} most recent tasks (more exist; narrow with project):"),
-            };
+            });
             for task in tasks {
                 text.push('\n');
                 text.push_str(&line(task, true));
             }
             let ids: Vec<&Value> = tasks.iter().map(|t| &t["id"]).collect();
+            let project_ids: Vec<&Value> = reply["projects"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                .iter()
+                .take(MAX_PROJECTS)
+                .map(|p| &p["id"])
+                .collect();
             (
                 text,
-                json!({ "operation": operation, "count": tasks.len(), "truncated": truncated, "ids": ids, "changed": false }),
+                json!({ "operation": operation, "count": tasks.len(), "truncated": truncated, "ids": ids, "projects": project_ids, "changed": false }),
             )
         }
         "task" => (detail(&reply["task"]), read(operation, reply)),
@@ -44,9 +57,9 @@ pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
         }
         "create" => {
             let id = reply["id"].as_str().unwrap_or_default();
+            let place = body["project"].as_str().map(|p| format!(" in {p}")).unwrap_or_default();
             let text = format!(
-                "Created task {id} in {}; its brief is its first prompt. Call deck wait with id {id} to see that turn end.",
-                body["project"].as_str().unwrap_or_default()
+                "Created task {id}{place}; its brief is its first prompt. Call deck wait with id {id} to see that turn end."
             );
             (text, json!({ "operation": operation, "id": id }))
         }
@@ -63,6 +76,28 @@ pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
             (format!("Task {id} is {state}."), json!({ "operation": operation, "id": id, "state": state }))
         }
     }
+}
+
+/// `Your projects: app (git:…), …`, or `None` when the reply names none
+/// (a Deck older than 1.5.0).
+fn projects(list: &Value) -> Option<String> {
+    let list = list.as_array().filter(|l| !l.is_empty())?;
+    let mut names: Vec<String> = list
+        .iter()
+        .take(MAX_PROJECTS)
+        .map(|p| {
+            let id = p["id"].as_str().unwrap_or("?");
+            match p["name"].as_str().filter(|n| !n.is_empty() && *n != id) {
+                Some(name) => format!("{} ({id})", crate::llm::truncate(name, 64)),
+                None => id.to_string(),
+            }
+        })
+        .collect();
+    if list.len() > MAX_PROJECTS {
+        names.push(format!("and {} more", list.len() - MAX_PROJECTS));
+    }
+    let hint = if list.len() == 1 { " (create uses it when you leave project out)" } else { "" };
+    Some(format!("Your projects: {}{hint}", names.join(", ")))
 }
 
 fn read(operation: &str, reply: &Value) -> Value {

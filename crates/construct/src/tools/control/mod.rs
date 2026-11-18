@@ -1,4 +1,4 @@
-//! The coordinator's `deck` tool (#222, contract 1.4.0 §13, Deck ADR 0011
+//! The coordinator's `deck` tool (#222, contract 1.5.0 §13, Deck ADR 0011
 //! §4): the closed set of task-control operations a Deck coordinator uses to
 //! create, prompt, wait for and stop worker tasks through Deck's gateway.
 //!
@@ -39,14 +39,14 @@ const PROMPT_TIMEOUT: Duration = Duration::from_secs(75);
 const STOP_TIMEOUT: Duration = Duration::from_secs(60);
 const TIMEOUT: Duration = Duration::from_secs(30);
 
-const DESCRIPTION: &str = "Direct this coordinator's worker tasks through Deck. operation is one of: tasks (list task summaries in your scope, optionally for one project), task (one summary by id, with its last message), create (start a worker in project with brief as its first prompt; optional title and a budget no higher than your policy's), prompt (send text to an idle task; returns the turn it began), wait (block up to wait_ms, at most 300000, until the task's turn ends, it stops, or it needs a person; after prompt returned turn n pass after_turn n-1), stop (stop a task's agent; its record stays). Deck's policy decides what you may do: a refusal says what to change, and you never retry one unchanged. You cannot answer a worker's approvals or questions; the user does that in Deck, so report them.";
+const DESCRIPTION: &str = "Direct this coordinator's worker tasks through Deck. operation is one of: tasks (list your projects and the task summaries in your scope, optionally for one project), task (one summary by id, with its last message), create (start a worker with brief as its first prompt; leave project out unless you have several projects, and Deck uses your only one; optional title and a budget no higher than your policy's), prompt (send text to an idle task; returns the turn it began), wait (block up to wait_ms, at most 300000, until the task's turn ends, it stops, or it needs a person; after prompt returned turn n pass after_turn n-1), stop (stop a task's agent; its record stays). Deck's policy decides what you may do: a refusal says what to change, and you never retry one unchanged. You cannot answer a worker's approvals or questions; the user does that in Deck, so report them.";
 
 /// The fields each operation takes, required first (§13.3).
 fn fields(operation: &str) -> Option<(&'static [&'static str], &'static [&'static str])> {
     Some(match operation {
         "tasks" => (&[], &["project"]),
         "task" | "stop" => (&["id"], &[]),
-        "create" => (&["project", "brief"], &["title", "budget"]),
+        "create" => (&["brief"], &["project", "title", "budget"]),
         "prompt" => (&["id", "text"], &[]),
         "wait" => (&["id"], &["after_turn", "wait_ms"]),
         _ => return None,
@@ -220,7 +220,7 @@ impl Tool for Control {
                 "type": "object",
                 "properties": {
                     "operation": { "type": "string", "enum": OPERATIONS },
-                    "project": text("tasks: only this project. create: the project key to start the worker in."),
+                    "project": text("tasks: only this project. create: the project id to start the worker in; leave it out unless you have several projects (Deck then uses your only one). deck tasks lists your projects."),
                     "id": text("task, prompt, wait, stop: the task id."),
                     "brief": text("create: the worker's first prompt; say what done looks like."),
                     "title": { "type": "string", "maxLength": 80, "description": "create: the task's title." },
