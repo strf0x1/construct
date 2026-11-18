@@ -30,8 +30,10 @@ class ComparisonTests(unittest.TestCase):
                "predictions_sha256": swebench.sha256(predictions),
                "attempts": [{"instance_id": task, "image": {"id": f"sha-{task}"}} for task in self.ids]}
         swebench.write_json(folder / "run.json", run)
-        swebench.write_json(folder / "evaluation.json", {"run_id": harness, "manifest_sha256": "manifest",
-                                                         "predictions_sha256": run["predictions_sha256"]})
+        swebench.write_json(folder / "evaluation.json", {
+            "run_id": harness, "manifest_sha256": "manifest", "predictions_sha256": run["predictions_sha256"],
+            "prebuilt_images": {a["instance_id"]: a["image"]["id"] for a in run["attempts"]},
+        })
         result = folder / "result.json"
         swebench.write_json(result, {"run_id": harness, "manifest": {"instance_ids": self.ids},
                                      "resolved": statuses.count("resolved"), "total": len(self.ids),
