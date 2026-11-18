@@ -1,0 +1,1235 @@
+{
+ "manifest": {
+  "harnesses": {
+   "orca-smoke": {
+    "version": "0.4.0",
+    "git_sha": "426329bef4200b390a74635a4e909db3c5ce3a38",
+    "git_dirty": true,
+    "binary_sha256": "a8f5ae3ae5545b6ad6c678de6f3652fd1538b8df86513ed2c4671b5e0e749c0a",
+    "config_sha256": "0c60b742d6b70b5892c4cf82b252c7615c98006d783f92d0bfb91f8ebea62333",
+    "tools": [
+     "shell",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job",
+     "developer"
+    ],
+    "editor": "replace",
+    "context": "compact",
+    "web_search": "auto",
+    "model": "deepseek/deepseek-v4.1-flash-1017",
+    "router_mode": "local",
+    "context_window": 131072,
+    "max_tokens": 4096,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/home/brandon/git/construct-worktrees/swe-bench-236/target/debug/construct"
+   }
+  },
+  "dev_git_sha": "426329bef4200b390a74635a4e909db3c5ce3a38",
+  "dev_dirty": true,
+  "model": "deepseek/deepseek-v4.1-flash-1017",
+  "bench_py_sha256": "15b33c51196eb0bdc283476d189f2b3bc81ac3b13f133fbfff2e9611958196c3",
+  "host": "echo",
+  "started": "2026-11-18T00:49:56Z"
+ },
+ "model": "deepseek/deepseek-v4.1-flash-1017",
+ "rounds": 1,
+ "tasks": {
+  "stats-median": [
+   "This repo is a tiny Python library. `python3 -m unittest` fails. Find out why and fix the bug in the library (not the tests). Run the tests to confirm.",
+   "Add a function `median(values)` to stats.py that returns the median of a non-empty list of numbers (average the two middle values for even lengths) and raises ValueError on an empty list. Add unit tests for it in test_stats.py and run the whole suite.",
+   "Document both functions in README.md under a '## API' heading, with one short usage example each. Then tell me in one sentence what you changed across this session."
+  ]
+ },
+ "raw": {
+  "orca-smoke": [
+   {
+    "search": {
+     "tool": 0,
+     "shell": 0,
+     "find": 1,
+     "tool_failed": 0
+    },
+    "tool_failures": {
+     "calls": 13,
+     "failed": 0,
+     "rate": 0.0
+    },
+    "failure_codes": {},
+    "tool_calls": 13,
+    "reads": 3,
+    "shell": {
+     "calls": 5,
+     "blocked": 0,
+     "stops": 0,
+     "refused": 0,
+     "broad": 0
+    },
+    "edit": {
+     "calls": 5,
+     "applied": 5,
+     "rejected": 0,
+     "unrecovered": 0,
+     "recoveries": 0,
+     "rewrites": 0,
+     "rereads_after_rejection": 0,
+     "echo_stripped": 0,
+     "completion_tokens_per_call": 156.6
+    },
+    "rejection_codes": {},
+    "prompt_cache": {
+     "prompt_tokens": 37946,
+     "cached_tokens": 32768,
+     "cache_hit_rate": 0.8635429294260265,
+     "drops": 4,
+     "series": [
+      {
+       "session": "20261118-004956-2ec8",
+       "prompt_tokens": 37946,
+       "cached_tokens": 32768,
+       "cache_hit_rate": 0.8635429294260265,
+       "drops": 4,
+       "first_drop": 6,
+       "calls": [
+        {
+         "index": 1,
+         "at": 1794962998972,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 1346,
+         "cached_tokens": 0,
+         "cache_hit_rate": 0.0,
+         "drop": false
+        },
+        {
+         "index": 2,
+         "at": 1794963001061,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 1780,
+         "cached_tokens": 1280,
+         "cache_hit_rate": 0.7191011235955056,
+         "drop": false
+        },
+        {
+         "index": 3,
+         "at": 1794963003523,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 2127,
+         "cached_tokens": 1664,
+         "cache_hit_rate": 0.7823225199811942,
+         "drop": false
+        },
+        {
+         "index": 4,
+         "at": 1794963005792,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 2332,
+         "cached_tokens": 2048,
+         "cache_hit_rate": 0.8782161234991424,
+         "drop": false
+        },
+        {
+         "index": 5,
+         "at": 1794963008541,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 2454,
+         "cached_tokens": 2304,
+         "cache_hit_rate": 0.9388753056234719,
+         "drop": false
+        },
+        {
+         "index": 6,
+         "at": 1794963011339,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 2616,
+         "cached_tokens": 2432,
+         "cache_hit_rate": 0.9296636085626911,
+         "drop": true
+        },
+        {
+         "index": 7,
+         "at": 1794963013623,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 2920,
+         "cached_tokens": 2560,
+         "cache_hit_rate": 0.8767123287671232,
+         "drop": true
+        },
+        {
+         "index": 8,
+         "at": 1794963016130,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 3051,
+         "cached_tokens": 2816,
+         "cache_hit_rate": 0.9229760734185513,
+         "drop": false
+        },
+        {
+         "index": 9,
+         "at": 1794963018298,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 3443,
+         "cached_tokens": 2944,
+         "cache_hit_rate": 0.8550682544292768,
+         "drop": true
+        },
+        {
+         "index": 10,
+         "at": 1794963020585,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 3650,
+         "cached_tokens": 3328,
+         "cache_hit_rate": 0.9117808219178082,
+         "drop": false
+        },
+        {
+         "index": 11,
+         "at": 1794963023233,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 3780,
+         "cached_tokens": 3584,
+         "cache_hit_rate": 0.9481481481481482,
+         "drop": false
+        },
+        {
+         "index": 12,
+         "at": 1794963025480,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 4155,
+         "cached_tokens": 3712,
+         "cache_hit_rate": 0.89338146811071,
+         "drop": true
+        },
+        {
+         "index": 13,
+         "at": 1794963027896,
+         "model": "deepseek/deepseek-v4.1-flash-1017",
+         "prompt_tokens": 4292,
+         "cached_tokens": 4096,
+         "cache_hit_rate": 0.9543336439888164,
+         "drop": false
+        }
+       ]
+      }
+     ]
+    },
+    "provider_failures": 0,
+    "task": "stats-median",
+    "turns": [
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 11.943657270865515,
+      "peak_mb": 80.578125,
+      "stdout_tail": "I'll start by looking at the repo structure and running the tests.\nThe bug was in `stats.py:8`: `mean` divided the sum by `len(values) - 1` (a variance-style denominator) instead of `len(values)`. That gave `3.333...` for `[1, 2, 3, 4]` and crashed with `ZeroDivisionError` for a single-element list.\n\nChanged it to divide by `len(values)`. All 3 tests pass now (`python3 -m unittest -v` \u2192 OK).\n",
+      "stderr_tail": "construct: made /tmp/construct-bench/task/orca-smoke/home private (755 -> 700); see docs/adr/0021\n\u00b7 shell {\"command\": \"find . -type f -not -path './.git/*' | head -50 && echo \\\"---\\\" && git log --oneline | head -5\"}\n\u00b7 shell {\"command\": \"python3 -m unittest 2>&1 | head -50\"}\n\u00b7 read {\"path\": \"stats.py\"}\n\u00b7 read {\"path\": \"test_stats.py\"}\n\u00b7 read {\"path\": \"README.md\"}\n\u00b7 edit {\"path\": \"stats.py\", \"old_string\": \"    return sum(values) / (len(values) - 1)\", \"new_string\": \"    return sum(values) / len(values)\"}\n\u00b7 shell {\"command\": \"python3 -m unittest -v 2>&1 | tail -15\"}\n"
+     },
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 12.043981848983094,
+      "peak_mb": 81.08203125,
+      "stdout_tail": "Added `median` to `stats.py`, which sorts a copy of the input, returns the middle element for odd lengths, averages the two middle ones for even lengths, and raises `ValueError` on an empty list. Added a `MedianTest` class in `test_stats.py` covering odd, even, single-element, unsorted, and empty inputs.\n\nVerified with `python3 -m unittest -v`: all 8 tests pass.\n",
+      "stderr_tail": "\u00b7 edit {\"path\": \"stats.py\", \"old_string\": \"    return sum(values) / len(values)\", \"new_string\": \"    return sum(values) / len(values)\\n\\n\\ndef median(values):\\n    \\\"\\\u2026\n\u00b7 edit {\"new_string\": \"from stats import mean, median\", \"old_string\": \"from stats import mean\", \"path\": \"test_stats.py\"}\n\u00b7 edit {\"new_string\": \"            mean([])\\n\\n\\nclass MedianTest(unittest.TestCase):\\n    def test_odd(self):\\n        self.assertEqual(median([3, 1, 2]), 2)\\n\\n    d\u2026\n\u00b7 shell {\"command\": \"python3 -m unittest -v 2>&1 | tail -20\"}\n"
+     },
+     {
+      "rc": 0,
+      "timed_out": false,
+      "stopped": null,
+      "wall_s": 7.309822600102052,
+      "peak_mb": 79.84765625,
+      "stdout_tail": "Documented `mean` and `median` under `## API` in README.md with a short usage example each; all 8 tests still pass.\n\nAcross this session I fixed the `mean` divisor bug (`len(values) - 1` \u2192 `len(values)`), added a `median` function with tests, and documented both functions in the README.\n",
+      "stderr_tail": "\u00b7 edit {\"new_string\": \"Small statistics helpers.\\n\\n## API\\n\\n### `mean(values)`\\n\\nArithmetic mean of a non-empty list of numbers; raises `ValueError` on an empty lis\u2026\n\u00b7 shell {\"command\": \"python3 -m unittest 2>&1 | tail -3 && git diff --stat\"}\n"
+     }
+    ],
+    "checks": {
+     "tests_pass": true,
+     "behaviour": true,
+     "median_tested": true,
+     "tests_untouched_for_mean": true,
+     "readme_api": true
+    },
+    "success": true,
+    "over_budget": false,
+    "unintended": [],
+    "unintended_changes": 0,
+    "wall_s": 31.29746171995066,
+    "requests": 13,
+    "agent_requests": 13,
+    "errors": [],
+    "first_request": {
+     "prompt_tokens": 1346,
+     "bytes": 4550,
+     "n_tools": 7,
+     "system_chars": 1058,
+     "tools_chars": 3126
+    },
+    "side_requests_before_first_agent": 0,
+    "prompt_tokens": 37946,
+    "completion_tokens": 1434,
+    "cached_tokens": 32768,
+    "cache_write_tokens": 0,
+    "cache_hit_rate": 0.8635429294260265,
+    "cost_usd": 0.001734,
+    "tool_gaps_ms": [
+     47.69677000000047,
+     2.2083550000006653,
+     1.9684520000000703,
+     41.025080999997954,
+     2.67460900000151,
+     2.1973260000013397,
+     2.2599989999980608,
+     40.518167999998695,
+     2.450591999997414,
+     43.75058600000193
+    ],
+    "peak_mb": 81.08203125,
+    "learn_wait_s": 0.02969074249267578,
+    "final_message": "Documented `mean` and `median` under `## API` in README.md with a short usage example each; all 8 tests still pass.\n\nAcross this session I fixed the `mean` divisor bug (`len(values) - 1` \u2192 `len(values)`), added a `median` function with tests, and documented both functions in the README.",
+    "sessions": [
+     "20261118-004956-2ec8"
+    ],
+    "records": [
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 2,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 1,
+      "t_arrive": 47.453172,
+      "req_bytes": 4550,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180049568169312248268d9d69Jsd7KfZ",
+      "status": 200,
+      "t_first_byte": 1867.164369,
+      "t_end": 2387.358273,
+      "usage": {
+       "prompt_tokens": 1346,
+       "completion_tokens": 121,
+       "total_tokens": 1467,
+       "prompt_tokens_details": {
+        "cached_tokens": 0
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000274
+      },
+      "resp_tool_calls": 2,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 5,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 2,
+      "t_arrive": 2435.0550430000003,
+      "req_bytes": 6502,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "20261118004959507578418268d9d6EWg5gTx1",
+      "status": 200,
+      "t_first_byte": 4143.07481,
+      "t_end": 4475.924352,
+      "usage": {
+       "prompt_tokens": 1780,
+       "completion_tokens": 95,
+       "total_tokens": 1875,
+       "prompt_tokens_details": {
+        "cached_tokens": 1280
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000136
+      },
+      "resp_tool_calls": 3,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 9,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 3,
+      "t_arrive": 4478.132707000001,
+      "req_bytes": 8033,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050011061269498268d9d61T2VSi2X",
+      "status": 200,
+      "t_first_byte": 6357.079285,
+      "t_end": 6937.920857,
+      "usage": {
+       "prompt_tokens": 2127,
+       "completion_tokens": 134,
+       "total_tokens": 2261,
+       "prompt_tokens_details": {
+        "cached_tokens": 1664
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 43
+       },
+       "cost_usd": 0.000154
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 11,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 4,
+      "t_arrive": 6939.889309,
+      "req_bytes": 8767,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050035574615088268d9d6GUU0bmth",
+      "status": 200,
+      "t_first_byte": 8995.869998,
+      "t_end": 9206.750974,
+      "usage": {
+       "prompt_tokens": 2332,
+       "completion_tokens": 51,
+       "total_tokens": 2383,
+       "prompt_tokens_details": {
+        "cached_tokens": 2048
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 8e-05
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 13,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 5,
+      "t_arrive": 9247.776054999998,
+      "req_bytes": 9316,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050058629032478268d9d6Zwb20tiA",
+      "status": 200,
+      "t_first_byte": 11396.381543,
+      "t_end": 11969.86248,
+      "usage": {
+       "prompt_tokens": 2454,
+       "completion_tokens": 104,
+       "total_tokens": 2558,
+       "prompt_tokens_details": {
+        "cached_tokens": 2304
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 9.2e-05
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 15,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 6,
+      "t_arrive": 11981.263947000001,
+      "req_bytes": 9961,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050086351117608268d9d6cUV7lB35",
+      "status": 200,
+      "t_first_byte": 14036.444252000001,
+      "t_end": 14754.053258999998,
+      "usage": {
+       "prompt_tokens": 2616,
+       "completion_tokens": 171,
+       "total_tokens": 2787,
+       "prompt_tokens_details": {
+        "cached_tokens": 2432
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 9
+       },
+       "cost_usd": 0.000138
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 17,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 7,
+      "t_arrive": 14756.727868,
+      "req_bytes": 11168,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050113962777178268d9d65JrUYU2I",
+      "status": 200,
+      "t_first_byte": 16750.789545,
+      "t_end": 17038.073385,
+      "usage": {
+       "prompt_tokens": 2920,
+       "completion_tokens": 81,
+       "total_tokens": 3001,
+       "prompt_tokens_details": {
+        "cached_tokens": 2560
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.00011
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 19,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 8,
+      "t_arrive": 17040.270711,
+      "req_bytes": 11674,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050136568550988268d9d69AC86qiG",
+      "status": 200,
+      "t_first_byte": 18760.816533,
+      "t_end": 19545.142658,
+      "usage": {
+       "prompt_tokens": 3051,
+       "completion_tokens": 203,
+       "total_tokens": 3254,
+       "prompt_tokens_details": {
+        "cached_tokens": 2816
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000166
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 21,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 9,
+      "t_arrive": 19547.402657,
+      "req_bytes": 13072,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050161664958078268d9d6AePwb7AD",
+      "status": 200,
+      "t_first_byte": 21494.506664,
+      "t_end": 21713.220717,
+      "usage": {
+       "prompt_tokens": 3443,
+       "completion_tokens": 51,
+       "total_tokens": 3494,
+       "prompt_tokens_details": {
+        "cached_tokens": 2944
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000114
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 23,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 10,
+      "t_arrive": 21753.738885,
+      "req_bytes": 13893,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050183757757868268d9d6iGbesrA0",
+      "status": 200,
+      "t_first_byte": 23625.188425,
+      "t_end": 24012.569735,
+      "usage": {
+       "prompt_tokens": 3650,
+       "completion_tokens": 91,
+       "total_tokens": 3741,
+       "prompt_tokens_details": {
+        "cached_tokens": 3328
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000112
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 25,
+      "last_role": "user",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 11,
+      "t_arrive": 24029.647801,
+      "req_bytes": 14486,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050206511313468268d9d6HKehO8L6",
+      "status": 200,
+      "t_first_byte": 25918.54061,
+      "t_end": 26648.331419000002,
+      "usage": {
+       "prompt_tokens": 3780,
+       "completion_tokens": 194,
+       "total_tokens": 3974,
+       "prompt_tokens_details": {
+        "cached_tokens": 3584
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 0.000156
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 27,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 12,
+      "t_arrive": 26650.782011,
+      "req_bytes": 15832,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050232838299318268d9d6F1xI914P",
+      "status": 200,
+      "t_first_byte": 28537.97694,
+      "t_end": 28895.059368,
+      "usage": {
+       "prompt_tokens": 4155,
+       "completion_tokens": 62,
+       "total_tokens": 4217,
+       "prompt_tokens_details": {
+        "cached_tokens": 3712
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 8
+       },
+       "cost_usd": 0.000114
+      },
+      "resp_tool_calls": 1,
+      "finish_reason": "tool_calls"
+     },
+     {
+      "model": "deepseek/deepseek-v4.1-flash-1017",
+      "stream": true,
+      "n_messages": 29,
+      "last_role": "tool",
+      "n_tools": 7,
+      "tools": [
+       "shell",
+       "read",
+       "write",
+       "edit",
+       "grep",
+       "glob",
+       "enable_tools"
+      ],
+      "system_chars": 1058,
+      "tools_chars": 3126,
+      "side": false,
+      "i": 13,
+      "t_arrive": 28938.809954,
+      "req_bytes": 16405,
+      "path": "/v1/chat/completions",
+      "auth": "Bearer via-\u2026",
+      "upstream_request_id": "202611180050255588645508268d9d62LfEuLY5",
+      "status": 200,
+      "t_first_byte": 30940.557103,
+      "t_end": 31324.32175,
+      "usage": {
+       "prompt_tokens": 4292,
+       "completion_tokens": 76,
+       "total_tokens": 4368,
+       "prompt_tokens_details": {
+        "cached_tokens": 4096
+       },
+       "completion_tokens_details": {
+        "reasoning_tokens": 0
+       },
+       "cost_usd": 8.8e-05
+      },
+      "resp_tool_calls": 0,
+      "finish_reason": "stop"
+     }
+    ],
+    "invalid": false
+   }
+  ]
+ },
+ "summary": {
+  "orca-smoke": {
+   "success_rate": 1.0,
+   "checks_passed": {
+    "n": 1,
+    "median": 5,
+    "p10": 5,
+    "p90": 5,
+    "min": 5,
+    "max": 5,
+    "mean": 5
+   },
+   "over_budget": 0,
+   "unintended_changes": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "wall_s": {
+    "n": 1,
+    "median": 31.29746171995066,
+    "p10": 31.29746171995066,
+    "p90": 31.29746171995066,
+    "min": 31.29746171995066,
+    "max": 31.29746171995066,
+    "mean": 31.29746171995066
+   },
+   "requests": {
+    "n": 1,
+    "median": 13,
+    "p10": 13,
+    "p90": 13,
+    "min": 13,
+    "max": 13,
+    "mean": 13
+   },
+   "prompt_tokens": {
+    "n": 1,
+    "median": 37946,
+    "p10": 37946,
+    "p90": 37946,
+    "min": 37946,
+    "max": 37946,
+    "mean": 37946
+   },
+   "completion_tokens": {
+    "n": 1,
+    "median": 1434,
+    "p10": 1434,
+    "p90": 1434,
+    "min": 1434,
+    "max": 1434,
+    "mean": 1434
+   },
+   "first_request_tokens": {
+    "n": 1,
+    "median": 1346,
+    "p10": 1346,
+    "p90": 1346,
+    "min": 1346,
+    "max": 1346,
+    "mean": 1346
+   },
+   "cached_tokens": {
+    "n": 1,
+    "median": 32768,
+    "p10": 32768,
+    "p90": 32768,
+    "min": 32768,
+    "max": 32768,
+    "mean": 32768
+   },
+   "cache_write_tokens": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "cache_hit_rate": {
+    "n": 1,
+    "median": 0.8635429294260265,
+    "p10": 0.8635429294260265,
+    "p90": 0.8635429294260265,
+    "min": 0.8635429294260265,
+    "max": 0.8635429294260265,
+    "mean": 0.8635429294260265
+   },
+   "cost_usd": {
+    "n": 1,
+    "median": 0.001734,
+    "p10": 0.001734,
+    "p90": 0.001734,
+    "min": 0.001734,
+    "max": 0.001734,
+    "mean": 0.001734
+   },
+   "tool_gap_ms": {
+    "n": 10,
+    "median": 2.562600499999462,
+    "p10": 2.1973260000013397,
+    "p90": 43.75058600000193,
+    "min": 1.9684520000000703,
+    "max": 47.69677000000047,
+    "mean": 18.67499379999981
+   },
+   "peak_mb": {
+    "n": 1,
+    "median": 81.08203125,
+    "p10": 81.08203125,
+    "p90": 81.08203125,
+    "min": 81.08203125,
+    "max": 81.08203125,
+    "mean": 81.08203125
+   },
+   "search_tool_calls": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_shell_calls": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "search_adoption": null,
+   "tool_failure_rate": {
+    "n": 1,
+    "median": 0.0,
+    "p10": 0.0,
+    "p90": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "mean": 0.0
+   },
+   "edit_calls": {
+    "n": 1,
+    "median": 5,
+    "p10": 5,
+    "p90": 5,
+    "min": 5,
+    "max": 5,
+    "mean": 5
+   },
+   "edit_rejected": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   },
+   "edit_unrecovered": {
+    "n": 1,
+    "median": 0,
+    "p10": 0,
+    "p90": 0,
+    "min": 0,
+    "max": 0,
+    "mean": 0
+   }
+  }
+ },
+ "by_task": {
+  "stats-median": {
+   "orca-smoke": {
+    "success_rate": 1.0,
+    "checks_passed": {
+     "n": 1,
+     "median": 5,
+     "p10": 5,
+     "p90": 5,
+     "min": 5,
+     "max": 5,
+     "mean": 5
+    },
+    "over_budget": 0,
+    "unintended_changes": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "wall_s": {
+     "n": 1,
+     "median": 31.29746171995066,
+     "p10": 31.29746171995066,
+     "p90": 31.29746171995066,
+     "min": 31.29746171995066,
+     "max": 31.29746171995066,
+     "mean": 31.29746171995066
+    },
+    "requests": {
+     "n": 1,
+     "median": 13,
+     "p10": 13,
+     "p90": 13,
+     "min": 13,
+     "max": 13,
+     "mean": 13
+    },
+    "prompt_tokens": {
+     "n": 1,
+     "median": 37946,
+     "p10": 37946,
+     "p90": 37946,
+     "min": 37946,
+     "max": 37946,
+     "mean": 37946
+    },
+    "completion_tokens": {
+     "n": 1,
+     "median": 1434,
+     "p10": 1434,
+     "p90": 1434,
+     "min": 1434,
+     "max": 1434,
+     "mean": 1434
+    },
+    "first_request_tokens": {
+     "n": 1,
+     "median": 1346,
+     "p10": 1346,
+     "p90": 1346,
+     "min": 1346,
+     "max": 1346,
+     "mean": 1346
+    },
+    "cached_tokens": {
+     "n": 1,
+     "median": 32768,
+     "p10": 32768,
+     "p90": 32768,
+     "min": 32768,
+     "max": 32768,
+     "mean": 32768
+    },
+    "cache_write_tokens": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "cache_hit_rate": {
+     "n": 1,
+     "median": 0.8635429294260265,
+     "p10": 0.8635429294260265,
+     "p90": 0.8635429294260265,
+     "min": 0.8635429294260265,
+     "max": 0.8635429294260265,
+     "mean": 0.8635429294260265
+    },
+    "cost_usd": {
+     "n": 1,
+     "median": 0.001734,
+     "p10": 0.001734,
+     "p90": 0.001734,
+     "min": 0.001734,
+     "max": 0.001734,
+     "mean": 0.001734
+    },
+    "tool_gap_ms": {
+     "n": 10,
+     "median": 2.562600499999462,
+     "p10": 2.1973260000013397,
+     "p90": 43.75058600000193,
+     "min": 1.9684520000000703,
+     "max": 47.69677000000047,
+     "mean": 18.67499379999981
+    },
+    "peak_mb": {
+     "n": 1,
+     "median": 81.08203125,
+     "p10": 81.08203125,
+     "p90": 81.08203125,
+     "min": 81.08203125,
+     "max": 81.08203125,
+     "mean": 81.08203125
+    },
+    "search_tool_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_shell_calls": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "search_adoption": null,
+    "tool_failure_rate": {
+     "n": 1,
+     "median": 0.0,
+     "p10": 0.0,
+     "p90": 0.0,
+     "min": 0.0,
+     "max": 0.0,
+     "mean": 0.0
+    },
+    "edit_calls": {
+     "n": 1,
+     "median": 5,
+     "p10": 5,
+     "p90": 5,
+     "min": 5,
+     "max": 5,
+     "mean": 5
+    },
+    "edit_rejected": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    },
+    "edit_unrecovered": {
+     "n": 1,
+     "median": 0,
+     "p10": 0,
+     "p90": 0,
+     "min": 0,
+     "max": 0,
+     "mean": 0
+    }
+   }
+  }
+ },
+ "stalls": {},
+ "invalid_reruns": {},
+ "jev": false,
+ "arms": {
+  "orca-smoke": {
+   "tools": "",
+   "cfg": "max_tokens=4096",
+   "bin": ""
+  }
+ },
+ "learn": false,
+ "window": null
+}

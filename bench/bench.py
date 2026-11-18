@@ -45,13 +45,14 @@ import compare as cmp
 import journal
 import optchat
 import process
+import provider
 import tasklib
 import triage
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results"
 DEV = ROOT / "target" / "debug" / "construct-dev"
-CONSTRUCT = ROOT / "target" / "release" / "construct"
+CONSTRUCT = Path(os.environ.get("BENCH_CONSTRUCT", ROOT / "target" / "release" / "construct"))
 def resolve_bin(name: str, env_var: str):
     """Find a competitor binary without pinning a version or a machine: an
     explicit override first, then $PATH (mise/pipx put a shim there), then
@@ -99,8 +100,7 @@ SEARCH_KEYS = ("EXA_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY")
 
 def read_key(path: Path):
     """A key file holds either the bare key or NAME=key (optionally `export`ed)."""
-    t = path.read_text().strip()
-    return re.sub(r"^(export\s+)?[A-Z][A-Z0-9_]*\s*=\s*", "", t).strip("'\"")
+    return provider.read_key(path)
 
 
 def read_search_keys(path: Path = None) -> dict:
@@ -198,23 +198,20 @@ class Endpoint:
         if window:
             args += ["--window", str(window)]
         env = dict(os.environ)
-        if upstream and urllib.parse.urlparse(upstream).hostname in ("127.0.0.1", "localhost", "::1"):
-            # A local server (qwen-engine, llama.cpp) needs no key: never send it the OpenRouter one.
-            env["OPENROUTER_API_KEY"] = "local"
-        elif upstream:
-            key = read_key(KEY_FILE) if KEY_FILE.exists() else os.environ.get("OPENROUTER_API_KEY")
-            if not key:
-                sys.exit(f"no OpenRouter key: put it in {KEY_FILE}")
-            # Never forward some other secret to the upstream by mistake.
-            if "openrouter.ai" in upstream and not key.startswith("sk-or-"):
-                sys.exit(f"{KEY_FILE} doesn't hold an OpenRouter key (expected sk-or-...); not sending it upstream")
-            if JEV_KEY_FILE.exists() and read_key(JEV_KEY_FILE) == key:
-                sys.exit(f"{KEY_FILE} holds the same key as {JEV_KEY_FILE}; not sending it upstream")
-            env["OPENROUTER_API_KEY"] = key
+        if upstream:
+            try:
+                key_args, key_env = provider.auth(upstream, env, KEY_FILE, JEV_KEY_FILE)
+            except (ValueError, OSError) as e:
+                sys.exit(str(e))
+            args += key_args
+            env.update(key_env)
+            env.setdefault("SECRETSPEC_REASON", "Run the requested Construct benchmark against " + urllib.parse.urlparse(upstream).hostname)
         self.proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=open(dir / "serve.err", "w"), env=env)
         for _ in range(500):
             if port_file.exists() and port_file.read_text().strip():
                 break
+            if self.proc.poll() is not None:
+                sys.exit("recording proxy failed to start: " + (dir / "serve.err").read_text())
             time.sleep(0.01)
         self.port = int(port_file.read_text())
         self.url = f"http://127.0.0.1:{self.port}/v1"
@@ -271,7 +268,7 @@ class Harness:
         e = dict(os.environ)
         # nothing from the user's own setup leaks in
         for k in list(e):
-            if k.startswith(("OPENAI", "OPENROUTER", "ANTHROPIC", "TYPESAFE", "CONSTRUCT", "HERMES", "OPENCODE")):
+            if k.startswith(("OPENAI", "OPENROUTER", "ORCAROUTER", "ANTHROPIC", "TYPESAFE", "CONSTRUCT", "HERMES", "OPENCODE")) or k in (provider.TOKEN_ENV, os.environ.get("BENCH_API_KEY_ENV"), os.environ.get("BENCH_API_KEY_SECRET")):
                 del e[k]
         e.update(self.env())
         return e
@@ -938,7 +935,11 @@ def session_facts(home: Path, since: float):
 def assert_no_keys(root: Path):
     """Stop the bench if a run's logs contain one of the bench keys: it means
     an agent read a key file or the environment and sent it upstream."""
-    keys = [read_key(f) for f in (KEY_FILE, JEV_KEY_FILE) if f.exists()]
+    files = [KEY_FILE, JEV_KEY_FILE]
+    if os.environ.get("BENCH_API_KEY_FILE"):
+        files.append(Path(os.environ["BENCH_API_KEY_FILE"]))
+    keys = [read_key(f) for f in files if f.exists()]
+    keys += [os.environ.get(name, "") for name in ("ORCAROUTER_API_KEY", os.environ.get("BENCH_API_KEY_ENV", ""), os.environ.get("BENCH_API_KEY_SECRET", ""))]
     keys = [k for k in keys + list(read_search_keys().values()) if len(k) > 12]
     for dp, _, files in os.walk(root):
         for n in files:
@@ -967,8 +968,9 @@ def cache_metrics(recs):
         prompt += u.get("prompt_tokens") or 0
         cached += d.get("cached_tokens") or u.get("prompt_cache_hit_tokens") or 0
         written += d.get("cache_write_tokens") or 0
-        if isinstance(u.get("cost"), (int, float)):
-            costs.append(u["cost"])
+        cost = provider.cost(u)
+        if cost is not None:
+            costs.append(cost)
     return {
         "cached_tokens": cached,
         "cache_write_tokens": written,

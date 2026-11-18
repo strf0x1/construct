@@ -36,7 +36,7 @@ impl Usage {
             // OpenAI and OpenRouter; DeepSeek reports hits at the top level.
             cached_tokens: n("/prompt_tokens_details/cached_tokens").or(n("/prompt_cache_hit_tokens")).unwrap_or(0),
             cache_write_tokens: n("/prompt_tokens_details/cache_write_tokens").unwrap_or(0),
-            cost: u.get("cost").and_then(Value::as_f64),
+            cost: u.get("cost_usd").and_then(Value::as_f64).or_else(|| u.get("cost").and_then(Value::as_f64)),
             served: None,
         }
     }
@@ -80,6 +80,13 @@ mod tests {
         assert_eq!(u.cached_tokens, 6);
         let u = Usage::parse(&json!({ "prompt_tokens": 10, "prompt_tokens_details": null }));
         assert_eq!((u.cached_tokens, u.cache_write_tokens, u.cost), (0, 0, None));
+    }
+
+    #[test]
+    fn explicit_usd_cost_wins_and_zero_is_a_reported_cost() {
+        assert_eq!(Usage::parse(&json!({ "cost_usd": 0.0, "cost": 9.0 })).cost, Some(0.0));
+        assert_eq!(Usage::parse(&json!({ "cost_usd": 0.002 })).cost, Some(0.002));
+        assert_eq!(Usage::parse(&json!({ "cost_usd": "invalid", "cost": 0.5 })).cost, Some(0.5));
     }
 
     #[test]

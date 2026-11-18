@@ -455,3 +455,9 @@ FIFO/device read fix: Tier 1 tools, five interleaved rounds per arm, 10 reads an
 MCP bounded-write fix: Tier 1 normal MCP echo, five interleaved rounds per debug binary, 20 calls per round after warmup, same eb96cf7 base and scripted server. Every tool result was checked in the journal. bench.py compare judges normal MCP echo and total wall time the same; no failed or timed-out trials. The result embeds its standalone driver.
 
 - `bench/results/mcp-writes-20261117-155056.json`: model None; bench eb96cf7 dirty; before eb96cf7 dirty editor=replace router=local; after eb96cf7 dirty editor=replace router=local
+
+## 2026-11-17 17:53 note
+
+Issue #236 foundation: sandboxed stats-median smoke through the normal Orca proxy/keyring path passed all five checks, 13 requests, 37,946 prompt / 1,434 output tokens, 32,768 cached (86.35%), $0.001734 provider-reported inline cost. Debug binary, max_tokens=4096, no learning, one repeat; plumbing evidence only, not a SWE-bench quality or speed comparison. Official pinned v5 Docker grader also resolved reference sympy__sympy-20590 and rejected its no-implementation-change control; private raw grading evidence is outside agent workspaces.
+
+- `bench/results/task-20261117-175029.json`: model deepseek/deepseek-v4.1-flash-1017; bench 426329b dirty; orca-smoke 426329b dirty editor=replace router=local

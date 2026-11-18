@@ -516,6 +516,23 @@ class Process(unittest.TestCase):
         self.assertEqual(process.metrics([plain, plain])["edit"]["rewrites"], 0)
 
 
+class UpstreamKeys(unittest.TestCase):
+    def test_proxy_credentials_never_reach_the_harness_environment(self):
+        from unittest.mock import patch
+
+        for selector in ("BENCH_API_KEY_ENV", "BENCH_API_KEY_SECRET"):
+            with self.subTest(selector=selector), patch.dict(os.environ, {
+                selector: "CUSTOM_MODEL_TOKEN", "CUSTOM_MODEL_TOKEN": "private-upstream-token",
+                "ORCAROUTER_API_KEY": "private-orca-token", bench.provider.TOKEN_ENV: "private-proxy-token",
+                "ORDINARY_SETTING": "retained",
+            }, clear=True):
+                env = bench.Harness(tmpdir(self)).full_env()
+                self.assertNotIn("CUSTOM_MODEL_TOKEN", env)
+                self.assertNotIn("ORCAROUTER_API_KEY", env)
+                self.assertNotIn(bench.provider.TOKEN_ENV, env)
+                self.assertEqual(env["ORDINARY_SETTING"], "retained")
+
+
 class SearchKeys(unittest.TestCase):
     def file(self, text, mode=0o600):
         f = tmpdir(self) / "search.env"

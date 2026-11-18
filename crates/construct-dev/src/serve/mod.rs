@@ -18,9 +18,12 @@
 //! bench reads: tool-call latency is the gap between a response that ended in
 //! tool calls and the harness's next request.
 
+mod headers;
+mod key;
 mod models;
 mod script;
 
+pub use key::resolve_key;
 use script::adapt;
 pub use script::{Side, Step};
 
@@ -224,12 +227,7 @@ async fn forward(
     if let Some(k) = auth(&s, &headers) {
         rb = rb.bearer_auth(k);
     }
-    for (k, v) in headers.iter() {
-        let n = k.as_str();
-        if n.starts_with("http-referer") || n.starts_with("x-title") || n == "user-agent" {
-            rb = rb.header(n, v.clone());
-        }
-    }
+    let rb = headers::forward(&headers, rb, &up);
     let resp = match rb.send().await {
         Ok(r) => r,
         Err(e) => {
@@ -239,6 +237,7 @@ async fn forward(
         }
     };
     let status = resp.status().as_u16();
+    headers::record(resp.headers(), &mut rec);
     rec["status"] = json!(status);
     if !stream || status != 200 {
         let bytes = resp.bytes().await.unwrap_or_default();
