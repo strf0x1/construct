@@ -25,6 +25,8 @@ def load_arm(root, result_file, harness):
     grades = {row["instance_id"]: row for row in result["instances"]}
     if set(attempts) != set(grades) or len(attempts) != result["total"]:
         raise ValueError(f"{harness}: results omit selected instances")
+    if evaluation["prebuilt_images"] != {i: a["image"]["id"] for i, a in attempts.items()}:
+        raise ValueError(f"{harness}: grading used different images")
     return run, result, attempts, grades
 
 
