@@ -16,6 +16,10 @@ pub enum Group {
     /// Deck's boundary tools; present only when the VM runtime set an
     /// endpoint, so it is never offered by the router.
     Boundary,
+    /// The coordinator's `deck` tool; present only when Deck set a control
+    /// gateway, always on there, and never offered by the router or given to
+    /// a delegated child.
+    Coordinator,
     Mcp(String),
 }
 
@@ -30,9 +34,15 @@ impl Group {
             Group::History => "history".into(),
             Group::Developer => "developer".into(),
             Group::Boundary => "boundary".into(),
+            Group::Coordinator => "coordinator".into(),
             Group::Jobs => "jobs".into(),
             Group::Mcp(s) => format!("mcp:{s}"),
         }
+    }
+
+    /// Added only by Deck's environment, so a delegated child never has it.
+    pub fn from_deck(&self) -> bool {
+        matches!(self, Group::Boundary | Group::Coordinator)
     }
 
     /// The inverse of `label` for the groups the model may ask for.

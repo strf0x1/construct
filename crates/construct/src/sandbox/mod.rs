@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 
 mod beneath;
 mod denied;
+mod env;
 #[cfg(target_os = "linux")]
 mod landlock;
 pub mod open;
@@ -39,6 +40,7 @@ mod supervise;
 #[cfg(target_os = "macos")]
 #[path = "supervise_macos.rs"]
 mod supervise;
+pub use env::{is_secret_name, scrub_env};
 pub use stop::{GRACE, StopOnDrop};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -322,29 +324,6 @@ fn which(prog: &str) -> Option<PathBuf> {
         return Some(PathBuf::from(prog));
     }
     std::env::split_paths(&std::env::var_os("PATH")?).map(|d| d.join(prog)).find(|p| p.is_file())
-}
-
-/// Names that look like credentials. Tools never see these, whatever the mode.
-pub fn is_secret_name(name: &str) -> bool {
-    let n = name.to_ascii_uppercase();
-    const MARKS: &[&str] = &["KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "AUTH", "COOKIE", "SESSION"];
-    MARKS.iter().any(|m| n.contains(m))
-        && !matches!(
-            n.as_str(),
-            "SSH_AUTH_SOCK" | "XDG_SESSION_TYPE" | "XDG_SESSION_ID" | "XDG_SESSION_CLASS" | "XDG_SESSION_DESKTOP"
-        )
-}
-
-pub fn scrub_env(cmd: &mut tokio::process::Command) {
-    for (k, _) in std::env::vars_os() {
-        if let Some(k) = k.to_str()
-            && (is_secret_name(k) || crate::secrets::KNOWN.iter().any(|(n, _)| *n == k))
-        {
-            cmd.env_remove(k);
-        }
-    }
-    // An agent with the user's ssh-agent can push anywhere the user can.
-    cmd.env_remove("SSH_AUTH_SOCK");
 }
 
 /// `construct __sandbox <policy-json> -- <program> [args...]`: restrict this

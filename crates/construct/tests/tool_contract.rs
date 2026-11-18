@@ -7,7 +7,7 @@
 use construct::config::{MemoryConfig, Paths, ToolsConfig};
 use construct::memory::Store;
 use construct::sandbox::Policy;
-use construct::tools::{Catalog, Ctx, Group, OUTPUT_MAX};
+use construct::tools::{Catalog, Ctx, Deck, Group, OUTPUT_MAX};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -43,7 +43,11 @@ impl Fixture {
         };
         let (_tx, rx) = tokio::sync::watch::channel(false);
         let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
-        let catalog = Catalog::build(&ToolsConfig { editor: editor.into(), ..Default::default() }, None).unwrap();
+        // A coordinator's catalog, so the `deck` tool is checked too; its
+        // gateway is never reached, since every call here is refused first.
+        let deck = Deck { control: Some("http://127.0.0.1:9".into()), ..Deck::default() };
+        let catalog =
+            Catalog::build_with(&ToolsConfig { editor: editor.into(), ..Default::default() }, None, &deck).unwrap();
         Self { root, ctx, catalog }
     }
 
@@ -68,6 +72,7 @@ fn all_groups() -> Vec<Group> {
         Group::History,
         Group::Jobs,
         Group::Developer,
+        Group::Coordinator,
     ]
 }
 

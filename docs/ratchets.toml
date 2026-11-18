@@ -17,7 +17,7 @@
 "crates/construct/src/config.rs" = 427
 "crates/construct/src/event.rs" = 306
 "crates/construct/src/router.rs" = 304
-"crates/construct/src/sandbox/mod.rs" = 372
+"crates/construct/src/sandbox/mod.rs" = 351
 "crates/construct/src/skills.rs" = 313
 "crates/construct/src/tools/edit/hashline/mod.rs" = 362
 "crates/construct/src/tools/edit/hashline/ops.rs" = 312

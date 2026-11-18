@@ -96,11 +96,16 @@ impl Agent {
         // A delegated child shares the task but not the boundary tools or the
         // notification capability: the parent's time-based note already covers
         // blocks its delegates cause.
+        // Nor the coordinator's control gateway: coordination depth stays one.
         if is_child {
             cfg.deck = None;
         }
-        let catalog =
-            Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), cfg.deck.is_some(), cfg.github_gateway.is_some())?);
+        let deck = crate::tools::Deck {
+            boundary: cfg.deck.is_some(),
+            github: cfg.github_gateway.is_some(),
+            control: if is_child { None } else { crate::config::deck::control_url() },
+        };
+        let catalog = Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), &deck)?);
         if !cfg.agents.is_empty() {
             catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
         }
@@ -157,6 +162,9 @@ impl Agent {
         groups.insert(Group::Core);
         if ctx.boundary.is_some() {
             groups.insert(Group::Boundary);
+        }
+        if deck.control.is_some() {
+            groups.insert(Group::Coordinator);
         }
         for e in &entries {
             match &e.event {

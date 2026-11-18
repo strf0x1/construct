@@ -7,6 +7,18 @@ use anyhow::bail;
 use std::collections::{BTreeSet, HashSet};
 use std::sync::{Arc, RwLock};
 
+/// What Deck gave this task, each of which adds or changes tools. All off is
+/// an ordinary session.
+#[derive(Debug, Clone, Default)]
+pub struct Deck {
+    /// A boundary endpoint: the three boundary tools exist only then.
+    pub boundary: bool,
+    /// Deck's GitHub gateway: the `developer` tool publishes through it.
+    pub github: bool,
+    /// A coordinator's control gateway URL: the `deck` tool exists only then.
+    pub control: Option<String>,
+}
+
 /// The tools this session has. Definition order in requests is the order
 /// tools are pushed in `build` (then MCP tools in discovery order), grouped
 /// by `Group`'s order.
@@ -22,18 +34,11 @@ pub struct Catalog {
 impl Catalog {
     /// The one place implementations are chosen.
     pub fn build(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>) -> Result<Catalog> {
-        Self::build_with(cfg, mcp, false, false)
+        Self::build_with(cfg, mcp, &Deck::default())
     }
 
-    /// `build` for a process that also has a Deck boundary endpoint; the three
-    /// boundary tools exist only there. `github` is Deck's GitHub gateway: it
-    /// switches the `developer` tool to publish through it.
-    pub fn build_with(
-        cfg: &ToolsConfig,
-        mcp: Option<Arc<crate::mcp::Manager>>,
-        deck: bool,
-        github: bool,
-    ) -> Result<Catalog> {
+    /// `build` for a process Deck runs, with the surfaces it gave this task.
+    pub fn build_with(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>, deck: &Deck) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         match cfg.editor.as_str() {
             "replace" => {
@@ -63,11 +68,14 @@ impl Catalog {
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
         tools.push(Arc::new(job::JobTool));
-        tools.push(Arc::new(developer::Developer::new(github)));
-        if deck {
+        tools.push(Arc::new(developer::Developer::new(deck.github)));
+        if deck.boundary {
             tools.push(Arc::new(boundary::Wait));
             tools.push(Arc::new(boundary::Status));
             tools.push(Arc::new(boundary::Withdraw));
+        }
+        if let Some(url) = &deck.control {
+            tools.push(Arc::new(control::Control::new(url)));
         }
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {

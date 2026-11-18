@@ -10,6 +10,7 @@
 //! parent has.
 
 use crate::config::Config;
+use crate::config::deck::CONTROL_ENV;
 use crate::tools::Group;
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
@@ -20,9 +21,9 @@ use std::path::{Path, PathBuf};
 const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", crate::child::DEPTH_ENV, "TMPDIR"];
 
 /// Groups a child never has, whatever its allowlist says: memory and skill
-/// writes change what future sessions are told, and history is the parent's
-/// journal, which a child with a narrowed sandbox must not read.
-const DENIED: &[Group] = &[Group::Memory, Group::SkillWrite, Group::History];
+/// writes change what future sessions are told, history is the parent's
+/// journal, and `deck` would make a child a second coordinator.
+const DENIED: &[Group] = &[Group::Memory, Group::SkillWrite, Group::History, Group::Coordinator];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -244,7 +245,7 @@ impl AgentDef {
         self.protocol(name)?;
         for key in self.env.keys() {
             ensure!(
-                !key.is_empty() && !key.contains('=') && !RESERVED_ENV.contains(&key.as_str()),
+                !key.is_empty() && !key.contains('=') && ![RESERVED_ENV, CONTROL_ENV].concat().contains(&key.as_str()),
                 "[agents.{name}.env] {key:?} is not a variable a definition may set"
             );
         }
@@ -271,9 +272,10 @@ impl AgentDef {
         ep.api_key_secret = self.key_secret(parent);
         // The child runs on exactly this endpoint, whatever its model's entry says.
         cfg.pin_endpoint(ep);
+        // A child never has Deck's environment-only tools, so it cannot disable them.
         cfg.tools.disabled = table
             .iter()
-            .filter(|(n, g)| !names.contains(n) && !matches!(g, Group::Mcp(_)))
+            .filter(|(n, g)| !names.contains(n) && !matches!(g, Group::Mcp(_)) && !g.from_deck())
             .map(|(n, _)| n.clone())
             .collect();
         if self.context_window > 0 {
@@ -431,12 +433,28 @@ mod tests {
     }
 
     #[test]
+    fn a_coordinator_s_child_never_gets_the_deck_tool() {
+        let cfg = Config::default();
+        let deck = crate::tools::Deck { control: Some("http://127.0.0.1:9".into()), ..Default::default() };
+        let table = crate::tools::Catalog::build_with(&cfg.tools, None, &deck).unwrap().table();
+        let def = AgentDef { tools: vec![crate::tools::control::NAME.into()], ..Default::default() };
+        let err = def.child_config("worker", &cfg, &table).unwrap_err().to_string();
+        assert!(err.contains("may not have") && err.contains("coordinator"), "{err}");
+        let def = AgentDef { tools: vec!["read".into()], ..Default::default() };
+        let c = def.child_config("worker", &cfg, &table).unwrap();
+        assert!(!c.tools.disabled.iter().any(|t| t == crate::tools::control::NAME), "{:?}", c.tools.disabled);
+        let child = crate::tools::Catalog::build(&c.tools, None).expect("the child's own catalog builds");
+        assert_eq!(child.names(), vec!["read"]);
+    }
+
+    #[test]
     fn env_is_plain_variables_and_not_the_ones_construct_sets() {
         let (cfg, table) = parent();
         let mut def = AgentDef::default();
         def.env.insert("CODEX_HOME".into(), "/x".into());
         assert!(def.child_config("a", &cfg, &table).is_ok());
-        for bad in ["CONSTRUCT_HOME", "CONSTRUCT_DEPTH", "TMPDIR", "A=B", ""] {
+        for bad in ["CONSTRUCT_HOME", "CONSTRUCT_DEPTH", "TMPDIR", "DECK_CONTROL_URL", "DECK_CONTROL_TOKEN", "A=B", ""]
+        {
             let mut def = AgentDef::default();
             def.env.insert(bad.into(), "v".into());
             assert!(def.child_config("a", &cfg, &table).is_err(), "{bad:?}");
