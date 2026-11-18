@@ -158,7 +158,10 @@ to the shared guard. The portable runtime runs the harness while Bash runs in
 the original task environment. The container exports the explicitly submitted
 mini-SWE-agent patch and retains the working-tree patch at a budget stop.
 
-Grade each arm separately with `swebench.py grade` and a distinct arm name.
+Grade each arm separately with `swebench.py grade --prebuilt-images "$images"`
+and a distinct arm name. This gives the official grader the exact local
+image IDs from the run. The bridge verifies the private test definitions
+against the pinned task checkout at evaluation launch.
 Pass both run directories and imported `result.json` files to
 `swebench_compare.py` with the frozen sample. It checks input and image
 identity, reports paired outcomes, and resamples repositories for an

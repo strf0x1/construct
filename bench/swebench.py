@@ -168,8 +168,35 @@ from swebench.cli.cli import main
 main()
 """
 
+PREBUILT_ENTRYPOINT = TASK_CHECK + """
+from swebench.harness.utils import load_swebench_dataset
+pinned = load_swebench_dataset(sys.argv[2])
+for want, have in zip(pinned, actual, strict=True):
+    if {k: v for k, v in want.items() if k != 'image'} != {k: v for k, v in have.items() if k != 'image'}:
+        raise ValueError('prebuilt grader data differs from pinned task: ' + have['instance_id'])
+from swebench.cli.cli import main
+main()
+"""
 
-def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sys.executable, workers=1):
+
+def use_prebuilt(rows, image_ids):
+    if set(image_ids) != {row["instance_id"] for row in rows}:
+        raise ValueError("prebuilt images must cover exactly the selected instances")
+    pinned = []
+    for row in rows:
+        expected = image_ids[row["instance_id"]]
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected) or row.get("image_assets"):
+            raise ValueError("prebuilt grading requires immutable image IDs and tasks without external image assets")
+        actual = subprocess.check_output(
+            ["docker", "image", "inspect", "--format", "{{.Id}}", expected], text=True).strip()
+        if actual != expected:
+            raise ValueError(f"local image does not match pin: {row['instance_id']}")
+        pinned.append({**row, "image": expected})
+    return pinned
+
+
+def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sys.executable, workers=1,
+         prebuilt_images=None):
     data, _ = load(manifest)
     if not re.fullmatch(r"[A-Za-z0-9_-]+", arm) or repeat < 0:
         raise ValueError("arm must be a simple name and repeat must be nonnegative")
@@ -187,16 +214,24 @@ def plan(manifest, predictions, evaluator, tasks, output, arm, repeat, python=sy
     cwd = Path(output).resolve() / run_id
     cwd.mkdir(parents=True, mode=0o700)
     manifest = Path(manifest).resolve()
-    command = [str(python), "-c", ENTRYPOINT, str(manifest.parent / "agent/tasks.jsonl"), str(tasks),
-               "eval", str(manifest.parent / "grader/dataset.jsonl"), "-p", str(predictions),
-               "--task-repo", str(tasks), "--run-id", run_id, "-j", str(workers)]
+    dataset = manifest.parent / "grader/dataset.jsonl"
+    entrypoint, task_args = ENTRYPOINT, ["--task-repo", str(tasks)]
+    if prebuilt_images is not None:
+        selected = use_prebuilt(read_rows(dataset), prebuilt_images)
+        dataset = cwd / "prebuilt-dataset.jsonl"
+        write_rows(dataset, selected)
+        entrypoint, task_args = PREBUILT_ENTRYPOINT, []
+    command = [str(python), "-c", entrypoint, str(manifest.parent / "agent/tasks.jsonl"), str(tasks),
+               "eval", str(dataset), "-p", str(predictions), *task_args, "--run-id", run_id, "-j", str(workers)]
     for instance_id in data["instance_ids"]:
         command += ["-i", instance_id]
     destination = cwd / "evaluation.json"
     write_json(destination, {"run_id": run_id, "arm": arm, "repeat": repeat, "cwd": str(cwd),
                             "command": command, "evaluator_checkout": str(evaluator), "task_checkout": str(tasks),
                             "manifest": str(manifest), "manifest_sha256": sha256(manifest),
-                            "predictions": str(predictions), "predictions_sha256": sha256(predictions)})
+                            "predictions": str(predictions), "predictions_sha256": sha256(predictions),
+                            "grader_dataset": str(dataset), "grader_dataset_sha256": sha256(dataset),
+                            "prebuilt_images": prebuilt_images})
     return destination
 
 
@@ -205,6 +240,8 @@ def collect(evaluation):
     for field in ("manifest", "predictions"):
         if sha256(meta[field]) != meta[field + "_sha256"]:
             raise ValueError(f"{field} changed after evaluation was planned")
+    if "grader_dataset" in meta and sha256(meta["grader_dataset"]) != meta["grader_dataset_sha256"]:
+        raise ValueError("grader dataset changed after evaluation was planned")
     data, _ = load(meta["manifest"])
     root = Path(meta["cwd"]) / "logs/evaluation" / meta["run_id"]
     report = json.loads((root / "results.json").read_text())
@@ -260,6 +297,7 @@ def main():
     p.add_argument("--arm", required=True)
     p.add_argument("--repeat", type=int, default=0)
     p.add_argument("--workers", type=int, default=1)
+    p.add_argument("--prebuilt-images", type=Path, help="exact image IDs already built from the pinned task repo")
     p.add_argument("--python", default=sys.executable)
     p.add_argument("--execute", action="store_true")
     p = commands.add_parser("collect", help="import official reports without changing the selected denominator")
@@ -274,8 +312,9 @@ def main():
         elif args.command == "collect":
             print(json.dumps(collect(args.evaluation), indent=2))
         else:
+            images = json.loads(args.prebuilt_images.read_text()) if args.prebuilt_images else None
             destination = plan(args.manifest, args.predictions, args.evaluator, args.task_repo,
-                               args.output, args.arm, args.repeat, args.python, args.workers)
+                               args.output, args.arm, args.repeat, args.python, args.workers, images)
             print(destination)
             if args.execute:
                 meta = json.loads(destination.read_text())
