@@ -1,4 +1,4 @@
-//! A Deck coordinator's `deck` tool end to end (#222, contract 1.4.0 §13):
+//! A Deck coordinator's `deck` tool end to end (#222, contract 1.5.0 §13):
 //! the real binary, a scripted model and a stub of Deck's control gateway.
 //! The tool exists only when `DECK_CONTROL_URL` names a loopback gateway,
 //! carries the bearer header exactly when `DECK_CONTROL_TOKEN` is set, never
@@ -22,7 +22,9 @@ struct Seen {
     body: Value,
 }
 
-/// Deck's control gateway, answering by operation: `prompt` is busy.
+/// Deck's control gateway, answering by operation: `prompt` is busy. A 1.4
+/// gateway's `tasks` lists one worker and no projects; a 1.5 one lists no
+/// tasks and names the coordinator's one project.
 struct Gateway {
     port: u16,
     seen: Arc<Mutex<Vec<Seen>>>,
@@ -30,6 +32,10 @@ struct Gateway {
 
 impl Gateway {
     fn start() -> Self {
+        Self::speaking(false)
+    }
+
+    fn speaking(projects: bool) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let seen = Arc::new(Mutex::new(Vec::new()));
@@ -37,7 +43,7 @@ impl Gateway {
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
                 let log = log.clone();
-                std::thread::spawn(move || serve(stream, &log));
+                std::thread::spawn(move || serve(stream, &log, projects));
             }
         });
         Self { port, seen }
@@ -61,7 +67,7 @@ fn summary() -> Value {
     })
 }
 
-fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>) {
+fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, projects: bool) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();
@@ -85,6 +91,9 @@ fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>) {
     reader.read_exact(&mut body).unwrap();
     let body: Value = serde_json::from_slice(&body).unwrap();
     let (status, reply) = match body["operation"].as_str().unwrap() {
+        "tasks" if projects => {
+            (200, json!({ "tasks": [], "truncated": false, "projects": [{ "id": "git:abc", "name": "app" }] }))
+        }
         "tasks" => (200, json!({ "tasks": [summary()], "truncated": false })),
         "create" => (200, json!({ "id": WORKER })),
         "prompt" => (
@@ -189,6 +198,36 @@ fn a_coordinator_creates_prompts_waits_and_stops_a_worker() {
 }
 
 #[test]
+fn a_coordinator_learns_its_project_and_leaves_create_s_project_to_deck() {
+    let gateway = Gateway::speaking(true);
+    let env = Env::new(
+        "deck-control-projects",
+        json!({ "steps": [
+            deck(json!({ "operation": "tasks" })),
+            deck(json!({ "operation": "create", "brief": "Fix the flaky login test" })),
+            { "text": "done" }
+        ] }),
+    );
+    let url = gateway.url();
+    let out = env.run_with(&[("DECK_CONTROL_URL", &url)], &["run", "--json", "--no-learn", "go"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let seen = gateway.seen();
+    assert_eq!(seen.len(), 2);
+    assert_eq!(seen[1].body, json!({ "operation": "create", "brief": "Fix the flaky login test" }), "no project sent");
+    let results = tool_results(&env.requests()[2]);
+    assert!(
+        results[0].starts_with("Your projects: app (git:abc)") && results[0].ends_with("No tasks in scope."),
+        "an empty listing still names the project: {}",
+        results[0]
+    );
+    assert!(results[1].starts_with(&format!("Created task {WORKER};")), "{}", results[1]);
+    let first = &env.requests()[0];
+    let schema = first["tools"].as_array().unwrap().iter().find(|t| t["function"]["name"] == NAME).unwrap();
+    let project = schema.pointer("/function/parameters/properties/project/description").and_then(Value::as_str);
+    assert!(project.is_some_and(|d| d.contains("leave it out")), "{project:?}");
+}
+
+#[test]
 fn without_a_token_no_header_is_sent() {
     let gateway = Gateway::start();
     let env =
@@ -199,7 +238,8 @@ fn without_a_token_no_header_is_sent() {
     let seen = gateway.seen();
     assert_eq!(seen.len(), 1);
     assert!(seen[0].authorization.is_empty(), "{:?}", seen[0].authorization);
-    assert!(last_tool_result(&env.requests()[1]).contains(WORKER));
+    let result = last_tool_result(&env.requests()[1]);
+    assert!(result.starts_with("1 task:") && result.contains(WORKER), "a 1.4 reply has no projects: {result}");
 }
 
 #[test]
