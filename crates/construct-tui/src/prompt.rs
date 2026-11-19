@@ -17,7 +17,7 @@
 use super::ask::{Choice, Prompt};
 use super::markdown::wrap;
 use super::theme;
-use crate::permission::{Access, Request};
+use construct_core::permission::{Access, Request};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
@@ -268,7 +268,7 @@ pub(super) fn render(f: &mut Frame, area: Rect, p: &Prompt, waiting: usize, phas
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::permission::{PathAsk, ToolAsk};
+    use construct_core::permission::{PathAsk, ToolAsk};
 
     fn ask(request: Request) -> Prompt {
         Prompt::new(request, tokio::sync::oneshot::channel().0)
@@ -342,7 +342,7 @@ mod tests {
     fn operation_contents_can_be_reviewed_without_hiding_choices() {
         let detail =
             format!("/usr/bin/gh in /private/tmp/construct\n{}\nFINAL CONTENT", "review this body\n".repeat(80));
-        let mut p = ask(Request::Operation(crate::permission::OperationAsk {
+        let mut p = ask(Request::Operation(construct_core::permission::OperationAsk {
             agent: String::new(),
             operation: "issue_create".into(),
             scope: "github.com/owner/repo".into(),

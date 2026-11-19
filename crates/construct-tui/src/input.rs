@@ -271,8 +271,8 @@ fn word_start(before: &str) -> usize {
 mod tests {
     use super::super::app::App;
     use super::handle_key;
-    use crate::config::Config;
     use crate::text::prop;
+    use construct_core::config::Config;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use proptest::prelude::*;
 
@@ -363,8 +363,16 @@ mod tests {
         }
     }
 
-    fn turn_end(interrupted: bool) -> crate::event::Event {
-        crate::event::Event::TurnEnd { steps: 1, prompt: 0, completion: 0, ms: 5, interrupted, cached: 0, cost: None }
+    fn turn_end(interrupted: bool) -> construct_core::event::Event {
+        construct_core::event::Event::TurnEnd {
+            steps: 1,
+            prompt: 0,
+            completion: 0,
+            ms: 5,
+            interrupted,
+            cached: 0,
+            cost: None,
+        }
     }
 
     /// Press `k` during a turn, then let it end as the agent reports.
@@ -373,7 +381,7 @@ mod tests {
         let (cancel, seen) = tokio::sync::watch::channel(false);
         app.canceller = Some(cancel);
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        app.on_event(crate::event::Event::TurnStart);
+        app.on_event(construct_core::event::Event::TurnStart);
         assert!(!handle_key(&mut app, k, &tx));
         let sent = *seen.borrow();
         app.on_event(turn_end(interrupted));
@@ -408,10 +416,10 @@ mod tests {
         let mut app = App::new(Config::default());
         app.canceller = Some(tokio::sync::watch::channel(false).0);
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        app.on_event(crate::event::Event::TurnStart);
+        app.on_event(construct_core::event::Event::TurnStart);
         handle_key(&mut app, KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), &tx);
         app.on_event(turn_end(true));
-        app.on_event(crate::event::Event::TurnStart);
+        app.on_event(construct_core::event::Event::TurnStart);
         app.on_event(turn_end(false));
         assert!(!armed(&app), "an old ctrl-c armed quit at a later turn's end");
     }

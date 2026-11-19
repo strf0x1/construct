@@ -55,7 +55,7 @@ pub(super) fn is_builtin(name: &str) -> bool {
 
 /// The skills box's rows as a `/help` block carries them: `name\tdescription`
 /// per line, captured when `/help` ran.
-pub(super) fn skill_rows(skills: &[crate::skills::Skill]) -> String {
+pub(super) fn skill_rows(skills: &[construct_core::skills::Skill]) -> String {
     skills.iter().map(|s| format!("{}\t{}", s.name, s.description)).collect::<Vec<_>>().join("\n")
 }
 

@@ -2,7 +2,7 @@
 id: scroll-copy
 status: verified
 surfaces: [tui]
-depends: [crates/construct-core/src/tui/clip.rs, crates/construct-core/src/tui/view.rs, crates/construct-core/src/tui/input.rs, crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/activity.rs]
+depends: [crates/construct-tui/src/clip.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/input.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs]
 verified_at: 3acfa8d
 verified_deps: af6e967eb011aadd
 ---

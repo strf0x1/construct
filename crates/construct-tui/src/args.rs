@@ -9,5 +9,5 @@ pub(super) fn primary_arg(key: &str, args: &str) -> String {
         None => args.to_string(),
     };
     let s = s.replace('\n', " ⏎ ");
-    crate::llm::truncate(&s, 200)
+    construct_core::llm::truncate(&s, 200)
 }

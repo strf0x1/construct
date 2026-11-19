@@ -2,7 +2,7 @@
 id: long-text
 status: verified
 surfaces: [tui]
-depends: [crates/construct-core/src/tui/table.rs, crates/construct-core/src/tui/prompt.rs, crates/construct-core/src/tui/markdown.rs]
+depends: [crates/construct-tui/src/table.rs, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/markdown.rs]
 verified_at: 3acfa8d
 verified_deps: 31153a9e9a1cc7c2
 ---

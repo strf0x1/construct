@@ -2,7 +2,7 @@
 //! scrollable details pane preserves the original first prompt without truncation.
 
 use super::Browser;
-use crate::tui::theme;
+use crate::theme;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -11,7 +11,7 @@ use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Row, Table,
 use unicode_width::UnicodeWidthStr;
 
 fn age(at: u64) -> String {
-    match crate::journal::now_ms().saturating_sub(at) / 1000 {
+    match construct_core::journal::now_ms().saturating_sub(at) / 1000 {
         n @ 0..60 => format!("{n}s ago"),
         n @ 60..3600 => format!("{}m ago", n / 60),
         n @ 3600..86400 => format!("{}h ago", n / 3600),
@@ -19,7 +19,7 @@ fn age(at: u64) -> String {
     }
 }
 
-pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
+pub(crate) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
     p.poll();
     f.render_widget(Clear, area);
     let width = area.width.saturating_sub(2).min(116);
@@ -116,8 +116,8 @@ pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
         let provider = r.provider.as_deref().unwrap_or("default");
         let normalized = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
         let cap = usize::from(details.width.saturating_sub(10)).max(5);
-        let first = if split { r.first.clone() } else { crate::llm::truncate(&normalized(&r.first), cap) };
-        let latest = crate::llm::truncate(&normalized(&r.latest), if split { 160 } else { cap });
+        let first = if split { r.first.clone() } else { construct_core::llm::truncate(&normalized(&r.first), cap) };
+        let latest = construct_core::llm::truncate(&normalized(&r.latest), if split { 160 } else { cap });
         let model = if r.model.starts_with(&format!("{provider}/")) {
             r.model.clone()
         } else {
@@ -127,15 +127,15 @@ pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
             format!(
                 "First: {first}\nLatest: {latest}\nDirectory: {}\nModel: {model}\nLast activity: {}\nID: {}\nAlt+PgUp/PgDn: scroll details",
                 r.cwd,
-                crate::journal::timestamp(r.at_ms),
+                construct_core::journal::timestamp(r.at_ms),
                 r.id
             )
         } else {
             format!(
                 "First: {first}\nLatest: {latest}\nDirectory: {}\nModel: {}\nAt: {}\nID: {}",
-                crate::llm::truncate(&r.cwd, cap),
-                crate::llm::truncate(&model, cap),
-                crate::journal::timestamp(r.at_ms),
+                construct_core::llm::truncate(&r.cwd, cap),
+                construct_core::llm::truncate(&model, cap),
+                construct_core::journal::timestamp(r.at_ms),
                 r.id
             )
         };
@@ -149,10 +149,10 @@ pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
     }
 }
 
-impl crate::tui::app::App {
-    pub(in crate::tui) fn render_modal(&mut self, f: &mut Frame, area: Rect) {
+impl crate::app::App {
+    pub(crate) fn render_modal(&mut self, f: &mut Frame, area: Rect) {
         if let Some(p) = self.picker.as_mut() {
-            crate::tui::picker::render(f, area, p);
+            crate::picker::render(f, area, p);
         }
         if let Some(p) = self.browser.as_mut() {
             render(f, area, p);

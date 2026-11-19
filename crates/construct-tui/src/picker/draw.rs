@@ -4,9 +4,9 @@
 //! rather than hand-padded lines: the table scrolls itself to the selection.
 
 use super::{Group, Picker, Row};
-use crate::models::{Pricing, short_tokens};
-use crate::tui::theme;
-use crate::tui::view::fit;
+use crate::theme;
+use crate::view::fit;
+use construct_core::models::{Pricing, short_tokens};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -23,7 +23,7 @@ const MAX_W: u16 = 112;
 const MAX_H: u16 = 26;
 
 /// Draw the picker over `area` and park the cursor in its search line.
-pub(in crate::tui) fn render(f: &mut Frame, area: Rect, p: &mut Picker) {
+pub(crate) fn render(f: &mut Frame, area: Rect, p: &mut Picker) {
     let w = area.width.saturating_sub(2).clamp(20, MAX_W);
     let want = (p.rows.len() as u16 + 6).clamp(20, MAX_H);
     let h = area.height.saturating_sub(2).min(want).max(6);
@@ -242,7 +242,7 @@ fn host(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use construct_core::config::Config;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 

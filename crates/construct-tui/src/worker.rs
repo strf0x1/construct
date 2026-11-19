@@ -4,9 +4,9 @@
 use super::app::Cmd;
 use super::ask::{Prompt, TuiAsk};
 use super::learning::{finish, maybe_learn};
-use crate::agent::{Agent, Event, Events};
-use crate::config::{Config, Paths};
-use crate::journal::{Entry, Journal, Totals};
+use construct_core::agent::{Agent, Event, Events};
+use construct_core::config::{Config, Paths};
+use construct_core::journal::{Entry, Journal, Totals};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -16,9 +16,9 @@ pub(super) struct Ready {
     pub ack: Option<tokio::sync::oneshot::Sender<()>>,
     pub canceller: tokio::sync::watch::Sender<bool>,
     pub entries: Vec<Entry>,
-    pub catalog: Arc<crate::tools::Catalog>,
+    pub catalog: Arc<construct_core::tools::Catalog>,
     pub spent: Totals,
-    pub jobs: crate::jobs::Jobs,
+    pub jobs: construct_core::jobs::Jobs,
     pub cfg: Config,
     pub groups: Vec<String>,
 }
@@ -26,7 +26,7 @@ pub(super) struct Ready {
 impl Ready {
     fn of(a: &Agent) -> anyhow::Result<Self> {
         let mut entries = a.journal.entries()?;
-        let db = Journal::read_only(&crate::journal::path(&a.paths, &a.ctx.cwd))?;
+        let db = Journal::read_only(&construct_core::journal::path(&a.paths, &a.ctx.cwd))?;
         static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let tag = format!("{}:{}", a.journal.session, GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let spent = Totals::session(&db, &entries)?;
@@ -44,8 +44,8 @@ impl Ready {
             groups: a
                 .groups
                 .iter()
-                .filter(|g| **g != crate::tools::Group::Core)
-                .map(crate::tools::Group::label)
+                .filter(|g| **g != construct_core::tools::Group::Core)
+                .map(construct_core::tools::Group::label)
                 .collect(),
         })
     }
@@ -115,7 +115,7 @@ pub(super) async fn agent_task(
                     continue;
                 }
                 pending = id.clone();
-                crate::llm::overlay::prepare(&mut cfg, &paths, Some(out.landed.clone())).await;
+                construct_core::llm::overlay::prepare(&mut cfg, &paths, Some(out.landed.clone())).await;
                 match prepare(&cfg, &paths, &cwd, id, model_override.as_deref()) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
@@ -238,7 +238,7 @@ fn prepare(
     model_override: Option<&str>,
 ) -> anyhow::Result<(Agent, Ready)> {
     let a = Agent::new_with_model(cfg.clone(), paths.clone(), cwd.to_path_buf(), id, model_override)?;
-    crate::trace::mark("agent ready");
+    construct_core::trace::mark("agent ready");
     let ready = Ready::of(&a)?;
     Ok((a, ready))
 }

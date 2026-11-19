@@ -7,7 +7,7 @@
 //! tell the UI a question went stale.
 
 use super::app::App;
-use crate::permission::{Ask, Decision, Request, Verdict};
+use construct_core::permission::{Ask, Decision, Request, Verdict};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::cell::Cell;
 use std::time::{Duration, Instant};

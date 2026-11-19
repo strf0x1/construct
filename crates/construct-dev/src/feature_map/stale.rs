@@ -102,7 +102,7 @@ mod tests {
     fn a_verified_entry_whose_dependencies_moved_is_stale() {
         let root = tree("stale");
         write(&root, &format!("{MAP}/turn.md"), GOOD);
-        let theme = "crates/construct-core/src/tui/theme.rs";
+        let theme = "crates/construct-tui/src/theme.rs";
         let object = |rev: &str, path: &str| match (rev, path) {
             ("HEAD", p) if p == theme || p.ends_with("recipes/turn") => Some(format!("new {p}")),
             (_, p) => Some(format!("old {p}")),

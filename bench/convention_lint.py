@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 CEILING = 300
-LONG_OK = ("crates/construct-core/src/tui/view.rs", "crates/construct-core/src/tools/mod.rs")
+LONG_OK = ("crates/construct-tui/src/view.rs", "crates/construct-core/src/tools/mod.rs")
 TOOLS_DIR = "crates/construct-core/src/tools/"
 RULES = ("unwrap", "wire-name", "module-doc", "file-length", "dependency", "workspace-dependency", "snap", "clippy-pedantic")
 # `info` is counted but is not a violation: the 300-line ceiling is soft

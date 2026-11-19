@@ -2,7 +2,7 @@
 id: session-browser
 status: verified
 surfaces: [tui, cli]
-depends: [crates/construct-core/src/journal, crates/construct-core/src/agent/restore.rs, crates/construct-core/src/agent/user_turn.rs, crates/construct-core/src/tui/sessions, crates/construct-core/src/tui/restore.rs, crates/construct-core/src/tui/worker.rs, crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/activity.rs, crates/construct/src/cli/resume.rs]
+depends: [crates/construct-core/src/journal, crates/construct-core/src/agent/restore.rs, crates/construct-core/src/agent/user_turn.rs, crates/construct-tui/src/sessions, crates/construct-tui/src/restore.rs, crates/construct-tui/src/worker.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct/src/cli/resume.rs]
 verified_at: 3acfa8d
 verified_deps: 8828675864029e6b
 ---

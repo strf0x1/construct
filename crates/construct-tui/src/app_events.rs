@@ -4,7 +4,7 @@
 use super::app::*;
 use super::args::primary_arg;
 use super::theme;
-use crate::agent::Event;
+use construct_core::agent::Event;
 use std::time::Instant;
 
 impl App {
@@ -122,7 +122,7 @@ impl App {
                 self.context_pct = self.context_pct_now();
                 let label = self.cfg.entry().map(|e| e.label.as_str()).filter(|l| !l.is_empty());
                 let what = label.map_or(model.clone(), |l| format!("{model} ({l})"));
-                self.notice(theme::ACCENT, format!("model → {what} · {} ctx", crate::models::short_tokens(context_window as u64)));
+                self.notice(theme::ACCENT, format!("model → {what} · {} ctx", construct_core::models::short_tokens(context_window as u64)));
             }
             Event::Compacted { before, after, mode, tokens_before, tokens_after, .. } => {
                 let what = if tokens_before > 0 {

@@ -133,7 +133,8 @@ fn chunks(line: String, w: usize) -> Vec<String> {
         if end == 0 {
             end = rest.chars().next().map_or(0, char::len_utf8); // one char wider than the box
         }
-        let cut = text::head(rest, end).rfind('/').map(|i| i + 1).filter(|&i| i * 2 >= end).unwrap_or(end);
+        let cut =
+            construct_core::text::head(rest, end).rfind('/').map(|i| i + 1).filter(|&i| i * 2 >= end).unwrap_or(end);
         let (line, more) = rest.split_at(cut); // `end` and a `/` are both char boundaries
         out.push(line.to_string());
         rest = more;

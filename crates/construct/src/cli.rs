@@ -10,7 +10,7 @@ mod resume;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
-use construct_core::{acp, child, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools, tui};
+use construct_core::{acp, child, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools};
 use resume::resolve_resume;
 use std::io::{IsTerminal, Read, Write};
 
@@ -154,7 +154,7 @@ pub fn run() -> Result<()> {
                 &paths,
                 std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
             )?;
-            rt.block_on(tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model))
+            rt.block_on(construct_tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model))
         }
         Some(Cmd::Run { prompt, json, no_learn }) => {
             let resume = resolve_resume(&cli.resume, cli.cont, &paths, false)?;

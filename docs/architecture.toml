@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core"]
+may_use_crates = ["construct-core", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -130,14 +130,105 @@ may_use = ["agents", "child", "config", "event", "jobs", "journal", "llm", "mcp"
 [crates.construct-core.modules.trace]
 may_use = ["config"]
 
-[crates.construct-core.modules.tui]
-may_use = ["agent", "compact", "config", "event", "jobs", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
-must_not_use = [
-  { module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
-  { module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
-  { module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
+[crates.construct-tui]
+may_use_crates = ["construct-core"]
+must_not_use_crates = [
+  { crate = "construct-core", module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
+  { crate = "construct-core", module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
+  { crate = "construct-core", module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
 ]
-used_only_by = { modules = [], reason = "the TUI is a front end: nothing in construct-core may use it; only the construct binary starts it (moves to construct-tui in #277)" }
+used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner); construct's cli is the one place that chooses to start it" }
+
+[crates.construct-tui.modules.activity]
+may_use = ["app", "theme"]
+
+[crates.construct-tui.modules.app]
+may_use = ["ask", "boxed", "children", "palette", "picker", "sessions", "theme", "turn"]
+
+[crates.construct-tui.modules.app_events]
+may_use = ["app", "args", "theme"]
+
+[crates.construct-tui.modules.args]
+may_use = []
+
+[crates.construct-tui.modules.ask]
+may_use = ["app"]
+
+[crates.construct-tui.modules.boxed]
+may_use = ["text", "theme"]
+
+[crates.construct-tui.modules.children]
+may_use = []
+
+[crates.construct-tui.modules.clip]
+may_use = []
+
+[crates.construct-tui.modules.commands]
+may_use = ["app", "clip", "help", "listing", "picker", "sessions", "theme"]
+
+[crates.construct-tui.modules.dock]
+may_use = ["app", "args", "children", "theme", "view"]
+
+[crates.construct-tui.modules.help]
+may_use = ["boxed", "theme"]
+
+[crates.construct-tui.modules.input]
+may_use = ["app", "ask", "commands", "picker", "theme"]
+
+[crates.construct-tui.modules.jobs]
+may_use = ["app", "theme"]
+
+[crates.construct-tui.modules.learning]
+may_use = []
+
+[crates.construct-tui.modules.lib]
+may_use = []
+
+[crates.construct-tui.modules.listing]
+may_use = ["app", "boxed", "theme"]
+
+[crates.construct-tui.modules.markdown]
+may_use = ["table", "text", "theme"]
+
+[crates.construct-tui.modules.palette]
+may_use = ["help", "picker", "theme", "view"]
+
+[crates.construct-tui.modules.peek]
+may_use = ["app", "children", "dock", "markdown", "theme", "view"]
+
+[crates.construct-tui.modules.picker]
+may_use = ["palette", "theme", "view"]
+
+[crates.construct-tui.modules.prompt]
+may_use = ["ask", "markdown", "theme"]
+
+[crates.construct-tui.modules.restore]
+may_use = ["app", "theme", "worker"]
+
+[crates.construct-tui.modules.sessions]
+may_use = ["app", "picker", "theme"]
+
+[crates.construct-tui.modules.status]
+may_use = ["app", "theme"]
+
+[crates.construct-tui.modules.table]
+may_use = ["text", "theme"]
+
+[crates.construct-tui.modules.text]
+may_use = []
+
+[crates.construct-tui.modules.theme]
+may_use = []
+
+[crates.construct-tui.modules.turn]
+may_use = []
+
+[crates.construct-tui.modules.view]
+may_use = ["app", "boxed", "help", "markdown", "prompt", "text", "theme"]
+
+[crates.construct-tui.modules.worker]
+may_use = ["app", "ask", "learning", "restore"]
+
 [crates.construct-dev]
 may_use_crates = []
 

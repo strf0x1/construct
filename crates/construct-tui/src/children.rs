@@ -55,7 +55,7 @@ impl Child {
     pub(super) fn tool_start(&mut self, id: String, name: String, detail: String) {
         let said = std::mem::take(&mut self.said);
         if !said.trim().is_empty() {
-            self.push(Entry::Said(crate::llm::truncate(said.trim(), KEPT)));
+            self.push(Entry::Said(construct_core::llm::truncate(said.trim(), KEPT)));
         }
         self.push(Entry::Tool { id, name, detail, done: None });
     }
@@ -107,7 +107,7 @@ pub(super) struct Dock {
     pub(super) children: Vec<Child>,
     pub(super) peek: Option<Peek>,
     /// The session's jobs, to cancel one while a turn runs.
-    pub(super) jobs: Option<crate::jobs::Jobs>,
+    pub(super) jobs: Option<construct_core::jobs::Jobs>,
 }
 
 impl Dock {

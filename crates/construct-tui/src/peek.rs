@@ -201,7 +201,7 @@ fn said(text: &str, w: usize, style: Style) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use construct_core::config::Config;
 
     fn key(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
         KeyEvent::new(code, mods)
