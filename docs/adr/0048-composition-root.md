@@ -54,7 +54,9 @@ and `sha256` are untouched, so no ACP wire change.
   (transitive licenses included), the bench and verify scripts, and README
   all work unchanged: `target/{debug,release}/construct` is still the binary.
 - Unit and contract tests are now `cargo test -p construct-core`; `clap` is
-  not in `cargo tree -p construct-core`. The binary crate has no tests.
+  not a direct dependency of `construct-core` (it remains in the transitive
+  tree via `secretspec`, whose clap dependency is non-optional upstream —
+  true before the split as well). The binary crate has no tests.
 - The first real cross-crate edge exists: `construct` → `construct-core`,
   listed in `[crates.construct] may_use_crates` (ADR 0047's machinery, proven
   by gate tests until now). `cli`'s engine references are crate edges; its
