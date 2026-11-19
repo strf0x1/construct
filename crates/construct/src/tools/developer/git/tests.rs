@@ -103,6 +103,67 @@ async fn isolated_commit_context_preserves_reftable_storage() {
 }
 
 #[tokio::test]
+async fn a_merge_can_preserve_the_current_tree_while_adding_ancestry() {
+    let (ctx, root) = context("merge-unchanged-tree", "sha256");
+    git(&ctx.cwd, &["refs", "migrate", "--ref-format=reftable"]);
+    git(&ctx.cwd, &["commit", "-m", "Initial"]);
+    let base = git(&ctx.cwd, &["rev-parse", "HEAD"]);
+    git(&ctx.cwd, &["switch", "-c", "topic"]);
+    git(&ctx.cwd, &["commit", "--allow-empty", "-m", "Contributor"]);
+    let topic = git(&ctx.cwd, &["rev-parse", "HEAD"]);
+    git(&ctx.cwd, &["switch", "main"]);
+    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
+    let tree = git(&ctx.cwd, &["rev-parse", "HEAD^{tree}"]);
+
+    let plan =
+        prepare::prepare(&ctx, json!({"operation":"commit","message":"Retain the current files"})).await.unwrap();
+    assert!(plan.request.detail.contains(&format!("Merge parents: {topic}")));
+    assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
+    assert_eq!(git(&ctx.cwd, &["log", "-1", "--format=%P"]), format!("{base} {topic}"));
+    assert_eq!(git(&ctx.cwd, &["rev-parse", "HEAD^{tree}"]), tree);
+    assert!(!ctx.cwd.join(".git/MERGE_HEAD").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn abandoning_a_merge_invalidates_an_approved_resolution_without_moving_head() {
+    let (ctx, root) = context("merge-abandoned", "sha1");
+    git(&ctx.cwd, &["commit", "-m", "Initial"]);
+    let base = git(&ctx.cwd, &["rev-parse", "HEAD"]);
+    git(&ctx.cwd, &["switch", "-c", "topic"]);
+    std::fs::write(ctx.cwd.join("first.txt"), "contributor\n").unwrap();
+    git(&ctx.cwd, &["commit", "-am", "Contributor"]);
+    git(&ctx.cwd, &["switch", "main"]);
+    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
+    let staged = git(&ctx.cwd, &["write-tree"]);
+    let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Reviewed resolution"})).await.unwrap();
+    git(&ctx.cwd, &["merge", "--quit"]);
+
+    assert_eq!(plan.execute(&ctx).await.err().unwrap().code, "changed");
+    assert_eq!(git(&ctx.cwd, &["rev-parse", "HEAD"]), base);
+    assert_eq!(git(&ctx.cwd, &["write-tree"]), staged);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn an_autostash_ref_blocks_the_approved_merge_in_reftable() {
+    let (ctx, root) = context("merge-autostash", "sha1");
+    git(&ctx.cwd, &["refs", "migrate", "--ref-format=reftable"]);
+    git(&ctx.cwd, &["commit", "-m", "Initial"]);
+    git(&ctx.cwd, &["switch", "-c", "topic"]);
+    git(&ctx.cwd, &["commit", "--allow-empty", "-m", "Contributor"]);
+    git(&ctx.cwd, &["switch", "main"]);
+    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
+    git(&ctx.cwd, &["update-ref", "MERGE_AUTOSTASH", "HEAD"]);
+    let error =
+        prepare::prepare(&ctx, json!({"operation":"commit","message":"Do not move the stash"})).await.err().unwrap();
+    assert!(error.message.contains("restore its autostash"), "{}", error.message);
+    assert!(!ctx.cwd.join(".git/MERGE_AUTOSTASH").exists(), "the real state is a reftable ref");
+    assert_eq!(git(&ctx.cwd, &["rev-parse", "MERGE_AUTOSTASH"]), git(&ctx.cwd, &["rev-parse", "HEAD"]));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn preparing_a_partial_clone_cannot_start_repository_selected_ssh_for_lazy_fetch() {
     let (ctx, root) = context("lazy-fetch", "sha1");
     git(&ctx.cwd, &["commit", "-m", "Source commit"]);
