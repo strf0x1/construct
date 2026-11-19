@@ -64,11 +64,11 @@ impl Tool for Developer {
         def(
             Self::NAME,
             &format!(
-                "Request approval for a concrete developer operation using the host's authentication. Use instead of probing credentials with {sh}. Stage files with {sh} before commit; commits are unsigned and skip hooks. Push sends the captured branch commit to the named remote without force or hooks. PR creation never pushes. Each operation is approved separately. After an unknown remote outcome, reconcile with a read-only query before proceeding; never repeat a write automatically.",
+                "Approve concrete commits, pushes and GitHub writes. In a linked Git worktree use status, stage and merge_start for its own checkout. Stage exact file paths before commit. Start a merge with one full commit ID, then resolve conflicts, stage and commit. In a regular checkout stage with {sh}. Commits are unsigned and skip hooks. Push sends the captured commit to the named remote without force or hooks. PR creation never pushes. After an unknown remote outcome, reconcile with a read-only query before repeating a write.",
                 sh = super::shell::Shell::NAME
             ),
             json!({"type":"object", "properties": {
-                "operation":{"type":"string", "enum":["issue_create","commit","push","pr_create"]},
+                "operation":{"type":"string", "enum":["issue_create","commit","push","pr_create",git::worktree::STATUS,git::worktree::STAGE,git::worktree::MERGE_START]},
                 "repo":{"type":"string", "description":"issue_create/pr_create: required explicit OWNER/REPO on github.com"},
                 "title":{"type":"string", "description":"issue_create/pr_create: required title"},
                 "body":{"type":"string", "description":"issue_create/pr_create: required complete body, may be empty"},
@@ -77,7 +77,9 @@ impl Tool for Developer {
                 "workdir":{"type":"string", "description":"commit/push: repository directory, defaults to session working directory"},
                 "message":{"type":"string", "description":"commit: required complete commit message"},
                 "remote":{"type":"string", "description":"push: required configured SSH/HTTPS remote name"},
-                "branch":{"type":"string", "description":"push: required source and destination branch name"}
+                "branch":{"type":"string", "description":"push: required source and destination branch name"},
+                "paths":{"type":"array","items":{"type":"string"},"description":"stage: exact relative file paths in this linked worktree"},
+                "commit":{"type":"string","description":"merge_start: one full Git commit ID"}
             }, "required":["operation"], "additionalProperties":false}),
         )
     }
@@ -85,11 +87,14 @@ impl Tool for Developer {
         self.call_with(ctx, &Call::detached(""), args).await
     }
     async fn call_with(&self, ctx: &Ctx, _call: &Call, args: Value) -> Result<Output, ToolError> {
-        let commit = args.get("operation").and_then(Value::as_str) == Some("commit");
+        let operation = args.get("operation").and_then(Value::as_str);
         if let Some(url) = &ctx.github
-            && !commit
+            && operation != Some("commit")
         {
             return gateway::call(ctx, url, args).await;
+        }
+        if operation.is_some_and(git::worktree::is_operation) {
+            return git::worktree::call(ctx, args).await;
         }
         let prepared = prepare::prepare(ctx, args).await?;
         // A local commit in a Deck task asks nobody: the VM is the sandbox and

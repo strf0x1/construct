@@ -111,6 +111,16 @@ fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, projects: bool) {
         "tasks" => (200, json!({ "tasks": [summary()], "truncated": false })),
         "create" => (200, json!({ "id": WORKER })),
         "integrate" => (200, json!({ "id": INTEGRATION })),
+        "task" => {
+            let mut worker = summary();
+            worker["worktree"] = json!({
+                "branch": "deck/local-worker",
+                "base_commit": "a".repeat(40),
+                "target_ref": "refs/heads/main",
+                "review_commit": "d".repeat(40),
+            });
+            (200, json!({ "task": worker }))
+        }
         "prompt" => (
             409,
             json!({ "error": { "message": "the task's turn is working", "type": "deck_control_busy", "code": "deck_control_busy" }, "retryable": true }),
@@ -287,6 +297,22 @@ fn the_coordinator_can_request_integration_and_see_why_it_waits() {
     assert!(detail.contains(&format!("Starting commit: {}", "a".repeat(40))), "{detail}");
     assert!(detail.contains(&format!("- w2: {}\n- w1: waiting for commit", "b".repeat(40))), "{detail}");
     assert!(detail.contains("Contributor w1 has no published task branch."), "{detail}");
+}
+
+#[test]
+fn a_local_worktree_reply_names_the_branch_and_verified_review_commit() {
+    let gateway = Gateway::start();
+    let env = Env::new(
+        "deck-control-review-commit",
+        json!({"steps": [deck(json!({"operation":"task","id":WORKER})), {"text":"done"}]}),
+    );
+    let url = gateway.url();
+    let out = env.run_with(&[("DECK_CONTROL_URL", &url)], &["run", "--json", "--no-learn", "Review the worker"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let detail = last_tool_result(&env.requests()[1]);
+    assert!(detail.contains("Local branch deck/local-worker"), "{detail}");
+    assert!(detail.contains("Target ref: refs/heads/main"), "{detail}");
+    assert!(detail.contains(&format!("Review commit: {}", "d".repeat(40))), "{detail}");
 }
 
 #[test]

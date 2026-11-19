@@ -18,9 +18,9 @@ request was approved.
 A dedicated `developer` tool prepares a concrete operation, asks through the
 existing permission channel, then executes fixed arguments on the host.
 The optional `developer` tool group is discoverable through `enable_tools`.
-The tool has four operations: `issue_create`, `commit`, `push`, and
-`pr_create`. It accepts no shell command, executable override, or environment
-override.
+The operations that need approval are `issue_create`, `commit`, `push`,
+and `pr_create`. The tool accepts no shell command, executable override, or
+environment override.
 
 The approval shows the operation, destination, content, executable identity,
 and working directory. Long content can be reviewed with page-up/page-down
@@ -55,6 +55,18 @@ parents. Construct rechecks the index and merge parents while holding Git's
 worktree index lock. It updates the reviewed branch and then asks Git to
 clear the merge state using the private configuration. Merges with an
 autostash must finish in Git so the user's unstaged changes can be restored.
+
+A linked worktree can use `developer status`, `developer stage`, and
+`developer merge_start` from its checkout root. Construct verifies the
+registered worktree and runs fixed Git arguments under a separate sandbox.
+Git uses the worktree's native index and merge state. The shared object
+store can accept new objects, and shared refs are read-only. The operation
+uses private Git configuration and receives no host credentials. It leaves
+the ordinary shell sandbox in place.
+
+Stage takes exact relative file paths. Merge start takes one full commit
+ID and leaves staged changes or conflicts for the agent to resolve. Commit
+approval still shows the resolution and merge parents.
 
 Pushes capture a commit ID, destination URL, and full destination branch
 reference. They run from a private git context so repository configuration

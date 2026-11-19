@@ -9,6 +9,7 @@ mod merge;
 #[cfg(test)]
 mod tests;
 mod transport;
+pub(super) mod worktree;
 
 pub use commit::commit;
 pub use transport::{Push, push};

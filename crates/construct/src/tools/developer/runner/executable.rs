@@ -10,6 +10,19 @@ pub struct Executable {
 }
 
 impl Executable {
+    #[cfg(target_os = "macos")]
+    pub fn selected(path: PathBuf, ctx: &Ctx) -> Result<Self, ToolError> {
+        let path = path.canonicalize().map_err(|_| "cannot resolve the selected Git executable")?;
+        Self::outside_workspace(&path, ctx).ok_or("the selected Git executable must be outside writable roots")?;
+        let bytes = std::fs::read(&path).map_err(|_| "cannot read the selected Git executable")?;
+        Ok(Self { path, digest: Sha256::digest(bytes).to_vec() })
+    }
+
+    fn outside_workspace(path: &std::path::Path, ctx: &Ctx) -> Option<()> {
+        (!path.starts_with(&ctx.cwd) && !ctx.policy().write.iter().any(|root| path.starts_with(root)) && path.is_file())
+            .then_some(())
+    }
+
     #[cfg(test)]
     pub fn fake(path: PathBuf) -> Self {
         let bytes = std::fs::read(&path).unwrap();
@@ -24,10 +37,7 @@ impl Executable {
             }
             let Ok(path) = dir.join(name).canonicalize() else { continue };
             // A workspace cannot install or replace the authenticated runner.
-            if path.starts_with(&ctx.cwd)
-                || ctx.policy().write.iter().any(|root| path.starts_with(root))
-                || !path.is_file()
-            {
+            if Self::outside_workspace(&path, ctx).is_none() {
                 continue;
             }
             let bytes = std::fs::read(&path).map_err(|_| "cannot read developer executable")?;
