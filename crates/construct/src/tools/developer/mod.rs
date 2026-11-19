@@ -12,6 +12,7 @@ mod runner;
 mod tests;
 
 use super::{Call, Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def};
+pub(super) use git::worktree::{MERGE_START, STAGE, STATUS};
 use serde_json::{Value, json};
 
 /// `gateway`: whether this process has Deck's GitHub gateway, which changes
@@ -74,7 +75,7 @@ impl Tool for Developer {
                 "body":{"type":"string", "description":"issue_create/pr_create: required complete body, may be empty"},
                 "base":{"type":"string", "description":"pr_create: required base branch"},
                 "head":{"type":"string", "description":"pr_create: required existing head branch, optionally OWNER:BRANCH"},
-                "workdir":{"type":"string", "description":"commit/push: repository directory, defaults to session working directory"},
+                "workdir":{"type":"string", "description":"commit/push: repository directory, defaults to session working directory; status/stage/merge_start: only the session working directory"},
                 "message":{"type":"string", "description":"commit: required complete commit message"},
                 "remote":{"type":"string", "description":"push: required configured SSH/HTTPS remote name"},
                 "branch":{"type":"string", "description":"push: required source and destination branch name"},

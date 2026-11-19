@@ -46,8 +46,9 @@ fn the_default_sandbox_can_merge_and_stage_in_its_linked_worktree() {
     let env = Env::new(
         name,
         json!({"steps": [
+            {"call":"shell", "args":{"command":"git status"}},
             {"call":"developer", "args":{"operation":"merge_start", "commit":contributor}},
-            {"call":"developer", "args":{"operation":"status"}},
+            {"call":"developer", "args":{"operation":"status", "workdir":"."}},
             {"call":"developer", "args":{"operation":"stage", "paths":["../source/notes.txt"]}},
             {"call":"read", "args":{"path":"notes.txt"}},
             {"call":"write", "args":{"path":"notes.txt", "content":"worker edit\ncontributor edit\n"}},
@@ -67,6 +68,17 @@ fn the_default_sandbox_can_merge_and_stage_in_its_linked_worktree() {
         .filter(|row| row.ty == "tool_end" && row.payload["name"] == "developer")
         .map(|row| row.payload)
         .collect();
+    // Plain git can't reach the source repository from the worktree; the
+    // failure says which tool can, before the model goes looking (#278).
+    let shell: Vec<_> = env
+        .journal_in(&linked)
+        .into_iter()
+        .filter(|row| row.ty == "tool_end" && row.payload["name"] == "bash")
+        .map(|row| row.payload)
+        .collect();
+    assert_eq!(shell.len(), 1, "{shell:?}");
+    let failed = shell[0]["output"].as_str().unwrap();
+    assert!(failed.contains("linked Git worktree") && failed.contains("\"stage\" with exact file paths"), "{failed}");
     assert_eq!(calls.len(), 5, "{calls:?}");
     assert!(calls.iter().enumerate().all(|(i, result)| result["ok"] == (i != 2)), "{calls:?}");
     assert_eq!(calls[0]["data"]["state"], "conflicts", "{calls:?}");

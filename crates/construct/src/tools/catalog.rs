@@ -187,7 +187,10 @@ impl Catalog {
         let mut out = vec![];
         let base = [
             (Group::Web, ""),
-            (Group::Developer, "approved host-authenticated GitHub issues, git commits, pushes and pull requests"),
+            (
+                Group::Developer,
+                "approved host-authenticated GitHub issues, git commits, pushes and pull requests; git status and staging in a linked worktree",
+            ),
             (Group::Memory, "durable memory of the user and machine"),
             (Group::History, "search past sessions"),
             (Group::Skills, "load saved procedures"),
