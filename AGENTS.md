@@ -3,7 +3,9 @@
 construct is a single-binary agent harness in Rust: an OpenAI-compatible
 streaming loop, in-process tools, capped memory and agent-written skills, a
 background learning pass, a Jev/local router, secretspec secrets, and a
-full-screen TUI. `construct-dev` (in `crates/construct-dev/`) is the tooling that lets you run
+full-screen TUI. The engine is the `construct-core` lib
+(`crates/construct-core/`); `crates/construct/` is the thin binary that
+composes it (ADR 0048). `construct-dev` (in `crates/construct-dev/`) is the tooling that lets you run
 and observe it end to end without a model or a terminal.
 
 ## Layout
@@ -11,30 +13,30 @@ and observe it end to end without a model or a terminal.
 | Path | What |
 |---|---|
 | `crates/construct/src/cli.rs` | Clap types and subcommand bodies; `main.rs` is only the sandbox-helper exit and `cli::run()`. Logic lives in the lib. |
-| `crates/construct/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`, journaled as it is emitted. |
-| `crates/construct/src/compact/` | Fitting history into the window: the planner (stub old tool results, else summarize older rounds), overflow recovery, and the `Cut` the projector replays on resume. Rounds are the unit. See proposal 01. |
-| `crates/construct/src/event.rs` | The one `Event` type: what the agent emits, what `--json` prints, what a journal row holds. Additive-only. |
-| `crates/construct/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape; `notes.rs` is the `Coalescer` behind `Event::Note` (recovered provider conditions, one row per kind per model call; ADR 0025). See ADR 0008. |
-| `crates/construct/src/llm/` | Streaming `/chat/completions` client (hand-rolled SSE) with two deadlines per call; `message.rs` is `Message` and its wire form (reasoning echoed under the key it streamed in, ADR 0044). Provider quirks live only in `dialect.rs` (it builds and edits the standard body); `usage.rs` reads every provider's token, cache and cost fields; `discover.rs` asks a provider's server for its models and windows by server kind (fixtures in `crates/construct/tests/fixtures/discover/`), `catalog.rs` caches and searches the list, `overlay.rs` lays it under the catalog. |
-| `crates/construct/src/tools/` | One `impl Tool` per file (shell (wire name `bash`, ADR 0046), read, write, edit, grep, glob, web, memory, skill, history, mcp); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
-| `crates/construct/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
-| `crates/construct/src/permission/` | Asking the user before a tool goes past the sandbox, and remembering it: `Request`/`Ask`, `Perms` (session grants, `config.toml` edits, protected paths), the shell-output path heuristic, the child's upward asker. ADR 0016. |
-| `crates/construct/src/providers/`, `crates/construct/src/endpoint.rs` | Named providers (`mod.rs`: `[providers.<name>]`, built-in presets as data rows; `resolve.rs`: `provider/model` resolution, never from a fetched list) and the `Endpoint` a request goes to, resolved on each call, never stored; a key is chosen only in `endpoint.rs`. ADR 0027. |
-| `crates/construct/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
-| `crates/construct/src/home.rs` | Keeps `$CONSTRUCT_HOME` private: created `0700`, an open one tightened once, never loosened; a `.private` marker means hands off. ADR 0021. |
-| `crates/construct/src/memory.rs`, `crates/construct/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
-| `crates/construct/src/learn/` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. `[learn] strategy` picks how a session becomes knowledge: `hybrid` (default, ADR 0022), `skills`, `corrections` (follow-ups and failure/fix pairs as evidence, `evidence.rs`), `playbook` (ACE-style bullets with helpful/harmful counts), or `workflow`. `hybrid` keeps facts and conventions as bullets and procedures as project skills with a pointer bullet, and reflects only when `gate::evidence` finds something; only the strategy in use adds to the prompt. Everything a learner keeps passes `guard.rs`. |
-| `crates/construct/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
-| `crates/construct/src/jobs/` | Background jobs (ADR 0026, #34): the registry (`mod.rs`: ids, limit, cancel, the journal's `job_start`/`job_end`), `command.rs` (a sandboxed shell command as a job body), `info.rs` (`Status::wakes` is the one list of wake sources; the tagged text a completion reaches the model as; `unconsumed` reads the journal for what was never delivered). Delivery is `agent/wake.rs`: only at a turn boundary, exactly once. Jobs die with the process. |
-| `crates/construct/src/sandbox/` | Tool boundary: Landlock (Linux, `landlock.rs`) or a Seatbelt profile (macOS, `seatbelt.rs`, ADR 0028) for shell, via `construct __sandbox`; path checks for file tools (`open.rs`, `beneath.rs`); credential-free env. `supervise.rs`: on Linux that helper is a subreaper, and nothing a shell call starts outlives it; `supervise_macos.rs` kills the shell's process group (a `setsid` escapee is #9). |
-| `crates/construct/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
+| `crates/construct-core/src/agent.rs` | The loop: route, stream, run tools, compact. Everything observable is an `Event`, journaled as it is emitted. |
+| `crates/construct-core/src/compact/` | Fitting history into the window: the planner (stub old tool results, else summarize older rounds), overflow recovery, and the `Cut` the projector replays on resume. Rounds are the unit. See proposal 01. |
+| `crates/construct-core/src/event.rs` | The one `Event` type: what the agent emits, what `--json` prints, what a journal row holds. Additive-only. |
+| `crates/construct-core/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape; `notes.rs` is the `Coalescer` behind `Event::Note` (recovered provider conditions, one row per kind per model call; ADR 0025). See ADR 0008. |
+| `crates/construct-core/src/llm/` | Streaming `/chat/completions` client (hand-rolled SSE) with two deadlines per call; `message.rs` is `Message` and its wire form (reasoning echoed under the key it streamed in, ADR 0044). Provider quirks live only in `dialect.rs` (it builds and edits the standard body); `usage.rs` reads every provider's token, cache and cost fields; `discover.rs` asks a provider's server for its models and windows by server kind (fixtures in `crates/construct-core/tests/fixtures/discover/`), `catalog.rs` caches and searches the list, `overlay.rs` lays it under the catalog. |
+| `crates/construct-core/src/tools/` | One `impl Tool` per file (shell (wire name `bash`, ADR 0046), read, write, edit, grep, glob, web, memory, skill, history, mcp); `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
+| `crates/construct-core/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
+| `crates/construct-core/src/permission/` | Asking the user before a tool goes past the sandbox, and remembering it: `Request`/`Ask`, `Perms` (session grants, `config.toml` edits, protected paths), the shell-output path heuristic, the child's upward asker. ADR 0016. |
+| `crates/construct-core/src/providers/`, `crates/construct-core/src/endpoint.rs` | Named providers (`mod.rs`: `[providers.<name>]`, built-in presets as data rows; `resolve.rs`: `provider/model` resolution, never from a fetched list) and the `Endpoint` a request goes to, resolved on each call, never stored; a key is chosen only in `endpoint.rs`. ADR 0027. |
+| `crates/construct-core/src/router.rs` | Per-turn tool groups + skill suggestions: Jev when `TYPESAFE_API_KEY` resolves, local otherwise. |
+| `crates/construct-core/src/home.rs` | Keeps `$CONSTRUCT_HOME` private: created `0700`, an open one tightened once, never loosened; a `.private` marker means hands off. ADR 0021. |
+| `crates/construct-core/src/memory.rs`, `crates/construct-core/src/skills.rs` | Capped `§` memory (USER.md, MEMORY.md); skill library with usage stats, archive-only deletes. |
+| `crates/construct-core/src/learn/` | Learning gate (Jev or local), observation ledger, recurrence-gated review, curator. Runs detached after a session. `[learn] strategy` picks how a session becomes knowledge: `hybrid` (default, ADR 0022), `skills`, `corrections` (follow-ups and failure/fix pairs as evidence, `evidence.rs`), `playbook` (ACE-style bullets with helpful/harmful counts), or `workflow`. `hybrid` keeps facts and conventions as bullets and procedures as project skills with a pointer bullet, and reflects only when `gate::evidence` finds something; only the strategy in use adds to the prompt. Everything a learner keeps passes `guard.rs`. |
+| `crates/construct-core/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
+| `crates/construct-core/src/jobs/` | Background jobs (ADR 0026, #34): the registry (`mod.rs`: ids, limit, cancel, the journal's `job_start`/`job_end`), `command.rs` (a sandboxed shell command as a job body), `info.rs` (`Status::wakes` is the one list of wake sources; the tagged text a completion reaches the model as; `unconsumed` reads the journal for what was never delivered). Delivery is `agent/wake.rs`: only at a turn boundary, exactly once. Jobs die with the process. |
+| `crates/construct-core/src/sandbox/` | Tool boundary: Landlock (Linux, `landlock.rs`) or a Seatbelt profile (macOS, `seatbelt.rs`, ADR 0028) for shell, via `construct __sandbox`; path checks for file tools (`open.rs`, `beneath.rs`); credential-free env. `supervise.rs`: on Linux that helper is a subreaper, and nothing a shell call starts outlives it; `supervise_macos.rs` kills the shell's process group (a `setsid` escapee is #9). |
+| `crates/construct-core/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
 | `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
 | `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
-| `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
+| `crates/construct-core/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
 | `bench/` | Benchmark against Hermes Agent and opencode; results in `bench/results/`. `journal.py` reads construct's journals (stdlib `sqlite3`) as the old session rows; `journal.py errors --since 7d` reports notes, errors and failed tools by provider and model. |
 | `bench/tasks/` | Real-model tasks as directories: `task.toml`, `fixture/`, `check.sh` (see `bench/tasklib.py`). `compact-*` run at a small `window` and are generated by `bench/compact_fixtures.py`; `bench/compaction.py` scores their compaction. `learn-tally` is the learning curriculum: six sessions in one home with planted lessons and a simulated user who corrects them, run by `bench.py curriculum --arm ...` and read with `bench/curriculum.py`. `learn-tally-long` (`--tasks learn-tally-long`) runs ten sessions on the same repo and adds a release procedure, a lesson that goes stale, and a pasted token. |
 | `bench/external.py` | Other people's repositories as tasks: an `[external]` task (`ext-*`) replays a merged PR of a public repo, with the tree at the PR's parent as the fixture and the PR's own test files, hidden from the model, as the scorer. Nothing is vendored: a bare mirror in `$BENCH_CACHE/repos` serves both. `external.py oracle` proves a task (base fails, merge passes). |
@@ -118,7 +120,7 @@ recipe that only checks the screen: the scripted model's reply is fixed, so
 cargo xtask check --quick         # while iterating: docs, feature map, arch, fmt, clippy, unit and contract tests of the crates your diff touches; ends in `ok` or `FAILED <gate>`
 cargo xtask check                 # the full gate, as CI runs it: also every end-to-end test, the golden snapshots and the bench tests
 cargo xtask fix                   # clippy --fix, then cargo fmt
-cargo test -p construct           # unit and contract tests (edit tiers, router)
+cargo test -p construct-core      # unit and contract tests (edit tiers, router)
 cargo test -p construct-dev --test it delegate::   # end-to-end, one file's tests (drop the filter for all of them)
 cargo xtask snapshots             # re-record golden snapshots after an intended change
 cargo deny check                  # dependency policy in deny.toml (advisories, licenses, duplicates, sources); needs network, so CI runs it as its own job, not in xtask
@@ -203,7 +205,7 @@ Tier 1 and 2 results carry a manifest; judge them with `bench.py compare`
 5. Tool names, group labels and other wire strings are declared once and
    referenced, never retyped as literals in another module.
 6. Tests: unit tests inline under `#[cfg(test)]` for pure functions; contract
-   tests in `crates/construct/tests/` for a module's promise to the rest of the
+   tests in `crates/construct-core/tests/` for a module's promise to the rest of the
    harness; e2e in `construct-dev` for what a user or model observes. Prefer
    the highest tier that can observe the behaviour.
 7. `cargo xtask check` must pass on the PR (CI runs it; `--quick` is the local
@@ -229,7 +231,7 @@ Construct and Deck's shared ACP wire lives in one private, versioned
 repository: `strf0x1/sprawlcommons-acp`. Its `SPEC.md`, `schema/` and
 `conformance/matrix.json` are normative; the prose is not vendored here.
 `CONTRACT.lock` names the release, and
-`crates/construct/tests/fixtures/acp-contract/<version>/` holds the vendored
+`crates/construct-core/tests/fixtures/acp-contract/<version>/` holds the vendored
 matrix, payload fixtures and schemas.
 ADR 0038 records the names; ADR 0040 records the pin.
 
@@ -238,7 +240,7 @@ ADR 0038 records the names; ADR 0040 records the pin.
    entry and bump `VERSION` by semver (patch = prose/fixture, minor =
    additive, major = rename/removal or changed meaning).
 2. Tag `v<VERSION>` there; here, run `scripts/acp-contract.sh update <version>`
-   and extend `crates/construct/tests/acp_contract.rs` if the matrix grew.
+   and extend `crates/construct-core/tests/acp_contract.rs` if the matrix grew.
 3. Deck pins the same release in the same wave. Never land a wire change in one
    implementation only.
 4. `cargo xtask check`'s `contract` gate fails on a stale vendored copy or a
@@ -246,7 +248,7 @@ ADR 0038 records the names; ADR 0040 records the pin.
 5. The bare names are removed in contract 2.0.0, one released pair after both
    speak 1.x.
 
-Read `SPEC.md` before changing `crates/construct/src/acp/`: its §4 negotiation
+Read `SPEC.md` before changing `crates/construct-core/src/acp/`: its §4 negotiation
 table is what `Wire::for_client` must implement.
 
 ### Reviewing a contract patch before release
@@ -288,7 +290,7 @@ release-tag form remains the default; a candidate commit is not a release.
   first, since Jev favours the first option.
 - Tools run sandboxed (`[sandbox] mode = "workspace"`): the working dir, a
   private TMPDIR, system paths and toolchains. If a real tool breaks inside
-  it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct/src/sandbox/mod.rs and a
+  it, add the toolchain path to `HOME_RO`/`HOME_RW` in crates/construct-core/src/sandbox/mod.rs and a
   step to the sandbox e2e test, rather than turning the sandbox off.
 - MCP servers run under the same helper and policy as shell commands (ADR
   0010). A server that needs more declares it in its `[mcp.<name>]` entry

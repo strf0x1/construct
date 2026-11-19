@@ -101,5 +101,5 @@ and `sha256` are untouched, so no ACP wire change.
   (BSD `wc -l` pads output; the string compare against 2 failed on macOS
   with exactly two request files present — now `-eq`). `verified_at` /
   `verified_deps` bumped in a map-only commit.
-- AGENTS.md layout/test-command updates pending owner approval (the file is
-  write-protected); no gate reads those paths.
+- AGENTS.md layout table and test commands updated to the new crate paths
+  (owner-approved).
