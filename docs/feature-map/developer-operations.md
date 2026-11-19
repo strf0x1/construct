@@ -22,6 +22,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - `developer-operation-deny` refuses execution.
 - `developer-operation-git-state` changed staged content requires a new approval; pushes use the captured commit.
 - `developer-operation-merge-commit` approves a staged merge resolution and records the merge parents.
+- `developer-operation-linked-worktree` checks status, stages named files, and starts a merge of one exact commit in the current linked checkout.
 - `developer-operation-deck-gateway` in a Deck VM task with a repository (`DECK_GITHUB_URL`), push, pr_create, pr_update and pr_review go through Deck's GitHub gateway instead of host authentication, and in Deck mode Construct shows no panel of its own: Deck's gateway decides each write. `issue_create` is refused there.
 
 ## How to get to it (user POV)
@@ -29,6 +30,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - Ask construct to create a GitHub issue with a repository, title, and body.
 - Stage changes and ask construct to commit them with a message.
 - After resolving a Git merge, stage the resolution and ask construct to commit it.
+- From a linked worktree's root, ask construct to check status or stage named files. To start a merge, give it the full commit ID.
 - Ask construct to push a named branch to a named remote.
 - Ask construct to create a pull request with a repository, base, head, title, and body.
 - In the permission panel, use page-up/page-down or home/end to review content,
@@ -40,6 +42,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - Allow commits precisely the staged content reviewed; deny leaves HEAD unchanged.
 - Changes made to the staged index while waiting cannot replace approved content.
 - A merge commit contains the reviewed parents and clears the worktree's merge state.
+- Status shows a linked worktree's conflicts. Staging resolves the native index and leaves the other checkouts and branches intact.
 - A push sends the reviewed commit, even if the branch moves while waiting.
 - The journal records the approval decision and the real tool result.
 

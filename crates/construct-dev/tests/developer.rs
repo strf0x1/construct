@@ -10,13 +10,74 @@ use std::process::{Command, Output};
 
 fn git_output(work: &Path, args: &[&str]) -> Output {
     Command::new("git")
-        .args(["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false"])
+        .args(["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "core.fsmonitor=false"])
         .args(args)
         .current_dir(work)
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .output()
         .unwrap()
+}
+
+#[test]
+fn the_default_sandbox_can_merge_and_stage_in_its_linked_worktree() {
+    let name = "developer-linked-git";
+    let fixture = Env::dir_for(name).with_extension("fixture");
+    let _ = std::fs::remove_dir_all(&fixture);
+    let source = fixture.join("source");
+    let linked = fixture.join("worker");
+    std::fs::create_dir_all(&source).unwrap();
+    git(&source, &["init", "-b", "main"]);
+    git(&source, &["config", "user.name", "Construct Test"]);
+    git(&source, &["config", "user.email", "construct@example.invalid"]);
+    std::fs::write(source.join("notes.txt"), "base\n").unwrap();
+    git(&source, &["add", "--", "notes.txt"]);
+    git(&source, &["commit", "-m", "Base"]);
+    let main = git(&source, &["rev-parse", "HEAD"]);
+    git(&source, &["worktree", "add", "-b", "deck/worker", linked.to_str().unwrap()]);
+    std::fs::write(linked.join("notes.txt"), "worker edit\n").unwrap();
+    git(&linked, &["commit", "-am", "Worker edit"]);
+    let first = git(&linked, &["rev-parse", "HEAD"]);
+    git(&source, &["switch", "-c", "contributor"]);
+    std::fs::write(source.join("notes.txt"), "contributor edit\n").unwrap();
+    git(&source, &["commit", "-am", "Contributor edit"]);
+    let contributor = git(&source, &["rev-parse", "HEAD"]);
+    std::fs::write(source.join("notes.txt"), "uncommitted host edit\n").unwrap();
+    let env = Env::new(
+        name,
+        json!({"steps": [
+            {"call":"developer", "args":{"operation":"merge_start", "commit":contributor}},
+            {"call":"developer", "args":{"operation":"status"}},
+            {"call":"developer", "args":{"operation":"stage", "paths":["../source/notes.txt"]}},
+            {"call":"read", "args":{"path":"notes.txt"}},
+            {"call":"write", "args":{"path":"notes.txt", "content":"worker edit\ncontributor edit\n"}},
+            {"call":"developer", "args":{"operation":"stage", "paths":["notes.txt"]}},
+            {"call":"developer", "args":{"operation":"commit", "message":"Resolve both edits"}},
+            {"text":"developer done"}
+        ]}),
+    );
+    env.config("[learn]\nenabled = false\n[router]\nmode = \"local\"\n");
+    let mut driver = reviewing_at(&env, &linked);
+    assert_eq!(git(&linked, &["rev-parse", "MERGE_HEAD"]), contributor);
+    assert_eq!(git(&linked, &["show", ":notes.txt"]), "worker edit\ncontributor edit");
+    answer(&mut driver, "y");
+    let calls: Vec<_> = env
+        .journal_in(&linked)
+        .into_iter()
+        .filter(|row| row.ty == "tool_end" && row.payload["name"] == "developer")
+        .map(|row| row.payload)
+        .collect();
+    assert_eq!(calls.len(), 5, "{calls:?}");
+    assert!(calls.iter().enumerate().all(|(i, result)| result["ok"] == (i != 2)), "{calls:?}");
+    assert_eq!(calls[0]["data"]["state"], "conflicts", "{calls:?}");
+    assert!(calls[1]["output"].as_str().unwrap().contains("UU notes.txt"), "{calls:?}");
+    assert!(calls[2]["output"].as_str().unwrap().contains("exact relative file paths"), "{calls:?}");
+    assert_eq!(git(&linked, &["log", "-1", "--format=%P"]), format!("{first} {contributor}"));
+    assert_eq!(git(&linked, &["status", "--porcelain"]), "");
+    assert_eq!(git(&source, &["rev-parse", "refs/heads/main"]), main);
+    assert_eq!(git(&source, &["rev-parse", "refs/heads/contributor"]), contributor);
+    assert_eq!(std::fs::read_to_string(source.join("notes.txt")).unwrap(), "uncommitted host edit\n");
+    std::fs::remove_dir_all(fixture).unwrap();
 }
 
 fn git(work: &Path, args: &[&str]) -> String {
@@ -92,6 +153,10 @@ fn play(driver: &mut drive::Driver, script: &str) {
 }
 
 fn reviewing(env: &Env) -> drive::Driver {
+    reviewing_at(env, &env.work)
+}
+
+fn reviewing_at(env: &Env, work: &Path) -> drive::Driver {
     let mut vars = env.env();
     let auth = env.dir.join("auth");
     if auth.is_dir() {
@@ -99,7 +164,7 @@ fn reviewing(env: &Env) -> drive::Driver {
         vars.push(("XDG_CONFIG_HOME".into(), auth.join("config").display().to_string()));
     }
     let mut driver =
-        drive::Driver::spawn(&[construct().display().to_string()], &vars, Some(env.work.to_str().unwrap()), 110, 34)
+        drive::Driver::spawn(&[construct().display().to_string()], &vars, Some(work.to_str().unwrap()), 110, 34)
             .unwrap();
     play(
         &mut driver,

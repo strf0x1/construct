@@ -28,7 +28,7 @@ impl Drop for HostGroup {
     }
 }
 
-async fn drain(mut pipe: impl AsyncRead + Unpin, limit: usize) -> std::io::Result<Vec<u8>> {
+pub(super) async fn drain(mut pipe: impl AsyncRead + Unpin, limit: usize) -> std::io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut chunk = [0u8; 16384];
     loop {
