@@ -118,8 +118,17 @@ fn read(operation: &str, reply: &Value) -> Value {
 fn detail(task: &Value) -> String {
     let mut out = line(task, false);
     let integration = &task["integration"];
+    let worktree = &task["worktree"];
     if integration.is_object() {
         out.push_str(&integration_detail(integration));
+    } else if let Some(commit) = worktree["base_commit"].as_str() {
+        out.push_str(&format!("\nStarting commit: {}", crate::llm::truncate(commit, 64)));
+    }
+    if let Some(target) = worktree["target_ref"].as_str().filter(|_| !integration.is_object()) {
+        out.push_str(&format!("\nTarget ref: {}", crate::llm::truncate(target, 200)));
+    }
+    if let Some(commit) = worktree["review_commit"].as_str() {
+        out.push_str(&format!("\nReview commit: {}", crate::llm::truncate(commit, 64)));
     }
     if let Some(message) = task["last_message"].as_str().filter(|m| !m.is_empty()) {
         let cut = if task["last_message_truncated"].as_bool().unwrap_or(false) { " (cut by Deck)" } else { "" };
@@ -209,6 +218,8 @@ pub fn line(task: &Value, message: bool) -> String {
     }
     if let Some(phase) = task["integration"]["phase"].as_str() {
         out.push_str(&format!(". Integration: {}", crate::llm::truncate(phase, 32)));
+    } else if let Some(branch) = task["worktree"]["branch"].as_str() {
+        out.push_str(&format!(". Local branch {}", crate::llm::truncate(branch, 200)));
     }
     if message && let Some(last) = s("last_message").filter(|m| !m.is_empty()) {
         let flat = last.split_whitespace().collect::<Vec<_>>().join(" ");

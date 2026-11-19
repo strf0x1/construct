@@ -181,7 +181,7 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
     let ctx = ctx(&root);
     let m = matrix();
     let exchanges = m["control"]["exchanges"].as_array().unwrap();
-    assert_eq!(exchanges.len(), 54);
+    assert_eq!(exchanges.len(), 55);
     let mut sent = 0;
     for case in exchanges {
         let name = case["case"].as_str().unwrap();
@@ -223,15 +223,22 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
                     assert!(out.text.contains(id), "{name}: {}", out.text);
                 }
                 if let Some(integration) = reply.pointer("/task/integration") {
-                    let reason = integration["reason"].as_str().unwrap();
+                    let reason = integration["reason"].as_str();
                     let base = integration["base_commit"].as_str().unwrap();
                     let pin = integration["contributors"][0]["commit"].as_str().unwrap();
                     assert!(
-                        out.text.contains(reason) && out.text.contains(base) && out.text.contains(pin),
+                        reason.is_none_or(|reason| out.text.contains(reason))
+                            && out.text.contains(base)
+                            && out.text.contains(pin),
                         "{name}: {}",
                         out.text
                     );
-                    assert_eq!(out.data.unwrap()["task"]["integration"], *integration);
+                    assert_eq!(out.data.as_ref().unwrap()["task"]["integration"], *integration);
+                }
+                if let Some(worktree) = reply.pointer("/task/worktree") {
+                    let commit = worktree["review_commit"].as_str().unwrap();
+                    assert!(out.text.contains(&format!("Review commit: {commit}")), "{name}: {}", out.text);
+                    assert_eq!(out.data.as_ref().unwrap()["task"]["worktree"], *worktree);
                 }
                 // Since 1.5.0 a listing names the projects, even when empty.
                 for project in reply["projects"].as_array().into_iter().flatten() {
