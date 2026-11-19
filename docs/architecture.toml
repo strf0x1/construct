@@ -11,6 +11,10 @@
 # in the diff. Deny rules carry invariants: `must_not_use` / `used_only_by`
 # on a module, `must_not_use_crates` / `used_only_by` on a crate. Every deny
 # rule needs a `reason`, which the gate prints when the rule is broken.
+# A crate deny may name one module of the target crate instead of the whole
+# crate (`{ crate = "construct-core", module = "secrets", reason = "…" }`):
+# the ban then fires only on paths naming that module, and the module must
+# exist in the target crate.
 #
 # Test code (`#[cfg(test)]`, tests.rs) and a module's references to itself
 # are not edges. lib.rs declares every module; declarations are not edges.

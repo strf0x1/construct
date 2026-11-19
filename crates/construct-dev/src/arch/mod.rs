@@ -53,8 +53,22 @@ struct CrateEntry {
 struct CrateDeny {
     #[serde(rename = "crate")]
     krate: String,
+    /// Optional: ban only this top-level module of the target crate, not
+    /// the whole crate (`{ crate = "construct-core", module = "secrets" }`).
+    #[serde(default)]
+    module: Option<String>,
     #[serde(default)]
     reason: String,
+}
+
+impl CrateDeny {
+    /// How the rule's target is named in messages: `crate` or `crate::module`.
+    fn target(&self) -> String {
+        match &self.module {
+            Some(m) => format!("{}::{m}", self.krate),
+            None => self.krate.clone(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -76,7 +90,12 @@ pub fn problems(root: &Path) -> Vec<String> {
 
 /// Every reference from one top-level module to another of the same crate,
 /// and from one crate to another, in file order.
-fn graph(k: &Krate, idents: &BTreeMap<String, String>, bad: &mut Vec<String>) -> (Vec<Edge>, Vec<CrossEdge>) {
+fn graph(
+    k: &Krate,
+    idents: &BTreeMap<String, String>,
+    target_mods: &BTreeMap<String, BTreeSet<String>>,
+    bad: &mut Vec<String>,
+) -> (Vec<Edge>, Vec<CrossEdge>) {
     let modules: BTreeSet<&str> = k.srcs.iter().map(Source::module).collect();
     let own = k.name.replace('-', "_");
     let (mut intra, mut cross) = (Vec::new(), Vec::new());
@@ -93,7 +112,13 @@ fn graph(k: &Krate, idents: &BTreeMap<String, String>, bad: &mut Vec<String>) ->
                         intra.push(Edge { from: s.module().into(), to, file: s.file.clone(), line });
                     }
                 }
-                Ref::Crate(to) => cross.push(CrossEdge { from: k.name.clone(), to, file: s.file.clone(), line }),
+                Ref::Crate(to, names) => {
+                    // Only real top-level modules of the target count: a path
+                    // naming an item (`construct_tui::run`) names no module.
+                    let modules =
+                        names.into_iter().filter(|n| target_mods.get(&to).is_some_and(|m| m.contains(n))).collect();
+                    cross.push(CrossEdge { from: k.name.clone(), to, modules, file: s.file.clone(), line });
+                }
             }
         }
     }
@@ -118,10 +143,12 @@ fn boundaries(root: &Path, ks: &[Krate]) -> Vec<String> {
         },
     };
     let idents: BTreeMap<String, String> = ks.iter().map(|k| (k.name.replace('-', "_"), k.name.clone())).collect();
+    let target_mods: BTreeMap<String, BTreeSet<String>> =
+        ks.iter().map(|k| (k.name.clone(), k.srcs.iter().map(|s| s.module().to_string()).collect())).collect();
     let mut graphs = Vec::new();
     let mut cross: Vec<CrossEdge> = Vec::new();
     for k in ks {
-        let (intra, xs) = graph(k, &idents, &mut bad);
+        let (intra, xs) = graph(k, &idents, &target_mods, &mut bad);
         graphs.push((k, intra));
         cross.extend(xs);
     }
@@ -149,6 +176,8 @@ fn boundaries(root: &Path, ks: &[Krate]) -> Vec<String> {
 /// must still occur; crate deny rules need reasons and real targets.
 fn crate_entries(table: &Table, ks: &[Krate], cross: &[CrossEdge], bad: &mut Vec<String>) {
     let names: BTreeSet<&str> = ks.iter().map(|k| k.name.as_str()).collect();
+    let mods: BTreeMap<&str, BTreeSet<&str>> =
+        ks.iter().map(|k| (k.name.as_str(), k.srcs.iter().map(Source::module).collect())).collect();
     let mut uses: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
     for e in cross {
         uses.entry(&e.from).or_default().insert(&e.to);
@@ -172,13 +201,20 @@ fn crate_entries(table: &Table, ks: &[Krate], cross: &[CrossEdge], bad: &mut Vec
             if d.reason.trim().is_empty() {
                 bad.push(format!(
                     "{TABLE}: [crates.{name}] must_not_use_crates \"{}\" has no reason; every deny rule says why it exists",
-                    d.krate
+                    d.target()
                 ));
             }
             if !names.contains(d.krate.as_str()) {
                 bad.push(format!(
                     "{TABLE}: [crates.{name}] must_not_use_crates \"{}\" names no workspace crate; delete it",
                     d.krate
+                ));
+            } else if let Some(m) = &d.module
+                && !mods.get(d.krate.as_str()).is_some_and(|ms| ms.contains(m.as_str()))
+            {
+                bad.push(format!(
+                    "{TABLE}: [crates.{name}] must_not_use_crates \"{}\" module \"{m}\" names no module of {}; delete it",
+                    d.krate, d.krate
                 ));
             }
         }
@@ -200,8 +236,12 @@ fn crate_edges(table: &Table, cross: &[CrossEdge], bad: &mut Vec<String>) {
         let from = table.crates.get(&e.from).unwrap_or(&empty);
         let target = table.crates.get(&e.to).unwrap_or(&empty);
         let at = format!("{}:{}", e.file, e.line);
-        if let Some(d) = from.must_not_use_crates.iter().find(|d| d.krate == e.to) {
-            bad.push(format!("{at}: {} must not use {} ({TABLE}): {}", e.from, e.to, d.reason));
+        if let Some(d) = from
+            .must_not_use_crates
+            .iter()
+            .find(|d| d.krate == e.to && d.module.as_ref().is_none_or(|m| e.modules.contains(m)))
+        {
+            bad.push(format!("{at}: {} must not use {} ({TABLE}): {}", e.from, d.target(), d.reason));
         } else if let Some(o) = target.used_only_by.as_ref().filter(|o| !o.crates.contains(&e.from)) {
             let only = o.crates.join(", ");
             bad.push(format!("{at}: only {only} may use {} ({TABLE}), not {}: {}", e.to, e.from, o.reason));

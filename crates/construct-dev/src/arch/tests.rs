@@ -294,6 +294,89 @@ fn a_crate_deny_rule_gives_its_reason() {
 }
 
 #[test]
+fn a_module_scoped_crate_deny_gives_its_reason() {
+    let t = tree("cross-deny-module");
+    other(
+        &t,
+        "//! a\nuse construct::b::X;\n",
+        "may_use_crates = [\"construct\"]\nmust_not_use_crates = [{ crate = \"construct\", module = \"b\", reason = \"no secrets on the UI path\" }]",
+    );
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: other must not use construct::b (docs/architecture.toml): no secrets on the UI path"
+        ]
+    );
+}
+
+#[test]
+fn a_module_scoped_deny_leaves_other_modules_free() {
+    let t = tree("cross-deny-module-ok");
+    other(
+        &t,
+        "//! a\nuse construct::c::Y;\n",
+        "may_use_crates = [\"construct\"]\nmust_not_use_crates = [{ crate = \"construct\", module = \"b\", reason = \"no secrets on the UI path\" }]",
+    );
+    assert_eq!(check(&t), Vec::<String>::new());
+}
+
+#[test]
+fn a_grouped_use_trips_a_module_scoped_deny_once() {
+    let t = tree("cross-deny-module-group");
+    other(
+        &t,
+        "//! a\nuse construct::{b::X, c::Y};\n",
+        "may_use_crates = [\"construct\"]\nmust_not_use_crates = [{ crate = \"construct\", module = \"b\", reason = \"no secrets on the UI path\" }]",
+    );
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: other must not use construct::b (docs/architecture.toml): no secrets on the UI path"
+        ]
+    );
+}
+
+#[test]
+fn a_crate_deny_on_a_grouped_use_still_fires_once() {
+    let t = tree("cross-deny-group");
+    other(
+        &t,
+        "//! a\nuse construct::{b::X, c::Y};\n",
+        "must_not_use_crates = [{ crate = \"construct\", reason = \"the dev tools never link the agent\" }]",
+    );
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: other must not use construct (docs/architecture.toml): the dev tools never link the agent"
+        ]
+    );
+}
+
+#[test]
+fn a_stale_module_in_a_crate_deny_fails() {
+    let t = tree("cross-deny-module-stale");
+    other(&t, "//! a\n", "must_not_use_crates = [{ crate = \"construct\", module = \"ghost\", reason = \"gone\" }]");
+    assert_eq!(
+        check(&t),
+        [
+            "docs/architecture.toml: [crates.other] must_not_use_crates \"construct\" module \"ghost\" names no module of construct; delete it"
+        ]
+    );
+}
+
+#[test]
+fn a_module_scoped_deny_without_a_reason_fails() {
+    let t = tree("cross-deny-module-reason");
+    other(&t, "//! a\n", "must_not_use_crates = [{ crate = \"construct\", module = \"b\" }]");
+    assert_eq!(
+        check(&t),
+        [
+            "docs/architecture.toml: [crates.other] must_not_use_crates \"construct::b\" has no reason; every deny rule says why it exists"
+        ]
+    );
+}
+
+#[test]
 fn only_the_named_crates_may_use_a_guarded_one() {
     let t = tree("cross-only");
     other(&t, "//! a\nuse construct::b::X;\n", "may_use_crates = [\"construct\"]");
