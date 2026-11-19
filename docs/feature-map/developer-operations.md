@@ -3,8 +3,8 @@ id: developer-operations
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tools/developer, crates/construct/src/permission/operation.rs, crates/construct/src/tui/ask.rs, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct-dev/tests/developer.rs]
-verified_at: f7f6aba
-verified_deps: aa65dcf467e25c1c
+verified_at: 6a0af99
+verified_deps: c292d8105f024ac2
 ---
 # Approved developer operations
 
@@ -21,12 +21,14 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - `developer-operation-session` remembers only the identical operation for this session.
 - `developer-operation-deny` refuses execution.
 - `developer-operation-git-state` changed staged content requires a new approval; pushes use the captured commit.
+- `developer-operation-merge-commit` approves a staged merge resolution and records the merge parents.
 - `developer-operation-deck-gateway` in a Deck VM task with a repository (`DECK_GITHUB_URL`), push, pr_create, pr_update and pr_review go through Deck's GitHub gateway instead of host authentication, and in Deck mode Construct shows no panel of its own: Deck's gateway decides each write. `issue_create` is refused there.
 
 ## How to get to it (user POV)
 
 - Ask construct to create a GitHub issue with a repository, title, and body.
 - Stage changes and ask construct to commit them with a message.
+- After resolving a Git merge, stage the resolution and ask construct to commit it.
 - Ask construct to push a named branch to a named remote.
 - Ask construct to create a pull request with a repository, base, head, title, and body.
 - In the permission panel, use page-up/page-down or home/end to review content,
@@ -37,6 +39,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - The panel names the operation and destination and exposes all review details.
 - Allow commits precisely the staged content reviewed; deny leaves HEAD unchanged.
 - Changes made to the staged index while waiting cannot replace approved content.
+- A merge commit contains the reviewed parents and clears the worktree's merge state.
 - A push sends the reviewed commit, even if the branch moves while waiting.
 - The journal records the approval decision and the real tool result.
 
@@ -52,11 +55,13 @@ Preconditions:
 - **Approve.** Drive: `type y`, `wait "developer operation done" 15000`. Expect: the panel closes and the tool returns the new commit ID.
 - **Confirm effects.** Drive: the recipe's `check.sh` and `cargo test -p construct-dev --test it developer::`. Expect: actual committed file contents match the reviewed change, and the journal records approval and success. The tests also cover denial, index substitution, linked worktrees, and pushing a captured commit to a local remote.
 - **Deck gateway.** Drive: `cargo test -p construct-dev --test it deck_github::` (a stub of Deck's gateway; no TUI panel exists in this mode). Expect: an incremental bundle for the task branch, a draft pull request, checks read back, a rewrite reported as rebase-onto, and every request head valid against the contract 1.2.0 schemas.
+- **Resolve a merge.** Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/developer-merge-commit 120 40`. Expect: the approval shows the merge parent, then Git records both parents and the staged resolution on the integration branch.
 
 ## Gotchas
 
 - Wait 600 ms after the panel appears before answering.
 - Commits are unsigned and skip hooks. Pushes skip hooks and do not force.
+- Finish a merge with an autostash in Git to restore the unstaged changes.
 - Create and push the head branch before requesting PR creation; PR creation never pushes.
 - Headless runs and delegated children cannot acquire host-operation approval.
 - An ambiguous remote result needs reconciliation before any repeat.

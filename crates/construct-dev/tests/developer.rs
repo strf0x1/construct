@@ -6,19 +6,61 @@ use crate::common::*;
 use construct_dev::drive;
 use serde_json::{Value, json};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Output};
 
-fn git(work: &Path, args: &[&str]) -> String {
-    let out = Command::new("git")
+fn git_output(work: &Path, args: &[&str]) -> Output {
+    Command::new("git")
         .args(["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false"])
         .args(args)
         .current_dir(work)
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .output()
-        .unwrap();
+        .unwrap()
+}
+
+fn git(work: &Path, args: &[&str]) -> String {
+    let out = git_output(work, args);
     assert!(out.status.success(), "git {args:?}: {}", text(&out));
     String::from_utf8(out.stdout).unwrap().trim().to_string()
+}
+
+#[test]
+fn approving_a_resolved_merge_preserves_both_parents_in_a_linked_worktree() {
+    let env = env(
+        "developer-merge",
+        json!({"operation":"commit", "workdir":"integration", "message":"Resolve both changes"}),
+    );
+    let main = git(&env.work, &["rev-parse", "HEAD"]);
+    git(&env.work, &["switch", "-c", "contributor"]);
+    stage(&env, "contributor change\n");
+    git(&env.work, &["commit", "-m", "Contributor change"]);
+    let contributor = git(&env.work, &["rev-parse", "HEAD"]);
+    git(&env.work, &["switch", "main"]);
+
+    let linked = env.work.join("integration");
+    git(&env.work, &["worktree", "add", "-b", "integration", linked.to_str().unwrap()]);
+    std::fs::write(linked.join("notes.txt"), "integration change\n").unwrap();
+    git(&linked, &["add", "notes.txt"]);
+    git(&linked, &["commit", "-m", "Integration change"]);
+    let first_parent = git(&linked, &["rev-parse", "HEAD"]);
+    let merge = git_output(&linked, &["merge", "--no-commit", &contributor]);
+    assert_eq!(merge.status.code(), Some(1), "{}", text(&merge));
+    assert_eq!(git(&linked, &["rev-parse", "MERGE_HEAD"]), contributor);
+    assert!(git_output(&linked, &["rev-parse", "--verify", "AUTO_MERGE"]).status.success());
+
+    std::fs::write(linked.join("notes.txt"), "integration change\ncontributor change\n").unwrap();
+    git(&linked, &["add", "notes.txt"]);
+    let mut driver = reviewing(&env);
+    answer(&mut driver, "y");
+    result(&env, "commit", "once", true);
+    assert_eq!(git(&linked, &["log", "-1", "--format=%P"]), format!("{first_parent} {contributor}"));
+    assert_eq!(git(&linked, &["show", "HEAD:notes.txt"]), "integration change\ncontributor change");
+    assert_eq!(git(&linked, &["status", "--porcelain"]), "");
+    assert!(!git_output(&linked, &["rev-parse", "--verify", "MERGE_HEAD"]).status.success());
+    assert!(!git_output(&linked, &["rev-parse", "--verify", "AUTO_MERGE"]).status.success());
+    assert_eq!(git(&env.work, &["rev-parse", "refs/heads/main"]), main);
+    assert_eq!(git(&env.work, &["rev-parse", "refs/heads/contributor"]), contributor);
 }
 
 fn env(name: &str, args: Value) -> Env {

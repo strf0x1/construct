@@ -50,6 +50,12 @@ source index.
 parent before updating the branch. Linked worktrees use their actual git
 directory. The private context supports files and reftable reference storage.
 
+For a staged merge resolution, the approval includes the additional commit
+parents. Construct rechecks the index and merge parents while holding Git's
+worktree index lock. It updates the reviewed branch and then asks Git to
+clear the merge state using the private configuration. Merges with an
+autostash must finish in Git so the user's unstaged changes can be restored.
+
 Pushes capture a commit ID, destination URL, and full destination branch
 reference. They run from a private git context so repository configuration
 cannot select host commands or credential helpers. Host authentication and

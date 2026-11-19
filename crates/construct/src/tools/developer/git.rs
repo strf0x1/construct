@@ -3,11 +3,14 @@
 //! configuration cannot choose a host credential helper or command.
 
 use super::prepare::{Body, Prepared, required};
+mod commit;
 mod context;
+mod merge;
 #[cfg(test)]
 mod tests;
 mod transport;
 
+pub use commit::commit;
 pub use transport::{Push, push};
 use transport::{destination, host_config};
 
@@ -21,6 +24,8 @@ use std::path::{Path, PathBuf};
 #[derive(serde::Serialize)]
 pub struct Commit {
     head: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    merge_parents: Vec<String>,
     branch: String,
     tree: String,
     git_dir: String,
@@ -160,6 +165,13 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
             sha256: format == "sha256",
         };
         let review = index_review(ctx, &executable, &cwd, &layout, &index).await?;
+        let merge_parents = merge::parents(&git_dir, if layout.sha256 { 64 } else { 40 })?;
+        if !merge_parents.is_empty() {
+            if layout.refs == "reftable" {
+                review.check_reftable_autostash(ctx, &executable, &git_dir).await?;
+            }
+            merge::verify_parents(ctx, &executable, &review, head.as_deref(), &merge_parents).await?;
+        }
         let tree = oid(&review.git(ctx, &executable, &["write-tree"], &[], &[]).await?)?;
         let previous = match &head {
             Some(parent) => {
@@ -167,7 +179,7 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
             }
             None => review.git(ctx, &executable, &["hash-object", "-w", "-t", "tree", "--stdin"], &[], &[]).await?,
         };
-        if tree == previous {
+        if tree == previous && merge_parents.is_empty() {
             return Err("there are no staged changes to commit".into());
         }
         let diff = review
@@ -188,13 +200,19 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
             return Err("host git user.name and user.email are required".into());
         }
         let parent = head.as_deref().unwrap_or("none (initial commit)");
+        let merging = if merge_parents.is_empty() {
+            String::new()
+        } else {
+            format!("\nMerge parents: {}", merge_parents.join(" "))
+        };
         let detail = format!(
-            "Branch: {branch}\nMessage:\n{message}\nStaged diff:\n{diff}\nUnsigned commit; hooks will not run.\nWorktree: {}\nGit directory: {git_dir}\nCommon directory: {common_dir}\nParent: {parent}\nTree: {tree}\nAuthor: {author} <{email}>",
+            "Branch: {branch}\nMessage:\n{message}\nStaged diff:\n{diff}\nUnsigned commit; hooks will not run.\nWorktree: {}\nGit directory: {git_dir}\nCommon directory: {common_dir}\nParent: {parent}{merging}\nTree: {tree}\nAuthor: {author} <{email}>",
             cwd.display()
         );
         (
             Body::Commit(Commit {
                 head,
+                merge_parents,
                 branch,
                 tree,
                 git_dir,
@@ -239,61 +257,4 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
         cwd,
         operation: body,
     })
-}
-
-pub async fn commit(ctx: &Ctx, exe: &Executable, cwd: &Path, plan: &Commit) -> Result<String, ToolError> {
-    for (args, expected) in [
-        (vec!["symbolic-ref", "-q", "HEAD"], &plan.branch),
-        (vec!["rev-parse", "--absolute-git-dir"], &plan.git_dir),
-        (vec!["rev-parse", "--path-format=absolute", "--git-common-dir"], &plan.common_dir),
-    ] {
-        if &git(ctx, exe, cwd, &args).await? != expected {
-            return Err(ToolError::new(
-                "changed",
-                "repository changed while approval was pending; prepare and review again",
-            ));
-        }
-    }
-    if branch_head(ctx, exe, cwd, &plan.branch).await? != plan.head {
-        return Err(ToolError::new("changed", "branch changed while approval was pending; prepare and review again"));
-    }
-    if ref_format(ctx, exe, cwd).await? != plan.ref_format {
-        return Err(ToolError::new("changed", "repository reference format changed while awaiting approval"));
-    }
-    let layout = context::Layout {
-        branch: &plan.branch,
-        common: &plan.common_dir,
-        git_dir: &plan.git_dir,
-        objects: Path::new(&plan.objects),
-        refs: &plan.ref_format,
-        sha256: plan.tree.len() == 64,
-    };
-    let review = index_review(ctx, exe, cwd, &layout, Path::new(&plan.index)).await?;
-    if review.git(ctx, exe, &["write-tree"], &[], &[]).await? != plan.tree {
-        return Err(ToolError::new("changed", "staged index changed while awaiting approval"));
-    }
-    let shadow = context::CommitContext::new(ctx, plan)?;
-    let mut args = vec!["commit-tree", &plan.tree];
-    if let Some(parent) = &plan.head {
-        args.extend(["-p", parent]);
-    }
-    args.extend(["-F", "-"]);
-    let env = [
-        ("GIT_AUTHOR_NAME", plan.author.clone().into()),
-        ("GIT_AUTHOR_EMAIL", plan.email.clone().into()),
-        ("GIT_COMMITTER_NAME", plan.author.clone().into()),
-        ("GIT_COMMITTER_EMAIL", plan.email.clone().into()),
-    ];
-    let commit = oid(&shadow.git(ctx, exe, &args, plan.message.as_bytes(), &env).await?)?;
-    let old = plan.head.clone().unwrap_or_else(|| "0".repeat(plan.tree.len()));
-    shadow
-        .git(
-            ctx,
-            exe,
-            &["update-ref", "--no-deref", "-m", "construct: approved commit", &plan.branch, &commit, &old],
-            &[],
-            &env,
-        )
-        .await?;
-    Ok(format!("Committed {commit} on {}", plan.branch))
 }

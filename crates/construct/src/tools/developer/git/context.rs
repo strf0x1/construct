@@ -182,6 +182,46 @@ impl CommitContext {
         &self.work
     }
 
+    /// Reftable stores MERGE_AUTOSTASH as a ref instead of a worktree file.
+    pub(super) async fn check_reftable_autostash(
+        &self,
+        ctx: &Ctx,
+        exe: &Executable,
+        git_dir: &str,
+    ) -> Result<(), ToolError> {
+        match self.worktree_git(ctx, exe, git_dir, &["show-ref", "--exists", "MERGE_AUTOSTASH"]).await {
+            Ok(_) => Err("Finish this merge in Git to restore its autostash.".into()),
+            Err(error) if error.data.as_ref().and_then(|v| v["exit_code"].as_i64()) == Some(2) => Ok(()),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub(super) async fn clear_merge(&self, ctx: &Ctx, exe: &Executable, git_dir: &str) -> Result<(), ToolError> {
+        self.worktree_git(ctx, exe, git_dir, &["merge", "--quit"]).await.map(|_| ())
+    }
+
+    /// Git sees the original worktree metadata and the private configuration.
+    async fn worktree_git(
+        &self,
+        ctx: &Ctx,
+        exe: &Executable,
+        git_dir: &str,
+        args: &[&str],
+    ) -> Result<String, ToolError> {
+        self.git(
+            ctx,
+            exe,
+            args,
+            &[],
+            &[
+                ("GIT_DIR", git_dir.into()),
+                ("GIT_COMMON_DIR", self._scratch.0.join("common").into_os_string()),
+                ("GIT_WORK_TREE", self.work.clone().into_os_string()),
+            ],
+        )
+        .await
+    }
+
     pub(super) async fn git(
         &self,
         ctx: &Ctx,

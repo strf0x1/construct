@@ -1,0 +1,15 @@
+wait "ask construct" 5000
+type commit the staged merge resolution
+key enter
+wait "PERMISSION" 15000
+sleep 600
+key end
+wait "Merge parents:" 3000
+expect "Allow this operation"
+snap --style merge-approval
+image {evidence}/merge-approval.png
+type y
+wait "merge review done" 15000
+gone "PERMISSION" 1000
+type /quit
+key enter

@@ -1,0 +1,1 @@
+{"steps":[{"call":"developer","args":{"operation":"commit","workdir":"integration","message":"Resolve the overlapping edits"}},{"text":"merge review done"}]}
