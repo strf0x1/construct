@@ -3,8 +3,8 @@ id: developer-operations
 status: verified
 surfaces: [tui]
 depends: [crates/construct/src/tools/developer, crates/construct/src/permission/operation.rs, crates/construct/src/tui/ask.rs, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct-dev/tests/developer.rs]
-verified_at: 2abd384
-verified_deps: 6490bca342f4bdb0
+verified_at: d5f11fa
+verified_deps: 1d63572b604c1687
 ---
 # Approved developer operations
 
@@ -22,7 +22,7 @@ own approval. Ordinary shell commands keep their sandbox restrictions.
 - `developer-operation-deny` refuses execution.
 - `developer-operation-git-state` changed staged content requires a new approval; pushes use the captured commit.
 - `developer-operation-merge-commit` approves a staged merge resolution and records the merge parents.
-- `developer-operation-linked-worktree` checks status, stages named files, and starts a merge of one exact commit in the current linked checkout.
+- `developer-operation-linked-worktree` checks status, stages named files, and starts a merge of one exact commit in the current linked checkout; a plain `git` failure there ends with a sandbox note naming these operations.
 - `developer-operation-deck-gateway` in a Deck VM task with a repository (`DECK_GITHUB_URL`), push, pr_create, pr_update and pr_review go through Deck's GitHub gateway instead of host authentication, and in Deck mode Construct shows no panel of its own: Deck's gateway decides each write. `issue_create` is refused there.
 
 ## How to get to it (user POV)
