@@ -1,4 +1,4 @@
-//! A Deck coordinator's `deck` tool end to end (#222, contract 1.5.0 §13):
+//! A Deck coordinator's `deck` tool end to end (#222, contract 1.6.0 §13):
 //! the real binary, a scripted model and a stub of Deck's control gateway.
 //! The tool exists only when `DECK_CONTROL_URL` names a loopback gateway,
 //! carries the bearer header exactly when `DECK_CONTROL_TOKEN` is set, never
@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 const TOKEN: &str = "dct_q8Zr1vKcY3nT0fWb6LmE2pXhS9aJ4uGd";
 const WORKER: &str = "01JD3W0RKER0000000000000001";
+const INTEGRATION: &str = "integration-1";
 
 /// One request the stub received: its `Authorization` headers and body.
 #[derive(Clone, Debug)]
@@ -67,6 +68,19 @@ fn summary() -> Value {
     })
 }
 
+fn integration_summary() -> Value {
+    json!({
+        "id": INTEGRATION, "project": "git:abc", "state": "created", "attention": "integration_input",
+        "integration": {
+            "destination": { "kind": "existing_pull_request", "number": 42 },
+            "repository": "acme/app", "branch": "deck/integration-1", "phase": "waiting",
+            "base_commit": "a".repeat(40),
+            "contributors": [{ "id": "w2", "commit": "b".repeat(40) }, { "id": "w1" }],
+            "reason": "Contributor w1 has no published task branch."
+        }
+    })
+}
+
 fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, projects: bool) {
     let mut reader = BufReader::new(stream.try_clone().unwrap());
     let mut line = String::new();
@@ -96,10 +110,12 @@ fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, projects: bool) {
         }
         "tasks" => (200, json!({ "tasks": [summary()], "truncated": false })),
         "create" => (200, json!({ "id": WORKER })),
+        "integrate" => (200, json!({ "id": INTEGRATION })),
         "prompt" => (
             409,
             json!({ "error": { "message": "the task's turn is working", "type": "deck_control_busy", "code": "deck_control_busy" }, "retryable": true }),
         ),
+        "wait" if body["id"] == INTEGRATION => (200, json!({ "timed_out": false, "task": integration_summary() })),
         "wait" => (200, json!({ "timed_out": false, "task": summary() })),
         _ => (200, json!({ "id": WORKER, "state": "stopped" })),
     };
@@ -240,6 +256,37 @@ fn without_a_token_no_header_is_sent() {
     assert!(seen[0].authorization.is_empty(), "{:?}", seen[0].authorization);
     let result = last_tool_result(&env.requests()[1]);
     assert!(result.starts_with("1 task:") && result.contains(WORKER), "a 1.4 reply has no projects: {result}");
+}
+
+#[test]
+fn the_coordinator_can_request_integration_and_see_why_it_waits() {
+    let gateway = Gateway::start();
+    let args = json!({
+        "operation": "integrate", "destination": { "kind": "existing_pull_request", "number": 42 },
+        "contributors": ["w2", "w1"], "brief": "Resolve the conflict and run the combined tests."
+    });
+    let env = Env::new(
+        "deck-control-integrate",
+        json!({ "steps": [
+            deck(args.clone()),
+            deck(json!({ "operation": "wait", "id": INTEGRATION, "wait_ms": 1000 })),
+            { "text": "done" }
+        ] }),
+    );
+    let url = gateway.url();
+    let out = env.run_with(&[("DECK_CONTROL_URL", &url)], &["run", "--json", "--no-learn", "Integrate the workers"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let seen = gateway.seen();
+    assert_eq!(seen.len(), 2);
+    assert_eq!(seen[0].body, args);
+    assert_eq!(seen[1].body, json!({ "operation": "wait", "id": INTEGRATION, "wait_ms": 1000 }));
+    let results = tool_results(&env.requests()[2]);
+    assert!(results[0].contains(&format!("Integration task {INTEGRATION}")), "{}", results[0]);
+    let detail = &results[1];
+    assert!(detail.contains("existing PR acme/app#42"), "{detail}");
+    assert!(detail.contains(&format!("Starting commit: {}", "a".repeat(40))), "{detail}");
+    assert!(detail.contains(&format!("- w2: {}\n- w1: waiting for commit", "b".repeat(40))), "{detail}");
+    assert!(detail.contains("Contributor w1 has no published task branch."), "{detail}");
 }
 
 #[test]

@@ -5,6 +5,7 @@
 //! The design choice: replies are open, so every field is read leniently and
 //! an unknown one is ignored; a summary that lacks a field still prints.
 
+use super::{INTEGRATE, MAX_CONTRIBUTORS, MAX_INTEGRATION_REASON};
 use serde_json::{Value, json};
 
 /// How much of a task's last message a listing line shows.
@@ -63,6 +64,12 @@ pub fn reply(body: &Value, reply: &Value) -> (String, Value) {
             );
             (text, json!({ "operation": operation, "id": id }))
         }
+        INTEGRATE => {
+            let id = reply["id"].as_str().unwrap_or_default();
+            let text =
+                format!("Integration task {id}. Call deck wait with its id to see its progress or waiting reason.");
+            (text, json!({ "operation": operation, "id": id }))
+        }
         "prompt" => {
             let turn = reply["turn"].as_u64().unwrap_or(0);
             let text = format!(
@@ -110,11 +117,50 @@ fn read(operation: &str, reply: &Value) -> Value {
 /// One task: its line, then its whole last message (Deck caps it at 2048 bytes).
 fn detail(task: &Value) -> String {
     let mut out = line(task, false);
+    let integration = &task["integration"];
+    if integration.is_object() {
+        out.push_str(&integration_detail(integration));
+    }
     if let Some(message) = task["last_message"].as_str().filter(|m| !m.is_empty()) {
         let cut = if task["last_message_truncated"].as_bool().unwrap_or(false) { " (cut by Deck)" } else { "" };
         out.push_str(&format!("\nLast message{cut}:\n{message}"));
     }
     out
+}
+
+fn integration_detail(integration: &Value) -> String {
+    let mut text = String::new();
+    let repo = integration["repository"].as_str().unwrap_or("?");
+    let destination = &integration["destination"];
+    let place = match destination["kind"].as_str() {
+        Some("local_branch") => format!("local branch {}", destination["branch"].as_str().unwrap_or("?")),
+        Some("new_pull_request") => {
+            format!("new draft PR to {repo}:{}", integration["base_branch"].as_str().unwrap_or("?"))
+        }
+        Some("existing_pull_request") => {
+            format!("existing PR {repo}#{}", destination["number"].as_u64().unwrap_or_default())
+        }
+        _ => "unknown".to_string(),
+    };
+    text.push_str(&format!("\nDestination: {}", crate::llm::truncate(&place, 480)));
+    if let Some(branch) = integration["branch"].as_str() {
+        text.push_str(&format!("\nReview branch: {}", crate::llm::truncate(branch, 200)));
+    }
+    if let Some(commit) = integration["base_commit"].as_str() {
+        text.push_str(&format!("\nStarting commit: {}", crate::llm::truncate(commit, 64)));
+    }
+    if let Some(contributors) = integration["contributors"].as_array() {
+        text.push_str("\nContributors in merge order:");
+        for contributor in contributors.iter().take(MAX_CONTRIBUTORS) {
+            let id = contributor["id"].as_str().unwrap_or("?");
+            let commit = contributor["commit"].as_str().unwrap_or("waiting for commit");
+            text.push_str(&format!("\n- {}: {}", crate::llm::truncate(id, 128), crate::llm::truncate(commit, 64)));
+        }
+    }
+    if let Some(reason) = integration["reason"].as_str() {
+        text.push_str(&format!("\nWaiting for input: {}", crate::llm::truncate(reason, MAX_INTEGRATION_REASON)));
+    }
+    text
 }
 
 /// One line for a task summary; `message` adds its last message, capped.
@@ -138,6 +184,7 @@ pub fn line(task: &Value, message: bool) -> String {
         Some(known @ ("approval" | "question" | "finished" | "failed")) => {
             out.push_str(&format!("; needs you: {known}"))
         }
+        Some("integration_input") => out.push_str(". Integration needs input"),
         Some(other) => out.push_str(&format!("; needs a person: {}", crate::llm::truncate(other, 64))),
         None => {}
     }
@@ -159,6 +206,9 @@ pub fn line(task: &Value, message: bool) -> String {
         let commit = publication["commit"].as_str().unwrap_or_default();
         let branch = publication["branch"].as_str().unwrap_or("?");
         out.push_str(&format!("; published {branch}@{}", crate::text::head(commit, 12)));
+    }
+    if let Some(phase) = task["integration"]["phase"].as_str() {
+        out.push_str(&format!(". Integration: {}", crate::llm::truncate(phase, 32)));
     }
     if message && let Some(last) = s("last_message").filter(|m| !m.is_empty()) {
         let flat = last.split_whitespace().collect::<Vec<_>>().join(" ");
