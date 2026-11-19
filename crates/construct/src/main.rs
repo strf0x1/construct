@@ -1,7 +1,9 @@
 //! The binary: the sandbox helper re-exec (`construct __sandbox`) and
-//! `cli::run`. Everything testable lives in the library.
+//! `cli::run`. Everything testable lives in the construct-core library.
+mod cli;
+
 use anyhow::Result;
-use construct::{cli, sandbox, trace};
+use construct_core::{sandbox, trace};
 
 fn main() -> Result<()> {
     // The sandbox helper must stay single-threaded and do nothing else.

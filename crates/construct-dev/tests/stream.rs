@@ -137,9 +137,9 @@ fn stalled_http_error_bodies_fail_at_the_first_byte_deadline() {
 
 #[tokio::test]
 async fn an_unreadable_http_error_body_keeps_its_status_and_cause() {
-    use construct::config::Config;
-    use construct::endpoint::Endpoint;
-    use construct::llm::{Client, Message, Request};
+    use construct_core::config::Config;
+    use construct_core::endpoint::Endpoint;
+    use construct_core::llm::{Client, Message, Request};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

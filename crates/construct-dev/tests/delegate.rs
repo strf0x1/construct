@@ -72,8 +72,8 @@ fn a_delegated_task_runs_in_a_child_and_only_its_summary_returns() {
         (Some(call_id.as_str()), Some(child.as_str()))
     );
     // The parent's totals bill the child's requests as well as its own.
-    let db = construct::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
-    let totals = construct::journal::Totals::session(&db, &db.since(parent, 0).unwrap()).unwrap();
+    let db = construct_core::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
+    let totals = construct_core::journal::Totals::session(&db, &db.since(parent, 0).unwrap()).unwrap();
     let usage = |s: &String| rows_of(&env, s).into_iter().filter(|r| r.ty == "usage").collect::<Vec<_>>();
     let (own, theirs) = (usage(parent), usage(child));
     assert_eq!(totals.requests, (own.len() + theirs.len()) as u64);
@@ -108,8 +108,8 @@ fn tool_results_of(req: &Value) -> Vec<String> {
 #[test]
 fn a_child_with_nothing_granted_cannot_reach_the_parents_files_or_secrets() {
     let dir = Env::dir_for("delegate-sandbox");
-    let home = construct::config::Paths { home: dir.join("home") };
-    let journal = construct::journal::path(&home, &dir.join("work"));
+    let home = construct_core::config::Paths { home: dir.join("home") };
+    let journal = construct_core::journal::path(&home, &dir.join("work"));
     // The workspace, the parent's home, every project's journals, this
     // project's journal file and the parent's config.
     let probes = [dir.join("work"), home.home.clone(), home.home.join("projects"), journal, home.config()]

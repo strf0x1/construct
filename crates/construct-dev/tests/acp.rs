@@ -2,12 +2,12 @@
 //! editor would, with the model on the scripted endpoint.
 
 use crate::common::*;
-use construct::acp::Start;
-use construct::agents::AgentDef;
-use construct::child::Origin;
-use construct::config::Config;
-use construct::sandbox::Policy;
-use construct::tools::Catalog;
+use construct_core::acp::Start;
+use construct_core::agents::AgentDef;
+use construct_core::child::Origin;
+use construct_core::config::Config;
+use construct_core::sandbox::Policy;
+use construct_core::tools::Catalog;
 use serde_json::{Value, json};
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};

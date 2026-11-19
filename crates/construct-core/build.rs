@@ -10,13 +10,16 @@ fn git(args: &[&str]) -> Option<String> {
 
 fn main() {
     let sha = git(&["rev-parse", "HEAD"]).unwrap_or_else(|| "unknown".into());
-    // Dirty means the build differs from the commit in this crate's sources.
-    let dirty = git(&["status", "--porcelain", "--", "."]).is_some_and(|s| !s.is_empty());
+    // Dirty means the build differs from the commit in the shipped crates'
+    // sources: this engine and the construct binary that composes it.
+    let dirty = git(&["status", "--porcelain", "--", ".", "../construct"]).is_some_and(|s| !s.is_empty());
     println!("cargo:rustc-env=CONSTRUCT_GIT_SHA={sha}");
     println!("cargo:rustc-env=CONSTRUCT_GIT_DIRTY={dirty}");
     // Rerun when the sources change (dirty flag) or HEAD moves (sha).
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=../construct/src");
+    println!("cargo:rerun-if-changed=../construct/Cargo.toml");
     // A rerun-if-changed path that does not exist makes cargo rebuild on every
     // invocation, and a rebuilt `construct` relinks every dependent test
     // binary. `--git-path` resolves worktrees and packed refs; a path that is

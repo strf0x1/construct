@@ -193,7 +193,7 @@ impl Env {
 
     /// The journal file for sessions run in `dir`.
     pub fn journal_path(&self, dir: &Path) -> PathBuf {
-        construct::journal::path(&construct::config::Paths { home: self.home.clone() }, dir)
+        construct_core::journal::path(&construct_core::config::Paths { home: self.home.clone() }, dir)
     }
 
     /// Every row of the work dir's journal, in seq order, read with plain SQL.

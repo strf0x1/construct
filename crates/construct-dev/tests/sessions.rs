@@ -2,9 +2,9 @@
 //! journal rows prove isolation and persistence, independently of mock replies.
 
 use crate::common::*;
-use construct::event::Event;
-use construct::journal::{self, Journal, Writer};
-use construct::llm::Message;
+use construct_core::event::Event;
+use construct_core::journal::{self, Journal, Writer};
+use construct_core::llm::Message;
 use construct_dev::drive;
 use serde_json::json;
 
@@ -21,19 +21,19 @@ fn tui(env: &Env, args: &[&str], cols: u16, rows: u16) -> drive::Driver {
     drive::Driver::spawn(&command, &env.env(), Some(env.work.to_str().unwrap()), cols, rows).unwrap()
 }
 
-fn paths(env: &Env) -> construct::config::Paths {
-    construct::config::Paths { home: env.home.clone() }
+fn paths(env: &Env) -> construct_core::config::Paths {
+    construct_core::config::Paths { home: env.home.clone() }
 }
 
 fn seed(env: &Env, label: &str, cwd: &str, child: bool, prompt: bool) -> String {
-    let cfg = construct::config::Config::default();
+    let cfg = construct_core::config::Config::default();
     let (writer, _) = Writer::create(&env.journal_path(&env.work), |id| Event::Head {
         id,
         harness: "construct".into(),
         version: "test".into(),
         cwd: cwd.into(),
         model: cfg.model.clone(),
-        manifest: construct::manifest::Manifest::foreign(&cfg),
+        manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: child.then(|| "parent".into()),
         parent_call_id: None,
     })
@@ -268,14 +268,14 @@ fn unavailable_saved_provider_requires_an_explicit_replacement() {
 fn compacted_model_view_keeps_the_full_historical_tui_transcript() {
     let env = Env::new("sessions-compacted-ui", json!({"steps":[{"text":"continued with compacted context"}]}));
     env.config("[router]\nmode = 'local'\n[learn]\nenabled = false\n");
-    let cfg = construct::config::Config::default();
+    let cfg = construct_core::config::Config::default();
     let (w, _) = Writer::create(&env.journal_path(&env.work), |id| Event::Head {
         id,
         harness: "construct".into(),
         version: "test".into(),
         cwd: env.work.display().to_string(),
         model: cfg.model.clone(),
-        manifest: construct::manifest::Manifest::foreign(&cfg),
+        manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: None,
         parent_call_id: None,
     })

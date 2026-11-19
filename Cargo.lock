@@ -946,8 +946,21 @@ name = "construct"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "clap",
+ "construct-core",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "toml",
+ "toml_edit",
+]
+
+[[package]]
+name = "construct-core"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
  "crossterm",
  "futures",
  "globset",
@@ -983,7 +996,7 @@ dependencies = [
  "axum",
  "bytes",
  "clap",
- "construct",
+ "construct-core",
  "futures",
  "insta",
  "jsonschema",

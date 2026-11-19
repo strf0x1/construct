@@ -2,3 +2,5 @@
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 # style: apply rustfmt
 08bee1273eb102f42026eba9d8093fc93a04df25
+# modularization: pure move of engine src + tests into construct-core (#276)
+caaefa25c553f7be3c253dbaa07b6e8c8629aead

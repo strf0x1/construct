@@ -5,5 +5,5 @@
 repo = "strf0x1/sprawlcommons-acp"
 version = "1.7.0"
 commit = "bf605297f4907e0446ab6f42bdd1d061a2be5f14"
-vendored = "crates/construct/tests/fixtures/acp-contract/1.7.0"
+vendored = "crates/construct-core/tests/fixtures/acp-contract/1.7.0"
 sha256 = "9c8ead7a367ea32dcfa6fcd39b144a5fc6d3c6487811fc4b51e6531ebe2e26da"

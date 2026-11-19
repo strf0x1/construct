@@ -3,12 +3,12 @@
 //! and what a child is (its prompt, tools, head row and home).
 
 use crate::common::*;
-use construct::agents::AgentDef;
-use construct::child::wire::{Origin, ToChild};
-use construct::config::Config;
-use construct::event::Event;
-use construct::sandbox::Policy;
-use construct::tools::Catalog;
+use construct_core::agents::AgentDef;
+use construct_core::child::wire::{Origin, ToChild};
+use construct_core::config::Config;
+use construct_core::event::Event;
+use construct_core::sandbox::Policy;
+use construct_core::tools::Catalog;
 use serde_json::json;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
@@ -59,7 +59,7 @@ impl Wire {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             for l in BufReader::new(out).lines().map_while(Result::ok) {
-                if let Some(ev) = construct::child::wire::parse_event(&l) {
+                if let Some(ev) = construct_core::child::wire::parse_event(&l) {
                     let _ = tx.send(ev);
                 }
             }

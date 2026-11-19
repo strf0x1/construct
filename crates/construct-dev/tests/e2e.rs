@@ -921,7 +921,7 @@ fn project_kit_follows_the_repo_not_the_session() {
 /// A row's payload as the one `Event` type, back to JSON: equal values mean
 /// equal events, and a payload that isn't an `Event` fails here.
 fn as_event(v: &Value) -> Value {
-    let ev: construct::event::Event = serde_json::from_value(v.clone()).unwrap_or_else(|e| panic!("{e}: {v}"));
+    let ev: construct_core::event::Event = serde_json::from_value(v.clone()).unwrap_or_else(|e| panic!("{e}: {v}"));
     serde_json::to_value(ev).unwrap()
 }
 
@@ -1306,7 +1306,8 @@ fn sessions_export_writes_the_old_jsonl_shape() {
 fn sandbox_keeps_the_journal_out_of_reach() {
     let name = "journal-sandbox";
     let dir = Env::dir_for(name);
-    let journal = construct::journal::path(&construct::config::Paths { home: dir.join("home") }, &dir.join("work"));
+    let journal =
+        construct_core::journal::path(&construct_core::config::Paths { home: dir.join("home") }, &dir.join("work"));
     let j = journal.display().to_string();
     let env = Env::new(
         name,
@@ -1595,7 +1596,7 @@ fn spec_server(name: &str, flags: &str, extra: &str) -> String {
 
 #[test]
 fn mcp_client_answers_server_requests_skips_bad_lines_and_keeps_rich_content() {
-    use construct::mcp::wire_name;
+    use construct_core::mcp::wire_name;
     let env = Env::new(
         "mcp-spec",
         json!({ "steps": [
@@ -1773,7 +1774,7 @@ fn tui_status_shows_the_session_and_totals_that_the_journal_holds() {
     assert_eq!(usage.len(), 2, "both turns' usage rows\n{}", String::from_utf8_lossy(&log));
     let sum = |k: &str| usage.iter().map(|r| r.payload[k].as_u64().unwrap_or(0)).sum::<u64>();
     // Totals on screen are the journal's own sums, formatted the same way.
-    let human = construct::journal::human;
+    let human = construct_core::journal::human;
     let billed = format!("billed ↑{} ↓{}", human(sum("prompt")), human(sum("completion")));
     let script = format!("type /status\nkey enter\nwait \"requests\" {short}\nwait \"{billed}\" {short}\n");
     if let Err(e) = drive::run_script(&mut d, &script, &mut log) {
@@ -1859,7 +1860,7 @@ fn home_is_private_and_an_open_one_is_tightened_once() {
     assert!(env.home.join("projects").is_dir());
     assert!(!text(&out).contains("made"), "a new home needs no notice: {}", text(&out));
     // A home from before this change (world-readable, no marker) is tightened once, with a notice.
-    std::fs::remove_file(env.home.join(construct::home::MARKER)).unwrap();
+    std::fs::remove_file(env.home.join(construct_core::home::MARKER)).unwrap();
     std::fs::set_permissions(&env.home, std::fs::Permissions::from_mode(0o755)).unwrap();
     let out = env.run(&["run", "--no-learn", "hi"]);
     assert!(out.status.success(), "{}", text(&out));

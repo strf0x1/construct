@@ -2,7 +2,7 @@
 id: turn-queue
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/turn.rs, crates/construct/src/tui/view.rs, crates/construct/src/tui/input.rs, crates/construct/src/tui/worker.rs, crates/construct/src/agent/user_turn.rs]
+depends: [crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/view.rs, crates/construct-core/src/tui/input.rs, crates/construct-core/src/tui/worker.rs, crates/construct-core/src/agent/user_turn.rs]
 verified_at: f7f6aba
 verified_deps: c886e717d826844a
 ---

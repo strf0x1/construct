@@ -10,7 +10,7 @@
 //! another top-level module: `crate::x`, each branch of a grouped
 //! `crate::{x, y::{..}}`, `super::` chains that climb to the crate root
 //! (counting inline `mod m { }` blocks), and the package's own lib name
-//! (`construct::x` in construct, `construct_dev::x` in construct-dev). A path
+//! (`construct_dev::x` in construct-dev). A path
 //! rooted at *another* workspace crate's name is a cross-crate edge instead,
 //! recorded crate-to-crate. A module's references to itself are not edges,
 //! and neither is test code (`#[cfg(test)]` items and `tests.rs` files):

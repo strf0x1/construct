@@ -2,7 +2,7 @@
 id: status-line
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/status.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/journal/totals.rs, crates/construct/src/journal/show.rs]
+depends: [crates/construct-core/src/tui/status.rs, crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/activity.rs, crates/construct-core/src/journal/totals.rs, crates/construct-core/src/journal/show.rs]
 verified_at: e9abf9b
 verified_deps: 7016ee4cc91f8382
 ---

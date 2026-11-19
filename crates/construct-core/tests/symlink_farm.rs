@@ -5,10 +5,10 @@
 //! through every tool under both editors. Each call must be refused or leave
 //! the outside tree exactly as it was.
 
-use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
-use construct::memory::Store;
-use construct::sandbox::{Policy, open};
-use construct::tools::{Catalog, Ctx};
+use construct_core::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct_core::memory::Store;
+use construct_core::sandbox::{Policy, open};
+use construct_core::tools::{Catalog, Ctx};
 use serde_json::{Value, json};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};

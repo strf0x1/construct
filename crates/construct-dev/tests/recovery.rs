@@ -2,9 +2,9 @@
 //! The next request must be protocol-valid, idempotent and free of tool retries.
 
 use crate::common::*;
-use construct::event::Event;
-use construct::journal::Writer;
-use construct::llm::Message;
+use construct_core::event::Event;
+use construct_core::journal::Writer;
+use construct_core::llm::Message;
 use construct_dev::drive;
 use serde_json::{Value, json};
 use std::process::{Child, Command, Stdio};
@@ -198,14 +198,14 @@ fn recovered_jobs_wait_for_user_and_completed_results_are_delivered_once() {
     env.config("[router]\nmode = 'local'\n[learn]\nenabled = false\n");
     // Seed a process's committed boundary: one ended job awaiting delivery,
     // and one running job whose process no longer exists.
-    let cfg = construct::config::Config::default();
+    let cfg = construct_core::config::Config::default();
     let (w, _) = Writer::create(&env.journal_path(&env.work), |id| Event::Head {
         id,
         harness: "construct".into(),
         version: "test".into(),
         cwd: env.work.display().to_string(),
         model: cfg.model.clone(),
-        manifest: construct::manifest::Manifest::foreign(&cfg),
+        manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: None,
         parent_call_id: None,
     })
@@ -214,18 +214,18 @@ fn recovered_jobs_wait_for_user_and_completed_results_are_delivered_once() {
     w.record(&Event::submitted("Run background work"));
     w.record(&Event::User { message: Message::user("Run background work") });
     for id in ["j1", "j2"] {
-        w.record(&Event::JobStart(construct::jobs::Started {
+        w.record(&Event::JobStart(construct_core::jobs::Started {
             id: id.into(),
-            kind: construct::jobs::Kind::Shell,
+            kind: construct_core::jobs::Kind::Shell,
             label: "some external work".into(),
             call_id: "call".into(),
         }));
     }
-    w.record(&Event::JobEnd(construct::jobs::Info {
+    w.record(&Event::JobEnd(construct_core::jobs::Info {
         id: "j1".into(),
-        kind: construct::jobs::Kind::Shell,
+        kind: construct_core::jobs::Kind::Shell,
         label: "completed work".into(),
-        status: construct::jobs::Status::Completed,
+        status: construct_core::jobs::Status::Completed,
         exit: Some(0),
         ms: 10,
         tail: "completion pending delivery".into(),

@@ -2,10 +2,10 @@
 //! (`--json` prints them all); the run is over when the turn is and, after it,
 //! every background job it left has ended and had its turn.
 
-use crate::agent::{Agent, Event};
-use crate::config::{Config, Paths};
-use crate::{learn, llm};
 use anyhow::Result;
+use construct_core::agent::{Agent, Event};
+use construct_core::config::{Config, Paths};
+use construct_core::{learn, llm};
 use std::io::Write;
 
 pub(super) async fn run(
