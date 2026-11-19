@@ -12,5 +12,5 @@ fn main() -> Result<()> {
         sandbox::exec_child(&argv[2..]);
     }
     trace::mark("main");
-    cli::run()
+    crate::cli::run()
 }

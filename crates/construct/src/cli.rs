@@ -10,7 +10,7 @@ mod resume;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
-use construct_core::{journal, llm, memory, secrets, skills, tools, tui};
+use construct_core::{acp, child, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools, tui};
 use resume::resolve_resume;
 use std::io::{IsTerminal, Read, Write};
 
@@ -138,7 +138,7 @@ pub fn run() -> Result<()> {
     }
     let paths = Paths::resolve()?;
     // Best effort: a home construct can't secure still works, as before.
-    if let Ok(construct_core::home::Outcome::Tightened { from, to }) = construct_core::home::make_private(&paths.home) {
+    if let Ok(home::Outcome::Tightened { from, to }) = home::make_private(&paths.home) {
         eprintln!("construct: made {} private ({from:o} -> {to:o}); see docs/adr/0021", paths.home.display());
     }
     let mut cfg = Config::load(&paths)?;
@@ -168,13 +168,9 @@ pub fn run() -> Result<()> {
             }
             rt.block_on(headless::run(cfg, paths, resume, text, json, !no_learn, cli.model))
         }
-        Some(Cmd::Child { acp: false }) => rt.block_on(construct_core::child::serve::run()),
-        Some(Cmd::Child { acp: true }) => {
-            rt.block_on(construct_core::acp::server::run(cfg, paths, construct_core::acp::server::Mode::Child))
-        }
-        Some(Cmd::Acp) => {
-            rt.block_on(construct_core::acp::server::run(cfg, paths, construct_core::acp::server::Mode::User))
-        }
+        Some(Cmd::Child { acp: false }) => rt.block_on(child::serve::run()),
+        Some(Cmd::Child { acp: true }) => rt.block_on(acp::server::run(cfg, paths, acp::server::Mode::Child)),
+        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths, acp::server::Mode::User)),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {
@@ -267,7 +263,7 @@ pub fn run() -> Result<()> {
         }
         Some(Cmd::Manifest) => {
             let catalog = tools::Catalog::build(&cfg.tools, None)?;
-            let m = construct_core::manifest::Manifest::new(&cfg, &catalog).with_binary_hash();
+            let m = manifest::Manifest::new(&cfg, &catalog).with_binary_hash();
             println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
         }
@@ -278,16 +274,14 @@ pub fn run() -> Result<()> {
 fn mcp_policies(cfg: &Config, paths: &Paths, cwd: &std::path::Path) -> String {
     let mut out = String::new();
     for (name, server) in &cfg.mcp {
-        let p = construct_core::sandbox::Policy::for_mcp(&cfg.sandbox, server, cwd, paths);
+        let p = sandbox::Policy::for_mcp(&cfg.sandbox, server, cwd, paths);
         // Building a policy makes its private temp dir; nothing runs here.
         let _ = std::fs::remove_dir(&p.tmp);
         let list = |v: &[std::path::PathBuf]| v.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ");
         let secrets: Vec<String> = server
             .secrets
             .iter()
-            .map(|s| {
-                format!("{s} ({})", if construct_core::secrets::optional(s).is_some() { "set" } else { "not set" })
-            })
+            .map(|s| format!("{s} ({})", if secrets::optional(s).is_some() { "set" } else { "not set" }))
             .collect();
         out.push_str(&format!(
             "\n# mcp.{name} runs sandboxed{}\n#   read: {}\n#   write: {}\n#   plus system paths and toolchains, read-only\n#   network: {}\n#   secrets: {}\n",
