@@ -84,13 +84,22 @@ and `sha256` are untouched, so no ACP wire change.
 - #276 (this change), part of #274; step 1 was #275 / PR #280 / ADR 0047.
 - Pure-move commit `caaefa25c553f7be3c253dbaa07b6e8c8629aead` (281 files,
   0 insertions, 0 deletions), recorded in `.git-blame-ignore-revs`.
-- `cargo xtask check`: docs, map, contract, arch, fmt, clippy and workspace
-  tests green; golden snapshots and e2e unchanged. (Local bench gate: four
-  pre-existing macOS environment failures, reproduced on clean `origin/main`
-  — BSD `sed -i` and `/var/folders` TMPDIR symlinks; CI runs Linux.)
+- `cargo xtask check`: docs, map, contract, arch, fmt, clippy and the full
+  workspace test gate green — golden snapshots and e2e unchanged. The bench
+  gate's four failures are pre-existing macOS environment issues (BSD
+  `sed -i`, `/var/folders` TMPDIR symlinks, system python without `tomllib`),
+  each reproduced on a clean `origin/main` worktree; CI runs Linux.
+- `cargo test -p construct-core`: 452 unit + 51 contract tests pass.
 - `scripts/acp-contract.sh verify` passes offline; `CONTRACT.lock` diff is
   the `vendored` path only.
 - `cargo build --release -p construct` produces `target/release/construct`;
   scripted-model smoke (`scripts/mock.sh` + `construct run --json`) works.
-- The 12 `verified` recipes re-driven via `drive.sh` after the move; run ids
-  and PASS results recorded in the PR.
+- All 19 recipes named by the 12 `verified` entries re-driven at the moved
+  tree (`3acfa8d`): run `20261119-151100` (18 PASS) plus `delegate-retry-1/2`
+  (delegate-progress PASS; its first run timed out an 8 s wait under load),
+  and `20261119-final` for turn-refused after its check became portable
+  (BSD `wc -l` pads output; the string compare against 2 failed on macOS
+  with exactly two request files present — now `-eq`). `verified_at` /
+  `verified_deps` bumped in a map-only commit.
+- AGENTS.md layout/test-command updates pending owner approval (the file is
+  write-protected); no gate reads those paths.
