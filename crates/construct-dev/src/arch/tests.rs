@@ -1,6 +1,6 @@
 //! The arch gate on small trees: each case yields exactly the expected lines.
 
-use super::edges::sources;
+use super::edges::krates;
 use super::*;
 use std::path::PathBuf;
 
@@ -20,6 +20,7 @@ fn tree(name: &str) -> Tree {
         std::fs::create_dir_all(dir.join(d)).unwrap();
     }
     let t = Tree(dir);
+    write(&t, "crates/construct/Cargo.toml", "[package]\nname = \"construct\"\n");
     write(&t, "crates/construct/src/lib.rs", "//! l\npub mod a;\npub mod b;\npub mod c;\n");
     write(&t, "crates/construct/src/a.rs", "//! a\nuse crate::b::X;\n");
     write(&t, "crates/construct/src/b.rs", "//! b\n");
@@ -34,14 +35,29 @@ fn write(t: &Tree, path: &str, text: &str) {
     std::fs::write(p, text).unwrap();
 }
 
-/// The base table, with `extra` appended to `[modules.a]`.
+/// The base table, with `extra` appended to `[crates.construct.modules.a]`.
 fn table(t: &Tree, extra: &str) {
-    let text = format!("[modules.lib]\n[modules.b]\n[modules.c]\n[modules.a]\nmay_use = [\"b\"]\n{extra}\n");
+    let text = format!(
+        "[crates.construct]\n[crates.construct.modules.lib]\n[crates.construct.modules.b]\n[crates.construct.modules.c]\n[crates.construct.modules.a]\nmay_use = [\"b\"]\n{extra}\n"
+    );
     write(t, "docs/architecture.toml", &text);
 }
 
 fn check(t: &Tree) -> Vec<String> {
-    boundaries(&t.0, &sources(&t.0))
+    boundaries(&t.0, &krates(&t.0))
+}
+
+/// A second crate, `other`, with `lib` and `a`; its table entry is appended.
+fn other(t: &Tree, a: &str, entry: &str) {
+    write(t, "crates/other/Cargo.toml", "[package]\nname = \"other\"\n");
+    write(t, "crates/other/src/lib.rs", "//! l\npub mod a;\n");
+    write(t, "crates/other/src/a.rs", a);
+    let text = std::fs::read_to_string(t.0.join("docs/architecture.toml")).unwrap();
+    write(
+        t,
+        "docs/architecture.toml",
+        &format!("{text}[crates.other]\n{entry}\n[crates.other.modules.lib]\n[crates.other.modules.a]\n"),
+    );
 }
 
 #[test]
@@ -67,7 +83,7 @@ fn a_new_edge_says_what_to_add() {
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src/c.rs:2: c uses b, which docs/architecture.toml does not list; add \"b\" to may_use under [modules.c] so the new dependency shows in the diff"
+            "crates/construct/src/c.rs:2: c uses b, which docs/architecture.toml does not list; add \"b\" to may_use under [crates.construct.modules.c] so the new dependency shows in the diff"
         ]
     );
 }
@@ -79,7 +95,7 @@ fn every_branch_of_a_nested_group_is_an_edge() {
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src/a.rs:4: a uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [modules.a] so the new dependency shows in the diff"
+            "crates/construct/src/a.rs:4: a uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [crates.construct.modules.a] so the new dependency shows in the diff"
         ]
     );
 }
@@ -91,7 +107,7 @@ fn an_inline_path_is_an_edge() {
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src/a.rs:4: a uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [modules.a] so the new dependency shows in the diff"
+            "crates/construct/src/a.rs:4: a uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [crates.construct.modules.a] so the new dependency shows in the diff"
         ]
     );
 }
@@ -109,7 +125,7 @@ fn super_climbing_to_the_root_is_an_edge() {
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src/b/deep.rs:4: b uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [modules.b] so the new dependency shows in the diff"
+            "crates/construct/src/b/deep.rs:4: b uses c, which docs/architecture.toml does not list; add \"c\" to may_use under [crates.construct.modules.b] so the new dependency shows in the diff"
         ]
     );
 }
@@ -141,7 +157,7 @@ fn an_unknown_module_needs_an_entry() {
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src/d/mod.rs: module `d` has no entry in docs/architecture.toml; add `[modules.d]` with `may_use = [\"b\", \"c\"]`"
+            "crates/construct/src/d/mod.rs: module `d` has no entry in docs/architecture.toml; add `[crates.construct.modules.d]` with `may_use = [\"b\", \"c\"]`"
         ]
     );
 }
@@ -149,15 +165,19 @@ fn an_unknown_module_needs_an_entry() {
 #[test]
 fn a_stale_edge_and_a_gone_module_are_deleted() {
     let t = tree("stale");
-    table(&t, "[modules.gone]\n");
+    table(&t, "[crates.construct.modules.gone]\n");
     write(&t, "crates/construct/src/c.rs", "//! c\nuse crate::b::X;\n");
     let text = std::fs::read_to_string(t.0.join("docs/architecture.toml")).unwrap();
-    write(&t, "docs/architecture.toml", &text.replace("[modules.c]", "[modules.c]\nmay_use = [\"a\", \"b\"]"));
+    write(
+        &t,
+        "docs/architecture.toml",
+        &text.replace("[crates.construct.modules.c]", "[crates.construct.modules.c]\nmay_use = [\"a\", \"b\"]"),
+    );
     assert_eq!(
         check(&t),
         [
-            "docs/architecture.toml: [modules.c] may_use lists \"a\", but c no longer uses a; delete \"a\" from that list",
-            "docs/architecture.toml: [modules.gone] names a module that no longer exists under crates/construct/src; delete that entry",
+            "docs/architecture.toml: [crates.construct.modules.c] may_use lists \"a\", but c no longer uses a; delete \"a\" from that list",
+            "docs/architecture.toml: [crates.construct.modules.gone] names a module that no longer exists under crates/construct/src; delete that entry",
         ]
     );
 }
@@ -166,14 +186,14 @@ fn a_stale_edge_and_a_gone_module_are_deleted() {
 fn a_deny_rule_without_a_reason_fails() {
     let t = tree("reason");
     write(&t, "docs/architecture.toml", &{
-        let base = "[modules.lib]\n[modules.c]\n[modules.a]\nmay_use = [\"b\"]\nmust_not_use = [{ module = \"c\" }]\n";
-        format!("{base}[modules.b]\nused_only_by = {{ modules = [\"a\"], reason = \" \" }}\n")
+        let base = "[crates.construct]\n[crates.construct.modules.lib]\n[crates.construct.modules.c]\n[crates.construct.modules.a]\nmay_use = [\"b\"]\nmust_not_use = [{ module = \"c\" }]\n";
+        format!("{base}[crates.construct.modules.b]\nused_only_by = {{ modules = [\"a\"], reason = \" \" }}\n")
     });
     assert_eq!(
         check(&t),
         [
-            "docs/architecture.toml: [modules.a] must_not_use \"c\" has no reason; every deny rule says why it exists",
-            "docs/architecture.toml: [modules.b] used_only_by has no reason; every deny rule says why it exists",
+            "docs/architecture.toml: [crates.construct.modules.a] must_not_use \"c\" has no reason; every deny rule says why it exists",
+            "docs/architecture.toml: [crates.construct.modules.b] used_only_by has no reason; every deny rule says why it exists",
         ]
     );
 }
@@ -182,11 +202,11 @@ fn a_deny_rule_without_a_reason_fails() {
 fn only_the_named_modules_may_use_a_guarded_one() {
     let t = tree("only");
     write(&t, "crates/construct/src/c.rs", "//! c\nuse crate::b::X;\n");
-    let text = "[modules.lib]\n[modules.a]\nmay_use = [\"b\"]\n[modules.c]\nmay_use = [\"b\"]\n";
+    let text = "[crates.construct]\n[crates.construct.modules.lib]\n[crates.construct.modules.a]\nmay_use = [\"b\"]\n[crates.construct.modules.c]\nmay_use = [\"b\"]\n";
     write(
         &t,
         "docs/architecture.toml",
-        &format!("{text}[modules.b]\nused_only_by = {{ modules = [\"a\"], reason = \"b is a's\" }}\n"),
+        &format!("{text}[crates.construct.modules.b]\nused_only_by = {{ modules = [\"a\"], reason = \"b is a's\" }}\n"),
     );
     assert_eq!(check(&t), ["crates/construct/src/c.rs:2: only a may use b (docs/architecture.toml), not c: b is a's"]);
 }
@@ -195,11 +215,132 @@ fn only_the_named_modules_may_use_a_guarded_one() {
 fn a_scanner_that_finds_nothing_fails() {
     let t = tree("empty");
     write(&t, "crates/construct/src/a.rs", "//! a\n");
-    write(&t, "docs/architecture.toml", "[modules.lib]\n[modules.a]\n[modules.b]\n[modules.c]\n");
+    write(
+        &t,
+        "docs/architecture.toml",
+        "[crates.construct]\n[crates.construct.modules.lib]\n[crates.construct.modules.a]\n[crates.construct.modules.b]\n[crates.construct.modules.c]\n",
+    );
     assert_eq!(
         check(&t),
         [
-            "crates/construct/src: found no edge between modules; the arch scanner is broken (or the tree is empty), so nothing was checked"
+            "crates/*/src: found no edge between modules or crates; the arch scanner is broken (or the tree is empty), so nothing was checked"
+        ]
+    );
+}
+
+#[test]
+fn the_own_lib_name_is_a_module_edge_not_a_crate_edge() {
+    let t = tree("ownname");
+    // main.rs is its own crate root: `construct::b` names the lib's module,
+    // and so does the same path from a bin-only module (construct-dev's shape).
+    write(&t, "crates/construct/src/main.rs", "//! m\nuse construct::b::X;\nmod binmod;\n");
+    write(&t, "crates/construct/src/binmod.rs", "//! bin\nuse construct::c::Y;\n");
+    let text = std::fs::read_to_string(t.0.join("docs/architecture.toml")).unwrap();
+    write(
+        &t,
+        "docs/architecture.toml",
+        &format!(
+            "{text}[crates.construct.modules.main]\nmay_use = [\"b\"]\n[crates.construct.modules.binmod]\nmay_use = [\"c\"]\n"
+        ),
+    );
+    assert_eq!(check(&t), Vec::<String>::new());
+}
+
+#[test]
+fn an_unlisted_cross_crate_edge_says_what_to_add() {
+    let t = tree("cross-new");
+    other(&t, "//! a\nuse construct::b::X;\n", "");
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: crate other uses crate construct, which docs/architecture.toml does not list; add \"construct\" to may_use_crates under [crates.other] so the new dependency shows in the diff"
+        ]
+    );
+}
+
+#[test]
+fn a_listed_cross_crate_edge_that_is_gone_fails() {
+    let t = tree("cross-stale");
+    other(&t, "//! a\n", "may_use_crates = [\"construct\"]");
+    assert_eq!(
+        check(&t),
+        [
+            "docs/architecture.toml: [crates.other] may_use_crates lists \"construct\", but other no longer uses construct; delete \"construct\" from that list"
+        ]
+    );
+}
+
+#[test]
+fn a_listed_cross_crate_edge_is_clean() {
+    let t = tree("cross-ok");
+    other(&t, "//! a\nuse construct::{b::X, c::Y};\n", "may_use_crates = [\"construct\"]");
+    assert_eq!(check(&t), Vec::<String>::new());
+}
+
+#[test]
+fn a_crate_deny_rule_gives_its_reason() {
+    let t = tree("cross-deny");
+    other(
+        &t,
+        "//! a\nuse construct::b::X;\n",
+        "must_not_use_crates = [{ crate = \"construct\", reason = \"the dev tools never link the agent\" }]",
+    );
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: other must not use construct (docs/architecture.toml): the dev tools never link the agent"
+        ]
+    );
+}
+
+#[test]
+fn only_the_named_crates_may_use_a_guarded_one() {
+    let t = tree("cross-only");
+    other(&t, "//! a\nuse construct::b::X;\n", "may_use_crates = [\"construct\"]");
+    let text = std::fs::read_to_string(t.0.join("docs/architecture.toml")).unwrap();
+    write(
+        &t,
+        "docs/architecture.toml",
+        &text.replace(
+            "[crates.construct]\n",
+            "[crates.construct]\nused_only_by = { crates = [\"construct-bin\"], reason = \"only the binary chooses the agent\" }\n",
+        ),
+    );
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src/a.rs:2: only construct-bin may use construct (docs/architecture.toml), not other: only the binary chooses the agent"
+        ]
+    );
+}
+
+#[test]
+fn a_crate_without_an_entry_and_a_gone_crate_entry_fail() {
+    let t = tree("cross-entries");
+    other(&t, "//! a\n", "");
+    let text = std::fs::read_to_string(t.0.join("docs/architecture.toml")).unwrap();
+    let text = text.split("[crates.other]").next().unwrap_or_default().to_string();
+    write(&t, "docs/architecture.toml", &format!("{text}[crates.gone]\n"));
+    assert_eq!(
+        check(&t),
+        [
+            "crates/other/src: crate `other` has no entry in docs/architecture.toml; add `[crates.other]`",
+            "crates/other/src/a.rs: module `a` has no entry in docs/architecture.toml; add `[crates.other.modules.a]` with `may_use = []`",
+            "crates/other/src/lib.rs: module `lib` has no entry in docs/architecture.toml; add `[crates.other.modules.lib]` with `may_use = []`",
+            "docs/architecture.toml: [crates.gone] names a crate that no longer exists under crates/; delete that entry",
+        ]
+    );
+}
+
+#[test]
+fn a_crate_deny_rule_without_a_reason_or_target_fails() {
+    let t = tree("cross-reason");
+    other(&t, "//! a\n", "must_not_use_crates = [{ crate = \"construct\" }, { crate = \"ghost\", reason = \"gone\" }]");
+    assert_eq!(
+        check(&t),
+        [
+            "docs/architecture.toml: [crates.other] must_not_use_crates \"construct\" has no reason; every deny rule says why it exists",
+            "docs/architecture.toml: [crates.other] must_not_use_crates \"ghost\" names no workspace crate; delete it",
         ]
     );
 }
