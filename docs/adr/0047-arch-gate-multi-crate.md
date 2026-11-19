@@ -70,7 +70,7 @@ reason for every occurrence; an unlisted edge is reported once per pair.
 
 ## Evidence
 
-- #275 (this change), part of #274.
+- #275 (this change), part of #274; PR #280.
 - `cargo xtask check` green on the unchanged source tree with the migrated
   table; 22 arch gate tests, including unlisted/removed cross-crate edges,
   crate deny and `used_only_by` violations, and missing/stale crate entries.
