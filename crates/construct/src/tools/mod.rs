@@ -29,6 +29,7 @@ pub mod mcp;
 pub mod memory;
 pub mod read;
 pub mod shell;
+mod shell_exit;
 mod shell_job;
 pub mod skill;
 pub mod web;

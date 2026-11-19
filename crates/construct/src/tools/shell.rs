@@ -293,13 +293,7 @@ async fn run_once(
         )),
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
-            // Landlock denials look like ordinary permission errors; say why.
-            let hint = if !policy.off && (out.contains("Permission denied") || out.contains("Operation not permitted"))
-            {
-                "\n[sandbox: commands can only reach the workspace, system paths and toolchains; for scratch files use $TMPDIR, not /tmp]"
-            } else {
-                ""
-            };
+            let hint = super::shell_exit::hint(policy, cwd, &out);
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),

@@ -8,9 +8,9 @@ use scoped::Checkout;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-pub(in crate::tools::developer) const STATUS: &str = "status";
-pub(in crate::tools::developer) const STAGE: &str = "stage";
-pub(in crate::tools::developer) const MERGE_START: &str = "merge_start";
+pub(in crate::tools) const STATUS: &str = "status";
+pub(in crate::tools) const STAGE: &str = "stage";
+pub(in crate::tools) const MERGE_START: &str = "merge_start";
 
 pub(in crate::tools::developer) fn is_operation(name: &str) -> bool {
     matches!(name, STATUS | STAGE | MERGE_START)
@@ -24,7 +24,10 @@ enum Request {
     MergeStart { commit: String },
 }
 
-pub(in crate::tools::developer) async fn call(ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
+pub(in crate::tools::developer) async fn call(ctx: &Ctx, mut args: Value) -> Result<Output, ToolError> {
+    if let Some(dir) = args.as_object_mut().and_then(|args| args.remove("workdir")) {
+        same_checkout(ctx, &dir)?;
+    }
     let request: Request =
         serde_json::from_value(args).map_err(|error| ToolError::new("invalid_argument", error.to_string()))?;
     let checkout = Checkout::open(ctx, !matches!(request, Request::Status {})).await?;
@@ -36,6 +39,24 @@ pub(in crate::tools::developer) async fn call(ctx: &Ctx, args: Value) -> Result<
         Request::Stage { paths } => stage(ctx, &checkout, &paths).await,
         Request::MergeStart { commit } => merge_start(ctx, &checkout, &commit).await,
     }
+}
+
+/// These operations run only in the session's own checkout. A `workdir` that
+/// names it is accepted, since the schema offers the field for commit and a
+/// model passes it to every operation.
+fn same_checkout(ctx: &Ctx, dir: &Value) -> Result<(), ToolError> {
+    let real = |path: &std::path::Path| path.canonicalize().ok();
+    let here = real(&ctx.cwd);
+    if here.is_some() && dir.as_str().map(|dir| real(&crate::tools::fs::resolve(ctx, dir))) == Some(here) {
+        return Ok(());
+    }
+    Err(ToolError::new(
+        "invalid_argument",
+        format!(
+            "{STATUS}, {STAGE} and {MERGE_START} run in the session's working directory ({}); leave out workdir",
+            ctx.cwd.display()
+        ),
+    ))
 }
 
 fn file_paths(checkout: &Checkout, paths: &[String]) -> Result<Vec<u8>, ToolError> {
