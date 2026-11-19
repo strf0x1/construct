@@ -126,6 +126,8 @@ fn the_tool_speaks_the_contract_s_names_and_limits() {
     assert_eq!(c["limits"]["body_bytes"], json!(MAX_BODY));
     assert_eq!(c["limits"]["reply_bytes"], json!(control::MAX_REPLY));
     assert_eq!(c["limits"]["wait_ms_max"], json!(MAX_WAIT_MS));
+    assert_eq!(c["limits"]["integration_contributors"], json!(control::MAX_CONTRIBUTORS));
+    assert_eq!(c["limits"]["integration_reason_chars"], json!(control::MAX_INTEGRATION_REASON));
     let ops: Vec<&str> = c["operations"].as_array().unwrap().iter().map(|o| o["operation"].as_str().unwrap()).collect();
     assert_eq!(ops, OPERATIONS, "the closed set, in the contract's order");
     for host in c["url_hosts"].as_array().unwrap() {
@@ -179,7 +181,7 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
     let ctx = ctx(&root);
     let m = matrix();
     let exchanges = m["control"]["exchanges"].as_array().unwrap();
-    assert_eq!(exchanges.len(), 47);
+    assert_eq!(exchanges.len(), 54);
     let mut sent = 0;
     for case in exchanges {
         let name = case["case"].as_str().unwrap();
@@ -220,6 +222,17 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
                 if let Some(id) = reply.pointer("/task/id").or(reply.get("id")).and_then(Value::as_str) {
                     assert!(out.text.contains(id), "{name}: {}", out.text);
                 }
+                if let Some(integration) = reply.pointer("/task/integration") {
+                    let reason = integration["reason"].as_str().unwrap();
+                    let base = integration["base_commit"].as_str().unwrap();
+                    let pin = integration["contributors"][0]["commit"].as_str().unwrap();
+                    assert!(
+                        out.text.contains(reason) && out.text.contains(base) && out.text.contains(pin),
+                        "{name}: {}",
+                        out.text
+                    );
+                    assert_eq!(out.data.unwrap()["task"]["integration"], *integration);
+                }
                 // Since 1.5.0 a listing names the projects, even when empty.
                 for project in reply["projects"].as_array().into_iter().flatten() {
                     let id = project["id"].as_str().unwrap();
@@ -244,6 +257,29 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
         assert!(case["body"].get("project").is_none(), "{name}");
         assert_eq!(producible(&case["body"]).as_ref(), Some(&case["body"]), "{name}: sent as is, with no project");
     }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_older_deck_refuses_integration_without_falling_back_to_create() {
+    let root = scratch("integrate-older-deck");
+    let ctx = ctx(&root);
+    let body = json!({
+        "operation": "integrate", "destination": { "kind": "new_pull_request" },
+        "contributors": ["w2", "w1"], "brief": "Resolve and test."
+    });
+    let stub = Stub::start(
+        403,
+        json!({ "error": { "message": "`integrate` is not a control operation",
+            "type": "deck_control_refused", "code": "deck_control_refused" }, "retryable": false }),
+    );
+    let tool = Control::with_token(&stub.url, None);
+    let error = refused(&tool, &ctx, body.clone()).await;
+    assert_eq!(error.code, "deck_control_refused");
+    assert!(error.message.contains("`integrate` is not a control operation"));
+    let seen = stub.seen();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].body, body);
     let _ = std::fs::remove_dir_all(&root);
 }
 

@@ -1,6 +1,6 @@
-//! The coordinator's `deck` tool (#222, contract 1.5.0 §13, Deck ADR 0011
+//! The coordinator's `deck` tool (#222, contract 1.6.0 §13, Deck ADR 0011
 //! §4): the closed set of task-control operations a Deck coordinator uses to
-//! create, prompt, wait for and stop worker tasks through Deck's gateway.
+//! create, integrate, prompt, wait for and stop worker tasks through Deck's gateway.
 //!
 //! The design choice: the tool is a typed mirror of the wire, nothing more.
 //! Each operation takes exactly the wire's fields, is checked here so a
@@ -10,9 +10,11 @@
 //! resume, start, mark done or change budgets, and it never retries.
 
 mod client;
+mod integration;
 mod summary;
 
 pub use client::{MAX_BODY, MAX_REPLY, PATH, REFUSALS, refusal};
+pub use integration::{MAX_CONTRIBUTORS, MAX_INTEGRATION_REASON};
 
 use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def};
 use serde_json::{Map, Value, json};
@@ -22,9 +24,10 @@ use std::time::Duration;
 
 /// The tool's wire name.
 pub const NAME: &str = "deck";
+const INTEGRATE: &str = "integrate";
 
 /// The operations, in the contract's order (§13.3).
-pub const OPERATIONS: &[&str] = &["tasks", "task", "create", "prompt", "wait", "stop"];
+pub const OPERATIONS: &[&str] = &["tasks", "task", "create", INTEGRATE, "prompt", "wait", "stop"];
 
 /// The longest `wait_ms` Deck accepts; a larger one is refused here, never
 /// shortened (§13.3).
@@ -39,7 +42,7 @@ const PROMPT_TIMEOUT: Duration = Duration::from_secs(75);
 const STOP_TIMEOUT: Duration = Duration::from_secs(60);
 const TIMEOUT: Duration = Duration::from_secs(30);
 
-const DESCRIPTION: &str = "Direct this coordinator's worker tasks through Deck. operation is one of: tasks (list your projects and the task summaries in your scope, optionally for one project), task (one summary by id, with its last message), create (start a worker with brief as its first prompt; leave project out unless you have several projects, and Deck uses your only one; optional title and a budget no higher than your policy's), prompt (send text to an idle task; returns the turn it began), wait (block up to wait_ms, at most 300000, until the task's turn ends, it stops, or it needs a person; after prompt returned turn n pass after_turn n-1), stop (stop a task's agent; its record stays). Deck's policy decides what you may do: a refusal says what to change, and you never retry one unchanged. You cannot answer a worker's approvals or questions; the user does that in Deck, so report them.";
+const DESCRIPTION: &str = "Direct this coordinator's worker tasks through Deck. Use tasks to list your projects and scoped tasks, or task for one summary and its last message. Use create to start a worker with a brief. Use integrate to combine contributor tasks in order on a separate review branch. Deck pins the commits and reports missing inputs through task or wait. For create and integrate, omit project if you have one project. Use prompt to send text to an idle task, wait for a turn to end or a task to need attention, and stop to stop the agent and keep its record. After prompt returns turn n, use after_turn n-1 to wait for it. Deck decides what you may do. Report refusals and requests for a human decision.";
 
 /// The fields each operation takes, required first (§13.3).
 fn fields(operation: &str) -> Option<(&'static [&'static str], &'static [&'static str])> {
@@ -47,6 +50,7 @@ fn fields(operation: &str) -> Option<(&'static [&'static str], &'static [&'stati
         "tasks" => (&[], &["project"]),
         "task" | "stop" => (&["id"], &[]),
         "create" => (&["brief"], &["project", "title", "budget"]),
+        INTEGRATE => (&["destination", "contributors", "brief"], &["project", "title", "budget"]),
         "prompt" => (&["id", "text"], &[]),
         "wait" => (&["id"], &["after_turn", "wait_ms"]),
         _ => return None,
@@ -105,6 +109,8 @@ fn check(key: &str, value: &Value) -> Result<Value, String> {
             }
             Value::Object(out)
         }
+        "destination" => integration::destination(value)?,
+        "contributors" => integration::contributors(value)?,
         _ => text()?,
     })
 }
@@ -164,7 +170,7 @@ impl Control {
             ));
         }
         let operation = body["operation"].as_str().unwrap_or_default();
-        let writes = matches!(operation, "create" | "prompt" | "stop");
+        let writes = matches!(operation, "create" | INTEGRATE | "prompt" | "stop");
         let mut cancel = ctx.cancel.clone();
         if *cancel.borrow() {
             return Err(ToolError::new("interrupted", "interrupted by the user before it was sent"));
@@ -220,15 +226,21 @@ impl Tool for Control {
                 "type": "object",
                 "properties": {
                     "operation": { "type": "string", "enum": OPERATIONS },
-                    "project": text("tasks: only this project. create: the project id to start the worker in; leave it out unless you have several projects (Deck then uses your only one). deck tasks lists your projects."),
+                    "project": text("tasks filters to this project. For create and integrate, leave it out unless you have several projects. deck tasks lists your project IDs."),
                     "id": text("task, prompt, wait, stop: the task id."),
-                    "brief": text("create: the worker's first prompt; say what done looks like."),
-                    "title": { "type": "string", "maxLength": 80, "description": "create: the task's title." },
+                    "brief": text("create or integrate: the worker's first prompt. Include the checks the worker should run."),
+                    "title": { "type": "string", "maxLength": 80, "description": "create or integrate: the task's title." },
                     "budget": {
                         "type": "object",
-                        "description": "create: a lower budget than your policy's per-worker budget.",
+                        "description": "create or integrate: a lower budget than your policy's per-worker budget.",
                         "properties": { "requests": { "type": "integer", "minimum": 1 }, "tokens": { "type": "integer", "minimum": 1 } },
                         "additionalProperties": false
+                    },
+                    "destination": integration::destination_schema(),
+                    "contributors": {
+                        "type": "array", "minItems": 1, "maxItems": MAX_CONTRIBUTORS, "uniqueItems": true,
+                        "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+                        "description": "integrate: contributor task IDs in the order to combine their commits."
                     },
                     "text": text("prompt: what to tell the idle task."),
                     "after_turn": count("wait: return once a turn numbered above this ends (default 0).", 0),

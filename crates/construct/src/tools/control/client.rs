@@ -58,7 +58,7 @@ pub const REFUSALS: &[(&str, bool, &str)] = &[
     (
         "deck_control_busy",
         true,
-        "The task's turn has not ended. Call deck wait with its id until the turn is idle, then prompt again.",
+        "Call deck wait if a task is still working. If integration is waiting for an input, follow Deck's reason.",
     ),
     (
         "deck_control_unavailable",
