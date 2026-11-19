@@ -1,15 +1,19 @@
-//! The `arch` gate: `crates/construct/src`'s module graph checked against
-//! `docs/architecture.toml`, plus the ratchets in `docs/ratchets.toml`.
+//! The `arch` gate: every workspace crate's module graph and the edges
+//! between crates, checked against `docs/architecture.toml`, plus the
+//! ratchets in `docs/ratchets.toml`.
 //!
 //! The table must describe the code as it is now, not as it once was: an
 //! edge it does not list fails, and so does a listed edge that no longer
-//! occurs, a module with no entry, an entry for a module that is gone, and a
-//! deny rule without a reason. A new dependency is then a one-line edit to
-//! the table that shows in the diff, never a silent `use`. Deny rules
-//! (`must_not_use`, `used_only_by`) carry invariants AGENTS.md states in
-//! prose. If the scanner finds no edges at all it fails, so a broken lexer
-//! cannot pass by matching nothing. Edges come from `edges.rs` (which says
-//! what counts), counts from `ratchet.rs`.
+//! occurs, a module with no entry, an entry for a module that is gone, a
+//! crate with no entry, an entry for a crate that is gone, and a deny rule
+//! without a reason. A new dependency — module to module within a crate, or
+//! crate to crate — is then a one-line edit to the table that shows in the
+//! diff, never a silent `use`. Deny rules (`must_not_use`, `used_only_by`,
+//! and their crate-level forms) carry invariants AGENTS.md states in prose.
+//! If the scanner finds no edges at all it fails, so a broken lexer cannot
+//! pass by matching nothing. Edges come from `edges.rs` (which says what
+//! counts), the module checks from `modules.rs`, counts from `ratchet.rs`.
+//! The schema is ADR 0047.
 
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -17,78 +21,94 @@ use std::path::Path;
 
 mod edges;
 mod lex;
+mod modules;
 mod ratchet;
 #[cfg(test)]
 mod tests;
 
-use edges::{Edge, SRC, Source, references, sources};
+use edges::{CrossEdge, Edge, Krate, Ref, Source, krates, references};
 
 const TABLE: &str = "docs/architecture.toml";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Table {
-    modules: BTreeMap<String, Entry>,
+    crates: BTreeMap<String, CrateEntry>,
 }
 
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
-struct Entry {
+struct CrateEntry {
     #[serde(default)]
-    may_use: Vec<String>,
+    may_use_crates: Vec<String>,
     #[serde(default)]
-    must_not_use: Vec<Deny>,
-    used_only_by: Option<OnlyBy>,
+    must_not_use_crates: Vec<CrateDeny>,
+    used_only_by: Option<CrateOnlyBy>,
+    #[serde(default)]
+    modules: BTreeMap<String, modules::Entry>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Deny {
-    module: String,
+struct CrateDeny {
+    #[serde(rename = "crate")]
+    krate: String,
     #[serde(default)]
     reason: String,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct OnlyBy {
-    modules: Vec<String>,
+struct CrateOnlyBy {
+    crates: Vec<String>,
     #[serde(default)]
     reason: String,
 }
 
-/// Every problem with the module graph and the ratchets, one line each.
+/// Every problem with the module graphs, the crate edges and the ratchets,
+/// one line each.
 pub fn problems(root: &Path) -> Vec<String> {
-    let srcs = sources(root);
-    let mut bad = boundaries(root, &srcs);
+    let ks = krates(root);
+    let mut bad = boundaries(root, &ks);
     bad.extend(ratchet::problems(root));
     bad
 }
 
-/// Every reference from one top-level module to another, in file order.
-fn graph(srcs: &[Source], bad: &mut Vec<String>) -> Vec<Edge> {
-    let modules: BTreeSet<&str> = srcs.iter().map(Source::module).collect();
-    let mut out = Vec::new();
-    for s in srcs {
-        for (to, line) in references(s) {
-            if !modules.contains(to.as_str()) {
-                bad.push(format!(
-                    "{}:{line}: `{to}` at the crate root is not a module the arch gate knows; name the module it lives in",
-                    s.file
-                ));
-            } else if to != s.module() {
-                out.push(Edge { from: s.module().into(), to, file: s.file.clone(), line });
+/// Every reference from one top-level module to another of the same crate,
+/// and from one crate to another, in file order.
+fn graph(k: &Krate, idents: &BTreeMap<String, String>, bad: &mut Vec<String>) -> (Vec<Edge>, Vec<CrossEdge>) {
+    let modules: BTreeSet<&str> = k.srcs.iter().map(Source::module).collect();
+    let own = k.name.replace('-', "_");
+    let (mut intra, mut cross) = (Vec::new(), Vec::new());
+    for s in &k.srcs {
+        for (r, line) in references(s, idents, &own) {
+            match r {
+                Ref::Module(to) => {
+                    if !modules.contains(to.as_str()) {
+                        bad.push(format!(
+                            "{}:{line}: `{to}` at the crate root is not a module the arch gate knows; name the module it lives in",
+                            s.file
+                        ));
+                    } else if to != s.module() {
+                        intra.push(Edge { from: s.module().into(), to, file: s.file.clone(), line });
+                    }
+                }
+                Ref::Crate(to) => cross.push(CrossEdge { from: k.name.clone(), to, file: s.file.clone(), line }),
             }
         }
     }
-    out
+    (intra, cross)
 }
 
-fn quoted(names: &BTreeSet<&str>) -> String {
-    names.iter().map(|m| format!("\"{m}\"")).collect::<Vec<_>>().join(", ")
+fn uses_of(edges: &[Edge]) -> BTreeMap<&str, BTreeSet<&str>> {
+    let mut uses: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for e in edges {
+        uses.entry(&e.from).or_default().insert(&e.to);
+    }
+    uses
 }
 
-fn boundaries(root: &Path, srcs: &[Source]) -> Vec<String> {
+fn boundaries(root: &Path, ks: &[Krate]) -> Vec<String> {
     let mut bad = Vec::new();
     let table: Table = match std::fs::read_to_string(root.join(TABLE)) {
         Err(e) => return vec![format!("{TABLE}: cannot read it ({e})")],
@@ -97,80 +117,102 @@ fn boundaries(root: &Path, srcs: &[Source]) -> Vec<String> {
             Err(e) => return vec![format!("{TABLE}: {}", e.message())],
         },
     };
-    let edges = graph(srcs, &mut bad);
-    if edges.is_empty() {
-        bad.push(format!(
-            "{SRC}: found no edge between modules; the arch scanner is broken (or the tree is empty), so nothing was checked"
-        ));
+    let idents: BTreeMap<String, String> = ks.iter().map(|k| (k.name.replace('-', "_"), k.name.clone())).collect();
+    let mut graphs = Vec::new();
+    let mut cross: Vec<CrossEdge> = Vec::new();
+    for k in ks {
+        let (intra, xs) = graph(k, &idents, &mut bad);
+        graphs.push((k, intra));
+        cross.extend(xs);
     }
+    if graphs.iter().all(|(_, edges)| edges.is_empty()) && cross.is_empty() {
+        bad.push(
+            "crates/*/src: found no edge between modules or crates; the arch scanner is broken (or the tree is empty), so nothing was checked"
+                .to_string(),
+        );
+    }
+    let empty = CrateEntry::default();
+    for (k, edges) in &graphs {
+        let entry = table.crates.get(&k.name).unwrap_or(&empty);
+        if !table.crates.contains_key(&k.name) {
+            bad.push(format!("{}: crate `{}` has no entry in {TABLE}; add `[crates.{}]`", k.src, k.name, k.name));
+        }
+        modules::entries(k, edges, &entry.modules, &mut bad);
+        modules::edges(k, edges, &entry.modules, &mut bad);
+    }
+    crate_entries(&table, ks, &cross, &mut bad);
+    crate_edges(&table, &cross, &mut bad);
+    bad
+}
+
+/// Every crate needs an entry; every entry needs a crate; listed crate edges
+/// must still occur; crate deny rules need reasons and real targets.
+fn crate_entries(table: &Table, ks: &[Krate], cross: &[CrossEdge], bad: &mut Vec<String>) {
+    let names: BTreeSet<&str> = ks.iter().map(|k| k.name.as_str()).collect();
     let mut uses: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-    for e in &edges {
+    for e in cross {
         uses.entry(&e.from).or_default().insert(&e.to);
     }
-    let modules: BTreeSet<&str> = srcs.iter().map(Source::module).collect();
-    let empty = Entry::default();
-
-    for m in &modules {
-        if !table.modules.contains_key(*m) {
-            let file = srcs.iter().find(|s| s.module() == *m).map_or(SRC, |s| s.file.as_str());
-            let now = uses.get(m).map(quoted).unwrap_or_default();
+    for (name, entry) in &table.crates {
+        if !names.contains(name.as_str()) {
             bad.push(format!(
-                "{file}: module `{m}` has no entry in {TABLE}; add `[modules.{m}]` with `may_use = [{now}]`"
-            ));
-        }
-    }
-    for (m, entry) in &table.modules {
-        if !modules.contains(m.as_str()) {
-            bad.push(format!(
-                "{TABLE}: [modules.{m}] names a module that no longer exists under {SRC}; delete that entry"
+                "{TABLE}: [crates.{name}] names a crate that no longer exists under crates/; delete that entry"
             ));
             continue;
         }
-        let real = uses.get(m.as_str());
-        for to in &entry.may_use {
+        let real = uses.get(name.as_str());
+        for to in &entry.may_use_crates {
             if !real.is_some_and(|r| r.contains(to.as_str())) {
                 bad.push(format!(
-                    "{TABLE}: [modules.{m}] may_use lists \"{to}\", but {m} no longer uses {to}; delete \"{to}\" from that list"
+                    "{TABLE}: [crates.{name}] may_use_crates lists \"{to}\", but {name} no longer uses {to}; delete \"{to}\" from that list"
                 ));
             }
         }
-        for d in &entry.must_not_use {
+        for d in &entry.must_not_use_crates {
             if d.reason.trim().is_empty() {
                 bad.push(format!(
-                    "{TABLE}: [modules.{m}] must_not_use \"{}\" has no reason; every deny rule says why it exists",
-                    d.module
+                    "{TABLE}: [crates.{name}] must_not_use_crates \"{}\" has no reason; every deny rule says why it exists",
+                    d.krate
                 ));
             }
-            if !modules.contains(d.module.as_str()) {
-                bad.push(format!("{TABLE}: [modules.{m}] must_not_use \"{}\" names no module; delete it", d.module));
+            if !names.contains(d.krate.as_str()) {
+                bad.push(format!(
+                    "{TABLE}: [crates.{name}] must_not_use_crates \"{}\" names no workspace crate; delete it",
+                    d.krate
+                ));
             }
         }
         if let Some(o) = &entry.used_only_by
             && o.reason.trim().is_empty()
         {
-            bad.push(format!("{TABLE}: [modules.{m}] used_only_by has no reason; every deny rule says why it exists"));
+            bad.push(format!(
+                "{TABLE}: [crates.{name}] used_only_by has no reason; every deny rule says why it exists"
+            ));
         }
     }
+}
 
+/// The crate-level violations, same shape as the module ones.
+fn crate_edges(table: &Table, cross: &[CrossEdge], bad: &mut Vec<String>) {
+    let empty = CrateEntry::default();
     let mut reported = BTreeSet::new();
-    for e in &edges {
-        let entry = table.modules.get(&e.from).unwrap_or(&empty);
-        let target = table.modules.get(&e.to).unwrap_or(&empty);
+    for e in cross {
+        let from = table.crates.get(&e.from).unwrap_or(&empty);
+        let target = table.crates.get(&e.to).unwrap_or(&empty);
         let at = format!("{}:{}", e.file, e.line);
-        if let Some(d) = entry.must_not_use.iter().find(|d| d.module == e.to) {
+        if let Some(d) = from.must_not_use_crates.iter().find(|d| d.krate == e.to) {
             bad.push(format!("{at}: {} must not use {} ({TABLE}): {}", e.from, e.to, d.reason));
-        } else if let Some(o) = target.used_only_by.as_ref().filter(|o| !o.modules.contains(&e.from)) {
-            let only = o.modules.join(", ");
+        } else if let Some(o) = target.used_only_by.as_ref().filter(|o| !o.crates.contains(&e.from)) {
+            let only = o.crates.join(", ");
             bad.push(format!("{at}: only {only} may use {} ({TABLE}), not {}: {}", e.to, e.from, o.reason));
-        } else if table.modules.contains_key(&e.from)
-            && !entry.may_use.contains(&e.to)
+        } else if table.crates.contains_key(&e.from)
+            && !from.may_use_crates.contains(&e.to)
             && reported.insert((&e.from, &e.to))
         {
             bad.push(format!(
-                "{at}: {} uses {}, which {TABLE} does not list; add \"{}\" to may_use under [modules.{}] so the new dependency shows in the diff",
+                "{at}: crate {} uses crate {}, which {TABLE} does not list; add \"{}\" to may_use_crates under [crates.{}] so the new dependency shows in the diff",
                 e.from, e.to, e.to, e.from
             ));
         }
     }
-    bad
 }

@@ -1,120 +1,129 @@
-# The allowed module graph of crates/construct/src, checked by `cargo xtask
-# check`'s `arch` gate (crates/construct-dev/src/arch/). It must describe the
+# The allowed module graph of every workspace crate (crates/*/src) and the
+# allowed edges between crates, checked by `cargo xtask check`'s `arch` gate
+# (crates/construct-dev/src/arch/). Schema: ADR 0047. It must describe the
 # code as it is: an edge not listed here fails, a listed edge that no longer
-# occurs fails, and every top-level module needs an entry.
+# occurs fails, and every crate and every top-level module needs an entry.
 #
-# A module may name another top-level module only if it is in `may_use`, so a
-# new dependency is a one-line edit here that shows in the diff. Deny rules
-# carry invariants: `must_not_use` (this module never uses that one) and
-# `used_only_by` (only these modules may use this one). Every deny rule needs
-# a `reason`, which the gate prints when the rule is broken.
+# Each crate is a `[crates.<package>]` section. Within it, a module may name
+# another top-level module of the same crate only if it is in that module's
+# `may_use`, and the crate may name another workspace crate only if it is in
+# `may_use_crates` — so a new dependency is a one-line edit here that shows
+# in the diff. Deny rules carry invariants: `must_not_use` / `used_only_by`
+# on a module, `must_not_use_crates` / `used_only_by` on a crate. Every deny
+# rule needs a `reason`, which the gate prints when the rule is broken.
 #
 # Test code (`#[cfg(test)]`, tests.rs) and a module's references to itself
 # are not edges. lib.rs declares every module; declarations are not edges.
+# A package's lib and bin roots share one module pool: a path naming the
+# package's own lib (`construct::x` in construct) is a module edge, a path
+# naming another workspace crate is a crate edge.
 
-[modules.acp]
+[crates.construct]
+may_use_crates = []
+
+[crates.construct.modules.acp]
 may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
 
-[modules.agent]
+[crates.construct.modules.agent]
 may_use = ["child", "compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
 
-[modules.agents]
+[crates.construct.modules.agents]
 may_use = ["child", "config", "sandbox", "tools"]
 
-[modules.child]
+[crates.construct.modules.child]
 may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
 
-[modules.cli]
+[crates.construct.modules.cli]
 may_use = ["acp", "agent", "child", "config", "home", "journal", "learn", "llm", "manifest", "memory", "providers", "router", "sandbox", "secrets", "skills", "tools", "tui"]
 
-[modules.compact]
+[crates.construct.modules.compact]
 may_use = ["config", "llm"]
 
-[modules.config]
+[crates.construct.modules.config]
 may_use = ["agents", "jobs", "learn", "mcp", "models", "providers", "tools"]
 
-[modules.context]
+[crates.construct.modules.context]
 may_use = ["compact", "config", "event", "llm"]
 
-[modules.endpoint]
+[crates.construct.modules.endpoint]
 may_use = ["config", "providers", "secrets"]
 
-[modules.event]
+[crates.construct.modules.event]
 may_use = ["compact", "jobs", "llm", "manifest", "permission", "tools"]
 
-[modules.guard]
+[crates.construct.modules.guard]
 may_use = []
 
-[modules.home]
+[crates.construct.modules.home]
 may_use = []
 
-[modules.jev]
+[crates.construct.modules.jev]
 may_use = ["config", "journal", "llm"]
 
-[modules.jobs]
+[crates.construct.modules.jobs]
 may_use = ["event", "journal", "llm", "sandbox", "text"]
 
-[modules.journal]
+[crates.construct.modules.journal]
 may_use = ["child", "config", "context", "event", "jobs", "llm", "project", "skills", "tools"]
 
-[modules.learn]
+[crates.construct.modules.learn]
 may_use = ["config", "guard", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
 
-[modules.lib]
+[crates.construct.modules.lib]
 may_use = []
 
-[modules.llm]
+[crates.construct.modules.llm]
 may_use = ["config", "endpoint", "journal", "models", "providers", "text"]
 
-[modules.main]
+[crates.construct.modules.main]
 may_use = ["cli", "sandbox", "trace"]
 
-[modules.manifest]
+[crates.construct.modules.manifest]
 may_use = ["config", "llm", "tools"]
 
-[modules.mcp]
+[crates.construct.modules.mcp]
 may_use = ["config", "sandbox", "secrets", "text"]
 
-[modules.memory]
+[crates.construct.modules.memory]
 may_use = ["config", "guard", "project"]
 
-[modules.models]
+[crates.construct.modules.models]
 may_use = ["config", "endpoint", "providers"]
 
-[modules.permission]
+[crates.construct.modules.permission]
 may_use = ["config", "event", "journal", "sandbox", "tools"]
 
-[modules.project]
+[crates.construct.modules.project]
 may_use = ["config"]
 
-[modules.prompt]
+[crates.construct.modules.prompt]
 may_use = ["config", "journal", "learn", "llm", "memory", "skills", "tools"]
 
-[modules.providers]
+[crates.construct.modules.providers]
 may_use = ["config", "endpoint", "models"]
 
-[modules.router]
+[crates.construct.modules.router]
 may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]
 
-[modules.sandbox]
+[crates.construct.modules.sandbox]
 may_use = ["agents", "config", "secrets"]
 
-[modules.secrets]
+[crates.construct.modules.secrets]
 may_use = []
 
-[modules.skills]
+[crates.construct.modules.skills]
 may_use = ["config", "guard", "tools"]
 
-[modules.text]
+[crates.construct.modules.text]
 may_use = []
 
-[modules.tools]
+[crates.construct.modules.tools]
 may_use = ["agents", "child", "config", "event", "jobs", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
 
-[modules.trace]
+[crates.construct.modules.trace]
 may_use = ["config"]
 
-[modules.tui]
+[crates.construct.modules.tui]
 may_use = ["agent", "compact", "config", "event", "jobs", "journal", "learn", "llm", "memory", "models", "permission", "project", "skills", "text", "tools", "trace"]
 must_not_use = [
   { module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
@@ -122,3 +131,44 @@ must_not_use = [
   { module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
 ]
 used_only_by = { modules = ["cli"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner); cli is the one place that chooses to start it" }
+[crates.construct-dev]
+may_use_crates = []
+
+[crates.construct-dev.modules.acp_fake]
+may_use = []
+
+[crates.construct-dev.modules.arch]
+may_use = ["xtask"]
+
+[crates.construct-dev.modules.contract]
+may_use = []
+
+[crates.construct-dev.modules.deps]
+may_use = []
+
+[crates.construct-dev.modules.drive]
+may_use = ["style"]
+
+[crates.construct-dev.modules.feature_map]
+may_use = ["xtask"]
+
+[crates.construct-dev.modules.lib]
+may_use = []
+
+[crates.construct-dev.modules.main]
+may_use = ["acp_fake", "drive", "mcp_fake", "serve"]
+
+[crates.construct-dev.modules.mcp_fake]
+may_use = []
+
+[crates.construct-dev.modules.scratch]
+may_use = []
+
+[crates.construct-dev.modules.serve]
+may_use = []
+
+[crates.construct-dev.modules.style]
+may_use = []
+
+[crates.construct-dev.modules.xtask]
+may_use = ["arch", "contract", "deps", "feature_map", "scratch"]

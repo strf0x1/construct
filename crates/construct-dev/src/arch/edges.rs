@@ -1,20 +1,27 @@
-//! The real module graph of `crates/construct/src`: every reference from one
-//! top-level module to another, with the file and line it was found at.
+//! The real module graph of every workspace crate (`crates/*/src`): every
+//! reference from one top-level module to another, and every reference from
+//! one crate to another, with the file and line it was found at.
 //!
 //! A file belongs to its top-level module (`tui/app.rs` and `tui/mod.rs` are
-//! `tui`; `main.rs` is `main`, `lib.rs` is `lib`). An edge is any path that
-//! names another top-level module: `crate::x`, each branch of a grouped
+//! `tui`; `main.rs` is `main`, `lib.rs` is `lib`). A package's lib and bin
+//! roots share one module pool: a module declared only in `main.rs`
+//! (construct-dev's `arch`, `xtask`, …) is a top-level module like any other,
+//! and `crate::x` inside it names that pool. An edge is any path that names
+//! another top-level module: `crate::x`, each branch of a grouped
 //! `crate::{x, y::{..}}`, `super::` chains that climb to the crate root
-//! (counting inline `mod m { }` blocks), and in `main.rs`, which is its own
-//! crate, `construct::x`. A module's references to itself are not edges, and
-//! neither is test code (`#[cfg(test)]` items and `tests.rs` files): tests build fixtures from anywhere, and the table is
-//! about what ships in the binary.
+//! (counting inline `mod m { }` blocks), and the package's own lib name
+//! (`construct::x` in construct, `construct_dev::x` in construct-dev). A path
+//! rooted at *another* workspace crate's name is a cross-crate edge instead,
+//! recorded crate-to-crate. A module's references to itself are not edges,
+//! and neither is test code (`#[cfg(test)]` items and `tests.rs` files):
+//! tests build fixtures from anywhere, and the table is about what ships in
+//! the binary.
 
 use super::lex::{Tok, Token, lex, strip_tests};
+use std::collections::BTreeMap;
 use std::path::Path;
 
-pub(super) const SRC: &str = "crates/construct/src";
-
+/// An edge between two top-level modules of one crate.
 #[derive(Debug, Clone)]
 pub(super) struct Edge {
     pub(super) from: String,
@@ -23,7 +30,22 @@ pub(super) struct Edge {
     pub(super) line: usize,
 }
 
-/// One source file of the crate, lexed, with its test code removed.
+/// An edge from one workspace crate to another (package names).
+#[derive(Debug, Clone)]
+pub(super) struct CrossEdge {
+    pub(super) from: String,
+    pub(super) to: String,
+    pub(super) file: String,
+    pub(super) line: usize,
+}
+
+/// What a path names: a module of the same package, or another crate.
+pub(super) enum Ref {
+    Module(String),
+    Crate(String),
+}
+
+/// One source file of a crate, lexed, with its test code removed.
 pub(super) struct Source {
     /// Repo-relative path.
     pub(super) file: String,
@@ -38,30 +60,66 @@ impl Source {
     }
 }
 
-/// Every `.rs` file under `crates/construct/src`, in path order.
-pub(super) fn sources(root: &Path) -> Vec<Source> {
-    let src = root.join(SRC);
-    let mut files = Vec::new();
-    walk(&src, &mut files);
-    files.sort();
-    files
+/// One workspace crate: its package name, its `src` path, its lexed files.
+pub(super) struct Krate {
+    /// Package name from Cargo.toml (`construct-dev`); the crate ident is
+    /// this with `-` turned into `_`.
+    pub(super) name: String,
+    /// Repo-relative source root, `crates/<dir>/src`.
+    pub(super) src: String,
+    pub(super) srcs: Vec<Source>,
+}
+
+/// Every crate under `crates/` with a `src/`, in path order.
+pub(super) fn krates(root: &Path) -> Vec<Krate> {
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(root.join("crates"))
         .into_iter()
-        .filter_map(|f| {
-            let text = std::fs::read_to_string(&f).ok()?;
-            let rel = f.strip_prefix(&src).ok()?;
-            let mut path: Vec<String> = rel.iter().map(|p| p.to_string_lossy().into_owned()).collect();
-            let last = path.pop()?;
-            let stem = last.strip_suffix(".rs")?;
-            if stem != "mod" {
-                path.push(stem.to_string());
-            }
-            // A `tests.rs` is the body of a `#[cfg(test)] mod tests;`: all test code.
-            let (tokens, _) =
-                if last == "tests.rs" { Default::default() } else { strip_tests(lex(&text), text.lines().count()) };
-            let file = f.strip_prefix(root).unwrap_or(&f).display().to_string();
-            Some(Source { file, path, tokens })
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.join("src").is_dir())
+        .collect();
+    dirs.sort();
+    dirs.into_iter()
+        .map(|dir| {
+            let name = package_name(&dir)
+                .unwrap_or_else(|| dir.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned()));
+            let src = dir.join("src");
+            let mut files = Vec::new();
+            walk(&src, &mut files);
+            files.sort();
+            let srcs = files
+                .into_iter()
+                .filter_map(|f| {
+                    let text = std::fs::read_to_string(&f).ok()?;
+                    let rel = f.strip_prefix(&src).ok()?;
+                    let mut path: Vec<String> = rel.iter().map(|p| p.to_string_lossy().into_owned()).collect();
+                    let last = path.pop()?;
+                    let stem = last.strip_suffix(".rs")?;
+                    if stem != "mod" {
+                        path.push(stem.to_string());
+                    }
+                    // A `tests.rs` is the body of a `#[cfg(test)] mod tests;`: all test code.
+                    let (tokens, _) = if last == "tests.rs" {
+                        Default::default()
+                    } else {
+                        strip_tests(lex(&text), text.lines().count())
+                    };
+                    let file = f.strip_prefix(root).unwrap_or(&f).display().to_string();
+                    Some(Source { file, path, tokens })
+                })
+                .collect();
+            let src = src.strip_prefix(root).unwrap_or(&src).display().to_string();
+            Krate { name, src, srcs }
         })
         .collect()
+}
+
+/// The `[package] name` of a crate directory, if its Cargo.toml says one.
+fn package_name(dir: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(dir.join("Cargo.toml")).ok()?;
+    let v: toml::Value = toml::from_str(&text).ok()?;
+    Some(v.get("package")?.get("name")?.as_str()?.to_string())
 }
 
 pub(super) fn walk(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
@@ -123,9 +181,11 @@ fn heads(t: &[Token], i: usize) -> Vec<(String, usize)> {
     out
 }
 
-/// The top-level modules `src` names at its crate root, with lines; names
-/// that are not modules are the caller's to judge.
-pub(super) fn references(src: &Source) -> Vec<(String, usize)> {
+/// What `src` names at a crate root, with lines: its own top-level modules
+/// (`crate::`, `super::` to the root, the package's own lib name) and other
+/// workspace crates. `idents` maps crate ident → package name; `own` is this
+/// package's ident. Names that are not modules are the caller's to judge.
+pub(super) fn references(src: &Source, idents: &BTreeMap<String, String>, own: &str) -> Vec<(Ref, usize)> {
     let t = &src.tokens;
     let mut out = Vec::new();
     // Inline `mod m {` blocks deepen what `super` climbs from: (name, brace depth inside).
@@ -150,21 +210,31 @@ pub(super) fn references(src: &Source) -> Vec<(String, usize)> {
         if after_sep || !is(t, i + 1, &Tok::PathSep) {
             continue;
         }
-        let root = match ident(t, i) {
-            Some("crate") => Some(i + 2),
-            Some("construct") if src.path == ["main"] => Some(i + 2),
-            Some("super") => {
+        let Some(w) = ident(t, i) else { continue };
+        // (is this a path into another crate, index of the first segment after the root)
+        let root = match w {
+            "crate" => Some((false, i + 2)),
+            "super" => {
                 let mut j = i;
                 while ident(t, j) == Some("super") && is(t, j + 1, &Tok::PathSep) {
                     j += 2;
                 }
                 // Climbing exactly to the crate root names a top-level module next.
-                ((j - i) / 2 == src.path.len() + mods.len()).then_some(j)
+                ((j - i) / 2 == src.path.len() + mods.len()).then_some((false, j))
             }
-            _ => None,
+            _ => idents.get(w).map(|_| (w != own, i + 2)),
         };
-        if let Some(j) = root {
-            out.extend(heads(t, j).into_iter().filter(|(w, _)| !matches!(w.as_str(), "self" | "super" | "crate")));
+        match root {
+            Some((false, j)) => {
+                out.extend(
+                    heads(t, j)
+                        .into_iter()
+                        .filter(|(w, _)| !matches!(w.as_str(), "self" | "super" | "crate"))
+                        .map(|(w, line)| (Ref::Module(w), line)),
+                );
+            }
+            Some((true, _)) => out.push((Ref::Crate(idents[w].clone()), t[i].line)),
+            None => {}
         }
     }
     out
