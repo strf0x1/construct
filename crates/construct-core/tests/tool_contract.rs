@@ -4,10 +4,10 @@
 //! refuse what the sandbox denies, and output stays under `OUTPUT_MAX`.
 //! Each check runs under every editor in `EDITORS`.
 
-use construct::config::{MemoryConfig, Paths, ToolsConfig};
-use construct::memory::Store;
-use construct::sandbox::Policy;
-use construct::tools::{Catalog, Ctx, Deck, Group, OUTPUT_MAX};
+use construct_core::config::{MemoryConfig, Paths, ToolsConfig};
+use construct_core::memory::Store;
+use construct_core::sandbox::Policy;
+use construct_core::tools::{Catalog, Ctx, Deck, Group, OUTPUT_MAX};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -205,7 +205,7 @@ async fn edit_reports_stable_codes() {
     assert_eq!(f.call("edit", edit("x", "z")).await.unwrap_err().1, "ambiguous");
     assert_eq!(f.call("edit", edit("x", "x")).await.unwrap_err().1, "no_change");
     let out = f.catalog.call(&f.ctx, "edit", &edit("x x", "y").to_string()).await.unwrap();
-    assert_eq!(out.kind, construct::tools::OutputKind::Diff);
+    assert_eq!(out.kind, construct_core::tools::OutputKind::Diff);
     assert!(out.text.starts_with("edited "), "{}", out.text);
     assert_eq!(std::fs::read_to_string(f.ctx.cwd.join("a.txt")).unwrap(), "y\n");
 }

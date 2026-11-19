@@ -2,9 +2,9 @@
 id: delegate-progress
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/children.rs, crates/construct/src/tui/dock.rs, crates/construct/src/tui/peek.rs, crates/construct/src/tui/jobs.rs, crates/construct/src/tui/turn.rs, crates/construct/src/tui/activity.rs, crates/construct/src/tools/call.rs, crates/construct/src/journal/mod.rs]
-verified_at: f7f6aba
-verified_deps: 1d13740f853b1a2f
+depends: [crates/construct-core/src/tui/children.rs, crates/construct-core/src/tui/dock.rs, crates/construct-core/src/tui/peek.rs, crates/construct-core/src/tui/jobs.rs, crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/activity.rs, crates/construct-core/src/tools/call.rs, crates/construct-core/src/journal/mod.rs]
+verified_at: 3acfa8d
+verified_deps: 7b522fd5c640c3b7
 ---
 # Delegate progress
 
@@ -48,4 +48,4 @@ Preconditions:
 - While the panel is open it takes every key except `ctrl+c` and `ctrl+d`, so `esc` closes it rather than interrupting the turn. The panel's jobs handle is the session's own, so a cancel works mid-turn, not only when the agent is idle. A permission question hides the dock and the panel until it is answered.
 - The scripted model cannot put words and a tool call in one response, so a snap sees the tool first and the words after it.
 - Shell jobs have no row (no child); the status line's `◆ N jobs running` counts them.
-- Unit tests: `cargo test -p construct --lib tui::children tui::dock`.
+- Unit tests: `cargo test -p construct-core --lib tui::children tui::dock`.

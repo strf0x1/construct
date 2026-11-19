@@ -1,13 +1,13 @@
-//! construct: a lean, self-improving agent harness. An OpenAI-compatible
-//! streaming loop with in-process tools, capped memory and agent-written
-//! skills, a background learning pass, a Jev/local router, and a full-screen
-//! TUI. The binary is a thin `main.rs` over this library; see [`cli::run`].
+//! construct-core: the engine of a lean, self-improving agent harness. An
+//! OpenAI-compatible streaming loop with in-process tools, capped memory and
+//! agent-written skills, a background learning pass, a Jev/local router, and
+//! a full-screen TUI. The `construct` binary is a thin composition root over
+//! this library (`crates/construct`); the TUI moves to construct-tui in #277.
 
 pub mod acp;
 pub mod agent;
 pub mod agents;
 pub mod child;
-pub mod cli;
 pub mod compact;
 pub mod config;
 pub mod context;

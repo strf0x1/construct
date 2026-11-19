@@ -11,7 +11,7 @@ added, so a tree's old debt never counts against the change that touches it.
 Rules (severity `violation` unless noted):
   unwrap            a new `.unwrap()` outside tests; `.lock().unwrap()` with
                     a comment on its line or the line above is allowed
-  wire-name         a tool's wire name (`const NAME` in crates/construct/src/tools/)
+  wire-name         a tool's wire name (`const NAME` in crates/construct-core/src/tools/)
                     as a string literal outside that directory, outside tests;
                     a plain-word name ("read") only where code matches on it
   module-doc        a new module that does not start with a `//!` paragraph
@@ -33,8 +33,8 @@ import sys
 from pathlib import Path
 
 CEILING = 300
-LONG_OK = ("crates/construct/src/tui/view.rs", "crates/construct/src/tools/mod.rs")
-TOOLS_DIR = "crates/construct/src/tools/"
+LONG_OK = ("crates/construct-core/src/tui/view.rs", "crates/construct-core/src/tools/mod.rs")
+TOOLS_DIR = "crates/construct-core/src/tools/"
 RULES = ("unwrap", "wire-name", "module-doc", "file-length", "dependency", "workspace-dependency", "snap", "clippy-pedantic")
 # `info` is counted but is not a violation: the 300-line ceiling is soft
 # (AGENTS.md: split by concern, never by line count).

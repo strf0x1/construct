@@ -5,11 +5,11 @@
 //! exchange's own when the exchange is one this client can produce, and the
 //! reply must decode, or map to its documented refusal code.
 
-use construct::config::{MemoryConfig, Paths};
-use construct::memory::Store;
-use construct::sandbox::Policy;
-use construct::tools::control::{self, Control, MAX_BODY, MAX_WAIT_MS, OPERATIONS, PATH, REFUSALS};
-use construct::tools::{Ctx, Tool};
+use construct_core::config::{MemoryConfig, Paths};
+use construct_core::memory::Store;
+use construct_core::sandbox::Policy;
+use construct_core::tools::control::{self, Control, MAX_BODY, MAX_WAIT_MS, OPERATIONS, PATH, REFUSALS};
+use construct_core::tools::{Ctx, Tool};
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -93,7 +93,7 @@ fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, status: u16, reply
 }
 
 /// The refusal a call ended in.
-async fn refused(tool: &Control, ctx: &Ctx, args: Value) -> construct::tools::ToolError {
+async fn refused(tool: &Control, ctx: &Ctx, args: Value) -> construct_core::tools::ToolError {
     match tool.call(ctx, args).await {
         Ok(out) => panic!("expected a refusal, got {}", out.text),
         Err(e) => e,
@@ -120,8 +120,8 @@ fn the_tool_speaks_the_contract_s_names_and_limits() {
     let c = &m["control"];
     assert_eq!(c["since"], "1.4.0");
     assert_eq!((c["method"].as_str(), c["path"].as_str()), (Some("POST"), Some(PATH)));
-    assert_eq!(c["environment"]["url"], construct::config::deck::CONTROL_URL);
-    assert_eq!(c["environment"]["token"], construct::config::deck::CONTROL_TOKEN);
+    assert_eq!(c["environment"]["url"], construct_core::config::deck::CONTROL_URL);
+    assert_eq!(c["environment"]["token"], construct_core::config::deck::CONTROL_TOKEN);
     assert_eq!(c["authorization"]["scheme"], "Bearer");
     assert_eq!(c["limits"]["body_bytes"], json!(MAX_BODY));
     assert_eq!(c["limits"]["reply_bytes"], json!(control::MAX_REPLY));
@@ -132,7 +132,7 @@ fn the_tool_speaks_the_contract_s_names_and_limits() {
     assert_eq!(ops, OPERATIONS, "the closed set, in the contract's order");
     for host in c["url_hosts"].as_array().unwrap() {
         let url = format!("http://{}:8080", host.as_str().unwrap());
-        assert_eq!(construct::config::deck::control_url_from(&url), Some(url.clone()), "{url}");
+        assert_eq!(construct_core::config::deck::control_url_from(&url), Some(url.clone()), "{url}");
     }
     let refusals: Vec<(&str, bool)> = c["refusals"]
         .as_array()

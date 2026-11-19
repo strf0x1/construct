@@ -7,7 +7,7 @@
 use crate::acp::Client;
 use crate::acp_payloads::{check, validators};
 use crate::common::*;
-use construct::acp::map;
+use construct_core::acp::map;
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;

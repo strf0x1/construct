@@ -2,9 +2,9 @@
 //! learning-gate evals drive (`bench/jev/eval.py`). Each reads JSON lines on
 //! stdin and prints one JSON line per input, so an eval is a pipe.
 
-use crate::config::{Config, Paths};
-use crate::{learn, router, skills, tools};
 use anyhow::Result;
+use construct_core::config::{Config, Paths};
+use construct_core::{learn, router, skills, tools};
 use std::io::Read;
 
 fn stdin_lines() -> Vec<serde_json::Value> {

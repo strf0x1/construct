@@ -2,9 +2,9 @@
 id: long-text
 status: verified
 surfaces: [tui]
-depends: [crates/construct/src/tui/table.rs, crates/construct/src/tui/prompt.rs, crates/construct/src/tui/markdown.rs]
-verified_at: f57b0ed
-verified_deps: 3d79fc8ca7447300
+depends: [crates/construct-core/src/tui/table.rs, crates/construct-core/src/tui/prompt.rs, crates/construct-core/src/tui/markdown.rs]
+verified_at: 3acfa8d
+verified_deps: 31153a9e9a1cc7c2
 ---
 # Long text wraps
 

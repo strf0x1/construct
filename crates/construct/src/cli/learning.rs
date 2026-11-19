@@ -1,9 +1,9 @@
 //! Detached learning command and its quiet-session debounce. Learning reads
 //! history without holding the session writer ownership.
 
-use crate::config::{Config, Paths};
-use crate::{journal, learn, skills};
 use anyhow::{Result, bail};
+use construct_core::config::{Config, Paths};
+use construct_core::{journal, learn, skills};
 
 pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, curate: bool) -> Result<()> {
     if let Some(id) = session {

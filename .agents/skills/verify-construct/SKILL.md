@@ -76,7 +76,7 @@ resize <cols> <rows>
 same for `bg=`, and `bold dim italic underline inverse`, with `!` to negate
 (`!bold`). Quote text that has spaces: `expect-style "Allow once" fg=#9ece6a`.
 
-The TUI's colors are constants in `crates/construct/src/tui/theme.rs`
+The TUI's colors are constants in `crates/construct-core/src/tui/theme.rs`
 (ACCENT `#7aa2f7`, ACCENT2 `#bb9af7`, GREEN `#9ece6a`, RED `#f7768e`, YELLOW
 `#e0af68`, CYAN `#7dcfff`, ORANGE `#ff9e64`, DIM `#6e7696`, FAINT `#464c66`);
 the permission panel adds its selected-row fill `#2c3048` in `tui/prompt.rs`.

@@ -3,7 +3,7 @@
 //! A mismatch means either the contract moved without this repo or the code
 //! moved without the contract; both are the same bug.
 
-use construct::acp::map;
+use construct_core::acp::map;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -99,8 +99,8 @@ fn idempotent_prompts_are_the_contracts() {
     assert_eq!(idem["capability"], map::IDEMPOTENT_PROMPTS);
     assert_eq!(idem["field"], map::IDEMPOTENCY_KEY);
     assert_eq!(idem["max_length"], json!(map::IDEMPOTENCY_KEY_MAX));
-    assert_eq!(idem["invalid_error"], json!(construct::acp::rpc::INVALID_PARAMS));
-    assert_eq!(idem["conflict_error"]["code"], json!(construct::acp::rpc::INVALID_PARAMS));
+    assert_eq!(idem["invalid_error"], json!(construct_core::acp::rpc::INVALID_PARAMS));
+    assert_eq!(idem["conflict_error"]["code"], json!(construct_core::acp::rpc::INVALID_PARAMS));
     assert_eq!(idem["conflict_error"]["reason"], map::IDEMPOTENCY_CONFLICT);
     // Each recorded state is driven end to end in construct-dev's acp_keys.rs.
     let cases: Vec<&str> = idem["cases"].as_array().unwrap().iter().filter_map(|c| c["case"].as_str()).collect();

@@ -4,11 +4,11 @@
 //! editor experiment can't change how the skill library is maintained.
 //! Add each new editor to `EDITORS`.
 
-use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
-use construct::memory::Store;
-use construct::sandbox::Policy;
-use construct::tools::Catalog;
-use construct::tools::Ctx;
+use construct_core::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct_core::memory::Store;
+use construct_core::sandbox::Policy;
+use construct_core::tools::Catalog;
+use construct_core::tools::Ctx;
 use serde_json::json;
 
 const EDITORS: &[&str] = &["replace", "hashline"];

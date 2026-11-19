@@ -2,10 +2,10 @@
 //! in path order, counts every match even past the cap, honours `include`,
 //! `.gitignore` and hidden files, and says so when it truncates.
 
-use construct::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
-use construct::memory::Store;
-use construct::sandbox::Policy;
-use construct::tools::{Catalog, Ctx};
+use construct_core::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
+use construct_core::memory::Store;
+use construct_core::sandbox::Policy;
+use construct_core::tools::{Catalog, Ctx};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 

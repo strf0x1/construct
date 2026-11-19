@@ -88,7 +88,7 @@ mod tests {
         write(root, &entry, &GOOD.replace("abc1234", sha).replace(GOOD_DEPS, deps));
     }
 
-    const THEME: &str = "crates/construct/src/tui/theme.rs";
+    const THEME: &str = "crates/construct-core/src/tui/theme.rs";
 
     /// A PR changes a dependency, re-drives the recipe on its branch and bumps
     /// `verified_at` to that branch commit, then is squash-merged and its

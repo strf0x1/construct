@@ -21,7 +21,7 @@ pub use stale::Git;
 
 const MAP: &str = "docs/feature-map";
 const RECIPES: &str = ".agents/skills/verify-construct/recipes";
-const HELP: &str = "crates/construct/src/tui/help.rs";
+const HELP: &str = "crates/construct-core/src/tui/help.rs";
 const STATUSES: &[&str] = &["planned", "built", "verified"];
 /// The H2s of a feature file, in order. A `planned` entry has no recipe yet,
 /// so it needs only the first three.
@@ -147,7 +147,7 @@ fn claims(root: &Path, entries: &[Entry], bad: &mut Vec<String>) {
             for hex in hex_colors(line) {
                 if !colors.contains(&hex) && !driven.contains(&hex) {
                     bad.push(format!(
-                        "{MAP}/{}: color #{hex} is neither an Rgb in crates/construct/src nor asserted by its recipe",
+                        "{MAP}/{}: color #{hex} is neither an Rgb in crates/construct-core/src nor asserted by its recipe",
                         e.file
                     ));
                 }
@@ -280,11 +280,11 @@ pub(super) mod tests {
     pub(super) fn tree(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("feature-map-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        for d in [MAP, &format!("{RECIPES}/turn"), "crates/construct/src/tui"] {
+        for d in [MAP, &format!("{RECIPES}/turn"), "crates/construct-core/src/tui"] {
             std::fs::create_dir_all(dir.join(d)).unwrap();
         }
         write(&dir, HELP, "pub(super) const COMMANDS: &[Entry] = &[\n    entry(\"/new\", \"\", \"fresh\"),\n];\n");
-        write(&dir, "crates/construct/src/tui/theme.rs", "pub const GREEN: Color = Color::Rgb(158, 206, 106);\n");
+        write(&dir, "crates/construct-core/src/tui/theme.rs", "pub const GREEN: Color = Color::Rgb(158, 206, 106);\n");
         write(
             &dir,
             &format!("{MAP}/README.md"),
@@ -304,9 +304,9 @@ pub(super) mod tests {
     }
 
     /// `GOOD`'s dependencies fingerprinted with `quiet`'s objects.
-    pub(super) const GOOD_DEPS: &str = "514887902ddb6349";
+    pub(super) const GOOD_DEPS: &str = "cf3818a23e29aa29";
 
-    pub(super) const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\nverified_deps: 514887902ddb6349\ndepends: [crates/construct/src/tui/theme.rs]\n---\n# Turn\n\n\
+    pub(super) const GOOD: &str = "---\nid: turn\nstatus: verified\nsurfaces: [tui]\nverified_at: abc1234\nverified_deps: cf3818a23e29aa29\ndepends: [crates/construct-core/src/tui/theme.rs]\n---\n# Turn\n\n\
         ## Sub-features\n\n- `turn-new` `/new` clears.\n\n## How to get to it (user POV)\n\n- Type.\n\n\
         ## Done when\n\n- Cleared.\n\n## Driving it\n\nRecipe: `.agents/skills/verify-construct/recipes/turn`.\n\n\
         - **Look.** Drive: `expect-style \"ok\" fg=#9ECE6A`. Expect: green.\n\n## Gotchas\n\n- None.\n";
@@ -392,7 +392,11 @@ pub(super) mod tests {
     #[test]
     fn a_verified_entry_must_say_what_it_depends_on() {
         let root = tree("nodeps");
-        write(&root, &format!("{MAP}/turn.md"), &GOOD.replace("depends: [crates/construct/src/tui/theme.rs]\n", ""));
+        write(
+            &root,
+            &format!("{MAP}/turn.md"),
+            &GOOD.replace("depends: [crates/construct-core/src/tui/theme.rs]\n", ""),
+        );
         let bad = quiet(&root);
         assert!(bad[0].contains("verified with no depends"), "{bad:#?}");
         let _ = std::fs::remove_dir_all(&root);

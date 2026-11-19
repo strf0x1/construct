@@ -192,7 +192,8 @@ impl Provider {
         Endpoint::named(name, base_url, &secret, self.headers.clone(), provider)
     }
 
-    pub(crate) fn check(&self, name: &str) -> Result<()> {
+    /// Validate a provider declaration before it is written to the config.
+    pub fn check(&self, name: &str) -> Result<()> {
         ensure!(
             !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
             "[providers.{name:?}]: a provider name is letters, digits, - and _"

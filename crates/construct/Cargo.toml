@@ -7,55 +7,23 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true
-# One test binary, tests/it.rs (the docs gate checks every sibling file is
-# listed there): each extra integration binary relinks the whole lib.
-autotests = false
 
-[lib]
-doctest = false
-
+# The composition root (ADR 0048): the sandbox helper re-exec and the CLI.
+# Everything testable lives in construct-core; this crate has no tests.
 [[bin]]
 name = "construct"
 path = "src/main.rs"
-test = false # main.rs only hands off to the lib; it has no tests
-
-[[test]]
-name = "it"
-path = "tests/it.rs"
+test = false
 
 [lints]
 workspace = true
 
 [dependencies]
+construct-core.workspace = true
 anyhow.workspace = true
-async-trait = "0.1"
-sha2 = "0.10"
 clap.workspace = true
-crossterm = { version = "0.29", features = ["event-stream"] }
-futures.workspace = true
-globset = "0.4"
-grep-matcher = "0.1"
-grep-regex = "0.1"
-grep-searcher = "0.1"
-htmd = "0.5"
-ignore = "0.4"
-libc = "0.2"
-ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
-reqwest = { workspace = true, features = ["gzip", "query", "form"] }
-rusqlite.workspace = true
-secretspec.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-similar = "3"
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "process", "fs", "io-util", "sync", "time", "signal"] }
+reqwest.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 toml.workspace = true
-toml_edit = "0.25"
-unicode-normalization = "0.1"
-unicode-width = "0.2"
-pulldown-cmark = { version = "0.13", default-features = false }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-landlock = "0.4"
-
-[dev-dependencies]
-proptest.workspace = true
+toml_edit.workspace = true
+serde_json.workspace = true

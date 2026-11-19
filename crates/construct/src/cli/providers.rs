@@ -8,11 +8,11 @@
 //! `config.toml` in place and never a key: it names the command that stores
 //! one, since typing it here would echo it.
 
-use crate::config::{Config, Paths, write_atomic};
-use crate::llm::{self, Message, catalog};
-use crate::providers::{Discover, Provider};
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use clap::Subcommand;
+use construct_core::config::{Config, Paths, write_atomic};
+use construct_core::llm::{self, Message, catalog};
+use construct_core::providers::{Discover, Provider};
 use serde_json::json;
 use std::time::{Duration, Instant};
 

@@ -2,7 +2,7 @@
 id: providers
 status: built
 surfaces: [cli, tui]
-depends: [crates/construct/src/providers, crates/construct/src/endpoint.rs, crates/construct/src/cli/providers.rs, crates/construct/src/llm/discover.rs, crates/construct/src/llm/overlay.rs]
+depends: [crates/construct-core/src/providers, crates/construct-core/src/endpoint.rs, crates/construct/src/cli/providers.rs, crates/construct-core/src/llm/discover.rs, crates/construct-core/src/llm/overlay.rs]
 ---
 # Providers
 
@@ -38,7 +38,7 @@ Preconditions:
 - **List and test.** Drive: `construct providers`, then `construct providers test a --model mock` against a scripted endpoint whose side reply is `ok` and whose step is a `ping` call. Expect: rows for `default`, `a` and `b`; `models  ok`, `reply   ok`, `tools   ok      called ping`, `window  131072 (stated by the server)`; the endpoint's log shows `a`'s key twice and `b` untouched.
 - **Add.** Drive: `construct providers add box --url http://127.0.0.1:<port>/v1/` against a scripted endpoint. Expect: `discover  openai (2 listed, windows up to 131072)`, `key       none`, and `config.toml` unchanged but for `[providers.box]` with that `base_url`; then `--model box/mock/small` runs.
 - **Second view.** The scripted endpoints' request logs. Drive: `cargo test -p construct-dev --test it providers::`. Expect: every test passes; each reads `Env::auth_seen` and `Env::requests` for which key and which `model` reached which endpoint.
-- Contract: `crates/construct-dev/tests/providers.rs`, `crates/construct/src/providers` unit tests.
+- Contract: `crates/construct-dev/tests/providers.rs`, `crates/construct-core/src/providers` unit tests.
 
 ## Gotchas
 

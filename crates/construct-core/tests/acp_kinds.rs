@@ -2,8 +2,8 @@
 //! editor's icons are right and a new tool that forgets gets `other`, not a
 //! wrong guess.
 
-use construct::config::ToolsConfig;
-use construct::tools::{Catalog, ToolKind};
+use construct_core::config::ToolsConfig;
+use construct_core::tools::{Catalog, ToolKind};
 
 #[test]
 fn core_tools_map_to_the_acp_categories() {

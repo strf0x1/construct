@@ -189,9 +189,9 @@ fn rounds_too_big_to_elide_are_summarized_with_the_request_pinned() {
     assert!(s["summary_prompt"].as_u64().unwrap() > 0, "the summarizer's usage is journaled");
     assert!(s["summary_cost"].as_f64().unwrap() > 0.0, "and priced");
     // The session's totals (the status line, `/status`) bill the summaries too.
-    let db = construct::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
+    let db = construct_core::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
     let id = env.sessions().remove(0);
-    let totals = construct::journal::Totals::session(&db, &db.since(&id, 0).unwrap()).unwrap();
+    let totals = construct_core::journal::Totals::session(&db, &db.since(&id, 0).unwrap()).unwrap();
     let summarized: Vec<&Value> = cuts.iter().filter(|c| c["mode"] == "summarize").collect();
     let usage_rows = env.journal().into_iter().filter(|r| r.ty == "usage").count() as u64;
     assert_eq!(totals.requests, usage_rows + summarized.len() as u64);

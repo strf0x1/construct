@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import convention_lint as cl
 
 TOOL = 'pub struct Read;\nimpl Read {\n    pub const NAME: &str = "read";\n}\npub struct Query;\nimpl Query {\n    pub const NAME: &str = "journal_query";\n}\n'
-MANIFEST = '[package]\nname = "construct"\n\n[dependencies]\nanyhow.workspace = true\nlibc = "0.2"\n'
+MANIFEST = '[package]\nname = "construct-core"\n\n[dependencies]\nanyhow.workspace = true\nlibc = "0.2"\n'
 ROOT_MANIFEST = '[workspace]\nmembers = ["crates/*"]\n\n[workspace.dependencies]\nanyhow = "1"\n'
 
 
@@ -23,10 +23,10 @@ class Repo:
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
         self.git("init", "-q")
-        self.write("crates/construct/src/tools/read.rs", TOOL)
-        self.write("crates/construct/Cargo.toml", MANIFEST)
+        self.write("crates/construct-core/src/tools/read.rs", TOOL)
+        self.write("crates/construct-core/Cargo.toml", MANIFEST)
         self.write("Cargo.toml", ROOT_MANIFEST)
-        self.write("crates/construct/src/old.rs", "fn old() { x.unwrap(); }\n")
+        self.write("crates/construct-core/src/old.rs", "fn old() { x.unwrap(); }\n")
         self.commit()
 
     def git(self, *a):
@@ -56,7 +56,7 @@ class Rules(unittest.TestCase):
         self.r.tmp.cleanup()
 
     def test_a_clean_change_has_no_findings(self):
-        self.r.write("crates/construct/src/new.rs", "//! What it is for.\n\npub fn f() -> Option<u8> {\n    None\n}\n")
+        self.r.write("crates/construct-core/src/new.rs", "//! What it is for.\n\npub fn f() -> Option<u8> {\n    None\n}\n")
         out = self.r.lint()
         self.assertEqual(out["findings"], [])
         self.assertEqual(out["violations"], 0)
@@ -64,7 +64,7 @@ class Rules(unittest.TestCase):
 
     def test_unwrap_outside_tests_only(self):
         self.r.write(
-            "crates/construct/src/new.rs",
+            "crates/construct-core/src/new.rs",
             "//! Doc.\n"
             "fn a() { x.unwrap(); }\n"  # 2: flagged
             "fn b() { let s = \"don't .unwrap() me\"; } // nor .unwrap() here\n"
@@ -77,50 +77,50 @@ class Rules(unittest.TestCase):
             "}\n"
             "fn e() { y.unwrap(); }\n",  # 11: flagged, after the test module
         )
-        self.r.write("crates/construct/tests/contract.rs", "fn t() { x.unwrap(); }\n")
-        self.r.write("crates/construct/src/journal/tests.rs", "fn t() { x.unwrap(); }\n")
+        self.r.write("crates/construct-core/tests/contract.rs", "fn t() { x.unwrap(); }\n")
+        self.r.write("crates/construct-core/src/journal/tests.rs", "fn t() { x.unwrap(); }\n")
         got = [(f, l) for rule, f, l in self.r.rules() if rule == "unwrap"]
-        self.assertEqual(got, [("crates/construct/src/new.rs", 2), ("crates/construct/src/new.rs", 6), ("crates/construct/src/new.rs", 11)])
+        self.assertEqual(got, [("crates/construct-core/src/new.rs", 2), ("crates/construct-core/src/new.rs", 6), ("crates/construct-core/src/new.rs", 11)])
 
     def test_old_debt_is_not_the_changes_fault(self):
-        p = self.r.dir / "crates/construct/src/old.rs"
+        p = self.r.dir / "crates/construct-core/src/old.rs"
         p.write_text(p.read_text() + "fn newer() {}\n")
         self.assertEqual(self.r.rules(), [])
 
     def test_wire_names_outside_tools(self):
         self.r.write(
-            "crates/construct/src/agent.rs",
+            "crates/construct-core/src/agent.rs",
             "//! Doc.\n"
             'fn a(n: &str) -> bool { n == "read" }\n'  # 2: matching on a tool name
             'fn b() { let what = if w { "write" } else { "read" }; }\n'  # 3: a verb, not a match
             'fn c() { let t = "journal_query"; }\n'  # 4: distinctive: always a wire name
             'fn d(n: &str) { match n { "read" => {} _ => {} } }\n',  # 5: a match arm
         )
-        self.r.write("crates/construct/src/tools/other.rs", '//! Doc.\nfn x(n: &str) -> bool { n == "read" }\n')
+        self.r.write("crates/construct-core/src/tools/other.rs", '//! Doc.\nfn x(n: &str) -> bool { n == "read" }\n')
         self.r.write("crates/construct-dev/tests/e2e.rs", 'fn t() { call("journal_query"); }\n')
         got = [l for rule, f, l in self.r.rules() if rule == "wire-name"]
         self.assertEqual(got, [2, 4, 5])
 
     def test_new_module_needs_a_doc_paragraph(self):
-        self.r.write("crates/construct/src/nodoc.rs", "use std::fs;\n")
-        self.r.write("crates/construct/src/attr.rs", "#![allow(dead_code)]\n//! Doc after an inner attribute.\n")
+        self.r.write("crates/construct-core/src/nodoc.rs", "use std::fs;\n")
+        self.r.write("crates/construct-core/src/attr.rs", "#![allow(dead_code)]\n//! Doc after an inner attribute.\n")
         self.r.write("crates/construct/src/main.rs", "fn main() {}\n")
-        self.r.write("crates/construct/tests/t.rs", "fn t() {}\n")
-        self.assertEqual(self.r.rules(), [("module-doc", "crates/construct/src/nodoc.rs", 1)])
+        self.r.write("crates/construct-core/tests/t.rs", "fn t() {}\n")
+        self.assertEqual(self.r.rules(), [("module-doc", "crates/construct-core/src/nodoc.rs", 1)])
 
     def test_crossing_the_ceiling(self):
-        self.r.write("crates/construct/src/grow.rs", "//! Doc.\n" + "fn f() {}\n" * 299)
-        self.r.write("crates/construct/src/big.rs", "//! Doc.\n" + "fn f() {}\n" * 400)
+        self.r.write("crates/construct-core/src/grow.rs", "//! Doc.\n" + "fn f() {}\n" * 299)
+        self.r.write("crates/construct-core/src/big.rs", "//! Doc.\n" + "fn f() {}\n" * 400)
         self.r.commit()
         for f in ("grow.rs", "big.rs", "tui/view.rs"):
-            p = self.r.dir / "crates/construct/src" / f
+            p = self.r.dir / "crates/construct-core/src" / f
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text((p.read_text() if p.exists() else "//! Doc.\n") + "fn g() {}\n" * 310)
         # big.rs was already past it; view.rs may run longer
-        self.assertEqual(self.r.rules(), [("file-length", "crates/construct/src/grow.rs", None)])
+        self.assertEqual(self.r.rules(), [("file-length", "crates/construct-core/src/grow.rs", None)])
 
     def test_dependencies(self):
-        p = self.r.dir / "crates/construct/Cargo.toml"
+        p = self.r.dir / "crates/construct-core/Cargo.toml"
         p.write_text(p.read_text().replace('libc = "0.2"', 'libc = "0.3"') + 'regex = "1"\nserde.workspace = true\n[dev-dependencies]\ntempfile = { version = "3" }\n')
         root = self.r.dir / "Cargo.toml"
         root.write_text(root.read_text() + 'serde = "1"\n')
@@ -142,9 +142,9 @@ class Rules(unittest.TestCase):
         self.assertEqual(out["diff"], {"files": 3, "added": 0, "removed": 0, "test_added": 0})
 
     def test_between_two_revisions(self):
-        self.r.write("crates/construct/src/a.rs", "//! Doc.\nfn a() { x.unwrap(); }\n")
+        self.r.write("crates/construct-core/src/a.rs", "//! Doc.\nfn a() { x.unwrap(); }\n")
         self.r.commit()
-        self.r.write("crates/construct/src/b.rs", "uncommitted, not linted\n")
+        self.r.write("crates/construct-core/src/b.rs", "uncommitted, not linted\n")
         out = self.r.lint(base="HEAD~1", head="HEAD")
         self.assertEqual([(f["rule"], f["line"]) for f in out["findings"]], [("unwrap", 2)])
         self.assertEqual(out["head"], "HEAD")

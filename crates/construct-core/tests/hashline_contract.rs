@@ -3,11 +3,11 @@
 //! shown are anchors accepted, any stale anchor rejects the whole batch with
 //! fresh ones, nothing is relocated, and the file round-trips byte for byte.
 
-use construct::config::{AnchorMode, MemoryConfig, Paths, Salt, SandboxConfig, ToolsConfig};
-use construct::memory::Store;
-use construct::sandbox::Policy;
-use construct::tools::edit::hashline::anchors;
-use construct::tools::{Catalog, Ctx, ToolError};
+use construct_core::config::{AnchorMode, MemoryConfig, Paths, Salt, SandboxConfig, ToolsConfig};
+use construct_core::memory::Store;
+use construct_core::sandbox::Policy;
+use construct_core::tools::edit::hashline::anchors;
+use construct_core::tools::{Catalog, Ctx, ToolError};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -51,7 +51,7 @@ impl Fixture {
     /// Anchors for the file as it is now, the way read would show them.
     fn anchors(&self, name: &str) -> anchors::AnchorMap {
         let text = self.content(name);
-        anchors::build(construct::tools::edit::hashline::fsio::split(&text).0, 2, self.mode, Salt::Rank)
+        anchors::build(construct_core::tools::edit::hashline::fsio::split(&text).0, 2, self.mode, Salt::Rank)
     }
 
     async fn edit(&self, path: &str, edits: Value) -> Result<(String, Value), ToolError> {
@@ -310,7 +310,7 @@ async fn hash_mode_reads_and_describes_bare_hashes() {
     let p = f.file("a.txt", "alpha\nbeta\ngamma\ndelta\n");
     let (text, _) = f.call("read", json!({ "path": p })).await.unwrap();
     assert_eq!(text, "jk|alpha\nds|beta\nab|gamma\nld|delta\n");
-    let defs = f.catalog.definitions(&[construct::tools::Group::Core]).to_vec();
+    let defs = f.catalog.definitions(&[construct_core::tools::Group::Core]).to_vec();
     for name in ["read", "edit"] {
         let d = defs.iter().find(|d| d["function"]["name"] == name).unwrap().to_string();
         assert!(!d.contains("LINE:HASH") && !d.contains("12:ax"), "{name} teaches line anchors: {d}");

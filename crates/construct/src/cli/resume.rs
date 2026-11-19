@@ -1,9 +1,9 @@
 //! Launch-time resume selection. Bare `--resume` delegates to the same TUI
 //! browser; `--continue` deliberately retains newest-started selection.
 
-use crate::config::Paths;
-use crate::journal;
 use anyhow::{Result, ensure};
+use construct_core::config::Paths;
+use construct_core::journal;
 
 pub(super) fn resolve_resume(
     resume: &Option<Option<String>>,

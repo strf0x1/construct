@@ -10,8 +10,10 @@ license = "MIT"
 repository = "https://github.com/strf0x1/construct"
 publish = false
 
-# Shared by both crates. Each crate adds the features it needs.
+# Shared by the workspace crates. Each crate adds the features it needs.
 [workspace.dependencies]
+# The engine library; the construct binary is its composition root (ADR 0048).
+construct-core = { path = "crates/construct-core" }
 anyhow = "1"
 clap = { version = "4.6", features = ["derive"] }
 futures = "0.3"
@@ -26,6 +28,7 @@ serde_json = { version = "1", features = ["preserve_order"] }
 secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
 tokio = "1"
 toml = "1"
+toml_edit = "0.25"
 # Property tests (dev only): shrinking turns a random panic into a pinnable
 # counterexample. Without fork/timeout, which pull in a subprocess runner.
 proptest = { version = "1", default-features = false, features = ["std"] }

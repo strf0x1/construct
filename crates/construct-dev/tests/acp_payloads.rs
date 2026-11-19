@@ -4,8 +4,8 @@
 
 use crate::acp::Client;
 use crate::common::*;
-use construct::acp::map;
-use construct::tools::boundary::Notice;
+use construct_core::acp::map;
+use construct_core::tools::boundary::Notice;
 use jsonschema::{Registry, Validator};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -138,17 +138,17 @@ fn actual_agent_capabilities_events_turns_and_load_snapshots_conform() {
 
 #[test]
 fn actual_parent_capabilities_and_child_start_conform() {
-    use construct::acp::{Start, client};
-    use construct::agents::Gate;
-    use construct::child::{Origin, run::Outcome, wire::Wire};
-    use construct::config::Config;
-    use construct::sandbox::Policy;
-    use construct::tools::Call;
+    use construct_core::acp::{Start, client};
+    use construct_core::agents::Gate;
+    use construct_core::child::{Origin, run::Outcome, wire::Wire};
+    use construct_core::config::Config;
+    use construct_core::sandbox::Policy;
+    use construct_core::tools::Call;
 
     let schemas = validators();
     let env = Env::new("acp-parent-payloads", json!({ "steps": [] }));
     let cfg = Config::default();
-    let paths = construct::config::Paths { home: env.home.clone() };
+    let paths = construct_core::config::Paths { home: env.home.clone() };
     let start = Start {
         config: Box::new(cfg.clone()),
         origin: Box::new(Origin {
