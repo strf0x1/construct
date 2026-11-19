@@ -31,7 +31,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
-| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks the module graph against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
+| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
 | `crates/construct/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
@@ -157,11 +157,11 @@ them, CI's `cargo xtask check` (or a local full one) prints `FAILED snapshots` w
 `cargo xtask snapshots` to accept, and say so in the PR. Never edit a `.snap`
 by hand.
 
-The `arch` gate checks every `crate::` path between top-level modules of
-`crates/construct/src` against `docs/architecture.toml`, and the counts in
-`docs/ratchets.toml` (the non-test line count of each file over 300 lines)
-against reality: a count that grows fails, and one that drops fails until
-its baseline is lowered to match.
+The `arch` gate checks every workspace crate's module graph and the edges
+between crates against `docs/architecture.toml` (per-crate tables, ADR 0047),
+and the counts in `docs/ratchets.toml` (the non-test line count of each file
+over 300 lines) against reality: a count that grows fails, and one that drops
+fails until its baseline is lowered to match.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh
