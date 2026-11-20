@@ -118,17 +118,7 @@ impl Default for Display {
     }
 }
 
-/// How the UI renders a result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OutputKind {
-    #[default]
-    Plain,
-    /// A one-line summary, then a unified diff.
-    Diff,
-    /// Only the end matters (command output).
-    Tail,
-}
+pub use crate::event::OutputKind;
 
 pub struct Output {
     /// What the model receives.
