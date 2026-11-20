@@ -35,7 +35,7 @@ may_use = ["cli"]
 may_use_crates = []
 
 [crates.construct-core.modules.acp]
-may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
+may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "text", "tools"]
 
 [crates.construct-core.modules.agent]
 may_use = ["compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
@@ -50,10 +50,10 @@ may_use = []
 may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
 
 [crates.construct-core.modules.compact]
-may_use = ["config", "llm"]
+may_use = ["config", "llm", "text"]
 
 [crates.construct-core.modules.config]
-may_use = ["agents", "jobs", "models", "providers", "tools"]
+may_use = ["agents", "home", "jobs", "models", "providers", "tools"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
@@ -74,13 +74,13 @@ may_use = []
 may_use = []
 
 [crates.construct-core.modules.jev]
-may_use = ["config", "journal", "llm"]
+may_use = ["config", "journal", "text"]
 
 [crates.construct-core.modules.jobs]
 may_use = ["event", "journal", "llm", "sandbox", "text"]
 
 [crates.construct-core.modules.journal]
-may_use = ["child", "clock", "config", "context", "event", "jobs", "llm", "project", "tools"]
+may_use = ["child", "clock", "config", "context", "event", "jobs", "llm", "project", "skills", "text", "tools"]
 
 [crates.construct-core.modules.learn]
 may_use = ["clock", "config", "guard", "http", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
@@ -104,19 +104,19 @@ may_use = ["config", "guard", "project"]
 may_use = ["config", "endpoint"]
 
 [crates.construct-core.modules.permission]
-may_use = ["config", "event", "journal", "sandbox", "tools"]
+may_use = ["event", "home", "journal", "sandbox", "tools"]
 
 [crates.construct-core.modules.project]
-may_use = ["config"]
+may_use = ["home"]
 
 [crates.construct-core.modules.prompt]
-may_use = ["config", "journal", "learn", "llm", "memory", "skills", "tools"]
+may_use = ["config", "journal", "learn", "memory", "skills", "text", "tools"]
 
 [crates.construct-core.modules.providers]
 may_use = ["config", "endpoint", "models"]
 
 [crates.construct-core.modules.router]
-may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]
+may_use = ["config", "jev", "secrets", "skills", "text", "tools"]
 
 [crates.construct-core.modules.sandbox]
 may_use = ["config", "secrets"]
@@ -125,13 +125,13 @@ may_use = ["config", "secrets"]
 may_use = []
 
 [crates.construct-core.modules.skills]
-may_use = ["clock", "config", "guard", "tools"]
+may_use = ["clock", "guard", "home", "tools"]
 
 [crates.construct-core.modules.text]
 may_use = []
 
 [crates.construct-core.modules.tools]
-may_use = ["agents", "child", "clock", "config", "event", "http", "jobs", "journal", "llm", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+may_use = ["agents", "child", "clock", "config", "event", "http", "jobs", "journal", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
 
 [crates.construct-core.modules.trace]
 may_use = ["config"]

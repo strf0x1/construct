@@ -203,13 +203,13 @@ impl Client {
             if status.as_u16() == 400
                 && let Some(p) = notes::PARAMS.iter().find(|p| text.contains(**p))
             {
-                notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
+                notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", crate::text::truncate(&text, 200)));
             }
             if let Some(d) = denial {
                 let d = anyhow::Error::new(d);
                 return Err(if self.prefix.is_empty() { d } else { d.context(self.prefix.clone()) });
             }
-            bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
+            bail!("{}model endpoint returned {status}: {}", self.prefix, crate::text::truncate(&text, 600));
         };
         if let Some(tx) = tx {
             let _ = tx.send(Delta::Opened);
@@ -260,11 +260,4 @@ fn insufficient_quota(body: &str) -> bool {
             .iter()
             .any(|p| v.pointer(p).and_then(Value::as_str) == Some("insufficient_quota"))
     })
-}
-
-pub fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    format!("{}…", crate::text::head(s, max))
 }

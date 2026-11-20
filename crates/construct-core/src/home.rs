@@ -4,10 +4,13 @@
 //! Everything under it is unreachable once the home is `0700`, so the stores
 //! that create subdirectories need no chmods of their own. An existing home is
 //! tightened once, never loosened, and a `.private` marker records that: a
-//! user who widens it again afterwards is left alone (ADR 0021).
+//! user who widens it again afterwards is left alone (ADR 0021). It also owns
+//! the home's layout (`Paths`) and the atomic write every store uses, so a
+//! module that only needs where things live does not depend on `config`.
 
+use anyhow::{Context, Result};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Written once the home has been made private; its presence means "hands off".
 pub const MARKER: &str = ".private";
@@ -61,6 +64,61 @@ pub fn make_private(home: &Path) -> std::io::Result<Outcome> {
     };
     std::fs::write(&marker, b"construct made this directory private; it will not change its mode again.\n")?;
     Ok(outcome)
+}
+
+#[derive(Debug, Clone)]
+pub struct Paths {
+    pub home: PathBuf,
+}
+
+impl Paths {
+    pub fn resolve() -> Result<Self> {
+        let home = match std::env::var_os("CONSTRUCT_HOME") {
+            Some(h) if !h.is_empty() => PathBuf::from(h),
+            _ => {
+                let user = std::env::var_os("HOME").context("HOME is not set")?;
+                PathBuf::from(user).join(".construct")
+            }
+        };
+        Ok(Self { home })
+    }
+    pub fn config(&self) -> PathBuf {
+        self.home.join("config.toml")
+    }
+    pub fn memory_dir(&self) -> PathBuf {
+        self.home.join("memory")
+    }
+    pub fn skills_dir(&self) -> PathBuf {
+        self.home.join("skills")
+    }
+    pub fn state_file(&self) -> PathBuf {
+        self.home.join("state.json")
+    }
+    pub fn learn_log(&self) -> PathBuf {
+        self.home.join("learn.log")
+    }
+    pub fn spill_dir(&self) -> PathBuf {
+        self.home.join("spill")
+    }
+    pub fn models(&self) -> PathBuf {
+        self.home.join("models.toml")
+    }
+    /// The cached model list for one endpoint (`llm::catalog`).
+    pub fn models_cache(&self, base_url: &str) -> PathBuf {
+        let key: String = base_url.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+        self.home.join("models").join(format!("{key}.json"))
+    }
+}
+
+/// Write via a temp file and rename so readers never see half a file.
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension(format!("tmp{}", std::process::id()));
+    std::fs::write(&tmp, bytes)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 #[cfg(test)]

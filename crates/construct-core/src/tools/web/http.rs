@@ -82,7 +82,7 @@ fn detail(body: &str) -> String {
             _ => None,
         })
         .unwrap_or_else(|| body.trim().to_string());
-    if text.is_empty() { String::new() } else { format!(": {}", crate::llm::truncate(&text, 300)) }
+    if text.is_empty() { String::new() } else { format!(": {}", crate::text::truncate(&text, 300)) }
 }
 
 #[cfg(test)]

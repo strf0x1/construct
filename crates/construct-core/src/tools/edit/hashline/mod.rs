@@ -156,7 +156,7 @@ impl HashlineRead {
         // `set` built from it would drop the rest of the line.
         let long = |n: usize| map.lines[n - 1].len() > LINE_MAX;
         let rows = (offset..=total).take(limit).map(|n| match long(n) {
-            true => format!("{n}|{}\n", crate::llm::truncate(&map.lines[n - 1], LINE_MAX)),
+            true => format!("{n}|{}\n", crate::text::truncate(&map.lines[n - 1], LINE_MAX)),
             false => format!("{}\n", map.row(n)),
         });
         let (mut out, shown_end) = page(ctx, offset, rows);
@@ -187,7 +187,7 @@ impl HashlineRead {
         let note = encoding_error(&path.display().to_string(), false).message;
         let mut out = format!("({note} Shown with \u{fffd} for the bad bytes and without anchors.)\n");
         for (i, line) in lines.iter().enumerate().skip(offset - 1).take(limit) {
-            out.push_str(&format!("{}|{}\n", i + 1, crate::llm::truncate(line, LINE_MAX)));
+            out.push_str(&format!("{}|{}\n", i + 1, crate::text::truncate(line, LINE_MAX)));
         }
         let shown_end = (offset - 1 + limit).min(lines.len());
         if shown_end < lines.len() {

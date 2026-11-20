@@ -105,7 +105,7 @@ impl Coalescer {
 /// that gets pasted into issues.
 fn scrub(detail: &str) -> String {
     let one_line = detail.split_whitespace().collect::<Vec<_>>().join(" ");
-    crate::llm::truncate(&one_line, DETAIL_MAX)
+    crate::text::truncate(&one_line, DETAIL_MAX)
 }
 
 #[cfg(test)]

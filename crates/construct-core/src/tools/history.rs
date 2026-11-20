@@ -181,7 +181,7 @@ fn query(conn: &mut Connection, sql: &str, cancel: tokio::sync::watch::Receiver<
         if text.len() + 1 + line.len() > MAX_BYTES {
             let room = MAX_BYTES.saturating_sub(text.len() + 1);
             text.push('\n');
-            text.push_str(&crate::llm::truncate(&line, room));
+            text.push_str(&crate::text::truncate(&line, room));
             cut = Some(format!("{} KB", MAX_BYTES / 1024));
             break;
         }

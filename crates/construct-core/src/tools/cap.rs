@@ -41,7 +41,7 @@ pub fn cap_output(ctx: &Ctx, kind: &str, text: &str) -> String {
     let _ = std::fs::create_dir_all(&dir);
     let path = dir.join(format!("{kind}-{}-{}.txt", std::process::id(), crate::clock::now_nanos()));
     let saved = std::fs::write(&path, text).is_ok();
-    let head = crate::llm::truncate(text, max / 2);
+    let head = crate::text::truncate(text, max / 2);
     let lines = text.lines().count();
     format!(
         "{head}\n\n[… {} bytes, {lines} lines total{} …]\n\n{}",

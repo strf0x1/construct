@@ -234,7 +234,7 @@ async fn test(cfg: &Config, paths: &Paths, name: &str, model: Option<String>) ->
         Ok(c) => {
             let text = c.message.content.unwrap_or_default();
             let (u, ms) = (c.usage, started.elapsed().as_millis());
-            let said = llm::truncate(text.trim(), 40);
+            let said = construct_core::text::truncate(text.trim(), 40);
             println!(
                 "reply   ok      {said:?} from {model} in {ms} ms, {} in / {} out",
                 u.prompt_tokens, u.completion_tokens

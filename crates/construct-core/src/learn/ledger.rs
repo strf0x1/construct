@@ -74,10 +74,10 @@ pub(super) async fn observe(
                 ts,
                 session: session.to_string(),
                 cwd: cwd.clone(),
-                problem_class: llm::truncate(class, 80),
-                summary: llm::truncate(o["summary"].as_str().unwrap_or(""), 300),
-                fix: llm::truncate(o["fix"].as_str().unwrap_or(""), 600),
-                evidence: llm::truncate(o["evidence"].as_str().unwrap_or(""), 400),
+                problem_class: crate::text::truncate(class, 80),
+                summary: crate::text::truncate(o["summary"].as_str().unwrap_or(""), 300),
+                fix: crate::text::truncate(o["fix"].as_str().unwrap_or(""), 600),
+                evidence: crate::text::truncate(o["evidence"].as_str().unwrap_or(""), 400),
             })
         })
         .take(5)
@@ -132,7 +132,8 @@ async fn same_problem_jev(
     // "none" first: Jev favours the first option (see src/router.rs).
     criteria.insert("none".into(), json!("none of these is the same kind of problem"));
     for (i, p) in others.iter().enumerate() {
-        criteria.insert(format!("o{i}"), json!(format!("{}: {}", p.problem_class, llm::truncate(&p.summary, 200))));
+        criteria
+            .insert(format!("o{i}"), json!(format!("{}: {}", p.problem_class, crate::text::truncate(&p.summary, 200))));
     }
     let mut q = serde_json::Map::new();
     q.insert(
