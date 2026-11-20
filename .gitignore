@@ -25,3 +25,6 @@ __pycache__/
 
 # Agent worktrees live inside the checkout; they are copies, not the repo.
 .claude/worktrees/
+
+# The work map build (scripts/workmap/workmap.py)
+.workmap/
