@@ -12,7 +12,14 @@ body ("after #12", "depends on #40", "part of #243"). Inferred links are
 suggestions for a person to confirm as native ones; the page draws them
 dashed and shows the phrase each came from.
 
+Coupling comes from `construct-dev code-graph`, run over `crates/` extracted
+at the same commit: every reference between top-level modules with its file,
+line and the items it names. Each module gets who uses it and through what,
+fan-in and fan-out, and the two-way pairs (A uses B and B uses A) that join
+modules into cycles, thinnest side first, since that is where a cut is cheapest.
+
     python3 scripts/workmap/workmap.py              # fetch, build into .workmap/
+    python3 scripts/workmap/workmap.py --no-code    # skip the code graph (no cargo build)
     python3 scripts/workmap/workmap.py --serve      # ... and serve it on localhost
 """
 
@@ -20,11 +27,15 @@ import argparse
 import datetime
 import functools
 import http.server
+import io
 import json
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
+import tarfile
+import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,8 +115,21 @@ class Tree:
     def ls(self, path):
         return [p for p in self._git("ls-tree", "--name-only", self.ref, path + "/").split("\n") if p]
 
-    def sha(self):
-        return self._git("rev-parse", "--short", self.ref).strip()
+    def sha(self, short=True):
+        return self._git("rev-parse", *(["--short"] if short else []), self.ref).strip()
+
+    def code_graph(self):
+        """`construct-dev code-graph` over `crates/` at this commit, or None if it cannot run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = subprocess.run(["git", "-C", str(self.repo), "archive", self.ref, "crates"], capture_output=True, check=True)
+            with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+                tar.extractall(tmp, filter="data")
+            run = subprocess.run(["cargo", "run", "-q", "-p", "construct-dev", "--", "code-graph", tmp],
+                                 cwd=self.repo, capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"code graph skipped: construct-dev code-graph failed\n{run.stderr.strip()[-600:]}", file=sys.stderr)
+            return None
+        return json.loads(run.stdout)
 
 
 def fetch_issues(slug):
@@ -238,6 +262,113 @@ def downstream(edges, n, open_nums):
     return len(seen & open_nums)
 
 
+# A workspace crate outside construct-core is one node on the map.
+CRATE_NODE = {"construct": "cli", "construct-tui": TUI, "construct-dev": "dev"}
+
+
+def node_of(crate, module):
+    return module if crate == "construct-core" else CRATE_NODE.get(crate)
+
+
+def code_links(cg):
+    """Every reference between map nodes: (from, to, file, line, item)."""
+    out = []
+    for c in cg["crates"]:
+        for e in c["edges"]:
+            a, b = node_of(c["name"], e["from"]), node_of(c["name"], e["to"])
+            if a and b and a != b:
+                out += [(a, b, e["file"], e["line"], i) for i in (e["items"] or [""])]
+    for e in cg["cross"]:
+        a = CRATE_NODE.get(e["from"])
+        if not a or e["to"] != "construct-core":
+            continue
+        for it in e["items"]:
+            mod, _, item = it.partition("::")
+            out.append((a, mod, e["file"], e["line"], item))
+    return out
+
+
+def cycles(nodes, links):
+    """Strongly connected groups of more than one node (Tarjan), largest first."""
+    adj = {n: set() for n in nodes}
+    for a, b, *_ in links:
+        if a in adj and b in adj:
+            adj[a].add(b)
+    index, low, on, stack, out, counter = {}, {}, set(), [], [], [0]
+
+    def visit(v):
+        index[v] = low[v] = counter[0]
+        counter[0] += 1
+        stack.append(v)
+        on.add(v)
+        for w in sorted(adj[v]):
+            if w not in index:
+                visit(w)
+                low[v] = min(low[v], low[w])
+            elif w in on:
+                low[v] = min(low[v], index[w])
+        if low[v] == index[v]:
+            group = []
+            while True:
+                w = stack.pop()
+                on.discard(w)
+                group.append(w)
+                if w == v:
+                    break
+            if len(group) > 1:
+                out.append(sorted(group))
+
+    for v in sorted(adj):
+        if v not in index:
+            visit(v)
+    return sorted(out, key=len, reverse=True)
+
+
+def two_way(links):
+    """Pairs that use each other, thinnest side first: the references on the
+    thin side are where a cycle is cheapest to cut."""
+    refs = {}
+    for a, b, file, line, item in links:
+        refs.setdefault((a, b), []).append([file, line, item])
+    pairs = []
+    for (a, b), ab in refs.items():
+        ba = refs.get((b, a))
+        if ba is None or a > b:
+            continue
+        thin_from, thin_to, thin = (a, b, ab) if len(ab) <= len(ba) else (b, a, ba)
+        pairs.append({"a": a, "b": b, "ab": len(ab), "ba": len(ba), "thin_from": thin_from, "thin_to": thin_to, "thin": thin})
+    return sorted(pairs, key=lambda p: (min(p["ab"], p["ba"]), -max(p["ab"], p["ba"]), p["a"]))
+
+
+def coupling(nodes, links):
+    """Per node: who uses it and through what, what it uses, and its cycle."""
+    groups = cycles(nodes, links)
+    cycle_of = {n: k for k, g in enumerate(groups) for n in g}
+    code = {}
+    for n in nodes:
+        inn = [link for link in links if link[1] == n]
+        out = [link for link in links if link[0] == n]
+        fan_in, fan_out = len({link[0] for link in inn}), len({link[1] for link in out})
+        items = {}
+        for a, _, _, _, item in inn:
+            if item:
+                it = items.setdefault(item, {"name": item, "refs": 0, "from": set()})
+                it["refs"] += 1
+                it["from"].add(a)
+        used_by = {}
+        for a, _, file, line, item in sorted(inn, key=lambda x: (x[0], x[2], x[3])):
+            used_by.setdefault(a, []).append([file, line, item])
+        code[n] = {
+            "fan_in": fan_in, "fan_out": fan_out, "refs_in": len(inn), "refs_out": len(out),
+            "instability": round(fan_out / (fan_in + fan_out), 2) if fan_in + fan_out else None,
+            "items": sorted(({**v, "from": sorted(v["from"])} for v in items.values()), key=lambda v: (-v["refs"], v["name"])),
+            "used_by": [{"from": a, "refs": r} for a, r in sorted(used_by.items(), key=lambda kv: -len(kv[1]))],
+            "uses": sorted({link[1] for link in out}),
+            "cycle": cycle_of.get(n),
+        }
+    return code, groups
+
+
 def front_matter(text):
     fm = re.match(r"---\n(.*?)\n---", text, re.S)
     meta = {}
@@ -248,9 +379,14 @@ def front_matter(text):
     return meta
 
 
-def build(tree, raw, slug):
-    """The whole graph.json document."""
+def build(tree, raw, slug, cg=None):
+    """The whole graph.json document; `cg` is `construct-dev code-graph` output, when there is one."""
     modules, mod_edges = modules_from(tomllib.loads(tree.show("docs/architecture.toml")))
+    links = code_links(cg) if cg else []
+    code, groups = coupling(list(modules), links) if cg else ({}, [])
+    for mid, m in modules.items():
+        if mid in code:
+            m["code"] = code[mid]
     by_num = {i["number"] for i in raw}
     edges = issue_edges(raw, slug)
 
@@ -312,6 +448,7 @@ def build(tree, raw, slug):
 
     return {
         "generated": datetime.datetime.now().isoformat(timespec="minutes"), "ref": tree.ref, "sha": tree.sha(),
+        "full_sha": tree.sha(short=False), "cycles": groups, "two_way": two_way(links),
         "repo": slug, "modules": list(modules.values()), "module_edges": mod_edges,
         "issues": issues, "edges": edges, "adrs": adrs, "features": features,
     }
@@ -330,18 +467,21 @@ def main():
     ap.add_argument("--repo", default="strf0x1/construct", help="GitHub owner/name for issues")
     ap.add_argument("--issues", type=Path, help="read issues from this JSON file instead of fetching")
     ap.add_argument("--out", type=Path, default=ROOT / ".workmap", help="output directory (default .workmap/)")
+    ap.add_argument("--no-code", action="store_true", help="skip the code graph (no cargo build)")
     ap.add_argument("--serve", type=int, nargs="?", const=8765, metavar="PORT", help="serve the map on 127.0.0.1")
     args = ap.parse_args()
 
     raw = json.loads(args.issues.read_text()) if args.issues else fetch_issues(args.repo)
-    graph = build(Tree(ROOT, args.ref), raw, args.repo)
+    tree = Tree(ROOT, args.ref)
+    graph = build(tree, raw, args.repo, None if args.no_code else tree.code_graph())
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "issues.json").write_text(json.dumps(raw))
     (args.out / "graph.json").write_text(json.dumps(graph))
     shutil.copy(PAGE, args.out / "index.html")
     inferred = sum(e["kind"] == "inferred" for e in graph["edges"])
     print(f"{len(graph['issues'])} issues, {len(graph['edges'])} links ({inferred} inferred), "
-          f"{len(graph['modules'])} modules, {len(graph['adrs'])} ADRs at {graph['sha']} -> {args.out}", flush=True)
+          f"{len(graph['modules'])} modules, {len(graph['adrs'])} ADRs, {len(graph['two_way'])} two-way module pairs "
+          f"at {graph['sha']} -> {args.out}", flush=True)
     if args.serve:
         handler = functools.partial(Utf8Handler, directory=str(args.out))
         print(f"http://127.0.0.1:{args.serve}/", flush=True)

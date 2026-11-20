@@ -123,6 +123,28 @@ ul.links button.lk:hover{color:var(--accent);text-decoration:underline}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 .btn{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600;text-decoration:none;color:var(--ink)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.meter{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.meter .track{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--st-ready),var(--st-decide),var(--st-waiting));position:relative;opacity:.85}
+.meter .track i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--ink)}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nums div{border:1px solid var(--line);border-radius:6px;padding:6px 8px;display:flex;flex-direction:column;gap:2px}
+.nums b{font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums}
+.nums span{font-size:11px;color:var(--muted)}
+details.calls{border-top:1px solid var(--line);padding-block:5px}
+details.calls summary{cursor:pointer;font-size:13px;display:flex;gap:8px;align-items:baseline;list-style:none}
+details.calls summary::-webkit-details-marker{display:none}
+details.calls summary::before{content:"▸";color:var(--muted);font-size:10px}
+details.calls[open] summary::before{content:"▾"}
+details.calls summary .c{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.refs{list-style:none;margin:6px 0 2px;padding:0 0 0 16px;display:flex;flex-direction:column;gap:2px;font-family:var(--f-mono);font-size:11.5px}
+.refs a{color:var(--muted);text-decoration:none}
+.refs a:hover{color:var(--accent);text-decoration:underline}
+.refs b{color:var(--ink);font-weight:500}
+.tw{display:flex;flex-direction:column;gap:3px;border:1px solid color-mix(in srgb,var(--st-waiting) 40%,var(--line));border-radius:6px;padding:7px 9px;font-size:12.5px}
+.tw .h{display:flex;gap:8px;align-items:baseline}
+.tw .h .c{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.mnode .tw2{color:var(--st-waiting);font-family:var(--f-mono);font-size:10px}
+.tool[aria-pressed="true"]{border-color:var(--st-waiting);color:var(--st-waiting)}
 .empty{padding:40px 16px;text-align:center;color:var(--muted)}
 @media (max-width:760px){
   .stats{margin-left:0;width:100%}
@@ -147,7 +169,7 @@ ul.links button.lk:hover{color:var(--accent);text-decoration:underline}
   <section class="view" id="system" aria-label="System view">
     <svg class="canvas" id="sysSvg" role="img" aria-label="Module graph with open issues per module"></svg>
     <div class="legend" id="sysLegend"></div>
-    <div class="tools"><button class="tool" id="sysFit">Fit</button></div>
+    <div class="tools"><button class="tool" id="pairsBtn" aria-pressed="false">Two-way pairs</button><button class="tool" id="sysFit">Fit</button></div>
   </section>
   <section class="view" id="work" aria-label="Work view" hidden>
     <div class="graphwrap">
@@ -249,7 +271,7 @@ function renderFilter(){
 
 function legends(){
   const sw = s => `<span><i class="dot" style="background:${sc(s)}"></i>${STAGES[s].label}</span>`;
-  $("sysLegend").innerHTML = BOARD.map(sw).join("") + `<span>bar = open issues by stage</span>`;
+  $("sysLegend").innerHTML = BOARD.map(sw).join("") + `<span>bar = open issues by stage</span><span><b class="mono" style="color:var(--st-waiting)">⇄n</b> uses and is used by n modules</span>`;
   $("workLegend").innerHTML = BOARD.map(sw).join("") + sw("done") +
     `<span><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="var(--ink)" stroke-width="1.5"/></svg>GitHub link</span>` +
     `<span><svg width="26" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"/></svg>inferred</span>` +
@@ -349,9 +371,10 @@ function buildSystem(){
   G.modules.forEach(m => {
     const n = pos[m.id];
     const ver = m.features.filter(f => f.status === "verified").length;
-    const ct = [`${m.open.length} open`, m.features.length ? `${ver}/${m.features.length} feat` : "", m.adrs.length ? `${m.adrs.length} ADR` : ""].filter(Boolean).join(" · ");
+    const ct = [`${m.open.length} open`, m.code ? `used by ${m.code.fan_in}` : "", m.features.length ? `${ver}/${m.features.length} feat` : "", m.adrs.length ? `${m.adrs.length} ADR` : ""].filter(Boolean).join(" · ");
+    const tw = (G.two_way || []).filter(p => p.a === m.id || p.b === m.id).length;
     html += `<foreignObject x="${n.x - W/2}" y="${n.y - H/2}" width="${W}" height="${H}"><div xmlns="http://www.w3.org/1999/xhtml" class="mnode${m.open.length >= 3 ? " hot" : ""}" data-m="${m.id}" tabindex="0" role="button" aria-label="${esc(m.label)}: ${esc(ct)}">
-      <div class="row"><span class="nm">${esc(m.label)}</span><span class="cr">${esc(m.crate.replace("construct-",""))}</span></div>
+      <div class="row"><span class="nm">${esc(m.label)}</span><span>${tw ? `<span class="tw2" title="uses and is used by ${tw} module${tw === 1 ? "" : "s"}">⇄${tw}</span> ` : ""}<span class="cr">${esc(m.crate.replace("construct-",""))}</span></span></div>
       ${stageBar(m.open)}<div class="ct">${esc(ct)}</div></div></foreignObject>`;
   });
   svg.innerHTML = html + `</g>`;
@@ -362,8 +385,19 @@ function buildSystem(){
   svg.addEventListener("keydown", e => { const n = e.target.closest(".mnode"); if (n && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); openModule(n.dataset.m); } });
   svg.addEventListener("pointerover", e => { const n = e.target.closest(".mnode"); hiModule(n ? n.dataset.m : area); });
   svg.addEventListener("pointerleave", () => hiModule(area));
+  const pb = $("pairsBtn");
+  if (!(G.two_way || []).length) pb.hidden = true;
+  pb.addEventListener("click", () => { showPairs = !showPairs; pb.setAttribute("aria-pressed", showPairs); if (showPairs){ area = null; renderFilter(); openPairs(); } else closeDrawer(); paintSystem(); });
 }
+let showPairs = false;
 function hiModule(id){
+  if (showPairs && !id){
+    const pk = new Set((G.two_way || []).flatMap(p => [p.a + ">" + p.b, p.b + ">" + p.a])), inPair = new Set((G.two_way || []).flatMap(p => [p.a, p.b]));
+    document.querySelectorAll("#sysEdges path").forEach(p => { const on = pk.has(p.dataset.a + ">" + p.dataset.b);
+      p.setAttribute("stroke", on ? "var(--st-waiting)" : "var(--edge)"); p.setAttribute("stroke-width", on ? 1.6 : 1); p.setAttribute("marker-end", "url(#mA)"); p.style.opacity = on ? .9 : .08; });
+    document.querySelectorAll(".mnode").forEach(n => n.classList.toggle("dim", !inPair.has(n.dataset.m)));
+    return;
+  }
   const near = new Set(id ? [id] : []);
   document.querySelectorAll("#sysEdges path").forEach(p => {
     const on = id && (p.dataset.a === id || p.dataset.b === id);
@@ -460,9 +494,36 @@ function drawer(html){ const d = $("drawer"); d.innerHTML = html; d.hidden = fal
   d.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => openIssue(+b.dataset.open)));
   d.querySelectorAll("[data-area]").forEach(b => b.addEventListener("click", () => { setArea(b.dataset.area); if (b.dataset.go) setView(b.dataset.go, true); }));
 }
-function closeDrawer(){ $("drawer").hidden = true; selected = null; document.querySelectorAll(".inode.sel").forEach(n => n.classList.remove("sel")); }
+function closeDrawer(){ $("drawer").hidden = true; selected = null; if (showPairs){ showPairs = false; $("pairsBtn").setAttribute("aria-pressed", "false"); hiModule(area); } document.querySelectorAll(".inode.sel").forEach(n => n.classList.remove("sel")); }
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 const ilink = (n, extra="") => { const i = byN[n]; return `<li><span class="n">#${n}</span><span><button class="lk" data-open="${n}">${esc(i ? i.title : "")}</button> <span class="tag" style="color:${sc(i?.stage||"shape")}">${i ? STAGES[i.stage].label : ""}</span>${extra}</span></li>`; };
+
+const srcUrl = (file, line) => `https://github.com/${G.repo}/blob/${G.full_sha || G.sha}/${file}#L${line}`;
+const shortFile = f => f.replace(/^crates\/construct-core\/src\//, "").replace(/^crates\//, "");
+const refLi = ([file, line, item], label) => `<li><a href="${esc(srcUrl(file, line))}" target="_blank" rel="noopener">${esc(shortFile(file))}:${line}</a> <b>${esc(label ?? item ?? "")}</b></li>`;
+function pairBlock(p, me){
+  const other = p.a === me ? p.b : p.a, mine = p.a === me ? p.ab : p.ba, theirs = p.a === me ? p.ba : p.ab;
+  return `<div class="tw"><div class="h"><span><b class="mono">${esc(me ?? p.a)}</b> ⇄ <b class="mono">${esc(me ? other : p.b)}</b></span><span class="c">${me ? `${mine} out · ${theirs} in` : `${p.ab} · ${p.ba}`}</span></div>
+    <span class="ex" style="font-size:12px">Thinnest side: <span class="mono">${esc(p.thin_from)} → ${esc(p.thin_to)}</span>, ${p.thin.length} reference${p.thin.length === 1 ? "" : "s"}. Cutting ${p.thin.length === 1 ? "it" : "them"} breaks this loop.</span>
+    <ul class="refs" style="padding-left:0">${p.thin.map(r => refLi(r, r[2] ? `${p.thin_to}::${r[2]}` : p.thin_to)).join("")}</ul></div>`;
+}
+function codeSection(m){
+  const c = m.code; if (!c) return "";
+  const pairs = (G.two_way || []).filter(p => p.a === m.id || p.b === m.id);
+  const ins = c.instability;
+  return `<div><h3>Coupling</h3><div class="nums"><div><b>${c.fan_in}</b><span>modules use it (${c.refs_in} refs)</span></div><div><b>${c.fan_out}</b><span>modules it uses</span></div><div><b>${c.items.length}</b><span>items others use</span></div></div>
+    ${ins !== null ? `<div class="meter" style="margin-top:8px"><span>stable</span><span class="track"><i style="left:calc(${ins * 100}% - 1px)"></i></span><span>unstable · ${ins.toFixed(2)}</span></div>
+    <p class="ex" style="font-size:12px;margin-top:4px">Instability is the share of its module links that point outward. Near 0, many lean on it and it should change rarely; near 1, it leans on others and is cheap to change.</p>` : ""}</div>
+    ${pairs.length ? `<div><h3>Two-way with · ${pairs.length}</h3><div style="display:flex;flex-direction:column;gap:6px">${pairs.map(p => pairBlock(p, m.id)).join("")}</div></div>` : ""}
+    ${c.items.length ? `<div><h3>Interface · what others use</h3><ul class="links">${c.items.slice(0, 40).map(i => `<li><span class="n">${i.refs}×</span><span><span class="mono">${esc(m.label)}::${esc(i.name)}</span> <span class="why">from ${esc(i.from.join(", "))}</span></span></li>`).join("")}</ul>${c.items.length > 40 ? `<p class="ex">and ${c.items.length - 40} more</p>` : ""}</div>` : ""}
+    ${c.used_by.length ? `<div><h3>Used by · ${c.used_by.length} module${c.used_by.length === 1 ? "" : "s"}</h3>${c.used_by.map(u => `<details class="calls"><summary><span class="mono">${esc(u.from)}</span><span class="c">${u.refs.length} ref${u.refs.length === 1 ? "" : "s"}</span></summary><ul class="refs">${u.refs.map(r => refLi(r, r[2] ? `${m.label}::${r[2]}` : m.label)).join("")}</ul></details>`).join("")}</div>` : `<div><h3>Used by</h3><p class="ex">Nothing else in the workspace references it.</p></div>`}`;
+}
+function openPairs(){
+  const ps = G.two_way || [];
+  drawer(`<div class="dhead"><h2>Two-way module pairs · ${ps.length}</h2><button class="close" aria-label="Close">✕</button></div><div class="dbody">
+    <p class="ex">Each pair uses the other, so neither can change, test or move to its own crate alone. Thinnest side first: the fewer references on one side, the cheaper the cut.${(G.cycles || [])[0] ? ` Together these loops join ${G.cycles[0].length} modules into one cycle.` : ""}</p>
+    <div style="display:flex;flex-direction:column;gap:6px">${ps.map(p => pairBlock(p, null)).join("")}</div></div>`);
+}
 
 function openModule(id){
   const m = modById[id]; setArea(id);
@@ -474,6 +535,7 @@ function openModule(id){
     ${m.submodules.length ? `<dt>Modules</dt><dd class="mono">${m.submodules.length}: ${esc(m.submodules.join(", "))}</dd>` : ""}
     ${uses.length ? `<dt>Uses</dt><dd class="mono">${esc(uses.join(", "))}</dd>` : ""}${usedBy.length ? `<dt>Used by</dt><dd class="mono">${esc(usedBy.join(", "))}</dd>` : ""}</dl>
     <div class="btnrow"><button class="btn primary" data-area="${id}" data-go="work">Dependency graph for ${esc(m.label)}</button><button class="btn" data-area="${id}" data-go="next">Board for ${esc(m.label)}</button></div>
+    ${codeSection(m)}
     <div><h3>Open issues · ${m.open.length}</h3>${byStage.length ? byStage.map(([s,l]) => `<ul class="links">${l.map(i => ilink(i.n, i.unblocks ? ` <span class="tag unb">unblocks ${i.unblocks}</span>` : "")).join("")}</ul>`).join("") : `<p class="ex">No open issues mention this module.</p>`}</div>
     ${m.features.length ? `<div><h3>Features · ${m.features.length}</h3><ul class="links">${m.features.map(f => `<li><span class="n">${esc(f.status)}</span><span>${esc(f.title)}${f.verified_at ? ` <span class="why">verified at ${esc(f.verified_at.slice(0,7))}</span>` : ""}</span></li>`).join("")}</ul></div>` : ""}
     ${m.adrs.length ? `<div><h3>Decisions · ${m.adrs.length}</h3><ul class="links">${m.adrs.map(d => `<li><span class="n">${d.id}</span><span>${esc(d.title.replace(/^\d{4}\s*[—-]\s*/,""))}${d.status !== "accepted" ? ` <span class="tag" style="color:var(--st-decide)">${esc(d.status)}</span>` : ""}</span></li>`).join("")}</ul></div>` : ""}

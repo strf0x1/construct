@@ -30,6 +30,9 @@ pub(super) struct Edge {
     pub(super) to: String,
     pub(super) file: String,
     pub(super) line: usize,
+    /// The names right after the module (`crate::jev::ask` names `ask`);
+    /// empty when the path stops at the module (`use crate::jev;`).
+    pub(super) items: Vec<String>,
 }
 
 /// An edge from one workspace crate to another (package names), with the
@@ -43,13 +46,17 @@ pub(super) struct CrossEdge {
     pub(super) modules: Vec<String>,
     pub(super) file: String,
     pub(super) line: usize,
+    /// Each module path named, with the item after it when there is one:
+    /// `jev::ask`, or `jev` alone.
+    pub(super) items: Vec<String>,
 }
 
-/// What a path names: a module of the same package, or another crate with
-/// the first segment of each branch after its root (candidate modules).
+/// What a path names: a module of the same package (with the items after
+/// it), or another crate with the first segment of each branch after its
+/// root (candidate modules) and the items after each.
 pub(super) enum Ref {
-    Module(String),
-    Crate(String, Vec<String>),
+    Module(String, Vec<String>),
+    Crate(String, Vec<(String, Vec<String>)>),
 }
 
 /// One source file of a crate, lexed, with its test code removed.
@@ -154,15 +161,15 @@ fn is(t: &[Token], i: usize, tok: &Tok) -> bool {
 
 /// The first segment of each path that starts at `i`: one name, or each
 /// branch of a `{..}` group.
-fn heads(t: &[Token], i: usize) -> Vec<(String, usize)> {
+fn heads(t: &[Token], i: usize) -> Vec<(String, usize, usize)> {
     if let Some(w) = ident(t, i) {
-        return vec![(w.to_string(), t[i].line)];
+        return vec![(w.to_string(), t[i].line, i)];
     }
     if !is(t, i, &Tok::Punct('{')) {
         return Vec::new();
     }
     let (mut out, mut depth, mut start) = (Vec::new(), 0, true);
-    for tok in &t[i..] {
+    for (k, tok) in t.iter().enumerate().skip(i) {
         match &tok.tok {
             Tok::Punct('{') => {
                 depth += 1;
@@ -180,12 +187,21 @@ fn heads(t: &[Token], i: usize) -> Vec<(String, usize)> {
                 start = true;
                 continue;
             }
-            Tok::Ident(w) if start && depth == 1 => out.push((w.clone(), tok.line)),
+            Tok::Ident(w) if start && depth == 1 => out.push((w.clone(), tok.line, k)),
             _ => {}
         }
         start = false;
     }
     out
+}
+
+/// The names after the segment at `i`, when a `::` follows it: `ask` in
+/// `jev::ask`, `ask` and `Budget` in `jev::{ask, Budget}`.
+fn after(t: &[Token], i: usize) -> Vec<String> {
+    if !is(t, i + 1, &Tok::PathSep) {
+        return Vec::new();
+    }
+    heads(t, i + 2).into_iter().map(|(w, ..)| w).filter(|w| w != "self").collect()
 }
 
 /// What `src` names at a crate root, with lines: its own top-level modules
@@ -236,8 +252,8 @@ pub(super) fn references(src: &Source, idents: &BTreeMap<String, String>, own: &
                 out.extend(
                     heads(t, j)
                         .into_iter()
-                        .filter(|(w, _)| !matches!(w.as_str(), "self" | "super" | "crate"))
-                        .map(|(w, line)| (Ref::Module(w), line)),
+                        .filter(|(w, ..)| !matches!(w.as_str(), "self" | "super" | "crate"))
+                        .map(|(w, line, k)| (Ref::Module(w, after(t, k)), line)),
                 );
             }
             Some((true, j)) => out.push((
@@ -245,8 +261,8 @@ pub(super) fn references(src: &Source, idents: &BTreeMap<String, String>, own: &
                     idents[w].clone(),
                     heads(t, j)
                         .into_iter()
-                        .filter(|(h, _)| !matches!(h.as_str(), "self" | "super" | "crate"))
-                        .map(|(h, _)| h)
+                        .filter(|(h, ..)| !matches!(h.as_str(), "self" | "super" | "crate"))
+                        .map(|(h, _, k)| (h, after(t, k)))
                         .collect(),
                 ),
                 t[i].line,

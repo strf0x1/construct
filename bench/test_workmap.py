@@ -37,8 +37,8 @@ class FakeTree:
     def ls(self, path):
         return sorted(p for p in FILES if p.startswith(path + "/"))
 
-    def sha(self):
-        return "abc1234"
+    def sha(self, short=True):
+        return "abc1234" if short else "abc1234" + "0" * 33
 
 
 def issue(n, title, body="", state="OPEN", reason=None, labels=(), blocked_by=(), subs=()):
@@ -94,6 +94,55 @@ class WorkMapTest(unittest.TestCase):
         self.assertEqual([(a["id"], a["implements"]) for a in self.g["adrs"]], [("0008", [2])])
         self.assertEqual(self.by[2]["adrs"], ["0008"])
         self.assertEqual(self.g["features"][0]["areas"], ["journal", "tui"])
+
+
+# `construct-dev code-graph` output: learn and config use each other (config
+# thinly), router uses jev, and the TUI crate reaches into the core.
+CODE_GRAPH = {
+    "crates": [
+        {"name": "construct-core", "modules": ["config", "jev", "learn", "router"], "edges": [
+            {"from": "learn", "to": "jev", "file": "crates/construct-core/src/learn/gate.rs", "line": 138, "items": ["ask"]},
+            {"from": "router", "to": "jev", "file": "crates/construct-core/src/router.rs", "line": 135, "items": ["ask"]},
+            {"from": "learn", "to": "config", "file": "crates/construct-core/src/learn/mod.rs", "line": 9, "items": ["Config", "Paths"]},
+            {"from": "config", "to": "learn", "file": "crates/construct-core/src/config.rs", "line": 191, "items": ["HYBRID"]},
+        ]},
+        {"name": "construct-tui", "modules": ["app", "theme"], "edges": [
+            {"from": "app", "to": "theme", "file": "crates/construct-tui/src/app.rs", "line": 3, "items": ["Theme"]},
+        ]},
+    ],
+    "cross": [
+        {"from": "construct-tui", "to": "construct-core", "modules": ["jev"], "file": "crates/construct-tui/src/app.rs",
+         "line": 5, "items": ["jev::ask", "learn"]},
+    ],
+}
+
+
+class CodeGraphTest(unittest.TestCase):
+    def setUp(self):
+        arch = ARCH + "[crates.construct-core.modules.jev]\nmay_use = []\n[crates.construct-core.modules.learn]\n" \
+            "may_use = []\n[crates.construct-core.modules.config]\nmay_use = []\n[crates.construct-core.modules.router]\nmay_use = []\n"
+        FILES["docs/architecture.toml"] = arch
+        self.addCleanup(FILES.__setitem__, "docs/architecture.toml", ARCH)
+        self.g = workmap.build(FakeTree(), [], SLUG, CODE_GRAPH)
+        self.mods = {m["id"]: m for m in self.g["modules"]}
+
+    def test_used_by_lists_callers_items_and_lines(self):
+        jev = self.mods["jev"]["code"]
+        self.assertEqual(jev["fan_in"], 3)  # learn, router, and the TUI crate
+        self.assertEqual(jev["items"], [{"name": "ask", "refs": 3, "from": ["learn", "router", "tui"]}])
+        callers = {u["from"]: u["refs"] for u in jev["used_by"]}
+        self.assertEqual(callers["learn"], [["crates/construct-core/src/learn/gate.rs", 138, "ask"]])
+        self.assertNotIn("theme", self.mods)  # inside the TUI crate is one node's business
+
+    def test_two_way_pairs_name_the_thin_side(self):
+        self.assertEqual(len(self.g["two_way"]), 1)
+        pair = self.g["two_way"][0]
+        self.assertEqual((pair["a"], pair["b"], pair["ab"], pair["ba"]), ("config", "learn", 1, 2))
+        self.assertEqual((pair["thin_from"], pair["thin_to"]), ("config", "learn"))
+        self.assertEqual(pair["thin"], [["crates/construct-core/src/config.rs", 191, "HYBRID"]])
+        self.assertEqual(self.g["cycles"], [["config", "learn"]])
+        self.assertEqual(self.mods["config"]["code"]["cycle"], 0)
+        self.assertEqual(self.mods["tui"]["code"]["instability"], 1.0)
 
 
 if __name__ == "__main__":
