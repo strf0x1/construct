@@ -469,3 +469,27 @@ fn a_ratchet_that_falls_asks_for_the_lower_baseline() {
         ]
     );
 }
+
+#[test]
+fn the_code_graph_names_items_and_follows_bare_imports() {
+    let t = tree("code-graph");
+    write(
+        &t,
+        "crates/construct/src/a.rs",
+        "//! a\nuse crate::b::{X, Y};\nuse crate::c;\nfn f() {\n    c::run();\n    let _ = c::Thing::new();\n}\n",
+    );
+    let g = code_graph(&t.0);
+    let edges: Vec<(String, String, u64, Vec<String>)> = g["crates"][0]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            let items = e["items"].as_array().unwrap().iter().map(|i| i.as_str().unwrap().to_string()).collect();
+            (e["from"].as_str().unwrap().into(), e["to"].as_str().unwrap().into(), e["line"].as_u64().unwrap(), items)
+        })
+        .collect();
+    let want =
+        |f: &str, to: &str, l: u64, i: &[&str]| (f.into(), to.into(), l, i.iter().map(|s| s.to_string()).collect());
+    // the bare `use crate::c;` on line 3 is replaced by the two uses of c
+    assert_eq!(edges, vec![want("a", "b", 2, &["X", "Y"]), want("a", "c", 5, &["run"]), want("a", "c", 6, &["Thing"])]);
+}
