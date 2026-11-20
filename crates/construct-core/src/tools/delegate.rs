@@ -18,6 +18,7 @@ use crate::agents::AgentDef;
 use crate::child::run::{Outcome, Spec, Stop, run};
 use crate::child::{self, MAX_DEPTH};
 use crate::config::Config;
+use crate::sandbox::Grant;
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -116,7 +117,8 @@ impl Tool for Delegate {
         let background = args.get("background").and_then(Value::as_bool).unwrap_or(false);
         let reserved = if background { Some(background::reserve(call, name, &p.def, &p.running)?) } else { None };
         let tag: String = call.id.chars().filter(char::is_ascii_alphanumeric).collect();
-        let policy = ctx.policy().for_agent(&p.def, &ctx.paths, &tag, p.port).map_err(ToolError::sandbox)?;
+        let grant = Grant::new(&p.def.allow_read, &p.def.allow_write, p.def.network);
+        let policy = ctx.policy().for_agent(grant, &ctx.paths, &tag, p.port).map_err(ToolError::sandbox)?;
         // What the user lent this agent earlier in the session.
         let lent = ctx.perms.roots_for(name);
         let policy = policy.widened(&lent.read, &lent.write);

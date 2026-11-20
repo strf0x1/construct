@@ -116,7 +116,7 @@ may_use = ["config", "endpoint", "models"]
 may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]
 
 [crates.construct-core.modules.sandbox]
-may_use = ["agents", "config", "secrets"]
+may_use = ["config", "secrets"]
 
 [crates.construct-core.modules.secrets]
 may_use = []
