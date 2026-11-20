@@ -95,6 +95,7 @@ pub struct Boundary {
 
 impl Boundary {
     pub fn new(base_url: &str) -> Self {
+        crate::llm::ensure_crypto();
         #[expect(
             clippy::expect_used,
             reason = "fails only when the TLS backend can't start, and the endpoint is loopback HTTP"

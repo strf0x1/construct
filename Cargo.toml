@@ -26,7 +26,10 @@ futures = "0.3"
 rusqlite = { version = "0.41", features = ["bundled", "hooks"] }
 # The TUI's quiet_stderr and the engine's sandbox/acp both dup descriptors.
 libc = "0.2"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
+# rustls-no-provider: the plain "rustls" feature hardwires aws-lc-rs (a
+# BoringSSL fork, MBs of code). ring is installed at startup instead (#271).
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "stream", "json"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde = { version = "1", features = ["derive"] }
 # preserve_order everywhere: JSON keeps wire order, and snapshot key order
 # doesn't depend on which crates a test run happens to unify.

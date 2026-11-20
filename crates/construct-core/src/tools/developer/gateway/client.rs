@@ -36,6 +36,7 @@ pub struct Gateway {
 impl Gateway {
     pub fn new(base: &str) -> Result<Self, ToolError> {
         // Loopback in the guest: a proxy variable must not send it elsewhere.
+        crate::llm::ensure_crypto();
         let http = reqwest::Client::builder()
             .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(2))

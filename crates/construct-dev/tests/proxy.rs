@@ -46,6 +46,7 @@ fn proxy_cli_resolves_only_the_declared_secret_and_never_the_openrouter_fallback
     };
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
     let reply: Value = rt.block_on(async {
+        construct_core::llm::ensure_crypto();
         reqwest::Client::new()
             .post(format!("http://127.0.0.1:{port}/v1/chat/completions"))
             .bearer_auth("harness-placeholder")
@@ -139,6 +140,7 @@ fn proxy_keeps_orca_affinity_and_cost_without_forwarding_unrelated_headers() {
     assert_eq!(record["usage"]["cost_usd"], 0.002);
     assert!(!record.to_string().contains("proxy-upstream-key"));
     let receipt_id = rt.block_on(async {
+        construct_core::llm::ensure_crypto();
         let response = reqwest::Client::new()
             .post(format!("http://127.0.0.1:{proxy}/v1/chat/completions"))
             .header("x-orcarouter-session-id", "conversation-1")

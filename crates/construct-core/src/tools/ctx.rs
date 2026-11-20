@@ -52,6 +52,7 @@ impl Ctx {
         mcp: Option<Arc<crate::mcp::Manager>>,
         sandbox: crate::sandbox::Policy,
     ) -> Self {
+        crate::llm::ensure_crypto();
         #[expect(
             clippy::expect_used,
             reason = "fails only when the TLS backend can't start, and no tool works without it"

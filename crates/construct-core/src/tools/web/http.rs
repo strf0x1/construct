@@ -137,10 +137,17 @@ mod tests {
         format!("HTTP/1.1 {status}\r\ncontent-length: {}\r\nconnection: close\r\n{headers}\r\n{body}", body.len())
     }
 
+    /// The engine installs its TLS provider lazily (#271); tests build clients
+    /// without the binary's startup, so they ask for it here.
+    fn client() -> reqwest::Client {
+        crate::llm::ensure_crypto();
+        reqwest::Client::new()
+    }
+
     #[tokio::test]
     async fn a_bad_key_is_an_error_not_an_empty_answer() {
         let url = serve(vec![reply("401 Unauthorized", "", r#"{"error":"nope"}"#)]).await;
-        let err = send_json("Exa", "EXA_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
+        let err = send_json("Exa", "EXA_API_KEY", client().get(&url)).await.unwrap_err();
         assert!(err.message.contains("rejected the key") && !err.transient, "{}", err.message);
     }
 
@@ -151,14 +158,14 @@ mod tests {
             reply("200 OK", "", r#"{"ok":true}"#),
         ])
         .await;
-        let v = send_json("Tavily", "TAVILY_API_KEY", reqwest::Client::new().get(&url)).await.unwrap();
+        let v = send_json("Tavily", "TAVILY_API_KEY", client().get(&url)).await.unwrap();
         assert_eq!(v["ok"], true);
     }
 
     #[tokio::test]
     async fn a_long_rate_limit_is_reported_without_waiting() {
         let url = serve(vec![reply("429 Too Many Requests", "retry-after: 60\r\n", "")]).await;
-        let err = send_json("Brave", "BRAVE_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
+        let err = send_json("Brave", "BRAVE_API_KEY", client().get(&url)).await.unwrap_err();
         assert!(err.message.contains("retry in 60s") && err.transient, "{}", err.message);
     }
 
@@ -169,9 +176,9 @@ mod tests {
             reply("422 Unprocessable", "", r#"{"detail":"bad"}"#),
         ])
         .await;
-        let client = reqwest::Client::new();
-        assert!(send_json("Exa", "EXA_API_KEY", client.get(&url)).await.unwrap_err().transient);
-        assert!(!send_json("Exa", "EXA_API_KEY", client.get(&url)).await.unwrap_err().transient);
+        let http = client();
+        assert!(send_json("Exa", "EXA_API_KEY", http.get(&url)).await.unwrap_err().transient);
+        assert!(!send_json("Exa", "EXA_API_KEY", http.get(&url)).await.unwrap_err().transient);
     }
 
     #[tokio::test]
@@ -179,7 +186,7 @@ mod tests {
         let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", l.local_addr().unwrap());
         drop(l);
-        let err = send_json("Exa", "EXA_API_KEY", reqwest::Client::new().get(&url)).await.unwrap_err();
+        let err = send_json("Exa", "EXA_API_KEY", client().get(&url)).await.unwrap_err();
         assert!(err.transient && err.message.starts_with("Exa request failed"), "{}", err.message);
     }
 }
