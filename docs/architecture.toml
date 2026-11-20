@@ -38,7 +38,7 @@ may_use_crates = []
 may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
 
 [crates.construct-core.modules.agent]
-may_use = ["child", "compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
+may_use = ["compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
 
 [crates.construct-core.modules.agents]
 may_use = ["child", "config", "sandbox", "tools"]

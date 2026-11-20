@@ -9,25 +9,13 @@
 //! the protocol, and a protocol can't leave a child running.
 
 use super::run::Outcome;
+pub use crate::agent::Origin;
 use crate::config::Config;
 use crate::event::Event;
 use crate::permission::{Decision, Request};
-use crate::sandbox::Policy;
 use crate::tools::Call;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
-/// What makes a session a child's: the prompt it runs under and who
-/// delegated to it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Origin {
-    /// The sandbox the child's whole process runs under, which its own file
-    /// tools check against too, so a refusal names the real boundary.
-    pub policy: Policy,
-    pub system: String,
-    pub parent_session: String,
-    pub parent_call_id: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
