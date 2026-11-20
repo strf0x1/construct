@@ -179,7 +179,7 @@ pub enum Event {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fallback: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        cut: Option<crate::compact::Cut>,
+        cut: Option<payload::Cut>,
     },
     /// The `optchat` tree changed (ADR 0043): written leaves and merges, and
     /// the view when its shape moved. Replay rebuilds from these.
@@ -267,12 +267,11 @@ pub enum Event {
         request: crate::permission::Request,
     },
     /// A background job started (ADR 0026, `jobs`).
-    JobStart(crate::jobs::Started),
-    /// A background job ended, however it did. Never a `User` row; only some
-    /// endings wake the agent (`jobs::Status::wakes`).
-    JobEnd(crate::jobs::Info),
-    /// The model was given these endings (`jobs::Delivered`).
-    JobsDelivered(crate::jobs::Delivered),
+    JobStart(payload::Started),
+    /// A background job ended, however it did; only some endings wake the agent.
+    JobEnd(payload::Info),
+    /// The model was given these endings (`payload::Delivered`).
+    JobsDelivered(payload::Delivered),
     /// A boundary decision Deck pushed over ACP (either boundary method), put on
     /// the next model request. It informs; it grants nothing, and the agent
     /// cannot answer it with a decision.
@@ -300,6 +299,7 @@ pub enum Event {
 }
 
 mod output;
+pub mod payload;
 mod projection;
 mod submission;
 pub use {output::OutputKind, projection::MemoryNode, submission::Submission};

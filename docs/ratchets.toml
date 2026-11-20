@@ -13,7 +13,7 @@
 "crates/construct-core/src/acp/client.rs" = 399
 "crates/construct-core/src/agent.rs" = 339
 "crates/construct-core/src/child/run.rs" = 324
-"crates/construct-core/src/compact/mod.rs" = 323
+"crates/construct-core/src/compact/mod.rs" = 303
 "crates/construct-core/src/config.rs" = 320
 "crates/construct-core/src/event.rs" = 305
 "crates/construct-core/src/router.rs" = 304
@@ -38,7 +38,6 @@ construct-core = [
     "config <-> models",
     "config <-> providers",
     "config <-> tools",
-    "event <-> jobs",
     "event <-> permission",
     "jobs <-> journal",
     "journal <-> llm",

@@ -15,9 +15,10 @@ mod config;
 mod info;
 mod spec;
 
+pub use crate::event::payload::{Delivered, Info, Kind, Started, Status};
 pub use command::body as command_body;
 pub use config::{JobsConfig, ShellConfig};
-pub use info::{Delivered, Info, Kind, Started, Status, TAIL_MAX, Tail, highest_id, render, unconsumed};
+pub use info::{TAIL_MAX, Tail, highest_id, render, unconsumed};
 pub use spec::{Body, Finish, Run, Spec};
 
 use crate::event::{Event, Events};
