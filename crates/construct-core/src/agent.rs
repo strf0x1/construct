@@ -13,7 +13,6 @@ mod user_turn;
 mod view;
 mod wake;
 
-use crate::child::Origin;
 use crate::compact::{self, Reason};
 use crate::config::{Config, Paths};
 use crate::journal::{self, notes::Coalescer};
@@ -22,6 +21,7 @@ use crate::manifest::Manifest;
 use crate::router::{self, Route};
 use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group};
 use anyhow::Result;
+pub use restore::Origin;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;

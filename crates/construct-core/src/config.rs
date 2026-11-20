@@ -11,8 +11,9 @@ use std::path::{Path, PathBuf};
 mod baked;
 pub mod context;
 pub mod deck;
+pub mod learn;
 mod mcp;
-pub use {context::ContextConfig, deck::DeckConfig, mcp::McpServer};
+pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -109,26 +110,6 @@ pub struct MemoryConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct LearnConfig {
-    pub enabled: bool,
-    /// Review memory after this many user turns.
-    pub memory_every_turns: u32,
-    /// Review skills after this many tool calls.
-    pub skill_every_tool_calls: u32,
-    /// Model for the learning pass; empty means the main model.
-    pub model: String,
-    /// Days between curator passes over agent-written skills.
-    pub curator_every_days: u32,
-    /// How a session becomes something the next one can use. "hybrid" (the
-    /// default, ADR 0022): facts and conventions as playbook bullets,
-    /// procedures as project skills with a pointer bullet. The others stay as
-    /// bench arms: "skills" (the gate, ledger and recurrence-gated skills),
-    /// "corrections", "playbook", "workflow". The constants are in `learn`.
-    pub strategy: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
 pub struct RouterConfig {
     /// "auto" uses Jev when TYPESAFE_API_KEY resolves, otherwise the local
     /// lexical router. "jev", "local", or "off" force one.
@@ -177,19 +158,6 @@ impl Default for MemoryConfig {
     fn default() -> Self {
         // Hermes's defaults: small enough to stay in every prompt.
         Self { memory_chars: 2200, user_chars: 1375, project_chars: 1500 }
-    }
-}
-
-impl Default for LearnConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            memory_every_turns: 6,
-            skill_every_tool_calls: 10,
-            model: String::new(),
-            curator_every_days: 7,
-            strategy: crate::learn::HYBRID.into(),
-        }
     }
 }
 
@@ -382,7 +350,7 @@ impl Config {
         cfg.check_providers().with_context(|| format!("in {}", path.display()))?;
         cfg.select_model(&cfg.model.clone())?;
         for name in cfg.mcp.keys() {
-            crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+            mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }
         for name in cfg.agents.keys() {
             crate::agents::check_name(name).with_context(|| format!("in {}", path.display()))?;

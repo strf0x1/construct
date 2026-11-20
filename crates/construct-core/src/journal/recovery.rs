@@ -96,7 +96,7 @@ fn repairs(entries: &[Entry]) -> Result<Vec<Event>> {
                 ok: false,
                 output: output.clone(),
                 ms: 0,
-                kind: crate::tools::OutputKind::Plain,
+                kind: crate::event::OutputKind::Plain,
                 data: None,
                 code: Some("interrupted_unknown".into()),
             });

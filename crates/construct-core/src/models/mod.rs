@@ -21,6 +21,14 @@ use std::path::Path;
 mod select;
 pub use select::{Defaults, WindowSource};
 
+/// Where a selector goes: a named provider (`None` is `default`) and the id
+/// the request carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Resolved {
+    pub provider: Option<String>,
+    pub id: String,
+}
+
 /// One catalog entry. Everything is optional: an entry names only what
 /// differs from the top-level settings.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
