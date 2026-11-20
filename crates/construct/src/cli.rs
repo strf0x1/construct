@@ -258,6 +258,9 @@ pub fn run() -> Result<()> {
         Some(Cmd::Gate) => rt.block_on(evals::gate(cfg)),
         Some(Cmd::Config) => {
             println!("# {}\n{}", paths.config().display(), toml::to_string_pretty(&cfg)?);
+            for (key, source) in &cfg.provenance {
+                println!("# {key} = {source}");
+            }
             print!("{}", mcp_policies(&cfg, &paths, &std::env::current_dir()?));
             Ok(())
         }
