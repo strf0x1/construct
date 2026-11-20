@@ -140,6 +140,7 @@ async fn same_problem_jev(
         json!({ "type": "choice", "instructions": "Which earlier observation is the same kind of problem as `new` (would be solved by the same procedure), if any?", "criteria": criteria }),
     );
     let state = json!({ "new": format!("{}: {}", o.problem_class, o.summary) });
+    crate::llm::ensure_crypto();
     let v = crate::jev::ask(
         &cfg.router,
         &reqwest::Client::new(),

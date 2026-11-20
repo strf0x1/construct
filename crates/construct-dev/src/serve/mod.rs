@@ -20,6 +20,7 @@
 
 mod forward;
 mod headers;
+mod http;
 mod key;
 mod models;
 mod receipt;
@@ -87,12 +88,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
     if let Some(d) = &cfg.dump_dir {
         std::fs::create_dir_all(d)?;
     }
-    let mut http = reqwest::Client::builder().pool_idle_timeout(Duration::from_secs(120));
-    if cfg.upstream.as_deref().is_some_and(headers::is_orca) {
-        // A benchmark admission accounts for one dispatch. Leave retries to
-        // the harness, where each attempt passes through the guard.
-        http = http.redirect(reqwest::redirect::Policy::none()).retry(reqwest::retry::never());
-    }
+    let http = http::client(cfg.upstream.as_deref().is_some_and(headers::is_orca))?;
     let shared = Arc::new(Shared {
         cfg,
         next: Mutex::new(0),
@@ -102,7 +98,7 @@ pub async fn serve(cfg: Config, port: u16) -> Result<(u16, tokio::task::JoinHand
         log: Mutex::new(log),
         count: Mutex::new(0),
         prefixes: Mutex::new(HashSet::new()),
-        http: http.build()?,
+        http,
     });
     let app = Router::new().route("/{*path}", post(chat)).route("/{*path}", get(models::list)).with_state(shared);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;

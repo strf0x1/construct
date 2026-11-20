@@ -88,6 +88,7 @@ pub async fn send(
         ));
     }
     // Loopback: a proxy variable must not send it elsewhere.
+    crate::llm::ensure_crypto();
     let http = reqwest::Client::builder()
         .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(2))

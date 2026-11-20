@@ -8,7 +8,7 @@
 # list; a new file over it fails until it is split or listed here.
 [lines]
 "crates/construct-dev/src/drive.rs" = 458
-"crates/construct-dev/src/serve/mod.rs" = 436
+"crates/construct-dev/src/serve/mod.rs" = 432
 "crates/construct-dev/src/style.rs" = 375
 "crates/construct-core/src/acp/client.rs" = 399
 "crates/construct-core/src/agent.rs" = 339
