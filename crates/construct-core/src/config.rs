@@ -382,7 +382,7 @@ impl Config {
         cfg.check_providers().with_context(|| format!("in {}", path.display()))?;
         cfg.select_model(&cfg.model.clone())?;
         for name in cfg.mcp.keys() {
-            crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+            mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }
         for name in cfg.agents.keys() {
             crate::agents::check_name(name).with_context(|| format!("in {}", path.display()))?;
