@@ -8,7 +8,7 @@ the draft, and the installer only ever sees published releases.
 
 | | |
 | --- | --- |
-| Platforms | Linux x86-64 (`x86_64-unknown-linux-gnu`), built on Ubuntu 22.04, so it needs glibc 2.35 or newer; macOS Apple silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`), both built on a `macos-15` runner |
+| Platforms | Linux x86-64 glibc (`x86_64-unknown-linux-gnu`), built on Ubuntu 22.04, so it needs glibc 2.35 or newer; **static musl** for Linux x86-64 and arm64 (`x86_64/aarch64-unknown-linux-musl`, cross-built with zig), which run on any Linux kernel with no libc at all — rescue media, busybox initramfs, distros below the glibc floor; macOS Apple silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`), both built on a `macos-15` runner |
 | Compiler | Pinned by `RUSTUP_TOOLCHAIN` in the workflow, with the committed `Cargo.lock` (`--locked`) |
 | Archive | `construct-<target>.tar.gz`: the binary, `LICENSE`, `README.md`, `VERSION`, `THIRD-PARTY-LICENSES.txt` |
 | Checksums | `<archive>.sha256` per archive, and `SHA256SUMS` for all of them |
@@ -19,8 +19,10 @@ always points at the newest published build, and
 `.../releases/download/vX.Y.Z/...` at a specific one.
 
 Windows is not offered: the tool sandbox is Landlock on Linux and Seatbelt on
-macOS (ADR 0028), and there is nothing for Windows. Linux ARM64 comes once
-there's hardware to test it on.
+macOS (ADR 0028), and there is nothing for Windows. Linux ARM64 ships as a
+static musl build, smoke-tested on an arm64 runner (`ubuntu-24.04-arm`); the
+static builds are also run in alpine and busybox containers, where there is
+no glibc at all.
 
 The Mac binaries are not code-signed or notarized. Downloaded with `curl`, as
 the installer does, they carry no quarantine flag and run. Downloaded in a
