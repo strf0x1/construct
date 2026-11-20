@@ -21,7 +21,7 @@ pub mod rpc;
 pub mod server;
 mod turn;
 
-use crate::child::Origin;
+use crate::agent::Origin;
 use crate::config::Config;
 use serde::{Deserialize, Serialize};
 

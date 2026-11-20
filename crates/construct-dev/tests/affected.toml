@@ -1,0 +1,122 @@
+# Which end-to-end test files (modules of tests/it.rs) a change can reach.
+# `cargo xtask check --affected`, what CI runs on a pull request, runs only
+# those; a push to main runs every test. ADR 0054.
+#
+# Unlisted means everything: a changed path under crates/ that no area names
+# runs the whole `it` suite. So an area may only narrow, and only where you
+# are sure. Leave out anything every turn runs through (the agent loop, llm,
+# event, journal, config, prompt, compaction, context, router, memory,
+# skills, learn, sandbox, permission checks, providers, models, secrets, the
+# scripted endpoint in serve/, tests/common/). Those reach every test.
+#
+# A path is repo-relative: a file, or a directory with a trailing `/`. A
+# path several areas name reaches the union of their tests. Outside crates/,
+# only the workspace files (Cargo.*, .cargo/, .github/) reach everything;
+# docs, bench and scripts reach nothing unless an area names them, because
+# the tests read the repository only through `common::root()`. A test file
+# under tests/ reaches itself, and tests/snapshots/ reaches `snapshots`.
+#
+# When an e2e test starts to exercise an area (say, the TUI in a new file),
+# add its file to that area's `tests`. The `affected` gate checks that every
+# path exists and every test is a module of tests/it.rs, never that an area
+# is complete: the full run on main is the net under a missing entry.
+
+# The full-screen front end. Only `construct` with no subcommand starts it
+# (cli.rs); `run`, `acp` and `__child` never link a frame. These files drive
+# the TUI in a pty.
+[[area]]
+name = "tui"
+paths = [
+  "crates/construct-tui/src/",
+  "crates/construct-dev/src/drive.rs",
+  "crates/construct-dev/src/drive/",
+  "crates/construct-dev/src/style.rs",
+]
+tests = ["catalog", "delegate", "developer", "e2e", "jobs", "optchat", "permission", "providers", "recovery", "sessions", "slash", "snapshots", "turn"]
+
+# The repo's own tooling: compiled into the test binary, run by none of it.
+[[area]]
+name = "dev-tooling"
+paths = [
+  "crates/construct-dev/src/xtask.rs",
+  "crates/construct-dev/src/xtask/",
+  "crates/construct-dev/src/arch/",
+  "crates/construct-dev/src/feature_map/",
+  "crates/construct-dev/src/contract.rs",
+  "crates/construct-dev/src/deps.rs",
+  "crates/construct-dev/src/scratch.rs",
+]
+tests = []
+
+# construct-core's own contract tests run in its crate's gate; only the
+# vendored ACP contract is read by an e2e test (acp_payloads, via CONTRACT.lock).
+[[area]]
+name = "core-contract-tests"
+paths = ["crates/construct-core/tests/"]
+tests = []
+
+[[area]]
+name = "acp-contract"
+paths = ["CONTRACT.lock", "crates/construct-core/tests/fixtures/acp-contract/"]
+tests = ["acp_payloads"]
+
+# ACP: the editor-facing server, Deck's sessions over it, and the child wire
+# that reuses its framing.
+[[area]]
+name = "acp"
+paths = ["crates/construct-core/src/acp/", "crates/construct-dev/src/acp_fake.rs"]
+tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "child", "deck", "deck_control", "deck_github", "delegate", "developer", "permission"]
+
+# Deck-only tools: the boundary trio, the coordinator's `deck` tool and the
+# `developer` tool. Snapshots pin every tool schema the model is sent.
+[[area]]
+name = "deck-tools"
+paths = [
+  "crates/construct-core/src/tools/boundary/",
+  "crates/construct-core/src/tools/control/",
+  "crates/construct-core/src/tools/developer/",
+]
+tests = ["acp", "acp_live", "deck", "deck_control", "deck_github", "developer", "permission", "snapshots"]
+
+# Delegation: the tool and the child process it starts.
+[[area]]
+name = "delegate"
+paths = [
+  "crates/construct-core/src/child/",
+  "crates/construct-core/src/tools/delegate.rs",
+  "crates/construct-core/src/tools/delegate/",
+]
+tests = ["acp", "acp_payloads", "child", "delegate", "e2e", "jobs", "permission", "providers", "recovery", "sessions", "snapshots"]
+
+# Background jobs. crash_sweep's recorded session runs one.
+[[area]]
+name = "jobs"
+paths = [
+  "crates/construct-core/src/jobs/",
+  "crates/construct-core/src/tools/job.rs",
+  "crates/construct-core/src/tools/shell_job.rs",
+]
+tests = ["crash_sweep", "e2e", "jobs", "recovery", "sessions", "snapshots"]
+
+# MCP servers and their tools. ACP sessions name MCP servers too.
+[[area]]
+name = "mcp"
+paths = ["crates/construct-core/src/mcp/", "crates/construct-core/src/tools/mcp.rs", "crates/construct-dev/src/mcp_fake.rs"]
+tests = ["acp", "acp_keys", "acp_payloads", "deck", "e2e", "mcp", "snapshots"]
+
+# Routed tools only a few tests call.
+[[area]]
+name = "web"
+paths = ["crates/construct-core/src/tools/web.rs", "crates/construct-core/src/tools/web/"]
+tests = ["deck", "e2e", "snapshots"]
+
+[[area]]
+name = "history-tools"
+paths = ["crates/construct-core/src/tools/history.rs"]
+tests = ["e2e", "snapshots"]
+
+# The hashline editor; the default editor is "replace", which every test uses.
+[[area]]
+name = "hashline"
+paths = ["crates/construct-core/src/tools/edit/hashline/"]
+tests = ["e2e", "snapshots", "special_files"]

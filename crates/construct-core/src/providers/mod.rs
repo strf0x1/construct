@@ -16,9 +16,8 @@ use std::collections::BTreeMap;
 
 mod resolve;
 
-/// The provider the top-level `base_url`, `api_key_secret` and `[models.*]`
-/// declare.
-pub const DEFAULT: &str = "default";
+pub use crate::endpoint::DEFAULT;
+pub use crate::models::Resolved;
 
 /// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -161,14 +160,6 @@ const PRESETS: &[Preset] = &[Preset {
 
 fn preset(name: &str) -> Option<&'static Preset> {
     PRESETS.iter().find(|p| p.name == name)
-}
-
-/// Where a selector goes: a named provider (`None` is `default`) and the id
-/// the request carries.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Resolved {
-    pub provider: Option<String>,
-    pub id: String,
 }
 
 impl Provider {

@@ -11,7 +11,6 @@
 
 use crate::llm::Message;
 use crate::manifest::Manifest;
-use crate::tools::OutputKind;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -300,7 +299,7 @@ pub enum Event {
     },
 }
 
+mod output;
 mod projection;
 mod submission;
-pub use projection::MemoryNode;
-pub use submission::Submission;
+pub use {output::OutputKind, projection::MemoryNode, submission::Submission};

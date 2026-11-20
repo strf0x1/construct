@@ -15,10 +15,12 @@ use crate::tools::Group;
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
+/// How many delegations deep a process is (0 for a user's session).
+pub const DEPTH_ENV: &str = "CONSTRUCT_DEPTH";
 /// Variables construct sets for a child; a definition's `env` may not.
-const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", crate::child::DEPTH_ENV, "TMPDIR"];
+const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", DEPTH_ENV, "TMPDIR"];
 
 /// Groups a child never has, whatever its allowlist says: memory and skill
 /// writes change what future sessions are told, history is the parent's
@@ -290,11 +292,6 @@ impl AgentDef {
         cfg.learn.enabled = false;
         Ok(cfg)
     }
-
-    /// Where `~/` paths in `allow_read` and `allow_write` land.
-    pub fn expanded(paths: &[String]) -> Vec<PathBuf> {
-        paths.iter().map(|p| crate::sandbox::expand_home(p)).collect()
-    }
 }
 
 #[cfg(test)]
@@ -398,14 +395,18 @@ mod tests {
 
         // Anything the parent itself cannot reach cannot be granted.
         let wide = AgentDef { allow_read: vec![outside.display().to_string()], ..Default::default() };
-        assert!(parent.for_agent(&wide, &paths, "t", 443).is_err());
+        assert!(parent.for_agent(wide.grant(), &paths, "t", 443).is_err());
         let wide = AgentDef { allow_write: vec![extra.display().to_string()], ..Default::default() };
-        assert!(parent.for_agent(&wide, &paths, "t", 443).is_err());
+        assert!(parent.for_agent(wide.grant(), &paths, "t", 443).is_err());
     }
 
     impl AgentDef {
+        fn grant(&self) -> crate::sandbox::Grant {
+            crate::sandbox::Grant::new(&self.allow_read, &self.allow_write, self.network)
+        }
+
         fn into_policy(self, parent: &crate::sandbox::Policy, paths: &crate::config::Paths) -> crate::sandbox::Policy {
-            parent.for_agent(&self, paths, "t", 443).unwrap()
+            parent.for_agent(self.grant(), paths, "t", 443).unwrap()
         }
     }
 

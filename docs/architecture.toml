@@ -38,10 +38,10 @@ may_use_crates = []
 may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "tools"]
 
 [crates.construct-core.modules.agent]
-may_use = ["child", "compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
+may_use = ["compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
 
 [crates.construct-core.modules.agents]
-may_use = ["child", "config", "sandbox", "tools"]
+may_use = ["config", "sandbox", "tools"]
 
 [crates.construct-core.modules.child]
 may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
@@ -50,16 +50,16 @@ may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox",
 may_use = ["config", "llm"]
 
 [crates.construct-core.modules.config]
-may_use = ["agents", "jobs", "learn", "mcp", "models", "providers", "tools"]
+may_use = ["agents", "jobs", "models", "providers", "tools"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
 
 [crates.construct-core.modules.endpoint]
-may_use = ["config", "providers", "secrets"]
+may_use = ["config", "secrets"]
 
 [crates.construct-core.modules.event]
-may_use = ["compact", "jobs", "llm", "manifest", "permission", "tools"]
+may_use = ["compact", "jobs", "llm", "manifest", "permission"]
 
 [crates.construct-core.modules.guard]
 may_use = []
@@ -68,7 +68,7 @@ may_use = []
 may_use = []
 
 [crates.construct-core.modules.http]
-may_use = ["llm"]
+may_use = []
 
 [crates.construct-core.modules.jev]
 may_use = ["config", "journal", "llm"]
@@ -98,7 +98,7 @@ may_use = ["config", "sandbox", "secrets", "text"]
 may_use = ["config", "guard", "project"]
 
 [crates.construct-core.modules.models]
-may_use = ["config", "endpoint", "providers"]
+may_use = ["config", "endpoint"]
 
 [crates.construct-core.modules.permission]
 may_use = ["config", "event", "journal", "sandbox", "tools"]
@@ -116,7 +116,7 @@ may_use = ["config", "endpoint", "models"]
 may_use = ["config", "jev", "llm", "secrets", "skills", "tools"]
 
 [crates.construct-core.modules.sandbox]
-may_use = ["agents", "config", "secrets"]
+may_use = ["config", "secrets"]
 
 [crates.construct-core.modules.secrets]
 may_use = []

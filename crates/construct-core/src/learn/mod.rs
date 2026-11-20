@@ -31,12 +31,7 @@ use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
 
-/// `[learn] strategy` values.
-pub const SKILLS: &str = "skills";
-pub const CORRECTIONS: &str = "corrections";
-pub const PLAYBOOK: &str = "playbook";
-pub const WORKFLOW: &str = "workflow";
-pub const HYBRID: &str = "hybrid";
+pub use crate::config::learn::{CORRECTIONS, HYBRID, PLAYBOOK, SKILLS, WORKFLOW};
 
 /// For the strategies that replace the review (`playbook`, `workflow`,
 /// `hybrid`): learn from `messages` with one call. `hybrid` asks

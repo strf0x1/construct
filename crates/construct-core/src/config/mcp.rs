@@ -1,6 +1,7 @@
 //! One `[mcp.<name>]` entry: how a stdio server is spawned inside the
 //! sandbox, what it may reach, and the secrets it alone receives.
 
+use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -42,6 +43,36 @@ impl Default for McpServer {
             network: true,
             secrets: vec![],
             timeout: 300,
+        }
+    }
+}
+
+/// A server name must survive inside a function name and split back out of
+/// one: letters, digits, `-` and single `_`, at most 32 characters.
+pub fn check_server_name(name: &str) -> Result<()> {
+    ensure!(
+        !name.is_empty()
+            && name.len() <= 32
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            && !name.contains("__")
+            && !name.starts_with('_')
+            && !name.ends_with('_'),
+        "[mcp.{name}]: a server name is 1-32 letters, digits, '-' or single '_' (it becomes part of tool names)"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn server_names_split_back_out() {
+        for ok in ["context7", "my-server", "a_b"] {
+            assert!(check_server_name(ok).is_ok(), "{ok}");
+        }
+        for bad in ["a__b", "_a", "a_", "has.dot", "", &"x".repeat(33)] {
+            assert!(check_server_name(bad).is_err(), "{bad}");
         }
     }
 }
