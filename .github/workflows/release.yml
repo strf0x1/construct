@@ -2,7 +2,8 @@ name: release
 
 # Push a version tag to build a draft GitHub Release:
 #
-#   check  ->  build (Linux x86-64, macOS arm64 and x86-64)  ->  smoke  ->  draft release
+#   check  ->  build (Linux x86-64 glibc + static musl, macOS arm64 and
+#              x86-64, Linux arm64 static musl)  ->  smoke  ->  draft release
 #
 # Nothing is public until you review the draft and press Publish. The steps
 # are in docs/releasing.md.
@@ -50,6 +51,11 @@ jobs:
           # The oldest supported runner: the binary links against this image's
           # glibc (2.35), so it also runs on distros at least that new.
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04 }
+          # Static musl: runs on any Linux kernel with no libc at all — rescue
+          # media, busybox initramfs, distros older than the glibc floor (#271).
+          # zig is the musl cross-toolchain for both architectures.
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-22.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-22.04 }
           # Both Mac builds come from the Apple silicon runner; the Intel one
           # is cross-compiled, and smoke-tested on an Intel runner below.
           - { target: aarch64-apple-darwin, os: macos-15 }
@@ -61,8 +67,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with: { toolchain: "${{ env.RUSTUP_TOOLCHAIN }}", targets: "${{ env.TARGET }}" }
+      - name: zig, the musl cross-toolchain
+        if: contains(env.TARGET, '-musl')
+        uses: taiki-e/install-action@v2
+        with: { tool: cargo-zigbuild,zig }
       - name: Build
-        run: cargo build --release --locked -p construct --target "$TARGET"
+        run: |
+          if [[ "$TARGET" == *-musl ]]; then
+            cargo zigbuild --release --locked -p construct --target "$TARGET"
+            # The whole point of musl: no dynamic linker, no libc floor.
+            file "target/$TARGET/release/construct" | grep -q 'statically linked'
+          else
+            cargo build --release --locked -p construct --target "$TARGET"
+          fi
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-about }
       - name: Package
@@ -108,6 +125,46 @@ jobs:
           ./construct-x86_64-unknown-linux-gnu/construct --version
           ./construct-x86_64-unknown-linux-gnu/construct --help > /dev/null
 
+  # The static builds must run where there is no glibc at all: alpine (musl
+  # libc) and busybox (no libc). docker run, not a container job: the JS
+  # actions need a glibc the alpine image does not have. The arm64 smoke runs
+  # on an arm64 runner, so each binary executes on its own architecture.
+  smoke-static:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, image: "alpine:latest" }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, image: "busybox:latest" }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, image: "alpine:latest" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: "dist-${{ matrix.target }}", path: dist }
+      - name: Checksum, unpack, run without a libc
+        working-directory: dist
+        run: |
+          sha256sum -c "construct-${{ matrix.target }}.tar.gz.sha256"
+          tar -xzf "construct-${{ matrix.target }}.tar.gz"
+          docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --version
+          docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --help > /dev/null
+      # --version proves nothing about TLS: the verifier reads the system
+      # cert bundle (rustls-native-certs), whose location differs per image.
+      # alpine's base ships one; busybox has none, so it gets the runner's
+      # bundle copied in — the same thing a scratch/rescue image needs.
+      - name: A real HTTPS model-catalog fetch
+        working-directory: dist
+        run: |
+          extra=()
+          if [ "${{ matrix.image }}" = "busybox:latest" ]; then
+            extra=(-v /etc/ssl/certs/ca-certificates.crt:/certs/ca.crt:ro -e SSL_CERT_FILE=/certs/ca.crt)
+          fi
+          docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" \
+            -e CONSTRUCT_HOME=/tmp/ch -e OPENAI_API_KEY=*** "${extra[@]}" \
+            "${{ matrix.image }}" /c/construct models --refresh > catalog.txt
+          head -3 catalog.txt
+
   # Unpack the archive the way the installer does (no build tree, no
   # toolchain on the path), run it, and check the Seatbelt sandbox holds:
   # the helper must refuse a read outside its workspace and allow one inside.
@@ -145,7 +202,7 @@ jobs:
           fi
 
   release:
-    needs: [smoke, smoke-macos]
+    needs: [smoke, smoke-macos, smoke-static]
     runs-on: ubuntu-latest
     permissions:
       contents: write
