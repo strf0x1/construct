@@ -201,7 +201,7 @@ fn new_id() -> String {
     let (y, m, d, hour, minute, second) = utc_parts(now_ms());
     format!(
         "{y:04}{m:02}{d:02}-{hour:02}{minute:02}{second:02}-{:04x}",
-        (crate::skills::now_nanos() as u64 ^ std::process::id() as u64) & 0xffff
+        (crate::clock::now_nanos() as u64 ^ std::process::id() as u64) & 0xffff
     )
 }
 

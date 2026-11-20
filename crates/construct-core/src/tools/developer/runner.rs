@@ -76,7 +76,7 @@ pub struct Scratch(pub PathBuf);
 impl Scratch {
     pub fn new(ctx: &Ctx) -> Result<Self, ToolError> {
         use std::os::unix::fs::DirBuilderExt;
-        let path = private_root(ctx)?.join(format!("{}-{}", std::process::id(), crate::skills::now_nanos()));
+        let path = private_root(ctx)?.join(format!("{}-{}", std::process::id(), crate::clock::now_nanos()));
         std::fs::DirBuilder::new()
             .mode(0o700)
             .create(&path)
