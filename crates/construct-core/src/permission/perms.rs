@@ -11,8 +11,8 @@
 use super::grants::{Grants, Roots, folder_for, in_construct_home, protected};
 use super::persist;
 use super::{Access, Ask, Decision, NoAsk, PathAsk, Request, ToolAsk, Verdict};
-use crate::config::Paths;
 use crate::event::{Event, Events};
+use crate::home::Paths;
 use crate::journal::Writer;
 use crate::sandbox::Policy;
 use std::future::Future;

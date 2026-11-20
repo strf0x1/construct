@@ -4,7 +4,7 @@
 //! curator can never lose work. Every write goes through `guard`: a loaded
 //! skill enters the prompt.
 
-use crate::config::{Paths, write_atomic};
+use crate::home::{Paths, write_atomic};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

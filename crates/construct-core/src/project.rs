@@ -8,7 +8,7 @@
 //! system prompt; nowhere else. Project knowledge is triggered by where you
 //! are, not by what you ask, so it isn't routed.
 
-use crate::config::Paths;
+use crate::home::Paths;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl Project {
         if !f.exists() {
             let _ = std::fs::create_dir_all(&self.dir);
             let v = serde_json::json!({ "name": self.name, "root": self.root, "remote": remote(&self.root) });
-            let _ = crate::config::write_atomic(&f, v.to_string().as_bytes());
+            let _ = crate::home::write_atomic(&f, v.to_string().as_bytes());
         }
     }
 }

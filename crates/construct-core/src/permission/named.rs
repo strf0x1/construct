@@ -91,7 +91,7 @@ fn list(paths: &[&PathBuf]) -> String {
 /// The paths outside `policy` that `command`, run in `cwd`, names.
 pub fn outside(policy: &Policy, command: &str, cwd: &Path) -> Outside {
     let home = std::env::var_os("HOME").map(|h| Policy::real(Path::new(&h)));
-    let construct = crate::config::Paths::resolve().ok().map(|p| Policy::real(&p.home));
+    let construct = crate::home::Paths::resolve().ok().map(|p| Policy::real(&p.home));
     classify(policy, named(command, cwd, home.as_deref()), home.as_deref(), construct.as_deref())
 }
 

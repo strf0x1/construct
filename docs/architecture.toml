@@ -50,7 +50,7 @@ may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox",
 may_use = ["config", "llm"]
 
 [crates.construct-core.modules.config]
-may_use = ["agents", "jobs", "models", "providers", "tools"]
+may_use = ["agents", "home", "jobs", "models", "providers", "tools"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
@@ -101,10 +101,10 @@ may_use = ["config", "guard", "project"]
 may_use = ["config", "endpoint"]
 
 [crates.construct-core.modules.permission]
-may_use = ["config", "event", "journal", "sandbox", "tools"]
+may_use = ["event", "home", "journal", "sandbox", "tools"]
 
 [crates.construct-core.modules.project]
-may_use = ["config"]
+may_use = ["home"]
 
 [crates.construct-core.modules.prompt]
 may_use = ["config", "journal", "learn", "llm", "memory", "skills", "tools"]
@@ -122,7 +122,7 @@ may_use = ["config", "secrets"]
 may_use = []
 
 [crates.construct-core.modules.skills]
-may_use = ["config", "guard", "tools"]
+may_use = ["guard", "home", "tools"]
 
 [crates.construct-core.modules.text]
 may_use = []

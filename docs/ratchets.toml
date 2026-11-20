@@ -14,7 +14,7 @@
 "crates/construct-core/src/agent.rs" = 339
 "crates/construct-core/src/child/run.rs" = 324
 "crates/construct-core/src/compact/mod.rs" = 323
-"crates/construct-core/src/config.rs" = 375
+"crates/construct-core/src/config.rs" = 320
 "crates/construct-core/src/event.rs" = 305
 "crates/construct-core/src/router.rs" = 304
 "crates/construct-core/src/sandbox/mod.rs" = 334
