@@ -6,6 +6,10 @@
 //! for process globals. That is what makes the catalog and the tools testable
 //! without a terminal or a model.
 
+use super::history::JournalQuery;
+use super::memory::Memory;
+use super::shell::Shell;
+use super::skill::{SkillManage, SkillView};
 use crate::config::Paths;
 use crate::skills::Library;
 use std::collections::HashSet;
@@ -60,7 +64,15 @@ impl Ctx {
             .expect("http client");
         let skills = Library::new(&paths);
         let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
-        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()));
+        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()).with_tools(
+            crate::permission::PolicyTools {
+                shell: Shell::NAME,
+                skill_view: SkillView::NAME,
+                skill_manage: SkillManage::NAME,
+                memory: Memory::NAME,
+                journal_query: JournalQuery::NAME,
+            },
+        ));
         Self {
             cwd,
             paths,

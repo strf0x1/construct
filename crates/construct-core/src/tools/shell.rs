@@ -182,7 +182,7 @@ fn refused(ctx: &Ctx, named: &Outside) -> ToolError {
 /// and scorers, says what was blocked and whether the stop was given.
 fn sandbox_note(ctx: &Ctx, mut out: String, named: &Outside, policy: &Policy, hinted: bool) -> (String, Option<Value>) {
     let blocked = named.clone().still_blocked(policy);
-    let note = blocked.note(&ctx.paths.home, &ctx.paths.skills_dir());
+    let note = blocked.note(&ctx.paths.home, &ctx.paths.skills_dir(), ctx.perms.tools());
     if note.is_empty() && !hinted {
         return (out, None);
     }

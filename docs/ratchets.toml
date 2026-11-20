@@ -43,7 +43,6 @@ construct-core = [
     "jobs <-> journal",
     "journal <-> llm",
     "journal <-> tools",
-    "permission <-> tools",
     "skills <-> tools",
 ]
 construct-dev = [
