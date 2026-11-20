@@ -68,7 +68,7 @@ may_use = []
 may_use = []
 
 [crates.construct-core.modules.http]
-may_use = ["llm"]
+may_use = []
 
 [crates.construct-core.modules.jev]
 may_use = ["config", "journal", "llm"]
