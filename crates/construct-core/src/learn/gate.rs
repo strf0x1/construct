@@ -134,10 +134,10 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
         let mut q = serde_json::Map::new();
         q.insert("repeat".into(), json!({ "type": "choice", "instructions": "Does the user, in `user_messages`, tell the assistant one of these earlier lessons again?", "criteria": criteria }));
         let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
-        crate::llm::ensure_crypto();
+        let http = crate::http::builder().build().ok()?;
         if let Ok(v) = crate::jev::ask(
             &cfg.router,
-            &reqwest::Client::new(),
+            &http,
             &key,
             "repeat",
             json!({ "user_messages": users }),
@@ -228,8 +228,7 @@ async fn jev_gate(
             noul("Do `user_messages` or `tool_errors` suggest that a procedure listed in `skills_loaded` was wrong, incomplete or outdated?"),
         );
     }
-    crate::llm::ensure_crypto();
-    let http = reqwest::Client::new();
+    let http = crate::http::builder().build().map_err(|e| e.to_string())?;
     let timeout = std::time::Duration::from_secs(5);
     let pref_call =
         crate::jev::ask(&cfg.router, &http, key, "gate", json!({ "user_messages": users }), pref_q, timeout);

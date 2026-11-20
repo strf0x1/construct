@@ -31,8 +31,9 @@ use tokio::sync::mpsc;
 /// Install ring, the one crypto provider (#271), before the first TLS client.
 /// reqwest is built with `rustls-no-provider` to keep aws-lc-rs (a BoringSSL
 /// fork) out of the binary. The engine is a library: its tests and embedders
-/// build clients without the binary's startup, so every client construction
-/// site calls this. Once per process; an already-installed provider wins.
+/// build clients without the binary's startup, so `http::builder()` calls
+/// this for every construction site. Once per process; an already-installed
+/// provider wins.
 pub fn ensure_crypto() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
@@ -87,12 +88,10 @@ pub struct Request<'a> {
 
 impl Client {
     pub fn new(ep: &Endpoint, api_key: Option<String>) -> Result<Self> {
-        ensure_crypto();
-        let http = reqwest::Client::builder()
+        let http = crate::http::engine()
             .connect_timeout(Duration::from_secs(20))
             .pool_idle_timeout(Duration::from_secs(90))
             .tcp_nodelay(true)
-            .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
             .build()?;
         Ok(Self {
             http,

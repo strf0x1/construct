@@ -95,16 +95,11 @@ pub struct Boundary {
 
 impl Boundary {
     pub fn new(base_url: &str) -> Self {
-        crate::llm::ensure_crypto();
         #[expect(
             clippy::expect_used,
             reason = "fails only when the TLS backend can't start, and the endpoint is loopback HTTP"
         )]
-        let http = reqwest::Client::builder()
-            .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
-            .connect_timeout(Duration::from_secs(1))
-            .build()
-            .expect("http client");
+        let http = crate::http::engine().connect_timeout(Duration::from_secs(1)).build().expect("http client");
         Self {
             base: base_url.trim_end_matches('/').to_string(),
             http,

@@ -52,16 +52,12 @@ impl Ctx {
         mcp: Option<Arc<crate::mcp::Manager>>,
         sandbox: crate::sandbox::Policy,
     ) -> Self {
-        crate::llm::ensure_crypto();
         #[expect(
             clippy::expect_used,
             reason = "fails only when the TLS backend can't start, and no tool works without it"
         )]
-        let http = reqwest::Client::builder()
-            .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
-            .connect_timeout(std::time::Duration::from_secs(15))
-            .build()
-            .expect("http client");
+        let http =
+            crate::http::engine().connect_timeout(std::time::Duration::from_secs(15)).build().expect("http client");
         let skills = Library::new(&paths);
         let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
         let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()));

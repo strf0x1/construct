@@ -17,8 +17,7 @@ pub(super) async fn route(cfg: Config, paths: Paths) -> Result<()> {
     let skills = skills::Library::new(&paths).list();
     let mcp: std::collections::BTreeMap<String, String> =
         cfg.mcp.iter().map(|(k, v)| (k.clone(), v.description.clone())).collect();
-    construct_core::llm::ensure_crypto();
-    let http = reqwest::Client::builder().tcp_nodelay(true).build()?;
+    let http = construct_core::http::builder().tcp_nodelay(true).build()?;
     for v in stdin_lines() {
         let request = v["request"].as_str().unwrap_or("");
         let previous = v["previous"].as_str().unwrap_or("");
