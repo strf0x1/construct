@@ -68,5 +68,7 @@ mod snapshots;
 mod special_files;
 #[path = "stream.rs"]
 mod stream;
+#[path = "tls.rs"]
+mod tls;
 #[path = "turn.rs"]
 mod turn;

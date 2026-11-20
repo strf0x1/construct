@@ -44,7 +44,7 @@ mod tests {
             ("https://api.orcarouter.ai.other.example/v1", false),
             ("https://openrouter.ai/api/v1", false),
         ] {
-            let client = construct_core::http::builder().build().unwrap();
+            let client = construct_core::http::build(construct_core::http::builder()).unwrap();
             let request = forward(&HeaderMap::new(), client.post(url), url).build().unwrap();
             assert_eq!(request.headers().contains_key("x-orcarouter-include-cost"), expected, "{url}");
         }

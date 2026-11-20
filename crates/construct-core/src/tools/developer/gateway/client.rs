@@ -35,10 +35,10 @@ pub struct Gateway {
 
 impl Gateway {
     pub fn new(base: &str) -> Result<Self, ToolError> {
-        let http = crate::http::loopback()
-            .connect_timeout(Duration::from_secs(2))
-            .build()
-            .map_err(|_| ToolError::new("gateway", "could not start the client for Deck's GitHub gateway"))?;
+        let http =
+            crate::http::build(crate::http::loopback().connect_timeout(Duration::from_secs(2))).map_err(|e| {
+                ToolError::new("gateway", format!("could not start the client for Deck's GitHub gateway: {e}"))
+            })?;
         Ok(Self { base: base.trim_end_matches('/').to_string(), http })
     }
 

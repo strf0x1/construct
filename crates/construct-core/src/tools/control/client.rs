@@ -87,10 +87,9 @@ pub async fn send(
             ),
         ));
     }
-    let http = crate::http::loopback()
-        .connect_timeout(Duration::from_secs(2))
-        .build()
-        .map_err(|_| ToolError::new("deck_control", "could not start the client for Deck's control gateway"))?;
+    let http = crate::http::build(crate::http::loopback().connect_timeout(Duration::from_secs(2))).map_err(|e| {
+        ToolError::new("deck_control", format!("could not start the client for Deck's control gateway: {e}"))
+    })?;
     let mut request =
         http.post(format!("{base}{PATH}")).header("content-type", "application/json").body(bytes).timeout(timeout);
     if let Some(header) = bearer(token)? {

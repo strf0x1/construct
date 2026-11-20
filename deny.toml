@@ -2,9 +2,18 @@
 # the network for the advisory DB, so it is not part of `cargo xtask check`).
 
 [graph]
-# Only what construct ships on: Linux and macOS. Windows-only crates in the
-# lockfile (winapi, ...) are not checked.
-targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-apple-darwin"]
+# Only what construct ships on: Linux (glibc and static musl) and macOS.
+# Windows-only crates in the lockfile (winapi, ...) are not checked. The musl
+# targets matter for the baked CA roots (#293), which are a musl-only
+# dependency.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+]
 
 [advisories]
 # A vulnerability advisory always fails. cargo-deny has no warn level for
@@ -46,6 +55,10 @@ exceptions = [
     # Weak, file-level copyleft: only changes to colored's own files would
     # have to be shared. Pulled in by secretspec for terminal colors.
     { allow = ["MPL-2.0"], crate = "colored" },
+    # Mozilla's CA data, baked into static musl builds (#293). Permissive
+    # data license, not software and not copyleft; it applies to the
+    # certificate bundle, which we do not modify.
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
 ]
 
 [bans]

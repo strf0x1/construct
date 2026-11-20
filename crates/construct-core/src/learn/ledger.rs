@@ -140,7 +140,7 @@ async fn same_problem_jev(
         json!({ "type": "choice", "instructions": "Which earlier observation is the same kind of problem as `new` (would be solved by the same procedure), if any?", "criteria": criteria }),
     );
     let state = json!({ "new": format!("{}: {}", o.problem_class, o.summary) });
-    let http = crate::http::builder().build().map_err(|e| e.to_string())?;
+    let http = crate::http::build(crate::http::builder()).map_err(|e| e.to_string())?;
     let v = crate::jev::ask(&cfg.router, &http, key, "recurrence", state, q, std::time::Duration::from_secs(5)).await?;
     let probs = v["answers"]["same"]["probabilities"].as_object().cloned().unwrap_or_default();
     Ok(probs
