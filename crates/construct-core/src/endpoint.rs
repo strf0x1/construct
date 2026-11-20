@@ -7,9 +7,12 @@
 //! decided here and nowhere else.
 
 use crate::config::{Config, ProviderConfig};
-use crate::providers::DEFAULT;
 use anyhow::{Result, bail};
 use std::collections::BTreeMap;
+
+/// The name of the top-level endpoint: the provider the top-level `base_url`,
+/// `api_key_secret` and `[models.*]` declare.
+pub const DEFAULT: &str = "default";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Endpoint {
