@@ -6,10 +6,18 @@
 //! never consulted or written, and status says which values are placeholders.
 //! An optional feature (web search, the Jev router, an MCP secret) resolves
 //! nothing there even if the guest environment holds a value (ADR 0039).
+//!
+//! Without the `keyring` feature (ADR 0051) the secretspec subtree is not
+//! compiled in at all: every value comes from the environment, `set` refuses,
+//! and the facade below is unchanged — a preconfigured drop build (#271)
+//! resolves its one endpoint key from the environment or a bootstrap flow.
 
 use anyhow::{Result, anyhow};
+#[cfg(feature = "keyring")]
 use secretspec::{NamedResolution, Secret, Secrets, Spec};
+#[cfg(feature = "keyring")]
 use std::collections::HashMap;
+#[cfg(feature = "keyring")]
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 pub const EXA_API_KEY: &str = "EXA_API_KEY";
@@ -24,6 +32,10 @@ pub const DECK_MANAGED: &str = "DECK_MANAGED";
 /// no guest credential store, and pretending otherwise would mislead the user.
 pub const HOST_OWNED: &str = "secrets are host-owned in this Deck task and injected by Deck at the gateway; use Deck's host-side credential UI or command";
 
+/// The one line `construct secrets set` refuses with in an env-only build:
+/// there is no credential store compiled in, and the environment is the source.
+pub const ENV_ONLY: &str = "this build has no keyring (env-only secrets); export the value in the environment instead";
+
 pub const KNOWN: &[(&str, &str)] = &[
     ("OPENAI_API_KEY", "Key for the OpenAI-compatible model endpoint"),
     ("OPENROUTER_API_KEY", "OpenRouter key, if you keep it under that name"),
@@ -33,6 +45,7 @@ pub const KNOWN: &[(&str, &str)] = &[
     (TAVILY_API_KEY, "Tavily key for web_search (optional)"),
 ];
 
+#[cfg(feature = "keyring")]
 fn spec(extra: Option<&str>) -> Result<Secrets> {
     let mut b = Spec::builder("construct").default_providers(["env", "keyring"]);
     for (name, desc) in KNOWN {
@@ -45,8 +58,10 @@ fn spec(extra: Option<&str>) -> Result<Secrets> {
     Secrets::from_spec(spec).map_err(|e| anyhow!("secretspec: {e}"))
 }
 
+#[cfg(feature = "keyring")]
 static CACHE: OnceLock<Mutex<HashMap<String, Option<String>>>> = OnceLock::new();
 
+#[cfg(feature = "keyring")]
 #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
 fn cache() -> MutexGuard<'static, HashMap<String, Option<String>>> {
     CACHE.get_or_init(Default::default).lock().unwrap()
@@ -94,6 +109,7 @@ pub fn optional(name: &str) -> Option<String> {
 }
 
 /// Resolve through secretspec's keyring provider, once per process.
+#[cfg(feature = "keyring")]
 fn keyring(name: &str) -> Option<String> {
     if let Some(hit) = cache().get(name) {
         return hit.clone();
@@ -104,6 +120,12 @@ fn keyring(name: &str) -> Option<String> {
     });
     cache().insert(name.to_string(), value.clone());
     value
+}
+
+/// No keyring in this build: the environment is the only source (ADR 0051).
+#[cfg(not(feature = "keyring"))]
+fn keyring(_name: &str) -> Option<String> {
+    None
 }
 
 /// The endpoint key: the configured secret, then OpenRouter's usual name.
@@ -122,8 +144,13 @@ pub fn missing_key(secret_name: &str) -> String {
     if secret_name != "OPENROUTER_API_KEY" {
         names.push("OPENROUTER_API_KEY");
     }
+    // An env-only build has no `secrets set` to suggest (ADR 0051).
+    #[cfg(feature = "keyring")]
+    let store_hint = format!(" (or construct secrets set {secret_name})");
+    #[cfg(not(feature = "keyring"))]
+    let store_hint = "";
     format!(
-        "no API key: set {} (or construct secrets set {secret_name}); for a keyless local endpoint set api_key_secret = \"\"",
+        "no API key: set {}{store_hint}; for a keyless local endpoint set api_key_secret = \"\"",
         names.join(" or ")
     )
 }
@@ -139,11 +166,19 @@ pub fn set(name: &str, value: &str) -> Result<()> {
     if managed() {
         return Err(anyhow!(HOST_OWNED));
     }
-    let mut secrets = spec(Some(name))?;
-    secrets.set_provider("keyring");
-    secrets.set_text(name, value).map_err(|e| anyhow!("secretspec: {e}"))?;
-    cache().insert(name.to_string(), Some(value.to_string()));
-    Ok(())
+    #[cfg(feature = "keyring")]
+    {
+        let mut secrets = spec(Some(name))?;
+        secrets.set_provider("keyring");
+        secrets.set_text(name, value).map_err(|e| anyhow!("secretspec: {e}"))?;
+        cache().insert(name.to_string(), Some(value.to_string()));
+        Ok(())
+    }
+    #[cfg(not(feature = "keyring"))]
+    {
+        let _ = (name, value);
+        Err(anyhow!(ENV_ONLY))
+    }
 }
 
 /// Which provider supplied a secret. The value itself is never part of this.
@@ -221,5 +256,30 @@ mod tests {
         assert_eq!(line(Source::Environment), "✓ OPENAI_API_KEY");
         assert_eq!(line(Source::Keyring), "✓ OPENAI_API_KEY");
         assert_eq!(line(Source::Missing), "· OPENAI_API_KEY");
+    }
+
+    /// The env-only build (ADR 0051): no keyring lookup, no store, and the
+    /// facade still answers. Names nothing sets keep these tests off the
+    /// developer's real environment, like `env_key_reads_only_the_environment`.
+    #[cfg(not(feature = "keyring"))]
+    mod env_only {
+        use super::*;
+
+        #[test]
+        fn unset_names_resolve_to_nothing_without_a_keyring() {
+            assert_eq!(keyring("CONSTRUCT_TEST_UNSET_KEY"), None);
+            assert_eq!(get("CONSTRUCT_TEST_UNSET_KEY"), None);
+            assert_eq!(source("CONSTRUCT_TEST_UNSET_KEY"), Source::Missing);
+        }
+
+        #[test]
+        fn set_refuses_and_points_at_the_environment() {
+            let err = set("CONSTRUCT_TEST_KEY", "v").unwrap_err();
+            // A Deck guest refuses host-owned first; either way nothing stores.
+            if !managed() {
+                assert_eq!(err.to_string(), ENV_ONLY);
+            }
+            assert!(!missing_key("OPENAI_API_KEY").contains("secrets set"));
+        }
     }
 }

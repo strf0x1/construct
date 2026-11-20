@@ -18,8 +18,14 @@ test = false
 [lints]
 workspace = true
 
+[features]
+default = ["keyring"]
+# Forwarded to the engine: --no-default-features builds the env-only
+# drop binary (ADR 0051). The TUI never forces the keyring on.
+keyring = ["construct-core/keyring"]
+
 [dependencies]
-construct-core.workspace = true
+construct-core = { workspace = true, default-features = false }
 construct-tui.workspace = true
 anyhow.workspace = true
 clap.workspace = true
