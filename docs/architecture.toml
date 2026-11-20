@@ -53,7 +53,7 @@ may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox",
 may_use = ["config", "llm", "text"]
 
 [crates.construct-core.modules.config]
-may_use = ["agents", "home", "jobs", "models", "providers", "tools"]
+may_use = ["agents", "home", "jobs", "models", "providers"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
