@@ -17,8 +17,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+/// How many delegations deep a process is (0 for a user's session).
+pub const DEPTH_ENV: &str = "CONSTRUCT_DEPTH";
 /// Variables construct sets for a child; a definition's `env` may not.
-const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", crate::child::DEPTH_ENV, "TMPDIR"];
+const RESERVED_ENV: &[&str] = &["CONSTRUCT_HOME", DEPTH_ENV, "TMPDIR"];
 
 /// Groups a child never has, whatever its allowlist says: memory and skill
 /// writes change what future sessions are told, history is the parent's
