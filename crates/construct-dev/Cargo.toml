@@ -26,10 +26,12 @@ anyhow.workspace = true
 axum = "0.8"
 bytes = "1"
 clap.workspace = true
+# The proxy's clients go through `construct_core::http` (#290), the one
+# reqwest constructor; the e2e tests also read journals as `agent::Event`.
+construct-core.workspace = true
 futures.workspace = true
 portable-pty = "0.9"
 reqwest.workspace = true
-rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 secretspec.workspace = true
@@ -40,7 +42,5 @@ vt100 = "0.18"
 [dev-dependencies]
 # Offline payload conformance only; never linked into either shipped binary.
 jsonschema = { version = "0.60.2", default-features = false }
-# The e2e tests read the journal back and parse its rows as `construct_core::agent::Event`.
-construct-core.workspace = true
 rusqlite.workspace = true
 insta = { version = "1.49.0", features = ["json"] }

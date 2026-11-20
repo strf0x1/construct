@@ -961,7 +961,6 @@ dependencies = [
  "portable-pty",
  "reqwest",
  "rusqlite",
- "rustls",
  "secretspec",
  "serde",
  "serde_json",

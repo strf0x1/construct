@@ -138,10 +138,9 @@ mod tests {
     }
 
     /// The engine installs its TLS provider lazily (#271); tests build clients
-    /// without the binary's startup, so they ask for it here.
+    /// without the binary's startup, so `http::builder()` asks for it here.
     fn client() -> reqwest::Client {
-        crate::llm::ensure_crypto();
-        reqwest::Client::new()
+        crate::http::builder().build().expect("http client")
     }
 
     #[tokio::test]

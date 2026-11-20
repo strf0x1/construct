@@ -87,12 +87,8 @@ pub async fn send(
             ),
         ));
     }
-    // Loopback: a proxy variable must not send it elsewhere.
-    crate::llm::ensure_crypto();
-    let http = reqwest::Client::builder()
-        .user_agent(concat!("construct/", env!("CARGO_PKG_VERSION")))
+    let http = crate::http::loopback()
         .connect_timeout(Duration::from_secs(2))
-        .no_proxy()
         .build()
         .map_err(|_| ToolError::new("deck_control", "could not start the client for Deck's control gateway"))?;
     let mut request =

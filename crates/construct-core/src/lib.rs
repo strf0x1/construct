@@ -15,6 +15,7 @@ pub mod endpoint;
 pub mod event;
 pub mod guard;
 pub mod home;
+pub mod http;
 pub mod jev;
 pub mod jobs;
 pub mod journal;
