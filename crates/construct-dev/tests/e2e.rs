@@ -311,6 +311,24 @@ fn an_old_config_that_disables_shell_still_disables_bash() {
 }
 
 #[test]
+fn config_dump_shows_where_each_setting_came_from() {
+    // Provenance (#271, ADR 0050): the dump names the layer that set each
+    // key, so a dropped binary's invisible config is debuggable. The baked
+    // layer is empty in a CI build; file and env are the observable layers.
+    let env = Env::new("config-provenance", json!({ "steps": [{ "text": "done" }] }));
+    env.config("model = \"file-model\"\nbase_url = \"http://file.invalid/v1\"\n[sandbox]\nmode = \"read-only\"\n");
+    let out = env.run_with(&[("CONSTRUCT_MODEL", "env-model")], &["config"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let t = text(&out);
+    assert!(t.contains("# model = env"), "{t}");
+    // Env::env() points CONSTRUCT_BASE_URL at the scripted server: env wins
+    // over the file value, and the dump says so.
+    assert!(t.contains("# base_url = env"), "{t}");
+    assert!(t.contains("# sandbox.mode = file"), "{t}");
+    assert!(t.contains("model = \"env-model\""), "{t}");
+}
+
+#[test]
 fn learning_records_observations_and_writes_a_skill_only_on_recurrence() {
     let skill_md = "---\nname: crate-release\ndescription: Releasing a Rust crate when the release dir is missing\n---\n\n1. mkdir -p dist\n2. cargo package\n";
     let big = "x".repeat(1500);

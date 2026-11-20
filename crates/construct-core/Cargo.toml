@@ -14,6 +14,9 @@ autotests = false
 [lib]
 doctest = false
 
+[build-dependencies]
+toml.workspace = true
+
 [[test]]
 name = "it"
 path = "tests/it.rs"

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+mod baked;
 pub mod context;
 pub mod deck;
 mod mcp;
@@ -65,6 +66,9 @@ pub struct Config {
     /// Never written back, and `models` wins an id in both.
     #[serde(skip)]
     pub discovered: BTreeMap<String, crate::models::ModelEntry>,
+    /// Which layer set each key (baked/file/env), for `construct config`.
+    #[serde(skip)]
+    pub provenance: baked::Sources,
 }
 
 /// When and how history is cut to fit the context window (see `compact`).
@@ -164,6 +168,7 @@ impl Default for Config {
             models: BTreeMap::new(),
             defaults: None,
             discovered: BTreeMap::new(),
+            provenance: BTreeMap::new(),
         }
     }
 }
@@ -365,34 +370,9 @@ impl Paths {
 impl Config {
     pub fn load(paths: &Paths) -> Result<Self> {
         let path = paths.config();
-        let mut cfg: Config = match std::fs::read_to_string(&path) {
-            Ok(text) => {
-                let mut cfg: Config = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
-                cfg.window_pinned = text.parse::<toml::Table>().is_ok_and(|t| t.contains_key("context_window"));
-                cfg
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Config::default(),
-            Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
-        };
-        // Environment overrides make one-off runs and benches easy.
-        if let Ok(v) = std::env::var("CONSTRUCT_BASE_URL") {
-            cfg.base_url = v;
-        }
-        if let Ok(v) = std::env::var("CONSTRUCT_MODEL") {
-            cfg.model = v;
-        }
-        if let Ok(v) = std::env::var("CONSTRUCT_SANDBOX") {
-            cfg.sandbox.mode = v;
-        }
-        if let Ok(v) = std::env::var("CONSTRUCT_ROUTER") {
-            cfg.router.mode = v;
-        }
-        if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_EDITOR") {
-            cfg.tools.editor = v;
-        }
-        if let Ok(v) = std::env::var("CONSTRUCT_TOOLS_WEB_SEARCH") {
-            cfg.tools.web.search = v;
-        }
+        // The baked layer sits under the file; env overrides sit over both.
+        let mut cfg = baked::load(&path)?;
+        baked::apply_env(&mut cfg);
         cfg.context.apply_env();
         cfg.apply_deck_env();
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
