@@ -39,7 +39,7 @@ pub fn cap_output(ctx: &Ctx, kind: &str, text: &str) -> String {
     }
     let dir = ctx.paths.spill_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join(format!("{kind}-{}-{}.txt", std::process::id(), crate::skills::now_nanos()));
+    let path = dir.join(format!("{kind}-{}-{}.txt", std::process::id(), crate::clock::now_nanos()));
     let saved = std::fs::write(&path, text).is_ok();
     let head = crate::text::truncate(text, max / 2);
     let lines = text.lines().count();

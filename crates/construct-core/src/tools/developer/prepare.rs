@@ -162,7 +162,7 @@ impl Ledger {
 
     fn success(self, text: &str) -> Result<(), ToolError> {
         use std::os::unix::fs::OpenOptionsExt;
-        let temporary = self.result.with_extension(format!("done-{}", crate::skills::now_nanos()));
+        let temporary = self.result.with_extension(format!("done-{}", crate::clock::now_nanos()));
         let mut file =
             std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temporary).map_err(|_| {
                 ToolError::new(
@@ -197,7 +197,7 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     fn context(name: &str) -> (Ctx, PathBuf) {
-        let root = std::env::temp_dir().join(format!("construct-developer-{name}-{}", crate::skills::now_nanos()));
+        let root = std::env::temp_dir().join(format!("construct-developer-{name}-{}", crate::clock::now_nanos()));
         let work = root.join("work");
         std::fs::create_dir_all(&work).unwrap();
         let paths = Paths { home: root.join("home") };

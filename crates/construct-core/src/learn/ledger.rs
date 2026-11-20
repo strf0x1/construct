@@ -63,7 +63,7 @@ pub(super) async fn observe(
     let text = c.message.content.unwrap_or_default();
     let v: Value = serde_json::from_str(super::json_object(&text)).unwrap_or(json!({}));
     let cwd = std::env::current_dir().map(|p| p.display().to_string()).unwrap_or_default();
-    let ts = crate::skills::now();
+    let ts = crate::clock::now();
     Ok(v["observations"]
         .as_array()
         .into_iter()

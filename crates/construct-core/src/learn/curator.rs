@@ -17,7 +17,7 @@ pub async fn curate(cfg: &Config, paths: &Paths) -> Result<Option<Outcome>> {
     let (_tx, rx) = tokio::sync::watch::channel(false);
     let (ctx, catalog) = learner(cfg, paths, memory, rx)?;
     let usage = ctx.skills.usage();
-    let now = crate::skills::now();
+    let now = crate::clock::now();
     let mut listing = String::new();
     let mut n = 0;
     for s in ctx.skills.list() {

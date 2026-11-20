@@ -22,7 +22,7 @@ fn git(work: &Path, args: &[&str]) {
 }
 
 fn context(tag: &str, home_in_workspace: bool) -> (Ctx, PathBuf) {
-    let root = std::env::temp_dir().join(format!("construct-developer-safety-{tag}-{}", crate::skills::now_nanos()));
+    let root = std::env::temp_dir().join(format!("construct-developer-safety-{tag}-{}", crate::clock::now_nanos()));
     std::fs::create_dir_all(root.join("work")).unwrap();
     let root = root.canonicalize().unwrap();
     let work = root.join("work");

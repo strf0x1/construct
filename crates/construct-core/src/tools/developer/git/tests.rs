@@ -22,7 +22,7 @@ fn git(work: &Path, args: &[&str]) -> String {
 }
 
 fn context(name: &str, format: &str) -> (Ctx, PathBuf) {
-    let root = std::env::temp_dir().join(format!("construct-initial-commit-{name}-{}", crate::skills::now_nanos()));
+    let root = std::env::temp_dir().join(format!("construct-initial-commit-{name}-{}", crate::clock::now_nanos()));
     let work = root.join("work");
     std::fs::create_dir_all(&work).unwrap();
     let root = root.canonicalize().unwrap();

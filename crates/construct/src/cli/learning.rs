@@ -3,7 +3,7 @@
 
 use anyhow::{Result, bail};
 use construct_core::config::{Config, Paths};
-use construct_core::{journal, learn, skills};
+use construct_core::{journal, learn};
 
 pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, curate: bool) -> Result<()> {
     if let Some(id) = session {
@@ -72,14 +72,14 @@ pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, cura
     }
     let st = learn::state(&paths);
     let last = st["curated_at"].as_u64().unwrap_or(0);
-    let due = skills::now().saturating_sub(last) > cfg.learn.curator_every_days as u64 * 86_400;
+    let due = construct_core::clock::now().saturating_sub(last) > cfg.learn.curator_every_days as u64 * 86_400;
     if curate || due {
         if let Some(o) = learn::curate(&cfg, &paths).await? {
             learn::log_line(&paths, &format!("curator: {} | {}", o.summary, o.actions.join("; ")));
             println!("curator: {}", o.summary);
         }
         let mut st = learn::state(&paths);
-        st["curated_at"] = serde_json::json!(skills::now());
+        st["curated_at"] = serde_json::json!(construct_core::clock::now());
         learn::save_state(&paths, &st);
     }
     Ok(())

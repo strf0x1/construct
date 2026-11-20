@@ -4,11 +4,11 @@
 //! curator can never lose work. Every write goes through `guard`: a loaded
 //! skill enters the prompt.
 
+use crate::clock::now;
 use crate::home::{Paths, write_atomic};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
 pub struct Skill {
@@ -56,10 +56,6 @@ pub fn merged(libs: &[&Library]) -> Vec<Skill> {
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
-}
-
-pub fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 pub fn valid_name(name: &str) -> bool {
@@ -306,8 +302,4 @@ fn linked_files(dir: &Path) -> Vec<String> {
     }
     out.sort();
     out
-}
-
-pub fn now_nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
 }
