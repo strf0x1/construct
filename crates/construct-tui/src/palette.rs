@@ -8,9 +8,9 @@
 use super::help;
 use super::picker::Row;
 use super::theme;
-use crate::config::Config;
-use crate::models::short_tokens;
-use crate::skills::Skill;
+use construct_core::config::Config;
+use construct_core::models::short_tokens;
+use construct_core::skills::Skill;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
@@ -235,7 +235,7 @@ impl Palette {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::ModelEntry;
+    use construct_core::models::ModelEntry;
 
     fn skill(name: &str, description: &str) -> Skill {
         Skill { name: name.into(), description: description.into(), dir: Default::default() }

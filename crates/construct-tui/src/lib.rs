@@ -27,15 +27,16 @@ mod restore;
 mod sessions;
 mod status;
 mod table;
+mod text;
 mod theme;
 mod turn;
 mod view;
 mod worker;
 
-use crate::agent::Event;
-use crate::config::{Config, Paths};
 use anyhow::Result;
 use app::{App, Cmd};
+use construct_core::agent::Event;
+use construct_core::config::{Config, Paths};
 use crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event as CEvent, EventStream, KeyEventKind, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -136,7 +137,7 @@ async fn run_inner(
     startup_browser: bool,
     model_override: Option<String>,
 ) -> Result<()> {
-    crate::trace::mark("tui start");
+    construct_core::trace::mark("tui start");
     terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableBracketedPaste)?;
@@ -160,7 +161,7 @@ async fn run_inner(
         app.browser = Some(sessions::Browser::open(paths.clone(), std::env::current_dir()?, String::new(), true));
     }
     app.draw(&mut term)?;
-    crate::trace::mark("first frame");
+    construct_core::trace::mark("first frame");
 
     // Build the agent off the UI path; the first frame is already up.
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<(String, Event)>();
@@ -188,7 +189,7 @@ async fn run_inner(
         tokio::select! {
             Some(()) = landed_rx.recv() => {
                 // A file read: the fetch is done. The running model's window stays the agent's.
-                crate::llm::overlay::lay_lists(&mut app.cfg, &paths);
+                construct_core::llm::overlay::lay_lists(&mut app.cfg, &paths);
                 if let Some(p) = app.picker.as_mut() {
                     p.refresh(&app.cfg);
                 }

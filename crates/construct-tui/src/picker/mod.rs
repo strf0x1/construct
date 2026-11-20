@@ -1,5 +1,5 @@
 //! The model picker: `/model` with no argument opens a box over the
-//! transcript listing the catalog (`crate::models`), narrowed as you type,
+//! transcript listing the catalog (`construct_core::models`), narrowed as you type,
 //! with the highlighted model's limits beside it. It takes every key while
 //! open, like a permission question. The rows are resolved the way a switch
 //! would resolve them (`Config::select_model`), so the box shows the window
@@ -10,9 +10,9 @@ mod draw;
 pub(super) use draw::render;
 
 use super::palette;
-use crate::compact;
-use crate::config::Config;
-use crate::models::Pricing;
+use construct_core::compact;
+use construct_core::config::Config;
+use construct_core::models::Pricing;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::TableState;
 
@@ -54,7 +54,7 @@ impl Row {
             max_tokens: c.max_tokens,
             compacts_at: (budget as f64 * cfg.compaction.threshold as f64) as u64,
             pricing: e.pricing,
-            dialect: crate::llm::Provider::of(&ep).name(),
+            dialect: construct_core::llm::Provider::of(&ep).name(),
             endpoint: ep.base_url,
             key: ep.api_key_secret,
             provider: ep.name,
@@ -295,7 +295,7 @@ mod tests {
         p.key(key(KeyCode::Down));
         let before = p.current().unwrap().id.clone();
         let mut later = cfg();
-        let entry = |w: u32| crate::models::ModelEntry { context_window: Some(w), ..Default::default() };
+        let entry = |w: u32| construct_core::models::ModelEntry { context_window: Some(w), ..Default::default() };
         later.discovered.insert("a/one".into(), entry(1));
         later.discovered.insert("d/four".into(), entry(64_000));
         later.select_model("b/two").unwrap();

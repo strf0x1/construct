@@ -2,9 +2,9 @@
 id: activity-line
 status: verified
 surfaces: [tui]
-depends: [crates/construct-core/src/tui/activity.rs, crates/construct-core/src/tui/turn.rs, crates/construct-core/src/tui/theme.rs, crates/construct-core/src/tui/view.rs]
-verified_at: 3acfa8d
-verified_deps: aaedd48c86e50687
+depends: [crates/construct-tui/src/activity.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/theme.rs, crates/construct-tui/src/view.rs]
+verified_at: be1e735
+verified_deps: 7b0a41f9d75f9731
 ---
 # Activity line
 

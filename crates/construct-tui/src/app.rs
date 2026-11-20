@@ -6,9 +6,9 @@ use super::palette::{self, Palette, Query};
 use super::picker::Picker;
 use super::theme;
 pub(super) use super::turn::{Phase, Turn};
-use crate::config::{Config, Paths};
-use crate::skills::{Library, Skill};
-use crate::tools::{Catalog, OutputKind};
+use construct_core::config::{Config, Paths};
+use construct_core::skills::{Library, Skill};
+use construct_core::tools::{Catalog, OutputKind};
 use ratatui::style::Color;
 use ratatui::text::Line;
 use std::collections::{HashMap, VecDeque};
@@ -111,7 +111,7 @@ pub(super) struct App {
     pub(super) expand: bool,
     /// The session's accounting, for the status line: summaries and
     /// sub-agents included, the same sums `/status` reads from the journal.
-    pub(super) totals: crate::journal::Totals,
+    pub(super) totals: construct_core::journal::Totals,
     pub(super) context_pct: u64,
     pub(super) groups: Vec<String>,
     pub(super) learning: Option<(String, Instant)>,
@@ -186,10 +186,10 @@ impl App {
         let libs = self.skill_libs.get_or_insert_with(|| {
             let Ok(paths) = Paths::resolve() else { return vec![] };
             let cwd = std::env::current_dir().unwrap_or_default();
-            let kit = crate::project::detect(&paths, &cwd).map(|p| Library::at(p.skills_dir()));
+            let kit = construct_core::project::detect(&paths, &cwd).map(|p| Library::at(p.skills_dir()));
             kit.into_iter().chain([Library::new(&paths)]).collect()
         });
-        crate::skills::merged(&libs.iter().collect::<Vec<_>>())
+        construct_core::skills::merged(&libs.iter().collect::<Vec<_>>())
     }
 
     /// Open, narrow or close the palette to match the input. The skill

@@ -12,7 +12,9 @@
 //! (counting inline `mod m { }` blocks), and the package's own lib name
 //! (`construct_dev::x` in construct-dev). A path
 //! rooted at *another* workspace crate's name is a cross-crate edge instead,
-//! recorded crate-to-crate. A module's references to itself are not edges,
+//! recorded crate-to-crate with the target crate's top-level modules the
+//! path names (for module-scoped crate deny rules). A module's references
+//! to itself are not edges,
 //! and neither is test code (`#[cfg(test)]` items and `tests.rs` files):
 //! tests build fixtures from anywhere, and the table is about what ships in
 //! the binary.
@@ -30,19 +32,24 @@ pub(super) struct Edge {
     pub(super) line: usize,
 }
 
-/// An edge from one workspace crate to another (package names).
+/// An edge from one workspace crate to another (package names), with the
+/// target crate's top-level modules the path names (`construct_core::secrets`
+/// names `secrets`; a path naming only items, like `construct_tui::run`,
+/// names none). Module-scoped crate deny rules match against these.
 #[derive(Debug, Clone)]
 pub(super) struct CrossEdge {
     pub(super) from: String,
     pub(super) to: String,
+    pub(super) modules: Vec<String>,
     pub(super) file: String,
     pub(super) line: usize,
 }
 
-/// What a path names: a module of the same package, or another crate.
+/// What a path names: a module of the same package, or another crate with
+/// the first segment of each branch after its root (candidate modules).
 pub(super) enum Ref {
     Module(String),
-    Crate(String),
+    Crate(String, Vec<String>),
 }
 
 /// One source file of a crate, lexed, with its test code removed.
@@ -233,7 +240,17 @@ pub(super) fn references(src: &Source, idents: &BTreeMap<String, String>, own: &
                         .map(|(w, line)| (Ref::Module(w), line)),
                 );
             }
-            Some((true, _)) => out.push((Ref::Crate(idents[w].clone()), t[i].line)),
+            Some((true, j)) => out.push((
+                Ref::Crate(
+                    idents[w].clone(),
+                    heads(t, j)
+                        .into_iter()
+                        .filter(|(h, _)| !matches!(h.as_str(), "self" | "super" | "crate"))
+                        .map(|(h, _)| h)
+                        .collect(),
+                ),
+                t[i].line,
+            )),
             None => {}
         }
     }

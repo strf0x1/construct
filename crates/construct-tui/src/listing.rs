@@ -5,9 +5,9 @@
 use super::app::Block;
 use super::boxed::{self, Row, Section};
 use super::theme;
-use crate::llm::catalog::{self, ModelInfo};
-use crate::memory::{self, Target};
-use crate::skills::Skill;
+use construct_core::llm::catalog::{self, ModelInfo};
+use construct_core::memory::{self, Target};
+use construct_core::skills::Skill;
 
 /// Models matching `query`, 20 at most; `Err` is the sentence for no match.
 pub(super) fn models(all: &[ModelInfo], query: &str) -> Result<Block, String> {

@@ -79,3 +79,18 @@ reason for every occurrence; an unlisted edge is reported once per pair.
   `zz_probe.rs:2: construct-dev must not use construct
   (docs/architecture.toml): <reason>` under a crate deny rule, and with the
   `may_use_crates` one-line-edit message without it.
+
+## Addendum — module-scoped crate denies (#277)
+
+The crate-granular consequence above is extended, as it anticipated:
+`must_not_use_crates` entries may carry `module = "…"` to ban one top-level
+module of the target crate instead of the whole crate
+(`{ crate = "construct-core", module = "secrets", reason = "…" }`).
+Cross-crate edges now also record the target crate's top-level modules the
+path names (each branch head after the crate root, kept only when it is a
+real module of the target), and a module-scoped deny fires with file:line
+and its reason when a named module matches. The named module must exist in
+the target crate; a stale one fails like a stale deny target. `may_use_crates`
+and `used_only_by` stay crate-granular. This keeps `tui`'s `secrets`/`jev`/
+`sandbox` bans alive once it becomes `construct-tui` with
+`may_use_crates = ["construct-core"]`.

@@ -3,8 +3,8 @@
 
 use super::app::{App, Kind, Status};
 use super::{boxed, help, markdown, prompt, theme};
-use crate::tools::OutputKind;
 use anyhow::Result;
+use construct_core::tools::OutputKind;
 use crossterm::queue;
 use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use ratatui::Terminal;

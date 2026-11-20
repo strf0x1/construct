@@ -948,6 +948,7 @@ dependencies = [
  "anyhow",
  "clap",
  "construct-core",
+ "construct-tui",
  "reqwest",
  "serde_json",
  "tokio",
@@ -961,7 +962,6 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "crossterm",
  "futures",
  "globset",
  "grep-matcher",
@@ -972,8 +972,6 @@ dependencies = [
  "landlock",
  "libc",
  "proptest",
- "pulldown-cmark",
- "ratatui",
  "reqwest",
  "rusqlite",
  "secretspec",
@@ -985,7 +983,6 @@ dependencies = [
  "toml",
  "toml_edit",
  "unicode-normalization",
- "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -1009,6 +1006,25 @@ dependencies = [
  "tokio",
  "toml",
  "vt100",
+]
+
+[[package]]
+name = "construct-tui"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "crossterm",
+ "futures",
+ "libc",
+ "proptest",
+ "pulldown-cmark",
+ "ratatui",
+ "serde_json",
+ "tokio",
+ "toml",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

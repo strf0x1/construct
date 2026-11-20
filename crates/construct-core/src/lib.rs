@@ -1,8 +1,8 @@
 //! construct-core: the engine of a lean, self-improving agent harness. An
 //! OpenAI-compatible streaming loop with in-process tools, capped memory and
-//! agent-written skills, a background learning pass, a Jev/local router, and
-//! a full-screen TUI. The `construct` binary is a thin composition root over
-//! this library (`crates/construct`); the TUI moves to construct-tui in #277.
+//! agent-written skills, a background learning pass, a Jev/local router. The
+//! `construct` binary is a thin composition root over this library
+//! (`crates/construct`); the TUI front end lives in `crates/construct-tui`.
 
 pub mod acp;
 pub mod agent;
@@ -35,4 +35,3 @@ pub mod skills;
 pub mod text;
 pub mod tools;
 pub mod trace;
-pub mod tui;

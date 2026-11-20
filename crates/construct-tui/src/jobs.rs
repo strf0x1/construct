@@ -7,8 +7,8 @@
 
 use super::app::App;
 use super::theme;
-use crate::event::Event;
-use crate::jobs::Status;
+use construct_core::event::Event;
+use construct_core::jobs::Status;
 use ratatui::style::Style;
 use ratatui::text::Span;
 
@@ -21,7 +21,7 @@ impl App {
                 self.job_started(s);
                 self.aside(
                     theme::FAINT,
-                    format!("◆ job {id} started · {}", crate::llm::truncate(&label.replace('\n', " ⏎ "), 80)),
+                    format!("◆ job {id} started · {}", construct_core::llm::truncate(&label.replace('\n', " ⏎ "), 80)),
                 );
             }
             Event::JobEnd(j) => {

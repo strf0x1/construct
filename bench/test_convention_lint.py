@@ -112,8 +112,9 @@ class Rules(unittest.TestCase):
         self.r.write("crates/construct-core/src/grow.rs", "//! Doc.\n" + "fn f() {}\n" * 299)
         self.r.write("crates/construct-core/src/big.rs", "//! Doc.\n" + "fn f() {}\n" * 400)
         self.r.commit()
-        for f in ("grow.rs", "big.rs", "tui/view.rs"):
-            p = self.r.dir / "crates/construct-core/src" / f
+        for f in ("crates/construct-core/src/grow.rs", "crates/construct-core/src/big.rs",
+                  "crates/construct-tui/src/view.rs"):
+            p = self.r.dir / f
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text((p.read_text() if p.exists() else "//! Doc.\n") + "fn g() {}\n" * 310)
         # big.rs was already past it; view.rs may run longer

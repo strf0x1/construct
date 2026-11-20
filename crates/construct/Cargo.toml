@@ -20,6 +20,7 @@ workspace = true
 
 [dependencies]
 construct-core.workspace = true
+construct-tui.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true

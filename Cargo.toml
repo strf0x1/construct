@@ -14,12 +14,18 @@ publish = false
 [workspace.dependencies]
 # The engine library; the construct binary is its composition root (ADR 0048).
 construct-core = { path = "crates/construct-core" }
+# The TUI front end; only the construct binary starts it (#277).
+construct-tui = { path = "crates/construct-tui" }
 anyhow = "1"
+# Both the engine and the TUI name async trait impls.
+async-trait = "0.1"
 clap = { version = "4.6", features = ["derive"] }
 futures = "0.3"
 # The journal (docs/adr/0008). bundled: no system libsqlite3, and FTS5 and
 # JSON functions are compiled in.
 rusqlite = { version = "0.41", features = ["bundled", "hooks"] }
+# The TUI's quiet_stderr and the engine's sandbox/acp both dup descriptors.
+libc = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "json"] }
 serde = { version = "1", features = ["derive"] }
 # preserve_order everywhere: JSON keeps wire order, and snapshot key order

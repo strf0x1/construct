@@ -22,5 +22,5 @@
 "crates/construct-core/src/tools/edit/hashline/mod.rs" = 362
 "crates/construct-core/src/tools/edit/hashline/ops.rs" = 312
 "crates/construct-core/src/tools/shell.rs" = 301
-"crates/construct-core/src/tui/markdown.rs" = 336
-"crates/construct-core/src/tui/view.rs" = 382
+"crates/construct-tui/src/markdown.rs" = 336
+"crates/construct-tui/src/view.rs" = 382

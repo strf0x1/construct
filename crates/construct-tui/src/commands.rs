@@ -4,8 +4,8 @@
 use super::app::{App, Block, Cmd, Kind, Status};
 use super::picker::Picker;
 use super::theme;
-use crate::config::Paths;
-use crate::llm::catalog::cached;
+use construct_core::config::Paths;
+use construct_core::llm::catalog::cached;
 use tokio::sync::mpsc;
 
 pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>) -> bool {
@@ -79,7 +79,7 @@ pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>)
         "memory" => {
             let sections = Paths::resolve()
                 .map(|p| {
-                    crate::memory::Store::new(&p, &app.cfg.memory)
+                    construct_core::memory::Store::new(&p, &app.cfg.memory)
                         .with_project(&p, &std::env::current_dir().unwrap_or_default())
                         .sections()
                 })
@@ -136,7 +136,7 @@ fn copy(app: &mut App, arg: &str) {
             "last tool error",
             app.blocks.iter().rev().find(|b| b.kind == Kind::Tool && b.status == Status::Err).map(|b| b.text.clone()),
         ),
-        "status" => ("status", status(app).map(|rows| crate::journal::rows_text(&rows)).ok()),
+        "status" => ("status", status(app).map(|rows| construct_core::journal::rows_text(&rows)).ok()),
         _ => return app.notice(theme::YELLOW, "usage: /copy · /copy error · /copy status".to_string()),
     };
     match text.filter(|t| !t.trim().is_empty()) {
@@ -154,11 +154,11 @@ fn copy(app: &mut App, arg: &str) {
 fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
     let read = || -> anyhow::Result<Vec<(&'static str, String)>> {
         let paths = Paths::resolve()?;
-        let file = crate::journal::path(&paths, &std::env::current_dir()?);
-        let db = crate::journal::Journal::open(&file)?;
+        let file = construct_core::journal::path(&paths, &std::env::current_dir()?);
+        let db = construct_core::journal::Journal::open(&file)?;
         let entries = db.since(&app.session, 0)?;
-        let totals = crate::journal::Totals::session(&db, &entries)?;
-        Ok(crate::journal::status_rows(&app.session, &file, &app.cfg, &totals))
+        let totals = construct_core::journal::Totals::session(&db, &entries)?;
+        Ok(construct_core::journal::status_rows(&app.session, &file, &app.cfg, &totals))
     };
     if app.session.is_empty() {
         return Err("session not started yet".to_string());

@@ -1,8 +1,8 @@
 //! Learning bookkeeping belongs to one session. Its events use that session
 //! channel, so late results cannot land in a different conversation.
 
-use crate::agent::{Agent, Event};
-use crate::learn;
+use construct_core::agent::{Agent, Event};
+use construct_core::learn;
 use tokio::sync::mpsc;
 
 /// Hand any unreviewed tail of the session to a detached learning process.

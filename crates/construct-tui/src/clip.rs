@@ -25,7 +25,7 @@ fn base64(data: &[u8]) -> String {
 /// The escape sequence that sets the system clipboard to `text`, and whether
 /// the text had to be cut to fit.
 pub(super) fn osc52(text: &str) -> (String, bool) {
-    let cut = crate::text::head(text, MAX_BYTES);
+    let cut = construct_core::text::head(text, MAX_BYTES);
     (format!("\x1b]52;c;{}\x07", base64(cut.as_bytes())), cut.len() < text.len())
 }
 

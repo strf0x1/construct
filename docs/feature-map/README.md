@@ -18,7 +18,7 @@ This directory is the maintained source for the user-facing behavior of construc
 ## Driving conventions
 
 - Start every recipe from the baseline state unless its preconditions say otherwise; a recipe's `setup.sh` adds files or `config.toml`.
-- Handles are literal screen text (`PERMISSION`, `Allow once`, `ask construct`), key names (`enter`, `down`, `y`), and theme colors from `crates/construct-core/src/tui/theme.rs` for `expect-style`.
+- Handles are literal screen text (`PERMISSION`, `Allow once`, `ask construct`), key names (`enter`, `down`, `y`), and theme colors from `crates/construct-tui/src/theme.rs` for `expect-style`.
 - Actions are drive-script lines (`type`, `key`, `wait`, `expect`, `expect-style`, `snap --style`, `image`), run by `construct-dev drive`.
 - Model behavior is fixed by the recipe's `model.json`: one step per model request, parent and children alike, in request order.
 

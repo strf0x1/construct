@@ -15,8 +15,8 @@ use super::args::primary_arg;
 use super::children::Child;
 use super::theme;
 use super::view::fit;
-use crate::event::Event;
-use crate::jobs::Started;
+use construct_core::event::Event;
+use construct_core::jobs::Started;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
@@ -65,7 +65,7 @@ impl App {
 
     /// A job started: if it is a delegated child, it gets a row now.
     pub(super) fn job_started(&mut self, s: &Started) {
-        if s.kind != crate::jobs::Kind::Delegate {
+        if s.kind != construct_core::jobs::Kind::Delegate {
             return;
         }
         let label = self.child_label(&s.call_id);
@@ -97,7 +97,7 @@ pub(super) fn elapsed(c: &Child) -> String {
 fn row(c: &Child, width: usize, phase: f32, hint: bool) -> Line<'static> {
     let id = c.job.as_deref().unwrap_or("·");
     let head = format!(" {} {id:<3} ", theme::spinner(phase));
-    let name = format!("{} ", crate::llm::truncate(&c.label, 16));
+    let name = format!("{} ", construct_core::llm::truncate(&c.label, 16));
     let tail = format!(" {}{} ", elapsed(c), if hint && width >= 70 { "  ctrl+t peek" } else { "" });
     let mut what = c.last_tool().map(|(n, d)| format!("{n} {d}")).unwrap_or_default();
     if !c.said_line().is_empty() {
@@ -124,7 +124,7 @@ fn row(c: &Child, width: usize, phase: f32, hint: bool) -> Line<'static> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use construct_core::config::Config;
 
     fn text(l: &Line) -> String {
         l.spans.iter().map(|s| s.content.as_ref()).collect()

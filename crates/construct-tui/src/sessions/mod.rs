@@ -4,8 +4,8 @@
 mod draw;
 
 use super::picker::Outcome;
-use crate::config::Paths;
-use crate::journal::{self, Session};
+use construct_core::config::Paths;
+use construct_core::journal::{self, Session};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::TableState;
 use std::sync::mpsc;

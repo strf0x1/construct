@@ -4,7 +4,7 @@
 use super::app::{App, Block, Kind};
 use super::theme;
 use super::worker::Ready;
-use crate::event::Event;
+use construct_core::event::Event;
 
 impl App {
     pub(super) fn restore(&mut self, mut ready: Ready) {
@@ -58,7 +58,7 @@ impl App {
         let mut raw = false;
         for e in ready.entries {
             match e.event {
-                Event::Submitted(crate::event::Submission { text, .. }) => {
+                Event::Submitted(construct_core::event::Submission { text, .. }) => {
                     self.history.push(text.clone());
                     self.push(Block::new(Kind::User, text));
                     raw = true;
@@ -154,16 +154,16 @@ impl App {
 /// Reattach delegated transcript events under their recorded call. They were
 /// stored once under the child ID, rather than duplicated in the parent's log.
 pub(super) fn with_children(
-    entries: Vec<crate::journal::Entry>,
-    db: &crate::journal::Journal,
-) -> anyhow::Result<Vec<crate::journal::Entry>> {
+    entries: Vec<construct_core::journal::Entry>,
+    db: &construct_core::journal::Journal,
+) -> anyhow::Result<Vec<construct_core::journal::Entry>> {
     let mut out = vec![];
     for e in entries {
         if let Event::ToolEnd { id, data: Some(data), .. } = &e.event
             && let Some(child) = data.get("session").and_then(|v| v.as_str())
         {
             for row in db.strict(child)? {
-                out.push(crate::journal::Entry {
+                out.push(construct_core::journal::Entry {
                     event: Event::Child { id: id.clone(), inner: Box::new(row.event) },
                     ..row
                 });

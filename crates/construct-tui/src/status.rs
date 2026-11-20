@@ -9,7 +9,7 @@
 
 use super::app::App;
 use super::theme;
-use crate::journal::{Totals, human};
+use construct_core::journal::{Totals, human};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use std::time::Duration;
@@ -39,7 +39,7 @@ pub(super) fn counters(t: &Totals, context_pct: u64, router: bool, compact: bool
             out.push(Span::styled("▱".repeat(METER as usize - filled), Style::new().fg(empty)));
         }
         out.push(Span::styled(
-            format!(" {}", crate::journal::share(context_pct, t.last_prompt, router)),
+            format!(" {}", construct_core::journal::share(context_pct, t.last_prompt, router)),
             Style::new().fg(c),
         ));
         out.push(sep());
@@ -107,7 +107,7 @@ impl App {
         } else if let Some((t, c, at)) = &self.toast
             && at.elapsed() < Duration::from_secs(6)
         {
-            Some(Span::styled(format!("◇ {}  ", crate::llm::truncate(t, 60)), Style::new().fg(*c)))
+            Some(Span::styled(format!("◇ {}  ", construct_core::llm::truncate(t, 60)), Style::new().fg(*c)))
         } else {
             self.jobs_span(phase)
         };
@@ -160,7 +160,7 @@ fn short_session(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::Event;
+    use construct_core::event::Event;
 
     fn text(spans: &[Span]) -> String {
         spans.iter().map(|s| s.content.as_ref()).collect()
