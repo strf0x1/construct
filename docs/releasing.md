@@ -24,6 +24,14 @@ static musl build, smoke-tested on an arm64 runner (`ubuntu-24.04-arm`); the
 static builds are also run in alpine and busybox containers, where there is
 no glibc at all.
 
+Static does not mean self-sufficient for TLS: the certificate verifier reads
+the **system CA bundle** (`rustls-native-certs`). Alpine's base image ships
+one (`/etc/ssl/certs/ca-certificates.crt`); a scratch or busybox image has
+none, and an HTTPS model call fails with a client builder error until you
+copy a bundle in and point `SSL_CERT_FILE` at it (the release smoke does
+exactly this for busybox). On rescue media: bring a `ca-certificates.crt`
+alongside the binary, or build the image with one.
+
 The Mac binaries are not code-signed or notarized. Downloaded with `curl`, as
 the installer does, they carry no quarantine flag and run. Downloaded in a
 browser, Gatekeeper blocks them; clear it with `xattr -d com.apple.quarantine
