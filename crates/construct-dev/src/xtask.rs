@@ -10,14 +10,19 @@
 //! scheduling belongs to the user's Cargo frontend (mbx during the local
 //! trial), rather than a repository-wide lock or fixed per-command limits.
 //! `check --quick` is the inner loop: the static gates plus only the tests
-//! the diff can reach, with the end-to-end tests left to CI.
+//! the diff can reach, with the end-to-end tests left to CI. `check
+//! --affected` is CI on a pull request: as quick, plus the end-to-end test
+//! files the diff reaches (ADR 0054); a push to main runs everything.
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
+mod affected;
 mod quick;
+
+pub use quick::Mode;
 
 const GATES: &[(&str, &[&str])] = &[
     ("fmt", &["fmt", "--all", "--check"]),
@@ -132,8 +137,8 @@ pub(crate) fn rust_sources(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Returns true if every gate passed.
-pub fn check(quick: bool) -> Result<bool> {
+/// Returns true if every gate passed. A gate named in `skip` does not run.
+pub fn check(mode: Mode, skip: &[String]) -> Result<bool> {
     let root = workspace_root()?;
     use crate::feature_map as map;
     let git = map::Git {
@@ -141,13 +146,14 @@ pub fn check(quick: bool) -> Result<bool> {
         object: &|rev, path| map::object(&root, rev, path),
         changed_since: &|sha, path| map::changed_since(&root, sha, path),
     };
-    let in_process: [(&str, &dyn Fn() -> Vec<String>); 4] = [
+    let in_process: [(&str, &dyn Fn() -> Vec<String>); 5] = [
         ("docs", &|| [conventions(&root), crate::deps::unshared(&root)].concat()),
         ("map", &|| crate::feature_map::problems(&root, &git)),
         ("contract", &|| crate::contract::problems(&root)),
         ("arch", &|| crate::arch::problems(&root)),
+        ("affected", &|| affected::problems(&root)),
     ];
-    for (name, gate) in in_process {
+    for (name, gate) in in_process.into_iter().filter(|(n, _)| !skip.iter().any(|s| s == n)) {
         let t = Instant::now();
         let problems = gate();
         let secs = t.elapsed().as_secs_f32();
@@ -162,12 +168,24 @@ pub fn check(quick: bool) -> Result<bool> {
         println!("{name:<8} ok ({secs:.1}s)");
     }
     let crates = quick::workspace_crates(&root);
-    let reach = if quick {
-        quick::changed_paths(&root).map_or_else(quick::everything, |p| quick::touched(&p))
-    } else {
-        quick::everything()
+    let changed = if mode == Mode::Full { None } else { quick::changed_paths(&root) };
+    let reach = changed.as_deref().map_or_else(quick::everything, quick::touched);
+    let it = match &changed {
+        Some(paths) if mode == Mode::Affected => affected::reach(&root, paths),
+        _ => affected::Reach::All("no diff to narrow by".into()),
     };
-    for (name, args) in &quick::plan(quick, &reach, &crates) {
+    if mode == Mode::Affected {
+        match &it {
+            affected::Reach::All(why) => println!("affected: every e2e test ({why})"),
+            affected::Reach::Some(m) => {
+                let total = affected::it_modules(&root).len();
+                let list = m.iter().map(String::as_str).collect::<Vec<_>>().join(" ");
+                println!("affected: {} of {total} e2e test files: {list}", m.len());
+            }
+        }
+    }
+    let plan = quick::plan(mode, &reach, &crates, &it);
+    for (name, args) in plan.iter().filter(|(n, _)| !skip.iter().any(|s| s == n)) {
         let t = Instant::now();
         let (passed, output) =
             crate::scratch::run(name, gate(args).current_dir(&root)).with_context(|| format!("running gate {name}"))?;
@@ -190,7 +208,7 @@ pub fn check(quick: bool) -> Result<bool> {
         }
         println!("{name:<8} ok ({secs:.1}s)");
     }
-    if quick {
+    if mode == Mode::Quick {
         println!(
             "quick: end-to-end tests and golden snapshots not run; CI runs them (`cargo test -p construct-dev --test it [filter]`)"
         );
