@@ -80,7 +80,7 @@ may_use = ["config", "journal", "text"]
 may_use = ["event", "journal", "llm", "sandbox", "text"]
 
 [crates.construct-core.modules.journal]
-may_use = ["child", "clock", "config", "context", "event", "jobs", "llm", "project", "skills", "text", "tools"]
+may_use = ["child", "clock", "config", "context", "event", "jobs", "llm", "project", "text", "tools"]
 
 [crates.construct-core.modules.learn]
 may_use = ["clock", "config", "guard", "http", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
