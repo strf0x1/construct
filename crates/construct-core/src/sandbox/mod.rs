@@ -32,6 +32,7 @@ mod env;
 mod landlock;
 pub mod open;
 pub mod report;
+mod roots;
 #[cfg(target_os = "macos")]
 mod seatbelt;
 mod stop;
@@ -113,24 +114,6 @@ const SYSTEM: &[&str] = &[
 /// would be a shared scratch space outside the workspace.
 const SYSTEM_RW: &[&str] =
     &["/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom", "/dev/tty", "/dev/pts", "/dev/ptmx"];
-/// Toolchains and caches under $HOME. Read-only unless listed in HOME_RW.
-const HOME_RO: &[&str] = &[
-    ".local/share/mise",
-    ".config/mise",
-    ".local/bin",
-    ".rustup",
-    ".gitconfig",
-    ".config/git",
-    ".nvm",
-    ".pyenv",
-    ".bun/bin",
-    "go/bin",
-];
-#[cfg(target_os = "linux")]
-const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg"];
-/// `Library/Caches` is where macOS tools keep what `.cache` holds on Linux.
-#[cfg(target_os = "macos")]
-const HOME_RW: &[&str] = &[".cargo", ".local/state/mise", ".cache", ".npm", ".bun/install", "go/pkg", "Library/Caches"];
 
 impl Policy {
     pub fn new(cfg: &SandboxConfig, cwd: &Path, paths: &Paths) -> Self {
@@ -151,14 +134,14 @@ impl Policy {
         read.extend(cfg.allow_read.iter().map(|p| expand(p)));
         let mut system: Vec<PathBuf> = SYSTEM.iter().map(PathBuf::from).collect();
         if let Some(h) = &home {
-            system.extend(HOME_RO.iter().map(|p| h.join(p)));
+            system.extend(roots::read(h));
         }
         // A skill's own files (scripts, references) are readable; changing
         // them goes through skill_manage (#64).
         system.push(paths.skills_dir());
         let mut sys_rw: Vec<PathBuf> = SYSTEM_RW.iter().map(PathBuf::from).collect();
         if let Some(h) = &home {
-            sys_rw.extend(HOME_RW.iter().map(|p| h.join(p)));
+            sys_rw.extend(roots::write(h, !off));
         }
         write.extend(sys_rw);
         let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
