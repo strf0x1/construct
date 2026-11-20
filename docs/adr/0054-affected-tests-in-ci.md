@@ -1,4 +1,4 @@
-# 0053 — Pull requests run the tests their diff reaches
+# 0054 — Pull requests run the tests their diff reaches
 
 Status: accepted. 2026-11-20.
 

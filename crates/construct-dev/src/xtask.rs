@@ -12,7 +12,7 @@
 //! `check --quick` is the inner loop: the static gates plus only the tests
 //! the diff can reach, with the end-to-end tests left to CI. `check
 //! --affected` is CI on a pull request: as quick, plus the end-to-end test
-//! files the diff reaches (ADR 0053); a push to main runs everything.
+//! files the diff reaches (ADR 0054); a push to main runs everything.
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};

@@ -96,7 +96,7 @@ enum Cmd {
         #[arg(long, conflicts_with = "affected")]
         quick: bool,
         /// A pull request in CI: as --quick, plus the end-to-end test files the diff reaches
-        /// (crates/construct-dev/tests/affected.toml, ADR 0053).
+        /// (crates/construct-dev/tests/affected.toml, ADR 0054).
         #[arg(long)]
         affected: bool,
         /// Leave out a gate by name (`bench`, `docs`, `test-it`, ...); repeatable.

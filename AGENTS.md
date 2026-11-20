@@ -34,7 +34,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
-| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. `xtask/affected.rs` + `tests/affected.toml`: which e2e test files a diff reaches, for `check --affected` (ADR 0053). |
+| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. `xtask/affected.rs` + `tests/affected.toml`: which e2e test files a diff reaches, for `check --affected` (ADR 0054). |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
 | `crates/construct-core/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
@@ -119,7 +119,7 @@ recipe that only checks the screen: the scripted model's reply is fixed, so
 
 ```sh
 cargo xtask check --quick         # while iterating: docs, feature map, arch, fmt, clippy, unit and contract tests of the crates your diff reaches; ends in `ok` or `FAILED <gate>`
-cargo xtask check --affected      # what CI runs on a PR: as --quick, plus the e2e test files the diff reaches (tests/affected.toml, ADR 0053)
+cargo xtask check --affected      # what CI runs on a PR: as --quick, plus the e2e test files the diff reaches (tests/affected.toml, ADR 0054)
 cargo xtask check                 # the full gate, as CI runs it: also every end-to-end test, the golden snapshots and the bench tests
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct-core      # unit and contract tests (edit tiers, router)

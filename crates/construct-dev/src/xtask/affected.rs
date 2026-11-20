@@ -1,5 +1,5 @@
 //! Which end-to-end test files a diff can reach, for `check --affected`
-//! (ADR 0053). Every e2e test runs the real binary, which links every crate,
+//! (ADR 0054). Every e2e test runs the real binary, which links every crate,
 //! so the crate graph says "all of them" for nearly any change; and inside
 //! construct-core the module graph is no narrower, since `config` names every
 //! subsystem's settings and everything names `config`. So the narrowing is

@@ -1,6 +1,6 @@
 # Which end-to-end test files (modules of tests/it.rs) a change can reach.
 # `cargo xtask check --affected`, what CI runs on a pull request, runs only
-# those; a push to main runs every test. ADR 0053.
+# those; a push to main runs every test. ADR 0054.
 #
 # Unlisted means everything: a changed path under crates/ that no area names
 # runs the whole `it` suite. So an area may only narrow, and only where you
