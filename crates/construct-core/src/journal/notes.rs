@@ -11,6 +11,7 @@
 
 use super::Writer;
 use crate::event::{Event, Events};
+use crate::llm::notes::Notes;
 use std::collections::BTreeMap;
 
 /// The `kind` of the row that reports notes dropped past a cap.
@@ -18,14 +19,7 @@ pub const SUPPRESSED: &str = "suppressed";
 /// The longest `detail` a row keeps, in bytes.
 const DETAIL_MAX: usize = 300;
 
-/// One condition worth a journal row: which subsystem saw it, what it is, and
-/// how many rows of it a session keeps.
-#[derive(Debug, Clone, Copy)]
-pub struct Kind {
-    pub class: &'static str,
-    pub name: &'static str,
-    pub cap: u32,
-}
+pub use crate::llm::notes::Kind;
 
 #[derive(Default)]
 pub struct Coalescer {
@@ -98,6 +92,12 @@ impl Coalescer {
         for ev in self.finish() {
             journal.emit(ev, tx);
         }
+    }
+}
+
+impl Notes for Coalescer {
+    fn record(&mut self, kind: Kind, detail: &str) {
+        Coalescer::record(self, kind, detail);
     }
 }
 
