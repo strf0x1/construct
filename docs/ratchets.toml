@@ -24,3 +24,35 @@
 "crates/construct-core/src/tools/shell.rs" = 301
 "crates/construct-tui/src/markdown.rs" = 336
 "crates/construct-tui/src/view.rs" = 382
+
+# Module pairs that use each other both ways, per crate (`a <-> b`),
+# found by the same scan as `construct-dev code-graph`. A new pair fails the
+# `arch` gate naming it; a pair that is cut fails until it is deleted here.
+# Modularity plan: issue #303.
+[pairs]
+construct-core = [
+    "acp <-> child",
+    "agents <-> config",
+    "agents <-> tools",
+    "child <-> tools",
+    "config <-> models",
+    "config <-> providers",
+    "config <-> tools",
+    "event <-> jobs",
+    "event <-> permission",
+    "jobs <-> journal",
+    "journal <-> llm",
+    "journal <-> tools",
+    "permission <-> tools",
+    "skills <-> tools",
+]
+construct-dev = [
+    "arch <-> xtask",
+    "feature_map <-> xtask",
+]
+construct-tui = [
+    "app <-> ask",
+    "app <-> sessions",
+    "palette <-> picker",
+    "restore <-> worker",
+]
