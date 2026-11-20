@@ -55,7 +55,7 @@ impl Perms {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Paths;
+    use crate::home::Paths;
     use crate::permission::{Ask, Decision};
     use crate::sandbox::Policy;
     use std::collections::VecDeque;

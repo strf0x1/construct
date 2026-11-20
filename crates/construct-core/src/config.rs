@@ -1,12 +1,12 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
+pub use crate::home::{Paths, write_atomic};
 pub use crate::providers::{CacheMode, Dialect, ProviderConfig, Reasoning};
 pub use crate::tools::web::WebConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 
 mod baked;
 pub mod context;
@@ -291,50 +291,6 @@ impl Default for RouterConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Paths {
-    pub home: PathBuf,
-}
-
-impl Paths {
-    pub fn resolve() -> Result<Self> {
-        let home = match std::env::var_os("CONSTRUCT_HOME") {
-            Some(h) if !h.is_empty() => PathBuf::from(h),
-            _ => {
-                let user = std::env::var_os("HOME").context("HOME is not set")?;
-                PathBuf::from(user).join(".construct")
-            }
-        };
-        Ok(Self { home })
-    }
-    pub fn config(&self) -> PathBuf {
-        self.home.join("config.toml")
-    }
-    pub fn memory_dir(&self) -> PathBuf {
-        self.home.join("memory")
-    }
-    pub fn skills_dir(&self) -> PathBuf {
-        self.home.join("skills")
-    }
-    pub fn state_file(&self) -> PathBuf {
-        self.home.join("state.json")
-    }
-    pub fn learn_log(&self) -> PathBuf {
-        self.home.join("learn.log")
-    }
-    pub fn spill_dir(&self) -> PathBuf {
-        self.home.join("spill")
-    }
-    pub fn models(&self) -> PathBuf {
-        self.home.join("models.toml")
-    }
-    /// The cached model list for one endpoint (`llm::catalog`).
-    pub fn models_cache(&self, base_url: &str) -> PathBuf {
-        let key: String = base_url.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
-        self.home.join("models").join(format!("{key}.json"))
-    }
-}
-
 impl Config {
     pub fn load(paths: &Paths) -> Result<Self> {
         let path = paths.config();
@@ -361,15 +317,4 @@ impl Config {
     pub fn learn_model(&self) -> &str {
         if self.learn.model.is_empty() { &self.model } else { &self.learn.model }
     }
-}
-
-/// Write via a temp file and rename so readers never see half a file.
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    let tmp = path.with_extension(format!("tmp{}", std::process::id()));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
 }
