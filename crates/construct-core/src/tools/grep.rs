@@ -132,7 +132,7 @@ fn search_file(ctx: &Ctx, searcher: &mut Searcher, matcher: &RegexMatcher, polic
         UTF8(|ln, line| {
             hits.count += 1;
             if hits.lines.len() < GREP_MAX {
-                hits.lines.push(format!("{shown}:{ln}: {}", crate::llm::truncate(line.trim_end(), 300)));
+                hits.lines.push(format!("{shown}:{ln}: {}", crate::text::truncate(line.trim_end(), 300)));
             }
             Ok(true)
         }),

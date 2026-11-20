@@ -12,6 +12,14 @@ pub fn tail(s: &str, max: usize) -> &str {
     s.split_at(s.ceil_char_boundary(s.len().saturating_sub(max))).1
 }
 
+/// `s` cut to at most `max` bytes at a char boundary, with `…` appended when cut.
+pub fn truncate(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    format!("{}…", head(s, max))
+}
+
 /// Shared property-test setup: text that breaks byte arithmetic, and one
 /// deterministic config so CI replays the same cases every run.
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! correction or a hint), and each failed tool call paired with the next call
 //! of the same tool that worked. The pair is the lesson: the failure alone
 //! says what broke, the contrast says what fixed it (ReasoningBank, ExpeL).
-use crate::llm::{self, Message};
+use crate::llm::Message;
 use std::fmt::Write as _;
 
 /// A user turn after the first, with what the assistant had said just before.
@@ -36,7 +36,10 @@ pub fn followups(messages: &[Message]) -> Vec<FollowUp> {
                     continue;
                 }
                 if seen_user {
-                    out.push(FollowUp { after: llm::truncate(&last_said, 300), user: llm::truncate(text, 600) });
+                    out.push(FollowUp {
+                        after: crate::text::truncate(&last_said, 300),
+                        user: crate::text::truncate(text, 600),
+                    });
                 }
                 seen_user = true;
             }
@@ -51,7 +54,7 @@ pub fn contrasts(messages: &[Message]) -> Vec<Contrast> {
     let mut calls: Vec<(String, String, String)> = Vec::new();
     for m in messages {
         for c in &m.tool_calls {
-            calls.push((c.id.clone(), c.function.name.clone(), llm::truncate(&c.function.arguments, 240)));
+            calls.push((c.id.clone(), c.function.name.clone(), crate::text::truncate(&c.function.arguments, 240)));
         }
     }
     let result = |id: &str| {
@@ -67,7 +70,11 @@ pub fn contrasts(messages: &[Message]) -> Vec<Contrast> {
             .iter()
             .find(|(id2, name2, _)| name2 == name && result(id2).is_some_and(|t| !failed(t)))
             .map(|(_, n, a)| format!("{n} {a}"));
-        out.push(Contrast { failed: format!("{name} {args}"), error: llm::truncate(tail(err, 240), 240), fixed });
+        out.push(Contrast {
+            failed: format!("{name} {args}"),
+            error: crate::text::truncate(tail(err, 240), 240),
+            fixed,
+        });
     }
     out
 }

@@ -7,7 +7,7 @@
 use super::{Entry, Journal, Totals};
 use crate::config::{Config, Paths};
 use crate::event::Event;
-use crate::llm::truncate;
+use crate::text::truncate;
 use anyhow::{Result, bail};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};

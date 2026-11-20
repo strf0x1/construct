@@ -97,7 +97,7 @@ pub(super) fn elapsed(c: &Child) -> String {
 fn row(c: &Child, width: usize, phase: f32, hint: bool) -> Line<'static> {
     let id = c.job.as_deref().unwrap_or("·");
     let head = format!(" {} {id:<3} ", theme::spinner(phase));
-    let name = format!("{} ", construct_core::llm::truncate(&c.label, 16));
+    let name = format!("{} ", construct_core::text::truncate(&c.label, 16));
     let tail = format!(" {}{} ", elapsed(c), if hint && width >= 70 { "  ctrl+t peek" } else { "" });
     let mut what = c.last_tool().map(|(n, d)| format!("{n} {d}")).unwrap_or_default();
     if !c.said_line().is_empty() {

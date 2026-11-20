@@ -278,7 +278,7 @@ fn stub(out: &str) -> String {
         "{ELIDED} {} lines, {} chars; began: {:?}. Run the call again if you need it.]",
         out.lines().count(),
         out.len(),
-        crate::llm::truncate(first, 120)
+        crate::text::truncate(first, 120)
     )
 }
 

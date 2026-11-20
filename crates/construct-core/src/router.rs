@@ -106,7 +106,7 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     questions.insert("skill_write".into(), noul(Q_SKILL_WRITE.into()));
     for (name, desc) in input.mcp {
         questions
-            .insert(format!("mcp:{name}"), needs(&format!("the {name} tools: {}", crate::llm::truncate(desc, 300))));
+            .insert(format!("mcp:{name}"), needs(&format!("the {name} tools: {}", crate::text::truncate(desc, 300))));
     }
     // Choice allows at most 255 options; keep the best-matching 254 + none.
     let mut candidates: Vec<&Skill> = input.skills.iter().collect();
@@ -120,7 +120,7 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
         questions.insert("needs_skill".into(), noul(Q_NEEDS_SKILL.into()));
         let mut criteria = Map::new();
         for s in &candidates {
-            criteria.insert(s.name.clone(), json!(crate::llm::truncate(&s.description, 300)));
+            criteria.insert(s.name.clone(), json!(crate::text::truncate(&s.description, 300)));
         }
         criteria.insert("none".into(), json!("No skill here fits the request"));
         questions.insert(
@@ -128,9 +128,9 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
             json!({ "type": "choice", "instructions": "Which skill's procedure fits `request` best?", "criteria": criteria }),
         );
     }
-    let mut state = json!({ "request": crate::llm::truncate(input.request, 4000) });
+    let mut state = json!({ "request": crate::text::truncate(input.request, 4000) });
     if !input.previous.is_empty() {
-        state["previous_reply"] = json!(crate::llm::truncate(input.previous, 600));
+        state["previous_reply"] = json!(crate::text::truncate(input.previous, 600));
     }
     let v = crate::jev::ask(cfg, http, key, "route", state, questions, Duration::from_millis(2500)).await?;
     let answers = &v["answers"];
