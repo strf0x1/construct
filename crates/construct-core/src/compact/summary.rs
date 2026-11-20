@@ -4,7 +4,8 @@
 //! the rest is filled newest first within the summarizer's own budget.
 
 use super::{SUMMARY_HEAD, is_summary};
-use crate::llm::{Message, truncate};
+use crate::llm::Message;
+use crate::text::truncate;
 use std::fmt::Write;
 
 /// Output tokens the summarizer may spend beyond the summary itself:

@@ -16,7 +16,7 @@
 
 use crate::config::{McpServer, Paths, SandboxConfig};
 use crate::sandbox::Policy;
-use anyhow::{Context, Result, anyhow, ensure};
+use anyhow::{Context, Result, anyhow};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -51,21 +51,6 @@ pub fn wire_name(server: &str, tool: &str) -> String {
 /// The server a wire name belongs to, if it is an MCP tool's.
 pub fn server_of(name: &str) -> Option<&str> {
     name.strip_prefix("mcp__")?.split_once("__").map(|(s, _)| s)
-}
-
-/// A server name must survive inside a function name and split back out of
-/// one: letters, digits, `-` and single `_`, at most 32 characters.
-pub fn check_server_name(name: &str) -> Result<()> {
-    ensure!(
-        !name.is_empty()
-            && name.len() <= 32
-            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-            && !name.contains("__")
-            && !name.starts_with('_')
-            && !name.ends_with('_'),
-        "[mcp.{name}]: a server name is 1-32 letters, digits, '-' or single '_' (it becomes part of tool names)"
-    );
-    Ok(())
 }
 
 /// One tool a server listed, as `tools/list` described it.
@@ -159,15 +144,5 @@ mod tests {
         let b = wire_name("server", &format!("{}_two", "x".repeat(70)));
         assert!(a.len() == NAME_MAX && b.len() == NAME_MAX && a != b, "{a} {b}");
         assert_eq!(server_of(&a), Some("server"));
-    }
-
-    #[test]
-    fn server_names_split_back_out() {
-        for ok in ["context7", "my-server", "a_b"] {
-            assert!(check_server_name(ok).is_ok(), "{ok}");
-        }
-        for bad in ["a__b", "_a", "a_", "has.dot", "", &"x".repeat(33)] {
-            assert!(check_server_name(bad).is_err(), "{bad}");
-        }
     }
 }

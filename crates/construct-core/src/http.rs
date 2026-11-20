@@ -36,15 +36,28 @@ const USER_AGENT: &str = concat!("construct/", env!("CARGO_PKG_VERSION"));
 const NO_ROOTS: &str = "no CA certificates found: set SSL_CERT_FILE=/path/to/ca-certificates.crt \
      (or CONSTRUCT_CA_FILE), or install ca-certificates";
 
+/// Install ring, the one crypto provider (#271), before the first TLS client.
+/// reqwest is built with `rustls-no-provider` to keep aws-lc-rs (a BoringSSL
+/// fork) out of the binary. The engine is a library: its tests and embedders
+/// build clients without the binary's startup, so `builder()` calls
+/// this for every construction site. Once per process; an already-installed
+/// provider wins.
+pub fn ensure_crypto() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+}
+
 /// The policy site: install ring, the one crypto provider (#271), before the
 /// first TLS client, then hand back a bare builder for the call site's knobs.
-/// Once per process; an already-installed provider wins (`llm::ensure_crypto`).
+/// Once per process; an already-installed provider wins (`ensure_crypto`).
 #[expect(
     clippy::disallowed_methods,
     reason = "the one legitimate reqwest constructor: every other site goes through this helper (#290)"
 )]
 pub fn builder() -> reqwest::ClientBuilder {
-    crate::llm::ensure_crypto();
+    ensure_crypto();
     let builder = reqwest::Client::builder();
     // Only static builds need roots in the binary. A glibc or macOS build
     // runs where a trust store exists (or can point SSL_CERT_FILE at one);

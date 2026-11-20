@@ -107,7 +107,7 @@ impl App {
         } else if let Some((t, c, at)) = &self.toast
             && at.elapsed() < Duration::from_secs(6)
         {
-            Some(Span::styled(format!("◇ {}  ", construct_core::llm::truncate(t, 60)), Style::new().fg(*c)))
+            Some(Span::styled(format!("◇ {}  ", construct_core::text::truncate(t, 60)), Style::new().fg(*c)))
         } else {
             self.jobs_span(phase)
         };

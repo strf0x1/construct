@@ -53,10 +53,10 @@ pub(super) async fn run(
                         let _ = writeln!(out);
                         at_line_start = true;
                     }
-                    let _ = writeln!(err, "· {name} {}", llm::truncate(&args.replace('\n', " "), 160));
+                    let _ = writeln!(err, "· {name} {}", construct_core::text::truncate(&args.replace('\n', " "), 160));
                 }
                 Event::ToolEnd { ok: false, output, .. } => {
-                    let _ = writeln!(err, "  ✗ {}", llm::truncate(&output.replace('\n', " "), 200));
+                    let _ = writeln!(err, "  ✗ {}", construct_core::text::truncate(&output.replace('\n', " "), 200));
                 }
                 Event::Recovered { message } => {
                     let _ = writeln!(err, "{message}");

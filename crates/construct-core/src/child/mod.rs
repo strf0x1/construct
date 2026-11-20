@@ -13,12 +13,11 @@ pub mod run;
 pub mod serve;
 pub mod wire;
 
+pub use crate::agents::DEPTH_ENV;
 pub use wire::Origin;
 
 /// Children deeper than this cannot be started, whatever a definition says.
 pub const MAX_DEPTH: u32 = 1;
-/// How many delegations deep this process is (0 for a user's session).
-pub const DEPTH_ENV: &str = "CONSTRUCT_DEPTH";
 
 pub fn depth() -> u32 {
     std::env::var(DEPTH_ENV).ok().and_then(|v| v.parse().ok()).unwrap_or(0)

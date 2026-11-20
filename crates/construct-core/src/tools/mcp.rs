@@ -27,7 +27,7 @@ impl McpTool {
             "type": "function",
             "function": {
                 "name": name,
-                "description": crate::llm::truncate(&t.description, 1024),
+                "description": crate::text::truncate(&t.description, 1024),
                 "parameters": t.schema,
             }
         });

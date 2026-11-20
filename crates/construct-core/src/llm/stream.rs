@@ -6,8 +6,9 @@
 //! bytes and decodes whole lines only, so a chunk boundary inside a
 //! multibyte character never reaches the decoder.
 
-use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage, notes, truncate};
+use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage, notes};
 use crate::journal::notes::Coalescer;
+use crate::text::truncate;
 use anyhow::{Result, anyhow, bail};
 use serde_json::Value;
 use std::collections::BTreeMap;

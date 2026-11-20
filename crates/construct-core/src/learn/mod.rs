@@ -31,12 +31,7 @@ use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
 
-/// `[learn] strategy` values.
-pub const SKILLS: &str = "skills";
-pub const CORRECTIONS: &str = "corrections";
-pub const PLAYBOOK: &str = "playbook";
-pub const WORKFLOW: &str = "workflow";
-pub const HYBRID: &str = "hybrid";
+pub use crate::config::learn::{CORRECTIONS, HYBRID, PLAYBOOK, SKILLS, WORKFLOW};
 
 /// For the strategies that replace the review (`playbook`, `workflow`,
 /// `hybrid`): learn from `messages` with one call. `hybrid` asks
@@ -112,11 +107,16 @@ pub fn digest(messages: &[Message], max_chars: usize) -> String {
                     let _ = write!(s, "ASSISTANT: {c}");
                 }
                 for c in &m.tool_calls {
-                    let _ = write!(s, "\nTOOL CALL {}: {}", c.function.name, llm::truncate(&c.function.arguments, 600));
+                    let _ = write!(
+                        s,
+                        "\nTOOL CALL {}: {}",
+                        c.function.name,
+                        crate::text::truncate(&c.function.arguments, 600)
+                    );
                 }
             }
             "tool" => {
-                let _ = write!(s, "TOOL RESULT: {}", llm::truncate(m.content.as_deref().unwrap_or(""), 400));
+                let _ = write!(s, "TOOL RESULT: {}", crate::text::truncate(m.content.as_deref().unwrap_or(""), 400));
             }
             _ => continue,
         }
@@ -194,7 +194,7 @@ async fn run_loop(
             };
             // Loading a skill or listing the library changes nothing; it isn't an action.
             if out.as_ref().is_ok_and(|o| o.changed()) && !catalog.readonly(&call.function.name) {
-                actions.push(format!("{}: {}", call.function.name, llm::truncate(&text, 120)));
+                actions.push(format!("{}: {}", call.function.name, crate::text::truncate(&text, 120)));
             }
             msgs.push(Message::tool(&call.id, text));
         }

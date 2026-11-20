@@ -107,7 +107,7 @@ pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Mess
                         e.problem_class,
                         e.summary,
                         e.fix,
-                        llm::truncate(&e.evidence, 300)
+                        crate::text::truncate(&e.evidence, 300)
                     );
                 }
             }

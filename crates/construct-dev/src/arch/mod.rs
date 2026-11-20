@@ -20,6 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 mod edges;
+mod export;
 mod lex;
 mod modules;
 mod ratchet;
@@ -27,6 +28,7 @@ mod ratchet;
 mod tests;
 
 use edges::{CrossEdge, Edge, Krate, Ref, Source, krates, references};
+pub use export::code_graph;
 
 const TABLE: &str = "docs/architecture.toml";
 
@@ -102,27 +104,49 @@ fn graph(
     for s in &k.srcs {
         for (r, line) in references(s, idents, &own) {
             match r {
-                Ref::Module(to) => {
+                Ref::Module(to, items) => {
                     if !modules.contains(to.as_str()) {
                         bad.push(format!(
                             "{}:{line}: `{to}` at the crate root is not a module the arch gate knows; name the module it lives in",
                             s.file
                         ));
                     } else if to != s.module() {
-                        intra.push(Edge { from: s.module().into(), to, file: s.file.clone(), line });
+                        intra.push(Edge { from: s.module().into(), to, file: s.file.clone(), line, items });
                     }
                 }
                 Ref::Crate(to, names) => {
                     // Only real top-level modules of the target count: a path
                     // naming an item (`construct_tui::run`) names no module.
-                    let modules =
-                        names.into_iter().filter(|n| target_mods.get(&to).is_some_and(|m| m.contains(n))).collect();
-                    cross.push(CrossEdge { from: k.name.clone(), to, modules, file: s.file.clone(), line });
+                    let real: Vec<(String, Vec<String>)> = names
+                        .into_iter()
+                        .filter(|(n, _)| target_mods.get(&to).is_some_and(|m| m.contains(n)))
+                        .collect();
+                    let items = real
+                        .iter()
+                        .flat_map(|(m, its)| {
+                            if its.is_empty() {
+                                vec![m.clone()]
+                            } else {
+                                its.iter().map(|i| format!("{m}::{i}")).collect()
+                            }
+                        })
+                        .collect();
+                    let modules = real.into_iter().map(|(m, _)| m).collect();
+                    cross.push(CrossEdge { from: k.name.clone(), to, modules, file: s.file.clone(), line, items });
                 }
             }
         }
     }
     (intra, cross)
+}
+
+/// Crate ident → package name, and package name → its top-level modules.
+type Names = (BTreeMap<String, String>, BTreeMap<String, BTreeSet<String>>);
+
+fn names(ks: &[Krate]) -> Names {
+    let idents = ks.iter().map(|k| (k.name.replace('-', "_"), k.name.clone())).collect();
+    let mods = ks.iter().map(|k| (k.name.clone(), k.srcs.iter().map(|s| s.module().to_string()).collect())).collect();
+    (idents, mods)
 }
 
 fn uses_of(edges: &[Edge]) -> BTreeMap<&str, BTreeSet<&str>> {
@@ -142,9 +166,7 @@ fn boundaries(root: &Path, ks: &[Krate]) -> Vec<String> {
             Err(e) => return vec![format!("{TABLE}: {}", e.message())],
         },
     };
-    let idents: BTreeMap<String, String> = ks.iter().map(|k| (k.name.replace('-', "_"), k.name.clone())).collect();
-    let target_mods: BTreeMap<String, BTreeSet<String>> =
-        ks.iter().map(|k| (k.name.clone(), k.srcs.iter().map(|s| s.module().to_string()).collect())).collect();
+    let (idents, target_mods) = names(ks);
     let mut graphs = Vec::new();
     let mut cross: Vec<CrossEdge> = Vec::new();
     for k in ks {

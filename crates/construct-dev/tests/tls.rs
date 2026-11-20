@@ -28,7 +28,7 @@ struct Tls {
 /// binary's catalog fetch. The thread is a daemon: the test process exits
 /// with it, and each test gets its own port.
 fn serve(name: &str) -> Tls {
-    construct_core::llm::ensure_crypto();
+    construct_core::http::ensure_crypto();
     let now = OffsetDateTime::now_utc();
 
     let ca_key = KeyPair::generate().expect("generate a CA key");

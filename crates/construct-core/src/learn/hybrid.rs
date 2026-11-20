@@ -93,7 +93,7 @@ pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Resul
             }
             for s in skills {
                 let body = std::fs::read_to_string(s.dir.join("SKILL.md")).unwrap_or_default();
-                let _ = writeln!(task, "### {}\n{}\n", s.name, llm::truncate(&body, 1500));
+                let _ = writeln!(task, "### {}\n{}\n", s.name, crate::text::truncate(&body, 1500));
             }
         }
         None => {

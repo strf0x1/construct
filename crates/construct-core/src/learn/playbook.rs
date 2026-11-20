@@ -131,7 +131,7 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
             continue;
         }
         if let Some(b) = bullets.iter_mut().find(|b| b.id == u.id).filter(|_| !u.text.trim().is_empty()) {
-            b.text = llm::truncate(u.text.trim(), 400);
+            b.text = crate::text::truncate(u.text.trim(), 400);
             log.push(format!("updated {}", b.id));
         }
     }
@@ -143,7 +143,7 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
         log.push(format!("removed {}", before - bullets.len()));
     }
     for a in d.add.iter().filter(|a| a.scope == scope) {
-        let text = llm::truncate(a.text.trim(), 400);
+        let text = crate::text::truncate(a.text.trim(), 400);
         // A value the user gave for this project (a seed, a port) is the
         // lesson; a credential never is. Same check as memory (`guard`).
         if let Some(why) = crate::guard::check(&text) {

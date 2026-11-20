@@ -168,7 +168,7 @@ pub fn render(jobs: &[Info]) -> String {
             j.kind.label(),
             j.status.label(),
             j.ms,
-            crate::llm::truncate(&j.label.replace(['"', '\n'], " "), 120),
+            crate::text::truncate(&j.label.replace(['"', '\n'], " "), 120),
             j.tail.trim_end().replace("</job", "<\\/job")
         ));
     }

@@ -20,7 +20,6 @@
 //! directory; "off" removes the boundary but keeps the helper, because
 //! process lifetime is hygiene, not part of the filesystem boundary.
 
-use crate::agents::AgentDef;
 use crate::config::{McpServer, Paths, SandboxConfig};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -28,6 +27,7 @@ use std::path::{Path, PathBuf};
 mod beneath;
 mod denied;
 mod env;
+mod grant;
 #[cfg(target_os = "linux")]
 mod landlock;
 pub mod open;
@@ -42,6 +42,7 @@ mod supervise;
 #[path = "supervise_macos.rs"]
 mod supervise;
 pub use env::{is_secret_name, scrub_env};
+pub use grant::Grant;
 pub use stop::{GRACE, StopOnDrop};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -180,12 +181,11 @@ impl Policy {
     /// working directory is not implied: a child with nothing listed cannot
     /// read it. The child may run the construct binary and nothing more of
     /// the parent's tree.
-    pub fn for_agent(&self, def: &AgentDef, paths: &Paths, tag: &str, endpoint_port: u16) -> Result<Self, String> {
-        let (read, write) = (AgentDef::expanded(&def.allow_read), AgentDef::expanded(&def.allow_write));
-        for p in &read {
+    pub fn for_agent(&self, grant: Grant, paths: &Paths, tag: &str, endpoint_port: u16) -> Result<Self, String> {
+        for p in &grant.read {
             self.check_read(p)?;
         }
-        for p in &write {
+        for p in &grant.write {
             self.check_write(p)?;
         }
         let tmp = paths.home.join("tmp").join(format!("{}-{tag}", std::process::id()));
@@ -193,18 +193,18 @@ impl Policy {
         let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
         let mut system = self.system.clone();
         system.extend(std::env::current_exe().and_then(|e| e.canonicalize()));
-        let mut write = canon(write);
+        let mut write = canon(grant.write);
         write.extend(tmp.canonicalize());
         // Devices a program can't start without, as for any tool.
         write.extend(self.write.iter().filter(|p| p.starts_with("/dev")).cloned());
         Ok(Self {
             off: self.off,
-            read: canon(read),
+            read: canon(grant.read),
             write,
             system,
             tmp,
             parent: std::process::id(),
-            no_network: !def.network,
+            no_network: !grant.network,
             connect_ports: vec![endpoint_port],
             own_stderr: true,
             net_only: false,

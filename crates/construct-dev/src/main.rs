@@ -90,11 +90,24 @@ enum Cmd {
         #[arg(trailing_var_arg = true, required = true)]
         cmd: Vec<String>,
     },
+    /// Print every reference between modules and crates as JSON: file, line, and the items it names.
+    CodeGraph {
+        /// Repository root to scan (`crates/*/src`).
+        #[arg(default_value = ".")]
+        root: PathBuf,
+    },
     /// docs, map, fmt --check, clippy -D warnings, test --workspace, bench tests. Prints one line per gate, then `ok` or `FAILED <gate>`.
     Check {
-        /// The inner loop: only the unit and contract tests of the crates the diff touches. CI runs the rest.
-        #[arg(long)]
+        /// The inner loop: only the unit and contract tests of the crates the diff reaches. CI runs the rest.
+        #[arg(long, conflicts_with = "affected")]
         quick: bool,
+        /// A pull request in CI: as --quick, plus the end-to-end test files the diff reaches
+        /// (crates/construct-dev/tests/affected.toml, ADR 0054).
+        #[arg(long)]
+        affected: bool,
+        /// Leave out a gate by name (`bench`, `docs`, `test-it`, ...); repeatable.
+        #[arg(long, value_name = "GATE")]
+        skip: Vec<String>,
     },
     /// Apply clippy's fixes, then cargo fmt.
     Fix,
@@ -173,7 +186,18 @@ fn main() -> Result<()> {
         }
         Cmd::McpFake(o) => mcp_fake::run(o),
         Cmd::AcpFake(o) => acp_fake::run(o),
-        Cmd::Check { quick } => exit_with(xtask::check(quick)?),
+        Cmd::CodeGraph { root } => {
+            println!("{}", arch::code_graph(&root));
+            Ok(())
+        }
+        Cmd::Check { quick, affected, skip } => {
+            let mode = match (quick, affected) {
+                (true, _) => xtask::Mode::Quick,
+                (_, true) => xtask::Mode::Affected,
+                _ => xtask::Mode::Full,
+            };
+            exit_with(xtask::check(mode, &skip)?)
+        }
         Cmd::Fix => exit_with(xtask::fix()?),
         Cmd::Snapshots => exit_with(xtask::snapshots()?),
         Cmd::Drive { script, cols, rows, env, cwd, metrics, cmd } => {

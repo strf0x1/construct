@@ -20,14 +20,14 @@ fn protected_roots() -> Vec<PathBuf> {
         Some(home) => PROTECTED.iter().map(|r| Policy::real(&home.join(r))).collect(),
         None => vec![],
     };
-    out.extend(crate::config::Paths::resolve().ok().map(|p| Policy::real(&p.home)));
+    out.extend(crate::home::Paths::resolve().ok().map(|p| Policy::real(&p.home)));
     out
 }
 
 /// Whether `p` is inside construct's own home (config, journals, memory,
 /// skills), which its tools reach and a prompt never offers.
 pub fn in_construct_home(p: &Path) -> bool {
-    crate::config::Paths::resolve().is_ok_and(|c| Policy::real(p).starts_with(Policy::real(&c.home)))
+    crate::home::Paths::resolve().is_ok_and(|c| Policy::real(p).starts_with(Policy::real(&c.home)))
 }
 
 /// Whether `p` is a place a prompt can't approve.
@@ -113,7 +113,7 @@ mod tests {
         assert!(protected(&home.join(".gnupg")));
         assert!(protected(&home.join(".config/construct-bench.key")));
         assert!(!protected(&home.join(".aws/config")));
-        let construct = crate::config::Paths::resolve().unwrap().home;
+        let construct = crate::home::Paths::resolve().unwrap().home;
         assert!(protected(&construct.join("config.toml")));
         // The folder holding a protected file is not on offer; one that
         // merely sits beside it is.

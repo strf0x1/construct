@@ -80,7 +80,7 @@ impl fmt::Display for Denial {
             (None, None) => {}
         }
         if !self.message.is_empty() {
-            write!(f, ": {}", super::truncate(&self.message, 600))?;
+            write!(f, ": {}", crate::text::truncate(&self.message, 600))?;
         }
         Ok(())
     }

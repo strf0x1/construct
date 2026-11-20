@@ -1,18 +1,19 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
+pub use crate::home::{Paths, write_atomic};
 pub use crate::providers::{CacheMode, Dialect, ProviderConfig, Reasoning};
 pub use crate::tools::web::WebConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 
 mod baked;
 pub mod context;
 pub mod deck;
+pub mod learn;
 mod mcp;
-pub use {context::ContextConfig, deck::DeckConfig, mcp::McpServer};
+pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -109,26 +110,6 @@ pub struct MemoryConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct LearnConfig {
-    pub enabled: bool,
-    /// Review memory after this many user turns.
-    pub memory_every_turns: u32,
-    /// Review skills after this many tool calls.
-    pub skill_every_tool_calls: u32,
-    /// Model for the learning pass; empty means the main model.
-    pub model: String,
-    /// Days between curator passes over agent-written skills.
-    pub curator_every_days: u32,
-    /// How a session becomes something the next one can use. "hybrid" (the
-    /// default, ADR 0022): facts and conventions as playbook bullets,
-    /// procedures as project skills with a pointer bullet. The others stay as
-    /// bench arms: "skills" (the gate, ledger and recurrence-gated skills),
-    /// "corrections", "playbook", "workflow". The constants are in `learn`.
-    pub strategy: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
 pub struct RouterConfig {
     /// "auto" uses Jev when TYPESAFE_API_KEY resolves, otherwise the local
     /// lexical router. "jev", "local", or "off" force one.
@@ -177,19 +158,6 @@ impl Default for MemoryConfig {
     fn default() -> Self {
         // Hermes's defaults: small enough to stay in every prompt.
         Self { memory_chars: 2200, user_chars: 1375, project_chars: 1500 }
-    }
-}
-
-impl Default for LearnConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            memory_every_turns: 6,
-            skill_every_tool_calls: 10,
-            model: String::new(),
-            curator_every_days: 7,
-            strategy: crate::learn::HYBRID.into(),
-        }
     }
 }
 
@@ -323,50 +291,6 @@ impl Default for RouterConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Paths {
-    pub home: PathBuf,
-}
-
-impl Paths {
-    pub fn resolve() -> Result<Self> {
-        let home = match std::env::var_os("CONSTRUCT_HOME") {
-            Some(h) if !h.is_empty() => PathBuf::from(h),
-            _ => {
-                let user = std::env::var_os("HOME").context("HOME is not set")?;
-                PathBuf::from(user).join(".construct")
-            }
-        };
-        Ok(Self { home })
-    }
-    pub fn config(&self) -> PathBuf {
-        self.home.join("config.toml")
-    }
-    pub fn memory_dir(&self) -> PathBuf {
-        self.home.join("memory")
-    }
-    pub fn skills_dir(&self) -> PathBuf {
-        self.home.join("skills")
-    }
-    pub fn state_file(&self) -> PathBuf {
-        self.home.join("state.json")
-    }
-    pub fn learn_log(&self) -> PathBuf {
-        self.home.join("learn.log")
-    }
-    pub fn spill_dir(&self) -> PathBuf {
-        self.home.join("spill")
-    }
-    pub fn models(&self) -> PathBuf {
-        self.home.join("models.toml")
-    }
-    /// The cached model list for one endpoint (`llm::catalog`).
-    pub fn models_cache(&self, base_url: &str) -> PathBuf {
-        let key: String = base_url.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
-        self.home.join("models").join(format!("{key}.json"))
-    }
-}
-
 impl Config {
     pub fn load(paths: &Paths) -> Result<Self> {
         let path = paths.config();
@@ -382,7 +306,7 @@ impl Config {
         cfg.check_providers().with_context(|| format!("in {}", path.display()))?;
         cfg.select_model(&cfg.model.clone())?;
         for name in cfg.mcp.keys() {
-            crate::mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
+            mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }
         for name in cfg.agents.keys() {
             crate::agents::check_name(name).with_context(|| format!("in {}", path.display()))?;
@@ -393,15 +317,4 @@ impl Config {
     pub fn learn_model(&self) -> &str {
         if self.learn.model.is_empty() { &self.model } else { &self.learn.model }
     }
-}
-
-/// Write via a temp file and rename so readers never see half a file.
-pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    let tmp = path.with_extension(format!("tmp{}", std::process::id()));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
 }

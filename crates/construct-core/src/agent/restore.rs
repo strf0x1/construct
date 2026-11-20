@@ -2,6 +2,20 @@
 //! accounting survive; permissions, processes and cancellation handles do not.
 
 use super::*;
+use crate::sandbox::Policy;
+use serde::{Deserialize, Serialize};
+
+/// What makes a session a child's: the prompt it runs under and who
+/// delegated to it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Origin {
+    /// The sandbox the child's whole process runs under, which its own file
+    /// tools check against too, so a refusal names the real boundary.
+    pub policy: Policy,
+    pub system: String,
+    pub parent_session: String,
+    pub parent_call_id: String,
+}
 
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {

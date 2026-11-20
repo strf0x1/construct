@@ -4,7 +4,7 @@
 use super::ledger::{Observation, ledger};
 use super::{Kind, log_line_quiet};
 use crate::config::{Config, Paths};
-use crate::llm::{self, Message};
+use crate::llm::Message;
 use crate::tools::skill::SkillView;
 use serde_json::{Value, json};
 
@@ -30,7 +30,10 @@ fn tool_errors(messages: &[Message]) -> Vec<String> {
     let mut calls = std::collections::HashMap::new();
     for m in messages {
         for c in &m.tool_calls {
-            calls.insert(c.id.clone(), format!("{} {}", c.function.name, llm::truncate(&c.function.arguments, 160)));
+            calls.insert(
+                c.id.clone(),
+                format!("{} {}", c.function.name, crate::text::truncate(&c.function.arguments, 160)),
+            );
         }
     }
     messages
@@ -40,7 +43,7 @@ fn tool_errors(messages: &[Message]) -> Vec<String> {
             let out = m.content.as_deref()?;
             out.starts_with("Error:").then(|| {
                 let call = m.tool_call_id.as_ref().and_then(|id| calls.get(id)).cloned().unwrap_or_default();
-                format!("{call} -> {}", llm::truncate(out, 240))
+                format!("{call} -> {}", crate::text::truncate(out, 240))
             })
         })
         .collect()
@@ -120,7 +123,12 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
         return None;
     }
     let lesson = |o: &Observation| {
-        format!("{}: {} (fix: {})", o.problem_class, llm::truncate(&o.summary, 160), llm::truncate(&o.fix, 160))
+        format!(
+            "{}: {} (fix: {})",
+            o.problem_class,
+            crate::text::truncate(&o.summary, 160),
+            crate::text::truncate(&o.fix, 160)
+        )
     };
     if let Some(key) =
         crate::secrets::optional("TYPESAFE_API_KEY").filter(|_| cfg.router.mode != "local" && cfg.router.mode != "off")
@@ -133,7 +141,7 @@ async fn repeats_ledger(cfg: &Config, users: &[String]) -> Option<String> {
         }
         let mut q = serde_json::Map::new();
         q.insert("repeat".into(), json!({ "type": "choice", "instructions": "Does the user, in `user_messages`, tell the assistant one of these earlier lessons again?", "criteria": criteria }));
-        let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
+        let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| crate::text::truncate(u, 500)).collect();
         let http = crate::http::build(crate::http::builder()).ok()?;
         if let Ok(v) = crate::jev::ask(
             &cfg.router,
@@ -198,7 +206,7 @@ async fn jev_gate(
     errors: &[String],
     loaded: &[String],
 ) -> Result<Gate, String> {
-    let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| llm::truncate(u, 500)).collect();
+    let users: Vec<String> = users.iter().rev().take(12).rev().map(|u| crate::text::truncate(u, 500)).collect();
     let errors: Vec<String> = errors.iter().take(8).cloned().collect();
     let noul = |q: &str| json!({ "type": "noul", "instructions": q });
     // Each question sees only the state it needs: whether the user stated a

@@ -34,7 +34,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
-| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. |
+| `crates/construct-dev/src/xtask.rs`, `arch/` | `cargo xtask check`'s gates; `arch/` checks every crate's module graph and cross-crate edges against `docs/architecture.toml` and the debt counts in `docs/ratchets.toml`. `xtask/affected.rs` + `tests/affected.toml`: which e2e test files a diff reaches, for `check --affected` (ADR 0054). |
 | `.agents/skills/verify-construct/`, `docs/feature-map/` | The verification skill (recipes, doctor, drive helper) and the user-POV map of features it proves. |
 | `crates/construct-dev/tests/` | End-to-end tests (`e2e.rs`, `delegate.rs`, …) and golden snapshots (`snapshots.rs`): real binary, fresh home, scripted model. `Env::journal()` reads the journal back with plain SQL. `it.rs` is the crate's one test binary and lists every file as a module (`autotests = false`; a file not listed there fails the `docs` gate), so the lib links once, not once per file. |
 | `crates/construct-core/tests/` | Contract tests: link the lib and pin one module's promise (e.g. edit tiers). |
@@ -45,6 +45,7 @@ and observe it end to end without a model or a terminal.
 | `bench/swebench.py` | SWE-bench preparation and official-grading bridge: frozen instance IDs and provenance, public-only agent inputs, patch JSONL export, fresh evaluation IDs, and imported official outcomes. See `docs/swe-bench.md`; the container agent runner and learning sequence are still pending (#236). |
 | `bench/swebench_run.py`, `bench/swebench_compare.py` | Run Construct and pinned mini-SWE-agent in official task containers through a shared budget guard. Compare separately graded arms on a frozen sample. See `docs/swe-bench.md`. |
 | `bench/triage.py` | Where a session went wrong, without reading it whole: `triage` (one row per session: failed tools, stuck retries, re-reads, repeats, oversized results), `find <kind>` (`session@seq` anchors), `show <session@seq>` (the events around one, output cut to a byte budget). `--home` is a construct home or `bench/results/journals/<result>/`, where `bench.py task` keeps every run's journals; a run's `sessions` field names its session ids. |
+| `scripts/workmap/` | The work map: `workmap.py` fetches issues with `gh` and joins them with `docs/architecture.toml`, `docs/adr/` and `docs/feature-map/` (read at `--ref`, default `origin/main`) into `.workmap/graph.json`; `index.html` draws modules, issue dependencies (native GitHub links solid, links inferred from issue text dashed) and a board by stage. With a code graph from `construct-dev code-graph` (the `arch` gate's scan as JSON: every reference between modules with file, line and the items it names) each module also shows who uses it down to file:line, its interface, fan-in/out and the two-way pairs that make cycles; `--no-code` skips it. `--serve` opens it locally. Tested by `bench/test_workmap.py`. |
 | `bench/window_sweep.py` | Compaction at several windows without a model (#95): a fixed tool sequence on the `compact-long-fix` fixture against `construct-dev serve --window`, cuts read back from the journal, one row per window and config arm. Deterministic and free; it measures how often the planner cuts, not task success. |
 | `bench/restore_cost.py` | What restoring a long session costs (#246): one `construct acp` process records N scripted turns into one session, then a fresh process restores it (`--resume … run` and ACP `session/load`), timed with peak RSS, per context strategy. Deterministic apart from timing; free. |
 | `bench/replay.py`, `bench/convention_lint.py` | The Rust eval: `rust-replay-*` tasks redo merged PRs from this repo's history, scored by the PRs' hidden tests, `cargo xtask check` and a lint of the AGENTS.md conventions; a blind pairwise judge does the rest. See `docs/rust-eval.md`. |
@@ -118,7 +119,8 @@ recipe that only checks the screen: the scripted model's reply is fixed, so
 ## Tests
 
 ```sh
-cargo xtask check --quick         # while iterating: docs, feature map, arch, fmt, clippy, unit and contract tests of the crates your diff touches; ends in `ok` or `FAILED <gate>`
+cargo xtask check --quick         # while iterating: docs, feature map, arch, fmt, clippy, unit and contract tests of the crates your diff reaches; ends in `ok` or `FAILED <gate>`
+cargo xtask check --affected      # what CI runs on a PR: as --quick, plus the e2e test files the diff reaches (tests/affected.toml, ADR 0054)
 cargo xtask check                 # the full gate, as CI runs it: also every end-to-end test, the golden snapshots and the bench tests
 cargo xtask fix                   # clippy --fix, then cargo fmt
 cargo test -p construct-core      # unit and contract tests (edit tiers, router)
@@ -128,9 +130,13 @@ cargo deny check                  # dependency policy in deny.toml (advisories, 
 ```
 
 Run `cargo xtask check --quick` as you go, plus the end-to-end tests your
-change can reach (filter by file, as above); CI runs the full `cargo xtask
-check` on the PR and is the gate that blocks a merge, so there is no need to
-run the full check locally first. Read CI's result on the PR and fix forward.
+change can reach (filter by file, as above). CI runs `cargo xtask check
+--affected` on the PR, which is the gate that blocks a merge, and the full
+check on every push to main, so there is no need to run the full check
+locally first. `--affected` narrows the e2e suite only through the areas in
+`crates/construct-dev/tests/affected.toml`; a path no area names runs every
+e2e test. When a new e2e file exercises an area (the TUI, ACP, jobs, …),
+add it to that area's `tests`. Read CI's result on the PR and fix forward.
 Separate worktrees may run `cargo xtask` concurrently. During the local mbx
 trial, ordinary `cargo` commands resolve through mise's mbx wrapper, which
 shares a compiler and test CPU/memory budget across builds. xtask resolves
@@ -163,8 +169,9 @@ by hand.
 The `arch` gate checks every workspace crate's module graph and the edges
 between crates against `docs/architecture.toml` (per-crate tables, ADR 0047),
 and the counts in `docs/ratchets.toml` (the non-test line count of each file
-over 300 lines) against reality: a count that grows fails, and one that drops
-fails until its baseline is lowered to match.
+over 300 lines, and the list of two-way module pairs per crate) against
+reality: a count that grows or a pair that appears fails, and one that drops
+or is cut fails until its baseline is lowered to match.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh

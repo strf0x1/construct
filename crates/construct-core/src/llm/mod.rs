@@ -28,19 +28,6 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// Install ring, the one crypto provider (#271), before the first TLS client.
-/// reqwest is built with `rustls-no-provider` to keep aws-lc-rs (a BoringSSL
-/// fork) out of the binary. The engine is a library: its tests and embedders
-/// build clients without the binary's startup, so `http::builder()` calls
-/// this for every construction site. Once per process; an already-installed
-/// provider wins.
-pub fn ensure_crypto() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    });
-}
-
 #[derive(Debug, Clone)]
 pub enum Delta {
     Text(String),
@@ -216,13 +203,13 @@ impl Client {
             if status.as_u16() == 400
                 && let Some(p) = notes::PARAMS.iter().find(|p| text.contains(**p))
             {
-                notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", truncate(&text, 200)));
+                notes.record(notes::PARAM_REJECTED, &format!("{p}: {}", crate::text::truncate(&text, 200)));
             }
             if let Some(d) = denial {
                 let d = anyhow::Error::new(d);
                 return Err(if self.prefix.is_empty() { d } else { d.context(self.prefix.clone()) });
             }
-            bail!("{}model endpoint returned {status}: {}", self.prefix, truncate(&text, 600));
+            bail!("{}model endpoint returned {status}: {}", self.prefix, crate::text::truncate(&text, 600));
         };
         if let Some(tx) = tx {
             let _ = tx.send(Delta::Opened);
@@ -273,11 +260,4 @@ fn insufficient_quota(body: &str) -> bool {
             .iter()
             .any(|p| v.pointer(p).and_then(Value::as_str) == Some("insufficient_quota"))
     })
-}
-
-pub fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    format!("{}…", crate::text::head(s, max))
 }

@@ -4,7 +4,7 @@
 //! comments and ordering included, and a prompt must not rewrite more of it
 //! than the one entry it adds.
 
-use crate::config::{Paths, write_atomic};
+use crate::home::{Paths, write_atomic};
 use anyhow::{Context, Result, bail};
 use std::path::Path;
 use toml_edit::{Array, DocumentMut, Item, Table, Value};

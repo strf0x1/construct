@@ -74,7 +74,7 @@ async fn send(http: &reqwest::Client, url: &str, key: &str, body: &Value, timeou
         .map_err(|e| if e.is_timeout() { "timeout".to_string() } else { e.to_string() })?;
     if !resp.status().is_success() {
         let s = resp.status();
-        return Err(format!("{s}: {}", crate::llm::truncate(&resp.text().await.unwrap_or_default(), 200)));
+        return Err(format!("{s}: {}", crate::text::truncate(&resp.text().await.unwrap_or_default(), 200)));
     }
     resp.json().await.map_err(|e| e.to_string())
 }

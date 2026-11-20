@@ -7,10 +7,9 @@
 //! what discovery found, the provider's defaults, then the user's entry.
 //! The endpoint is never laid over anything; it is resolved on each call.
 
-use super::ModelEntry;
+use super::{ModelEntry, Resolved};
 use crate::config::Config;
 use crate::endpoint::Endpoint;
-use crate::providers::Resolved;
 use anyhow::Result;
 
 /// Which layer set the selected model's window (`Config::window_source`).
