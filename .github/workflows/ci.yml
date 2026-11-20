@@ -37,6 +37,24 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+  # The env-only secrets build (#271, ADR 0051): no keyring feature, no
+  # secretspec subtree. Its own job so the feature cannot rot unnoticed —
+  # the workspace gates above all build with default features.
+  check-env-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: "clippy" }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy -p construct-core --no-default-features -- -D warnings
+      - run: cargo test -p construct-core --no-default-features --lib
+      - run: cargo build -p construct --no-default-features
+      - name: env resolution works and keyring writes refuse
+        run: |
+          OPENAI_API_KEY=*** target/debug/construct secrets status | grep -q '✓ OPENAI_API_KEY'
+          if target/debug/construct secrets set CONSTRUCT_TEST_KEY v 2>err.txt; then exit 1; fi
+          grep -q 'env-only secrets' err.txt
   # Dependency policy (deny.toml). Its own job: it needs the network for the
   # advisory DB, which `cargo xtask check` stays without.
   deny:

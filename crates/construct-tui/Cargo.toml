@@ -18,7 +18,7 @@ doctest = false
 workspace = true
 
 [dependencies]
-construct-core.workspace = true
+construct-core = { workspace = true, default-features = false }
 anyhow.workspace = true
 async-trait.workspace = true
 crossterm = { version = "0.29", features = ["event-stream"] }

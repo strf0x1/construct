@@ -122,7 +122,7 @@ enum SessionsCmd {
 
 #[derive(Subcommand)]
 enum SecretsCmd {
-    /// Store a secret in the OS keyring (value from stdin when omitted; refused in a Deck guest).
+    /// Store a secret in the OS keyring (value from stdin when omitted; refused in a Deck guest or an env-only build).
     Set { name: String, value: Option<String> },
     /// Show which known secrets resolve, and from where.
     Status,
