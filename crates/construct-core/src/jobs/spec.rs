@@ -3,8 +3,7 @@
 //! (`Finish`).
 
 use super::{Kind, Status, Tail};
-use crate::event::Events;
-use crate::journal::Writer;
+use crate::event::{Event, Events};
 use futures::future::BoxFuture;
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,6 +27,13 @@ pub struct Finish {
     pub note: String,
 }
 
+/// Where a job's rows go: the session's journal, which writes each row and
+/// then sends it. A trait here so `jobs` does not depend on `journal`; the
+/// journal's `Writer` implements it.
+pub trait Sink: Send + Sync {
+    fn emit(&self, ev: Event, tx: &Events);
+}
+
 pub type Body = Box<dyn FnOnce(Run) -> BoxFuture<'static, Finish> + Send>;
 
 pub struct Spec {
@@ -37,6 +43,6 @@ pub struct Spec {
     pub call_id: String,
     pub timeout: Duration,
     /// The session's journal and event stream, which its rows go to.
-    pub sink: (Arc<Writer>, Events),
+    pub sink: (Arc<dyn Sink>, Events),
     pub body: Body,
 }

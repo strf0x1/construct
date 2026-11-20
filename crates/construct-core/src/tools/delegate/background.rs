@@ -128,7 +128,7 @@ pub(super) fn start(ctx: &Ctx, call: &Call, reserved: Reserved, l: Launch<'_>) -
             label: format!("{name}: {}", l.task),
             call_id: call.id.clone(),
             timeout: Duration::from_secs(secs),
-            sink,
+            sink: (sink.0, sink.1),
             body: Box::new(move |job| Box::pin(execute(owned, slot, body_sink, job))),
         })
         .map_err(|e| {
