@@ -63,7 +63,7 @@ allow_attributes_without_reason = "warn"
 debug = "line-tables-only"
 
 [profile.release]
-opt-level = 3
+opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = true

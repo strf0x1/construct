@@ -1,0 +1,115 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.4.0",
+    "git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+    "git_dirty": false,
+    "binary_sha256": "a81ae68fee69b425bb24f10a7f1735cad5927608a73d51df38e51d38aae0d806",
+    "config_sha256": "3e97b0e41f830b4821d110a62b61a3f8233dcf33324720a00c7d1e1e79980c7f",
+    "tools": [
+     "bash",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job",
+     "developer"
+    ],
+    "editor": "replace",
+    "context": "compact",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/Users/brandon/repos/construct/target/release/construct"
+   }
+  },
+  "dev_git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "dbfbb7ebbf0acfb1f74b762ac75fb494b9d56980e0abaeafaa62781c212bab1d",
+  "host": "brandons-MBP.localdomain",
+  "started": "2026-11-20T06:08:38Z"
+ },
+ "rounds": 5,
+ "raw": {
+  "construct": [
+   {
+    "first_output_ms": 13.478292,
+    "first_frame_ms": 14.590208,
+    "ready_ms": 14.807792000000001
+   },
+   {
+    "first_output_ms": 15.16875,
+    "first_frame_ms": 16.117165999999997,
+    "ready_ms": 16.303166
+   },
+   {
+    "first_output_ms": 13.249749999999999,
+    "first_frame_ms": 13.827292,
+    "ready_ms": 13.946167
+   },
+   {
+    "first_output_ms": 11.589083,
+    "first_frame_ms": 12.340917,
+    "ready_ms": 12.515333
+   },
+   {
+    "first_output_ms": 14.526333000000001,
+    "first_frame_ms": 15.505833,
+    "ready_ms": 15.716166
+   }
+  ]
+ },
+ "summary": {
+  "construct": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 13.478292,
+    "p10": 11.589083,
+    "p90": 15.16875,
+    "min": 11.589083,
+    "max": 15.16875,
+    "mean": 13.6024416
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 14.590208,
+    "p10": 12.340917,
+    "p90": 16.117165999999997,
+    "min": 12.340917,
+    "max": 16.117165999999997,
+    "mean": 14.4762832
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 14.807792000000001,
+    "p10": 12.515333,
+    "p90": 16.303166,
+    "min": 12.515333,
+    "max": 16.303166,
+    "mean": 14.6577248
+   }
+  }
+ }
+}

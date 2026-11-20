@@ -1,0 +1,115 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.4.0",
+    "git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+    "git_dirty": false,
+    "binary_sha256": "14e746c37a6bf0e43265c6dba95b0e6248424d9479e927bc459f14e8b5d29c63",
+    "config_sha256": "657cbef3e9fa64b613d48188b3e5b2eb77951b86b0715abdec3acf4af6ba5ced",
+    "tools": [
+     "bash",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job",
+     "developer"
+    ],
+    "editor": "replace",
+    "context": "compact",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/Users/brandon/repos/construct-optz/target/release/construct"
+   }
+  },
+  "dev_git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "dbfbb7ebbf0acfb1f74b762ac75fb494b9d56980e0abaeafaa62781c212bab1d",
+  "host": "brandons-MBP.localdomain",
+  "started": "2026-11-20T06:15:25Z"
+ },
+ "rounds": 5,
+ "raw": {
+  "construct": [
+   {
+    "first_output_ms": 10.706083,
+    "first_frame_ms": 11.438458,
+    "ready_ms": 11.5595
+   },
+   {
+    "first_output_ms": 15.337167,
+    "first_frame_ms": 15.981917000000001,
+    "ready_ms": 16.081792
+   },
+   {
+    "first_output_ms": 17.533832999999998,
+    "first_frame_ms": 19.040458,
+    "ready_ms": 19.257165999999998
+   },
+   {
+    "first_output_ms": 10.054458,
+    "first_frame_ms": 11.175167,
+    "ready_ms": 11.314417
+   },
+   {
+    "first_output_ms": 16.146792,
+    "first_frame_ms": 17.313792000000003,
+    "ready_ms": 17.504749999999998
+   }
+  ]
+ },
+ "summary": {
+  "construct": {
+   "first_output_ms": {
+    "n": 5,
+    "median": 15.337167,
+    "p10": 10.054458,
+    "p90": 17.533832999999998,
+    "min": 10.054458,
+    "max": 17.533832999999998,
+    "mean": 13.9556666
+   },
+   "first_frame_ms": {
+    "n": 5,
+    "median": 15.981917000000001,
+    "p10": 11.175167,
+    "p90": 19.040458,
+    "min": 11.175167,
+    "max": 19.040458,
+    "mean": 14.9899584
+   },
+   "ready_ms": {
+    "n": 5,
+    "median": 16.081792,
+    "p10": 11.314417,
+    "p90": 19.257165999999998,
+    "min": 11.314417,
+    "max": 19.257165999999998,
+    "mean": 15.143524999999999
+   }
+  }
+ }
+}

@@ -1,0 +1,66 @@
+{
+ "a": "bench/results/frame-20261119-230841.json",
+ "b": "bench/results/frame-20261119-231528.json",
+ "comparisons": [
+  {
+   "a": "frame-20261119-230841:construct",
+   "b": "frame-20261119-231528:construct",
+   "rows": [
+    {
+     "metric": "first_frame_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 14.590208,
+     "b": 15.981917000000001,
+     "delta": 1.3917090000000005,
+     "a_spread": [
+      12.340917,
+      16.117165999999997
+     ],
+     "b_spread": [
+      11.175167,
+      19.040458
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "first_output_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 13.478292,
+     "b": 15.337167,
+     "delta": 1.8588750000000012,
+     "a_spread": [
+      11.589083,
+      15.16875
+     ],
+     "b_spread": [
+      10.054458,
+      17.533832999999998
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "ready_ms",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 14.807792000000001,
+     "b": 16.081792,
+     "delta": 1.2739999999999991,
+     "a_spread": [
+      12.515333,
+      16.303166
+     ],
+     "b_spread": [
+      11.314417,
+      19.257165999999998
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

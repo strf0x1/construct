@@ -1,0 +1,69 @@
+{
+ "manifest": {
+  "harnesses": {
+   "construct": {
+    "version": "0.4.0",
+    "git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+    "git_dirty": false,
+    "binary_sha256": "14e746c37a6bf0e43265c6dba95b0e6248424d9479e927bc459f14e8b5d29c63",
+    "config_sha256": "af6ba3f5435d3ab3b4e5ecf680fdd1e5d8a3ec684488500a5c386fa0de3f9dd4",
+    "tools": [
+     "bash",
+     "read",
+     "write",
+     "edit",
+     "grep",
+     "glob",
+     "web_search",
+     "web_fetch",
+     "memory",
+     "skill",
+     "skill_manage",
+     "recall_result",
+     "journal_query",
+     "job",
+     "developer"
+    ],
+    "editor": "replace",
+    "context": "compact",
+    "web_search": "auto",
+    "model": "mock-model",
+    "router_mode": "local",
+    "context_window": 131072,
+    "compaction": {
+     "threshold": 0.7,
+     "target": 0.5,
+     "keep_results": 2,
+     "keep_rounds": 4,
+     "age_rounds": 0,
+     "model": ""
+    },
+    "dialect": "openai",
+    "cache": "auto",
+    "window_source": "default",
+    "bin": "/Users/brandon/repos/construct-optz/target/release/construct"
+   }
+  },
+  "dev_git_sha": "bf8951e8e028a49d70f52e99b9361fdb7b0c3617",
+  "dev_dirty": true,
+  "model": null,
+  "bench_py_sha256": "dbfbb7ebbf0acfb1f74b762ac75fb494b9d56980e0abaeafaa62781c212bab1d",
+  "host": "brandons-MBP.localdomain",
+  "started": "2026-11-20T06:15:04Z"
+ },
+ "construct": {
+  "install": 8775232,
+  "parts": {
+   "binary": 8775232
+  },
+  "fresh_home_after_first_run": 45463,
+  "first_run_s": 0.36355237499810755,
+  "first_run_rc": 0
+ },
+ "opencode": {
+  "install": 143231938,
+  "parts": {
+   "binary": 143231938
+  }
+ }
+}
