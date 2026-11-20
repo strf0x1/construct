@@ -169,8 +169,9 @@ by hand.
 The `arch` gate checks every workspace crate's module graph and the edges
 between crates against `docs/architecture.toml` (per-crate tables, ADR 0047),
 and the counts in `docs/ratchets.toml` (the non-test line count of each file
-over 300 lines) against reality: a count that grows fails, and one that drops
-fails until its baseline is lowered to match.
+over 300 lines, and the list of two-way module pairs per crate) against
+reality: a count that grows or a pair that appears fails, and one that drops
+or is cut fails until its baseline is lowered to match.
 
 Prefer adding an e2e scenario over unit tests: assert on what a user or the
 model would observe (files, requests sent, screen text). Each test gets a fresh

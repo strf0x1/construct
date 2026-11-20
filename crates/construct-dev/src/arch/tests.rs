@@ -439,6 +439,28 @@ fn ratchets(name: &str, n: usize, baseline: &str) -> Vec<String> {
 }
 
 #[test]
+fn a_new_two_way_pair_fails_naming_it_and_a_gone_one_is_deleted() {
+    let t = tree("pairs");
+    write(&t, "crates/construct/src/b.rs", "//! b\nuse crate::a::Y;\n");
+    write(&t, "docs/ratchets.toml", "");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec![
+            "construct: new two-way pair a <-> b (a uses b at crates/construct/src/a.rs:2; b uses a at crates/construct/src/b.rs:2); cut the back-edge, or if it is intended add \"a <-> b\" under [pairs] \"construct\" in docs/ratchets.toml"
+        ]
+    );
+    write(&t, "docs/ratchets.toml", "[pairs]\nconstruct = [\"a <-> b\"]\n");
+    assert_eq!(ratchet::problems(&t.0), Vec::<String>::new());
+    write(&t, "crates/construct/src/b.rs", "//! b\n");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec![
+            "docs/ratchets.toml: [pairs] construct: a <-> b is no longer a two-way pair (or is gone); delete it from the list"
+        ]
+    );
+}
+
+#[test]
 fn a_ratchet_that_rises_fails() {
     assert_eq!(
         ratchets("rise", 305, "[lines]\n\"crates/construct/src/big.rs\" = 301\n"),
