@@ -50,10 +50,12 @@ landed and what it cost.
 - **Readers**: `since(session, seq)`, `last_seq`, `latest(cwd)` and
   `project()`, which turns message-bearing events back into `Vec<Message>`
   and nothing else. Rewind is `rewind(session, seq)` (delete after seq) then
-  re-project. `run -c` resumes the newest session whose head names this
-  directory, within this project's journal (clones and worktrees share the
-  file, but "continue" stays per directory, as the flag's help says). The
-  learn debounce is "last seq unchanged for N ms"; learning reads
+  re-project (removed by #247: the journal is append-only, and branching is
+  a fork, not a truncation — fork design under #243). `run -c` resumes the
+  newest session whose head names this directory, within this project's
+  journal (clones and worktrees share the file, but "continue" stays per
+  directory, as the flag's help says). The learn debounce is "last seq
+  unchanged for N ms"; learning reads
   `since(session, reviewed_seq)` (state key `reviewed_seq`, a seq, replacing
   the message count `reviewed`).
 - **Export**: `construct sessions export <id>` prints the old JSONL shape
