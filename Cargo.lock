@@ -944,6 +944,7 @@ dependencies = [
  "toml",
  "toml_edit",
  "unicode-normalization",
+ "webpki-root-certs",
 ]
 
 [[package]]
@@ -961,6 +962,7 @@ dependencies = [
  "portable-pty",
  "reqwest",
  "rusqlite",
+ "rustls",
  "secretspec",
  "serde",
  "serde_json",

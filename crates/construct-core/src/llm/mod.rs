@@ -88,11 +88,12 @@ pub struct Request<'a> {
 
 impl Client {
     pub fn new(ep: &Endpoint, api_key: Option<String>) -> Result<Self> {
-        let http = crate::http::engine()
-            .connect_timeout(Duration::from_secs(20))
-            .pool_idle_timeout(Duration::from_secs(90))
-            .tcp_nodelay(true)
-            .build()?;
+        let http = crate::http::build(
+            crate::http::engine()
+                .connect_timeout(Duration::from_secs(20))
+                .pool_idle_timeout(Duration::from_secs(90))
+                .tcp_nodelay(true),
+        )?;
         Ok(Self {
             http,
             base_url: ep.base_url.clone(),

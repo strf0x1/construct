@@ -58,5 +58,11 @@ unicode-normalization = "0.1"
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.4"
 
+[target.'cfg(target_env = "musl")'.dependencies]
+# Mozilla's roots for static builds (#293): these are the drop-in artifacts
+# and may run on scratch/busybox, where no certificate store exists. Added as
+# *extra* roots, never a replacement, so a managed host's CA still wins.
+webpki-root-certs = "1"
+
 [dev-dependencies]
 proptest.workspace = true
