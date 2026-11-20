@@ -746,6 +746,40 @@ fn sandbox_keeps_tools_inside_the_workspace() {
     assert!(!results[8].contains("SHM-WRITABLE") && results[8].contains("devnull-ok"), "{}", results[8]);
 }
 
+/// mise takes a lock beside its command-wrappers farm on every shim run and
+/// fails the command when it can't create it (#279). The lock is writable; the
+/// farm it guards and the installs beside it are not.
+#[test]
+fn sandbox_lets_mise_take_its_lock_but_not_touch_its_toolchain() {
+    let env = Env::new(
+        "mise-lock",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "echo > \"$HOME/.local/share/mise/command-wrappers/bin.lock\" && echo LOCK-OK" } },
+            { "call": "shell", "args": { "command": "echo evil > \"$HOME/.local/share/mise/command-wrappers/bin/python\" && echo FARM-WRITTEN" } },
+            { "call": "shell", "args": { "command": "echo evil > \"$HOME/.local/share/mise/installs/python/latest/bin/python\" && echo INSTALL-WRITTEN" } },
+            { "call": "shell", "args": { "command": "echo evil > \"$HOME/.local/share/mise/shims/python\" && echo SHIM-WRITTEN" } },
+            { "text": "done" }
+        ] }),
+    );
+    let home = env.dir.join("fakehome");
+    let mise = home.join(".local/share/mise");
+    for d in ["command-wrappers/bin", "installs/python/latest/bin", "shims"] {
+        std::fs::create_dir_all(mise.join(d)).unwrap();
+    }
+    // The lock does not exist yet: construct makes it so the sandbox can grant it.
+    let out = env.run_with(&[("HOME", &home.display().to_string())], &["run", "--no-learn", "run the tests"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let results = tool_results(&env);
+    assert_eq!(results.len(), 4, "{results:#?}");
+    assert!(results[0].contains("LOCK-OK"), "{}", results[0]);
+    for (i, marker) in [(1, "FARM-WRITTEN"), (2, "INSTALL-WRITTEN"), (3, "SHIM-WRITTEN")] {
+        assert!(!results[i].contains(marker), "step {i} wrote outside its grant: {}", results[i]);
+    }
+    assert!(!mise.join("command-wrappers/bin/python").exists());
+    assert!(!mise.join("installs/python/latest/bin/python").exists());
+    assert!(!mise.join("shims/python").exists());
+}
+
 /// Whether a `sleep 300` started by a test command is still running.
 fn sleep_alive(work: &std::path::Path, pidfile: &str) -> bool {
     let pid = std::fs::read_to_string(work.join(pidfile)).unwrap_or_else(|_| panic!("{pidfile} not written"));
