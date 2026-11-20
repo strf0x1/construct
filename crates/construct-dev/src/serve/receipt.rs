@@ -19,7 +19,9 @@ pub async fn orca_receipt(id: &str, key_secret: Option<&str>, key_env: Option<&s
         None => super::resolve_key(key_secret.unwrap_or("ORCAROUTER_API_KEY"))?,
     };
     ensure!(key.starts_with("sk-orca-"), "expected an OrcaRouter credential");
-    let client = construct_core::http::builder().redirect(Policy::none()).timeout(Duration::from_secs(3)).build()?;
+    let client = construct_core::http::build(
+        construct_core::http::builder().redirect(Policy::none()).timeout(Duration::from_secs(3)),
+    )?;
     for attempt in 0..5 {
         let response =
             client.get(format!("https://api.orcarouter.ai/v1/generation?id={id}")).bearer_auth(&key).send().await?;

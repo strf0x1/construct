@@ -149,19 +149,15 @@ jobs:
           tar -xzf "construct-${{ matrix.target }}.tar.gz"
           docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --version
           docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --help > /dev/null
-      # --version proves nothing about TLS: the verifier reads the system
-      # cert bundle (rustls-native-certs), whose location differs per image.
-      # alpine's base ships one; busybox has none, so it gets the runner's
-      # bundle copied in — the same thing a scratch/rescue image needs.
+      # --version proves nothing about TLS. busybox has no certificate store
+      # at all, so this is the scratch/rescue case: static builds must fetch
+      # over HTTPS with no bundle mounted (baked roots, #293), and the platform
+      # store is still merged on a managed host.
       - name: A real HTTPS model-catalog fetch
         working-directory: dist
         run: |
-          extra=()
-          if [ "${{ matrix.image }}" = "busybox:latest" ]; then
-            extra=(-v /etc/ssl/certs/ca-certificates.crt:/certs/ca.crt:ro -e SSL_CERT_FILE=/certs/ca.crt)
-          fi
           docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" \
-            -e CONSTRUCT_HOME=/tmp/ch -e OPENAI_API_KEY=*** "${extra[@]}" \
+            -e CONSTRUCT_HOME=/tmp/ch -e OPENAI_API_KEY=*** \
             "${{ matrix.image }}" /c/construct models --refresh > catalog.txt
           head -3 catalog.txt
 

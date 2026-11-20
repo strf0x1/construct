@@ -135,6 +135,8 @@ impl Env {
             ("DECK_CONTROL_URL".into(), String::new()),
             ("DECK_CONTROL_TOKEN".into(), String::new()),
             ("CONSTRUCT_TRACE".into(), String::new()),
+            // Trust policy (#293): the developer's CA override must not reach a test.
+            ("CONSTRUCT_CA_FILE".into(), String::new()),
         ]
     }
 

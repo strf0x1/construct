@@ -11,5 +11,5 @@ pub fn client(orca: bool) -> anyhow::Result<reqwest::Client> {
     if orca {
         http = http.redirect(reqwest::redirect::Policy::none()).retry(reqwest::retry::never());
     }
-    Ok(http.build()?)
+    construct_core::http::build(http)
 }

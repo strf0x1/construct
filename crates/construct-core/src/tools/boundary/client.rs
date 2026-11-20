@@ -99,7 +99,8 @@ impl Boundary {
             clippy::expect_used,
             reason = "fails only when the TLS backend can't start, and the endpoint is loopback HTTP"
         )]
-        let http = crate::http::engine().connect_timeout(Duration::from_secs(1)).build().expect("http client");
+        let http =
+            crate::http::build(crate::http::engine().connect_timeout(Duration::from_secs(1))).expect("http client");
         Self {
             base: base_url.trim_end_matches('/').to_string(),
             http,

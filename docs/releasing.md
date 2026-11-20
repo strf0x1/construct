@@ -24,13 +24,20 @@ static musl build, smoke-tested on an arm64 runner (`ubuntu-24.04-arm`); the
 static builds are also run in alpine and busybox containers, where there is
 no glibc at all.
 
-Static does not mean self-sufficient for TLS: the certificate verifier reads
-the **system CA bundle** (`rustls-native-certs`). Alpine's base image ships
-one (`/etc/ssl/certs/ca-certificates.crt`); a scratch or busybox image has
-none, and an HTTPS model call fails with a client builder error until you
-copy a bundle in and point `SSL_CERT_FILE` at it (the release smoke does
-exactly this for busybox). On rescue media: bring a `ca-certificates.crt`
-alongside the binary, or build the image with one.
+Static musl builds are self-sufficient for TLS on scratch and busybox images:
+they bake Mozilla's roots in as *extra* roots (`webpki-root-certs`, #293), so
+an HTTPS model call works with no certificate store on the host. A managed
+host's enterprise or TLS-intercepting CA still works, because the platform
+store (`rustls-native-certs`) is loaded too and merged with the baked roots —
+never replaced. That extra bundle is why the static binaries are larger; the
+glibc and macOS builds carry no baked roots.
+
+`SSL_CERT_FILE` and `SSL_CERT_DIR` still override/extend the platform store,
+and `CONSTRUCT_CA_FILE` (a PEM bundle or one DER certificate) adds roots on
+any build without touching the system. A host with no store and neither knob
+set fails with an actionable "no CA certificates found" message rather than
+an opaque client-builder error. The release smoke runs the busybox image with
+no bundle mounted, which proves the baked roots.
 
 The Mac binaries are not code-signed or notarized. Downloaded with `curl`, as
 the installer does, they carry no quarantine flag and run. Downloaded in a
