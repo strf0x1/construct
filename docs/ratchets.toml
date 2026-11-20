@@ -18,7 +18,6 @@
 "crates/construct-core/src/event.rs" = 305
 "crates/construct-core/src/router.rs" = 304
 "crates/construct-core/src/sandbox/mod.rs" = 334
-"crates/construct-core/src/skills.rs" = 305
 "crates/construct-core/src/tools/edit/hashline/mod.rs" = 362
 "crates/construct-core/src/tools/edit/hashline/ops.rs" = 312
 "crates/construct-core/src/tools/shell.rs" = 301
@@ -44,7 +43,6 @@ construct-core = [
     "journal <-> llm",
     "journal <-> tools",
     "permission <-> tools",
-    "skills <-> tools",
 ]
 construct-dev = [
     "arch <-> xtask",

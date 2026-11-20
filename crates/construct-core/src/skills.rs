@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+mod format;
+use format::normalize;
+pub use format::{frontmatter, valid_name};
+
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
@@ -56,30 +60,6 @@ pub fn merged(libs: &[&Library]) -> Vec<Skill> {
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
-}
-
-pub fn valid_name(name: &str) -> bool {
-    let mut chars = name.chars();
-    matches!(chars.next(), Some(c) if c.is_ascii_lowercase() || c.is_ascii_digit())
-        && name.len() <= 64
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-}
-
-/// Split `---\nkey: value\n---\nbody` frontmatter. Values may be quoted.
-pub fn frontmatter(text: &str) -> (BTreeMap<String, String>, &str) {
-    let mut map = BTreeMap::new();
-    let Some(rest) = text.strip_prefix("---") else { return (map, text) };
-    let Some((head, tail)) = rest.split_once("\n---") else { return (map, text) };
-    for line in head.lines() {
-        if let Some((k, v)) = line.split_once(':') {
-            let v = v.trim().trim_matches('"').trim_matches('\'');
-            if !k.starts_with(' ') && !v.is_empty() {
-                map.insert(k.trim().to_string(), v.to_string());
-            }
-        }
-    }
-    let body = tail.trim_start_matches(['\r', '\n']);
-    (map, body)
 }
 
 impl Library {
@@ -196,14 +176,24 @@ impl Library {
         Ok(format!("rewrote {name}/SKILL.md"))
     }
 
-    pub fn patch(&self, name: &str, file: Option<&str>, old: &str, new: &str) -> Result<String, String> {
+    /// Rewrite one file of a skill. `new` is what the guard checks, before
+    /// anything is read; `apply` turns the file's text into the updated text
+    /// (the skill tool passes the editor's exact-match replace), so the library
+    /// does not depend on `tools`.
+    pub fn patch(
+        &self,
+        name: &str,
+        file: Option<&str>,
+        new: &str,
+        apply: impl FnOnce(&str) -> Result<String, String>,
+    ) -> Result<String, String> {
         let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
         let path = safe_join(&skill.dir, file.unwrap_or("SKILL.md"))?;
         if let Some(why) = crate::guard::check(new) {
             return Err(why);
         }
         let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let updated = crate::tools::edit::replace::replace_once(&text, old, new, false).map_err(|e| e.message)?;
+        let updated = apply(&text)?;
         write_atomic(&path, updated.as_bytes()).map_err(|e| e.to_string())?;
         self.touch(name, |u| u.patches += 1);
         Ok(format!("patched {name}/{}", file.unwrap_or("SKILL.md")))
@@ -259,28 +249,6 @@ impl Library {
         self.touch(name, |u| u.pinned = pinned);
         Ok(())
     }
-}
-
-/// Ensure SKILL.md has frontmatter with the right name and a description.
-fn normalize(name: &str, content: &str) -> Result<String, String> {
-    let (fm, body) = frontmatter(content);
-    let description = fm.get("description").cloned().unwrap_or_default();
-    if description.trim().is_empty() {
-        return Err(
-            "SKILL.md needs frontmatter with a description: ---\\nname: x\\ndescription: when to use it\\n---".into()
-        );
-    }
-    if description.len() > 300 {
-        return Err("keep the description under 300 chars; put detail in the body".into());
-    }
-    if body.trim().is_empty() {
-        return Err("SKILL.md body is empty".into());
-    }
-    // A loaded skill enters the prompt like memory does.
-    if let Some(why) = crate::guard::check(content) {
-        return Err(why);
-    }
-    Ok(format!("---\nname: {name}\ndescription: {description}\n---\n\n{}\n", body.trim_end()))
 }
 
 fn safe_join(dir: &Path, rel: &str) -> Result<PathBuf, String> {

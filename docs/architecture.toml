@@ -125,7 +125,7 @@ may_use = ["config", "secrets"]
 may_use = []
 
 [crates.construct-core.modules.skills]
-may_use = ["clock", "guard", "home", "tools"]
+may_use = ["clock", "guard", "home"]
 
 [crates.construct-core.modules.text]
 may_use = []
