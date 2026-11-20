@@ -1,2 +1,11 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+
+# One reqwest constructor (#290): a raw client bypasses the crypto/trust/proxy
+# policy in construct_core::http. The single legitimate site (http::builder)
+# carries #[expect(clippy::disallowed_methods, reason = …)]; a stale escape
+# fails the build, since the workspace denies warnings.
+disallowed-methods = [
+  { path = "reqwest::Client::new", reason = "construct_core::http::builder() is the one reqwest constructor (#290); raw clients bypass its crypto/trust/proxy policy" },
+  { path = "reqwest::Client::builder", reason = "construct_core::http::builder() is the one reqwest constructor (#290); raw clients bypass its crypto/trust/proxy policy" },
+]
