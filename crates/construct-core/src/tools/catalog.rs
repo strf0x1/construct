@@ -210,7 +210,7 @@ impl Catalog {
             for (name, s) in m.servers() {
                 let g = Group::Mcp(name.clone());
                 if !enabled.contains(&g) {
-                    out.push((g, crate::llm::truncate(&s.description, 80)));
+                    out.push((g, crate::text::truncate(&s.description, 80)));
                 }
             }
         }

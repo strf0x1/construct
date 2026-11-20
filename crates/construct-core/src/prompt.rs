@@ -54,7 +54,7 @@ pub fn build(
     s.push_str(&sandbox_block(sandbox));
     for name in ["AGENTS.md", "CLAUDE.md"] {
         if let Ok(text) = std::fs::read_to_string(cwd.join(name)) {
-            s.push_str(&format!("\n# Project instructions ({name})\n{}\n", crate::llm::truncate(text.trim(), 8000)));
+            s.push_str(&format!("\n# Project instructions ({name})\n{}\n", crate::text::truncate(text.trim(), 8000)));
             break;
         }
     }
@@ -68,7 +68,7 @@ pub fn build(
                 p.name
             ));
             for k in kit {
-                s.push_str(&format!("- {}: {}\n", k.name, crate::llm::truncate(&k.description, 200)));
+                s.push_str(&format!("- {}: {}\n", k.name, crate::text::truncate(&k.description, 200)));
             }
         }
     }

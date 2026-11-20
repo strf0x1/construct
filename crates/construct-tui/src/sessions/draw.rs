@@ -116,8 +116,8 @@ pub(crate) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
         let provider = r.provider.as_deref().unwrap_or("default");
         let normalized = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
         let cap = usize::from(details.width.saturating_sub(10)).max(5);
-        let first = if split { r.first.clone() } else { construct_core::llm::truncate(&normalized(&r.first), cap) };
-        let latest = construct_core::llm::truncate(&normalized(&r.latest), if split { 160 } else { cap });
+        let first = if split { r.first.clone() } else { construct_core::text::truncate(&normalized(&r.first), cap) };
+        let latest = construct_core::text::truncate(&normalized(&r.latest), if split { 160 } else { cap });
         let model = if r.model.starts_with(&format!("{provider}/")) {
             r.model.clone()
         } else {
@@ -133,8 +133,8 @@ pub(crate) fn render(f: &mut Frame, area: Rect, p: &mut Browser) {
         } else {
             format!(
                 "First: {first}\nLatest: {latest}\nDirectory: {}\nModel: {}\nAt: {}\nID: {}",
-                construct_core::llm::truncate(&r.cwd, cap),
-                construct_core::llm::truncate(&model, cap),
+                construct_core::text::truncate(&r.cwd, cap),
+                construct_core::text::truncate(&model, cap),
                 construct_core::journal::timestamp(r.at_ms),
                 r.id
             )

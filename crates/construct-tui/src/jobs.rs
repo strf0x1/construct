@@ -21,7 +21,7 @@ impl App {
                 self.job_started(s);
                 self.aside(
                     theme::FAINT,
-                    format!("◆ job {id} started · {}", construct_core::llm::truncate(&label.replace('\n', " ⏎ "), 80)),
+                    format!("◆ job {id} started · {}", construct_core::text::truncate(&label.replace('\n', " ⏎ "), 80)),
                 );
             }
             Event::JobEnd(j) => {

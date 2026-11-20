@@ -62,13 +62,13 @@ pub fn parse(v: &serde_json::Value) -> Option<Vec<Workflow>> {
     }
     let mut wfs: Vec<Workflow> = serde_json::from_value(v["workflows"].clone()).ok()?;
     for w in &mut wfs {
-        w.title = llm::truncate(w.title.trim(), 80);
+        w.title = crate::text::truncate(w.title.trim(), 80);
         // Workflows enter every prompt in the repo: a step holding a
         // credential is dropped, like a memory entry would be.
         w.steps.retain(|s| crate::guard::check(s).is_none());
         w.steps.truncate(MAX_STEPS);
         for s in &mut w.steps {
-            *s = llm::truncate(s.trim(), 300);
+            *s = crate::text::truncate(s.trim(), 300);
         }
     }
     wfs.retain(|w| !w.title.is_empty() && !w.steps.is_empty() && crate::guard::check(&w.title).is_none());

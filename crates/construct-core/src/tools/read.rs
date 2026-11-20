@@ -88,7 +88,7 @@ fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let total = text.lines().count();
     let rows = text.lines().enumerate().skip(offset - 1).take(limit).map(|(i, line)| {
         let line = line.strip_suffix('\r').unwrap_or(line);
-        let line = if line.len() > LINE_MAX { crate::llm::truncate(line, LINE_MAX) } else { line.to_string() };
+        let line = if line.len() > LINE_MAX { crate::text::truncate(line, LINE_MAX) } else { line.to_string() };
         format!("{:>5}\t{line}\n", i + 1)
     });
     let (mut out, shown_end) = page(ctx, offset, rows);

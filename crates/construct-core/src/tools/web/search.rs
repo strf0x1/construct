@@ -99,7 +99,7 @@ fn render(a: &Answer) -> String {
     for (i, h) in a.hits.iter().enumerate() {
         let max = if i < TOP_RESULTS { TOP_CHARS } else { REST_CHARS };
         let date = h.date.as_deref().map(|d| format!("  ({d})")).unwrap_or_default();
-        out.push(format!("{}. {}\n   {}{date}\n   {}", i + 1, h.title, h.url, crate::llm::truncate(&h.snippet, max)));
+        out.push(format!("{}. {}\n   {}{date}\n   {}", i + 1, h.title, h.url, crate::text::truncate(&h.snippet, max)));
     }
     out.join("\n")
 }

@@ -159,7 +159,7 @@ fn title(name: &str, args: &str) -> String {
     if arg.is_empty() {
         name.to_string()
     } else {
-        format!("{name} {}", crate::llm::truncate(&arg.replace('\n', " "), 80))
+        format!("{name} {}", crate::text::truncate(&arg.replace('\n', " "), 80))
     }
 }
 

@@ -81,10 +81,10 @@ pub fn diff_summary(before: &str, after: &str) -> String {
                     similar::ChangeTag::Equal => ' ',
                 };
                 let line = change.value().trim_end_matches('\n');
-                out.push_str(&format!("{sign}{}\n", crate::llm::truncate(line, 240)));
+                out.push_str(&format!("{sign}{}\n", crate::text::truncate(line, 240)));
             }
         }
         out.push_str("…\n");
     }
-    crate::llm::truncate(&out, 4000)
+    crate::text::truncate(&out, 4000)
 }

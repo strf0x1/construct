@@ -170,7 +170,7 @@ impl Boundary {
         let status = r.status();
         let body = r.text().await.unwrap_or_default();
         if !status.is_success() {
-            return Err(format!("boundary approval returned {status}: {}", crate::llm::truncate(&body, 200)));
+            return Err(format!("boundary approval returned {status}: {}", crate::text::truncate(&body, 200)));
         }
         serde_json::from_str::<Outcome>(&body).map_err(|e| format!("boundary approval was not JSON: {e}"))?.validate()
     }
@@ -192,7 +192,7 @@ impl Boundary {
         if !r.status().is_success() {
             let status = r.status();
             let body = r.text().await.unwrap_or_default();
-            return Err(format!("boundary withdraw returned {status}: {}", crate::llm::truncate(&body, 200)));
+            return Err(format!("boundary withdraw returned {status}: {}", crate::text::truncate(&body, 200)));
         }
         Ok(())
     }
