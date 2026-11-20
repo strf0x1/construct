@@ -29,7 +29,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-core/src/jev.rs` | Every Jev call: state budget, failure breaker, `jev.log`. |
 | `crates/construct-core/src/jobs/` | Background jobs (ADR 0026, #34): the registry (`mod.rs`: ids, limit, cancel, the journal's `job_start`/`job_end`), `command.rs` (a sandboxed shell command as a job body), `info.rs` (`Status::wakes` is the one list of wake sources; the tagged text a completion reaches the model as; `unconsumed` reads the journal for what was never delivered). Delivery is `agent/wake.rs`: only at a turn boundary, exactly once. Jobs die with the process. |
 | `crates/construct-core/src/sandbox/` | Tool boundary: Landlock (Linux, `landlock.rs`) or a Seatbelt profile (macOS, `seatbelt.rs`, ADR 0028) for shell, via `construct __sandbox`; path checks for file tools (`open.rs`, `beneath.rs`); credential-free env. `supervise.rs`: on Linux that helper is a subreaper, and nothing a shell call starts outlives it; `supervise_macos.rs` kills the shell's process group (a `setsid` escapee is #9). |
-| `crates/construct-core/src/tui/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
+| `crates/construct-tui/src/` | ratatui app, markdown renderer, theme; `prompt.rs` draws the permission panel, `ask.rs` is the channel into it. |
 | `crates/construct-dev/src/serve/` | Scripted or recording OpenAI-compatible endpoint; `models.rs` is its model list (`models_ms` makes it slow). |
 | `crates/construct-dev/src/drive.rs` | Runs any TUI in a pty, answers terminal queries, scripts keystrokes, snapshots the screen. |
 | `crates/construct-dev/src/style.rs` | What the screen looks like: styled snapshots, `expect-style`, SVG/PNG frames. |
