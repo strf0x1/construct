@@ -44,5 +44,8 @@ vt100 = "0.18"
 jsonschema = { version = "0.60.2", default-features = false }
 rusqlite.workspace = true
 insta = { version = "1.49.0", features = ["json"] }
-# The trust tests run a local TLS server; the shipped crates do not link it.
+# The trust tests run a local TLS server and generate their own CA/leaf;
+# the shipped crates do not link any of this.
 rustls.workspace = true
+rcgen = "0.13"
+time = { version = "0.3", default-features = false, features = ["std"] }
