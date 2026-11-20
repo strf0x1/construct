@@ -39,6 +39,10 @@ const NO_ROOTS: &str = "no CA certificates found: set SSL_CERT_FILE=/path/to/ca-
 /// The policy site: install ring, the one crypto provider (#271), before the
 /// first TLS client, then hand back a bare builder for the call site's knobs.
 /// Once per process; an already-installed provider wins (`llm::ensure_crypto`).
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one legitimate reqwest constructor: every other site goes through this helper (#290)"
+)]
 pub fn builder() -> reqwest::ClientBuilder {
     crate::llm::ensure_crypto();
     let builder = reqwest::Client::builder();
