@@ -89,7 +89,7 @@ may_use = ["clock", "config", "guard", "http", "jev", "journal", "llm", "memory"
 may_use = []
 
 [crates.construct-core.modules.llm]
-may_use = ["config", "endpoint", "http", "journal", "models", "providers", "text"]
+may_use = ["config", "endpoint", "http", "models", "providers", "text"]
 
 [crates.construct-core.modules.manifest]
 may_use = ["config", "llm", "tools"]
