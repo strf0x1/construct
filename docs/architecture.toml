@@ -46,6 +46,7 @@ may_use = []
 [crates.construct-core.modules.compact]
 may_use = ["config", "event", "llm", "text"]
 
+# config <-> models and config <-> providers are intended pairs (ADR 0057).
 [crates.construct-core.modules.config]
 may_use = ["home", "jobs", "models", "providers"]
 
