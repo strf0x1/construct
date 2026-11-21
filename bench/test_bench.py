@@ -63,7 +63,7 @@ SOLUTIONS = {
         (w / "README.md").write_text("# stats\n\n## API\n\n`mean([1, 2])` and `median([1, 2, 3])`.\n"),
     ),
     "release-signing": lambda w, v: sh(
-        f"printf '1.4.0\\n' > VERSION && sed -i 's/1.3.2/1.4.0/' stats/meta.toml && ./tools/stamp --sign-with {v['key']} 1.4.0", w
+        f"printf '1.4.0\\n' > VERSION && sed -i.bak 's/1.3.2/1.4.0/' stats/meta.toml && rm stats/meta.toml.bak && ./tools/stamp --sign-with {v['key']} 1.4.0", w
     ),
     "team-seed": lambda w, v: (
         sh(f"./tools/gen-fixtures --seed {v['seed']}", w),
