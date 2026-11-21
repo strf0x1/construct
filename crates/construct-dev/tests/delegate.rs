@@ -73,7 +73,9 @@ fn a_delegated_task_runs_in_a_child_and_only_its_summary_returns() {
     );
     // The parent's totals bill the child's requests as well as its own.
     let db = construct_core::journal::Journal::open(&env.journal_path(&env.work)).unwrap();
-    let totals = construct_core::journal::Totals::session(&db, &db.since(parent, 0).unwrap()).unwrap();
+    let totals =
+        construct_core::journal::Totals::session(&db, &db.since(parent, 0).unwrap(), construct_core::child::MAX_DEPTH)
+            .unwrap();
     let usage = |s: &String| rows_of(&env, s).into_iter().filter(|r| r.ty == "usage").collect::<Vec<_>>();
     let (own, theirs) = (usage(parent), usage(child));
     assert_eq!(totals.requests, (own.len() + theirs.len()) as u64);

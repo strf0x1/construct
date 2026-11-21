@@ -6,8 +6,8 @@
 //! bytes and decodes whole lines only, so a chunk boundary inside a
 //! multibyte character never reaches the decoder.
 
-use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage, notes};
-use crate::journal::notes::Coalescer;
+use super::notes::{self, Notes};
+use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage};
 use crate::text::truncate;
 use anyhow::{Result, anyhow, bail};
 use serde_json::Value;
@@ -73,7 +73,7 @@ impl Accumulator {
         &mut self,
         data: &str,
         tx: Option<&mpsc::UnboundedSender<Delta>>,
-        notes: &mut Coalescer,
+        notes: &mut dyn Notes,
     ) -> Result<bool> {
         if data == "[DONE]" {
             return Ok(true);
@@ -95,7 +95,7 @@ impl Accumulator {
         Ok(false)
     }
 
-    pub(super) fn feed(&mut self, v: &Value, tx: Option<&mpsc::UnboundedSender<Delta>>, notes: &mut Coalescer) {
+    pub(super) fn feed(&mut self, v: &Value, tx: Option<&mpsc::UnboundedSender<Delta>>, notes: &mut dyn Notes) {
         if let Some(u) = v.get("usage").filter(|u| u.is_object()) {
             self.usage = Usage::parse(u);
         }
@@ -272,7 +272,8 @@ mod tests {
     }
 
     fn fold<'a>(chunks: impl Iterator<Item = &'a [u8]>) -> (Option<(Message, String)>, bool) {
-        let (mut sse, mut acc, mut notes) = (Sse::default(), Accumulator::default(), Coalescer::default());
+        let (mut sse, mut acc, mut notes) =
+            (Sse::default(), Accumulator::default(), crate::journal::notes::Coalescer::default());
         for chunk in chunks {
             for data in sse.push(chunk) {
                 if acc.data(&data, None, &mut notes).unwrap() {
@@ -325,7 +326,7 @@ mod tests {
 
     #[test]
     fn the_completion_names_the_model_the_stream_said_served_it() {
-        let (mut acc, mut notes) = (Accumulator::default(), Coalescer::default());
+        let (mut acc, mut notes) = (Accumulator::default(), crate::journal::notes::Coalescer::default());
         acc.feed(
             &json!({ "model": "vendor/real-model", "choices": [{ "delta": { "content": "hi" } }] }),
             None,
@@ -347,7 +348,7 @@ mod tests {
     #[test]
     fn a_new_id_at_a_used_index_is_noted_and_the_same_id_is_not() {
         let mut acc = Accumulator::default();
-        let mut notes = Coalescer::default();
+        let mut notes = crate::journal::notes::Coalescer::default();
         acc.feed(&call("a", "{"), None, &mut notes);
         acc.feed(&call("a", "}"), None, &mut notes);
         assert!(notes.drain().is_empty(), "a repeated id is the stream continuing");
@@ -368,7 +369,7 @@ mod tests {
     #[test]
     fn reasoning_remembers_the_key_it_came_in() {
         let mut acc = Accumulator::default();
-        let mut notes = Coalescer::default();
+        let mut notes = crate::journal::notes::Coalescer::default();
         acc.feed(&delta(json!({ "reasoning": "think" })), None, &mut notes);
         acc.feed(&delta(json!({ "reasoning": "ing" })), None, &mut notes);
         let m = acc.finish().unwrap().message;
@@ -378,7 +379,7 @@ mod tests {
     #[test]
     fn reasoning_details_pieces_join_into_blocks_in_order() {
         let mut acc = Accumulator::default();
-        let mut notes = Coalescer::default();
+        let mut notes = crate::journal::notes::Coalescer::default();
         let text = |t: &str, sig: Value| json!({ "type": "reasoning.text", "text": t, "signature": sig, "id": "r1", "format": "anthropic-claude-v1", "index": 0 });
         acc.feed(&delta(json!({ DETAILS: [text("Let me ", Value::Null)] })), None, &mut notes);
         acc.feed(&delta(json!({ DETAILS: [text("look.", Value::Null)] })), None, &mut notes);
@@ -402,7 +403,7 @@ mod tests {
     #[test]
     fn a_thought_signature_stays_with_its_call() {
         let mut acc = Accumulator::default();
-        let mut notes = Coalescer::default();
+        let mut notes = crate::journal::notes::Coalescer::default();
         let sig = json!({ "google": { "thought_signature": "c2ln" } });
         let first =
             json!({ "index": 0, "id": "a", "function": { "name": "read", "arguments": "{}" }, "extra_content": sig });

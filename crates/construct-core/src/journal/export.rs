@@ -6,10 +6,11 @@
 
 use super::Entry;
 use crate::event::Event;
-use crate::tools::ENABLE_TOOLS;
 use serde_json::{Value, json};
 
-pub fn export(entries: &[Entry]) -> Vec<Value> {
+/// `state_tool` is the one tool whose end switches state, not the world: it
+/// never had a `tool` record, so it is skipped (the caller names it).
+pub fn export(entries: &[Entry], state_tool: &str) -> Vec<Value> {
     let mut model = String::new();
     let mut out = Vec::new();
     for Entry { at_ms: at, event, .. } in entries {
@@ -40,8 +41,7 @@ pub fn export(entries: &[Entry]) -> Vec<Value> {
                     .collect();
                 json!({ "type": "route", "at": at, "data": { "groups": groups, "skills": skills, "source": source, "ms": ms, "note": note } })
             }
-            // enable_tools never had a tool record: it switches state, not the world.
-            Event::ToolEnd { name, .. } if name == ENABLE_TOOLS => continue,
+            Event::ToolEnd { name, .. } if name == state_tool => continue,
             Event::ToolEnd { id, name, ok, ms, code, data, .. } => json!({
                 "type": "tool", "at": at,
                 "data": { "id": id, "name": name, "ok": ok, "ms": ms, "code": code, "data": data },
