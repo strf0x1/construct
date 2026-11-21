@@ -36,6 +36,7 @@ serde = { version = "1", features = ["derive"] }
 # preserve_order everywhere: JSON keeps wire order, and snapshot key order
 # doesn't depend on which crates a test run happens to unify.
 serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
 secretspec = { version = "0.21", default-features = false, features = ["keyring"] }
 tokio = "1"
 toml = "1"

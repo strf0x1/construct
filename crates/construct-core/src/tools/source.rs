@@ -12,12 +12,28 @@
 use super::{Deck, Tool};
 use crate::config::ToolsConfig;
 use anyhow::Result;
+use std::path::Path;
 use std::sync::Arc;
 
 /// Something that contributes tools to a catalog.
 pub trait ToolSource: Send + Sync {
     /// The tools this source adds for `cfg` and `deck`, in definition order.
     fn tools(&self, cfg: &ToolsConfig, deck: &Deck) -> Result<Vec<Arc<dyn Tool>>>;
+
+    /// What to tell the model when a shell command failed because the
+    /// sandbox can't reach the Git metadata `git_dir` of a linked worktree:
+    /// the tools of this source that work there instead. `None` when it has
+    /// none, which is why core never names those tools itself.
+    fn worktree_note(&self, _git_dir: &Path) -> Option<String> {
+        None
+    }
+
+    /// This source's handle on Deck's boundary endpoint at `base_url`, for a
+    /// session that has one. The engine holds it as a `BoundaryHost`; the
+    /// source's own tools share it through `Ctx`.
+    fn boundary(&self, _base_url: &str) -> Option<Arc<dyn super::boundary::BoundaryHost>> {
+        None
+    }
 }
 
 /// The sources a session's catalog is built with. Cheap to clone and share.
@@ -28,6 +44,16 @@ impl ToolSources {
     pub fn with(mut self, source: impl ToolSource + 'static) -> Self {
         self.0.push(Arc::new(source));
         self
+    }
+
+    /// The first source's boundary handle for `base_url`.
+    pub fn boundary(&self, base_url: &str) -> Option<Arc<dyn super::boundary::BoundaryHost>> {
+        self.0.iter().find_map(|s| s.boundary(base_url))
+    }
+
+    /// The first source's note for a linked worktree out of reach.
+    pub fn worktree_note(&self, git_dir: &Path) -> Option<String> {
+        self.0.iter().find_map(|s| s.worktree_note(git_dir))
     }
 
     pub(super) fn tools(&self, cfg: &ToolsConfig, deck: &Deck) -> Result<Vec<Arc<dyn Tool>>> {

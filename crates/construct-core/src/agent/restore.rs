@@ -140,12 +140,12 @@ impl Agent {
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
         }
-        let boundary =
-            cfg.deck.as_ref().map(|deck| Arc::new(crate::tools::boundary::Boundary::new(&deck.boundary_url)));
+        let boundary = cfg.deck.as_ref().and_then(|deck| sources.boundary(&deck.boundary_url));
         let ctx = Arc::new(
             crate::tools::Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox)
                 .with_jobs(jobs)
                 .with_boundary(boundary)
+                .with_sources(sources.clone())
                 .with_github(cfg.github_gateway.clone()),
         );
         let entries = writer.entries()?;

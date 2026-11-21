@@ -135,11 +135,20 @@ may_use = ["config"]
 may_use_crates = ["construct-core"]
 used_only_by = { crates = ["construct"], reason = "Deck-only tools sit above the engine and are wired in at the composition root (#314); the engine never names them, it only offers `ToolSource`" }
 
+[crates.construct-deck.modules.boundary]
+may_use = []
+
 [crates.construct-deck.modules.control]
 may_use = []
 
+[crates.construct-deck.modules.developer]
+may_use = ["boundary"]
+
 [crates.construct-deck.modules.lib]
 may_use = []
+
+[crates.construct-deck.modules.source]
+may_use = ["boundary", "control", "developer"]
 
 [crates.construct-tui]
 may_use_crates = ["construct-core"]

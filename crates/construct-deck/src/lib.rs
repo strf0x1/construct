@@ -13,6 +13,11 @@
 //! `DeckTools` to the session builder, and the tool exists only for a
 //! coordinator task, the one that has a control gateway URL.
 
+mod boundary;
 mod control;
+mod developer;
+mod source;
 
+pub use boundary::Notice;
 pub use control::*;
+pub use source::DeckTools;

@@ -42,16 +42,9 @@ impl Server {
     /// A late boundary decision: informational, and only for the sessions the
     /// client named (or every session when it named none). It grants nothing.
     pub(super) fn boundary_notice(&self, params: Value) {
-        let Ok(notice) = serde_json::from_value::<crate::tools::boundary::Notice>(params)
-            .and_then(|notice| notice.validate().map_err(serde::de::Error::custom))
-        else {
-            return;
-        };
         for (sid, s) in &self.sessions {
-            if notice.session.as_deref().is_none_or(|id| id == sid)
-                && let Some(b) = &s.boundary
-            {
-                b.push_notice(notice.clone());
+            if let Some(b) = &s.boundary {
+                b.push_notice(&params, sid);
             }
         }
     }
