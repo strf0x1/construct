@@ -3,18 +3,14 @@
 //!
 //! One channel serves every kind of question: a tool call blocked by the
 //! sandbox (a file tool, or a shell command that failed with a Landlock
-//! denial), and a delegated ACP agent's `session/request_permission`. A
-//! question is a [`Request`]; whoever can reach the user implements [`Ask`]
-//! (the TUI does; headless runs get [`NoAsk`], which denies, as they always
-//! have). [`Perms`] sits between the two: it checks what is already granted
-//! (the session, then config), asks only when it must, applies the answer
-//! (once, for the session, or written to `config.toml`), and records it.
+//! denial), and a frozen developer operation. A question is a [`Request`];
+//! whoever can reach the user implements [`Ask`] (the TUI and an ACP client
+//! do; headless runs get [`NoAsk`], which denies, as they always have).
 //!
-//! The design choice: the process that can reach the user decides, and a child
-//! asks upward. A delegated construct child's questions travel to its parent as
-//! `Event::Ask` and come back as `ToChild::Answer`, so a grant for a child is
-//! kept, and written to `[agents.<name>]`, by the parent, whose config and
-//! home are the real ones.
+//! The design choice: [`Perms`] sits between the two and is the only place an
+//! answer takes effect: it checks what is already granted (the session, then
+//! config), asks only when it must, applies the answer (once, for the session,
+//! or written to `config.toml`), and records it.
 
 mod grants;
 mod named;
@@ -22,14 +18,12 @@ mod operation;
 mod paths;
 mod perms;
 mod persist;
-mod upstream;
 
 pub use grants::protected;
 pub use named::{Outside, PolicyTools, outside};
 pub use operation::OperationAsk;
 pub use paths::blocked_in;
 pub use perms::Perms;
-pub use upstream::Upstream;
 
 use serde::{Deserialize, Serialize};
 
@@ -53,9 +47,6 @@ impl Access {
 /// A tool wants a path the sandbox keeps it from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PathAsk {
-    /// The delegated agent asking; empty for the session's own agent.
-    #[serde(default)]
-    pub agent: String,
     pub tool: String,
     pub access: Access,
     /// Real paths, as the sandbox sees them.
@@ -73,68 +64,23 @@ pub struct PathAsk {
     /// Asked before a shell command runs, for the paths it names (#64).
     #[serde(default)]
     pub ahead: bool,
-    /// "Always" is not on offer: it would write a child's definition wider
-    /// than the session's own sandbox.
-    #[serde(default)]
-    pub no_always: bool,
-}
-
-/// A delegated agent asks to run one of its own tool calls.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ToolAsk {
-    pub agent: String,
-    pub call_id: String,
-    pub title: String,
-    /// ACP's tool kind (`execute`, `edit`, ...), when the agent said.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kind: Option<String>,
-    /// Which of the two answers the agent offered an option for.
-    pub can_allow: bool,
-    pub can_reject: bool,
-}
-
-impl ToolAsk {
-    /// What "for this session" and "always" remember: the kind when there is
-    /// one (a whole class of calls), else this call's exact title.
-    pub fn key(&self) -> String {
-        match &self.kind {
-            Some(k) => format!("kind:{k}"),
-            None => format!("title:{}", self.title),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Request {
     Path(PathAsk),
-    Tool(ToolAsk),
     Operation(OperationAsk),
 }
 
 impl Request {
-    /// Name the delegated agent this came from (a parent, relaying a child's).
-    pub fn from_agent(mut self, name: &str) -> Self {
-        match &mut self {
-            Request::Path(p) => p.agent = name.to_string(),
-            Request::Tool(t) => t.agent = name.to_string(),
-            Request::Operation(o) => o.agent = name.to_string(),
-        }
-        self
-    }
-
     /// The answers on offer, in the order shown. Nothing is offered that the
-    /// answer couldn't deliver: no "always" for a call with no kind to
-    /// remember, no allow where the agent offered no allow option.
+    /// answer couldn't deliver: an operation's grant is never written down.
     pub fn offers(&self) -> Vec<Verdict> {
         use Verdict::{Always, Deny, Once, Session};
         match self {
             Request::Operation(_) => vec![Once, Session, Deny],
-            Request::Path(p) if p.no_always => vec![Once, Session, Deny],
             Request::Path(_) => vec![Once, Session, Always, Deny],
-            Request::Tool(t) if !t.can_allow => vec![Deny],
-            Request::Tool(t) if t.kind.is_none() => vec![Once, Session, Deny],
-            Request::Tool(_) => vec![Once, Session, Always, Deny],
         }
     }
 
@@ -142,7 +88,7 @@ impl Request {
     pub fn folder(&self) -> Option<&str> {
         match self {
             Request::Path(p) => p.folder.as_deref(),
-            Request::Tool(_) | Request::Operation(_) => None,
+            Request::Operation(_) => None,
         }
     }
 }

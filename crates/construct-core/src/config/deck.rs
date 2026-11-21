@@ -7,7 +7,7 @@
 //! never from `config.toml`, and an absent one leaves its field `None`, which
 //! is what keeps the boundary tools, gateway publishing and the `deck` tool
 //! out of every other session. The control URL is not a `Config` field at
-//! all, so it can never travel to a delegated child inside its config.
+//! all, so it is never written or shown with the config.
 
 use super::Config;
 use serde::{Deserialize, Serialize};
@@ -32,8 +32,7 @@ pub const CONTROL_URL: &str = "DECK_CONTROL_URL";
 /// The coordinator's bearer token for that gateway (§13.2), set for a local
 /// coordinator. Read when a request is sent, never stored or shown.
 pub const CONTROL_TOKEN: &str = "DECK_CONTROL_TOKEN";
-/// Both, which no tool, MCP server or delegated child inherits or may set:
-/// coordination depth stays one.
+/// Both, which no tool or MCP server inherits: coordination depth stays one.
 pub const CONTROL_ENV: &[&str] = &[CONTROL_URL, CONTROL_TOKEN];
 
 /// `DECK_CONTROL_URL` when it is a usable control address; `None` otherwise.

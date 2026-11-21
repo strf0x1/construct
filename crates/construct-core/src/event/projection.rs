@@ -29,8 +29,6 @@ impl Event {
                 | Event::Reasoning { .. }
                 | Event::ToolPending { .. }
                 | Event::Learn { .. }
-                | Event::Child { .. }
-                | Event::Ask { .. }
         )
     }
 

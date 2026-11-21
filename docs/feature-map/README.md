@@ -20,7 +20,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - Start every recipe from the baseline state unless its preconditions say otherwise; a recipe's `setup.sh` adds files or `config.toml`.
 - Handles are literal screen text (`PERMISSION`, `Allow once`, `ask construct`), key names (`enter`, `down`, `y`), and theme colors from `crates/construct-tui/src/theme.rs` for `expect-style`.
 - Actions are drive-script lines (`type`, `key`, `wait`, `expect`, `expect-style`, `snap --style`, `image`), run by `construct-dev drive`.
-- Model behavior is fixed by the recipe's `model.json`: one step per model request, parent and children alike, in request order.
+- Model behavior is fixed by the recipe's `model.json`: one step per model request, in request order.
 
 ## Proof and skip reporting
 
@@ -37,9 +37,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Resume saved sessions](./session-browser.md) — browse, name, switch and recover conversations from this directory
 - [Approved developer operations](./developer-operations.md) — approve authenticated issue, commit, push, and pull request operations
 - [Permission prompt](./permission-prompt.md) — a tool reaching past the sandbox asks the user: once, for the session, always, or deny
-- [Background jobs](./background-jobs.md) — a shell command or a delegated agent runs in the background; its ending wakes the agent, a cancel never does
-- [Delegation](./delegation.md) — the model hands a task to a configured agent, whose own blocked access asks the user as a subagent
-- [Delegate progress](./delegate-progress.md) — a running child's current tool and latest words, nested under its delegate call or job line
+- [Background jobs](./background-jobs.md) — a shell command runs in the background; its ending wakes the agent, a cancel never does
 - [Queued messages](./turn-queue.md) — a message typed while a turn runs waits and runs next; the TUI settles when the queue empties
 - [Interrupt and quit](./interrupt-quit.md) — `esc` or ctrl-c interrupts a turn; idle ctrl-c arms quit for two seconds
 - [Activity line](./activity-line.md) — the line above the prompt: starting, thinking, writing, running a tool, the timer and chars/s

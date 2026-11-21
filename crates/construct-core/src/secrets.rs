@@ -155,13 +155,6 @@ pub fn missing_key(secret_name: &str) -> String {
     )
 }
 
-/// A key from the environment alone: no keyring, no OpenRouter fallback. A
-/// delegated child uses this, since the parent hands it exactly the secrets
-/// its definition names, and anything else it could find is not its to use.
-pub fn env_key(secret_name: &str) -> Option<String> {
-    env_value(secret_name)
-}
-
 pub fn set(name: &str, value: &str) -> Result<()> {
     if managed() {
         return Err(anyhow!(HOST_OWNED));
@@ -231,13 +224,6 @@ pub fn status_line(status: &Status) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn env_key_reads_only_the_environment() {
-        // A name nothing sets: no keyring lookup, no OpenRouter fallback.
-        assert_eq!(env_key("CONSTRUCT_TEST_UNSET_KEY"), None);
-        assert_eq!(env_key(""), None);
-    }
 
     #[test]
     fn only_a_set_and_non_falsey_marker_means_managed() {

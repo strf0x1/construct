@@ -27,7 +27,7 @@ task.toml keys:
     [budget]    max_requests, max_prompt_tokens: past either, the run is
                 stopped and scored over_budget instead of running to timeout.
     config      construct only: TOML appended to the harness home's
-                config.toml (e.g. an [agents.<name>] table)
+                config.toml (e.g. a [sandbox] table)
     window      the model's context window in tokens: the endpoint rejects a
                 longer prompt as a provider would, and construct is told the
                 same window (the compaction suite, bench/compaction.py)

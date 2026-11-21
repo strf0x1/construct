@@ -101,12 +101,6 @@ impl Endpoint {
         }
     }
 
-    /// The key for a delegated child: only what the parent put in its
-    /// environment, under the declared name.
-    pub fn env_key(&self) -> Option<String> {
-        crate::secrets::env_key(&self.api_key_secret)
-    }
-
     /// `key`, unless a secret is declared and nothing resolved: then nothing
     /// is sent, and the error names the secret (and the provider, if named).
     pub fn require(&self, key: Option<String>) -> Result<Option<String>> {

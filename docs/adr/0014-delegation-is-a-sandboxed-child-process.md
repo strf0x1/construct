@@ -1,6 +1,6 @@
 # 0014 — Delegation is a sandboxed child process
 
-Status: accepted. 2026-10-22.
+Status: superseded by 0055. 2026-10-22.
 
 ## Context
 

@@ -35,25 +35,19 @@ may_use = ["cli"]
 may_use_crates = []
 
 [crates.construct-core.modules.acp]
-may_use = ["agent", "agents", "child", "config", "event", "journal", "learn", "llm", "manifest", "permission", "text", "tools"]
+may_use = ["agent", "config", "event", "journal", "learn", "permission", "text", "tools"]
 
 [crates.construct-core.modules.agent]
 may_use = ["compact", "config", "context", "event", "jobs", "journal", "llm", "manifest", "mcp", "memory", "prompt", "router", "sandbox", "tools"]
 
-[crates.construct-core.modules.agents]
-may_use = ["config", "sandbox", "tools"]
-
 [crates.construct-core.modules.clock]
 may_use = []
-
-[crates.construct-core.modules.child]
-may_use = ["acp", "agent", "agents", "config", "event", "permission", "sandbox", "secrets", "tools"]
 
 [crates.construct-core.modules.compact]
 may_use = ["config", "event", "llm", "text"]
 
 [crates.construct-core.modules.config]
-may_use = ["agents", "home", "jobs", "models", "providers"]
+may_use = ["home", "jobs", "models", "providers"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
@@ -62,7 +56,7 @@ may_use = ["compact", "config", "event", "llm"]
 may_use = ["config", "secrets"]
 
 [crates.construct-core.modules.event]
-may_use = ["llm", "manifest", "permission"]
+may_use = ["llm", "manifest"]
 
 [crates.construct-core.modules.guard]
 may_use = []
@@ -131,7 +125,7 @@ may_use = ["clock", "guard", "home"]
 may_use = []
 
 [crates.construct-core.modules.tools]
-may_use = ["agents", "child", "clock", "config", "event", "http", "jobs", "journal", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+may_use = ["clock", "config", "event", "http", "jobs", "journal", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
 
 [crates.construct-core.modules.trace]
 may_use = ["config"]
@@ -143,13 +137,13 @@ must_not_use_crates = [
   { crate = "construct-core", module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
   { crate = "construct-core", module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
 ]
-used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, children, the learner); construct's cli is the one place that chooses to start it" }
+used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, `construct acp`, the learner); construct's cli is the one place that chooses to start it" }
 
 [crates.construct-tui.modules.activity]
 may_use = ["app", "theme"]
 
 [crates.construct-tui.modules.app]
-may_use = ["ask", "boxed", "children", "palette", "picker", "sessions", "theme", "turn"]
+may_use = ["ask", "boxed", "palette", "picker", "sessions", "theme", "turn"]
 
 [crates.construct-tui.modules.app_events]
 may_use = ["app", "args", "theme"]
@@ -163,17 +157,11 @@ may_use = ["app"]
 [crates.construct-tui.modules.boxed]
 may_use = ["text", "theme"]
 
-[crates.construct-tui.modules.children]
-may_use = []
-
 [crates.construct-tui.modules.clip]
 may_use = []
 
 [crates.construct-tui.modules.commands]
 may_use = ["app", "clip", "help", "listing", "picker", "sessions", "theme"]
-
-[crates.construct-tui.modules.dock]
-may_use = ["app", "args", "children", "theme", "view"]
 
 [crates.construct-tui.modules.help]
 may_use = ["boxed", "theme"]
@@ -198,9 +186,6 @@ may_use = ["table", "text", "theme"]
 
 [crates.construct-tui.modules.palette]
 may_use = ["help", "picker", "theme", "view"]
-
-[crates.construct-tui.modules.peek]
-may_use = ["app", "children", "dock", "markdown", "theme", "view"]
 
 [crates.construct-tui.modules.picker]
 may_use = ["palette", "theme", "view"]
@@ -233,7 +218,7 @@ may_use = []
 may_use = ["app", "boxed", "help", "markdown", "prompt", "text", "theme"]
 
 [crates.construct-tui.modules.worker]
-may_use = ["app", "ask", "learning", "restore"]
+may_use = ["app", "ask", "learning"]
 
 [crates.construct-dev]
 may_use_crates = ["construct-core"]

@@ -1,6 +1,6 @@
 # 0015 — ACP, both ways
 
-Status: accepted. 2026-10-22. `on_permission`'s default is amended by 0016 (ask; a session with nobody to ask still rejects).
+Status: accepted. 2026-10-22. `on_permission`'s default is amended by 0016 (ask; a session with nobody to ask still rejects). The client half (ACP children) is superseded by 0055; `construct acp` stands.
 
 ## Context
 

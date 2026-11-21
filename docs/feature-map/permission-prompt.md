@@ -3,12 +3,12 @@ id: permission-prompt
 status: verified
 surfaces: [tui]
 depends: [crates/construct-core/src/permission, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/ask.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct-dev/tests/permission.rs]
-verified_at: bc1b107
-verified_deps: b673770b45a4f82e
+verified_at: 89a5949
+verified_deps: 00868f7c91a554e1
 ---
 # Permission prompt
 
-When the model's tool call needs a path outside the sandbox, the TUI stops and shows a bordered PERMISSION panel naming who asks (the main agent), the tool and the paths, and four choices colored by consequence: allow once and allow for this session in green, always allow (saved to `config.toml`) in amber, deny in red. The selected choice is a filled bar that moves with the arrow keys; letter keys pick directly. When the path's folder could be allowed instead, a `scope` row offers `this path` or `its whole folder` (the chosen one cyan and filled), `tab` switches it, and the hint line adds `tab scope`; a grant for the folder covers its other files without asking again. The answer is shown as a notice and the tool call goes ahead or fails accordingly.
+When the model's tool call needs a path outside the sandbox, the TUI stops and shows a bordered PERMISSION panel with the tool and the paths, and four choices colored by consequence: allow once and allow for this session in green, always allow (saved to `config.toml`) in amber, deny in red. The selected choice is a filled bar that moves with the arrow keys; letter keys pick directly. When the path's folder could be allowed instead, a `scope` row offers `this path` or `its whole folder` (the chosen one cyan and filled), `tab` switches it, and the hint line adds `tab scope`; a grant for the folder covers its other files without asking again. The answer is shown as a notice and the tool call goes ahead or fails accordingly.
 
 ## Sub-features
 
@@ -27,7 +27,7 @@ When the model's tool call needs a path outside the sandbox, the TUI stops and s
 
 ## Done when
 
-- The panel shows `PERMISSION`, `main agent`, the blocked path, and the four choices in their consequence colors, with the first choice filled.
+- The panel shows `PERMISSION`, the blocked path, and the four choices in their consequence colors, with the first choice filled.
 - Moving the selection moves the fill; confirming "Allow for this session" shows `allowed for this session` and the model's next request carries the file's contents as the tool result.
 - The journal has one `access` row with the chosen decision.
 - "Always allow" leaves the path in `config.toml`; "Deny" gives the model an error result.
@@ -39,7 +39,7 @@ Preconditions:
 
 - Baseline state; `setup.sh` writes `{outside}/a.txt` containing `alpha`. Model: read `{outside}/a.txt`, then say `all done`. Recipe: `.agents/skills/verify-construct/recipes/permission-prompt`.
 
-- **Trigger.** Ask for the read. Drive: `type read it`, `key enter`, `wait "PERMISSION" 8000`, `sleep 600`. Expect: the panel with `main agent` and the path.
+- **Trigger.** Ask for the read. Drive: `type read it`, `key enter`, `wait "PERMISSION" 8000`, `sleep 600`. Expect: the panel with the path.
 - **Look.** Check the colors. Drive: `snap --style prompt`, `expect-style "Allow once" fg=#9ece6a bg=#2c3048 bold`, `expect-style "Always allow" fg=#e0af68`, `expect-style "Deny" fg=#f7768e`, `image {evidence}/prompt.png`. Expect: all checks pass; the PNG shows the panel.
 - **Select.** Move down. Drive: `key down`, `sleep 100`, `expect-style "Allow for this session" bg=#2c3048 bold`, `expect-style "Allow once" bg=default !bold`. Expect: the fill moved.
 - **Confirm.** Drive: `key enter`, `wait "allowed for this session"`, `wait "all done"`. Expect: the panel is gone and the turn finishes.

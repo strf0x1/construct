@@ -2,7 +2,7 @@
 //!
 //! `Policy::check_read` canonicalizes a path and compares it with the granted
 //! roots; opening it by name afterwards leaves a window in which another
-//! process (a parallel shell call, a delegated child) can swap a symlink in.
+//! process (a parallel shell call) can swap a symlink in.
 //! Here the check and the open are one step: find the granted root holding
 //! the real path, open the root as a directory fd, and open the rest with
 //! `openat2(RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS)` plus `O_NOFOLLOW`, so

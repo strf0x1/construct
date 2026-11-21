@@ -10,7 +10,7 @@ mod resume;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
-use construct_core::{acp, child, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools};
+use construct_core::{acp, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools};
 use resume::resolve_resume;
 use std::io::{IsTerminal, Read, Write};
 
@@ -100,14 +100,6 @@ enum Cmd {
     /// Serve construct as an Agent Client Protocol agent on stdin and stdout
     /// (for editors and other harnesses).
     Acp,
-    /// A delegated child: reads its setup and prompts as JSON lines on stdin
-    /// and writes events as JSON lines on stdout. Started by the delegate tool.
-    #[command(name = "__child", hide = true)]
-    Child {
-        /// Speak ACP instead of JSON lines.
-        #[arg(long)]
-        acp: bool,
-    },
 }
 
 #[derive(Subcommand)]
@@ -168,9 +160,7 @@ pub fn run() -> Result<()> {
             }
             rt.block_on(headless::run(cfg, paths, resume, text, json, !no_learn, cli.model))
         }
-        Some(Cmd::Child { acp: false }) => rt.block_on(child::serve::run()),
-        Some(Cmd::Child { acp: true }) => rt.block_on(acp::server::run(cfg, paths, acp::server::Mode::Child)),
-        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths, acp::server::Mode::User)),
+        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths)),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {

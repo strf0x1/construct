@@ -2,7 +2,7 @@
 //! directory is a module here, so the lib links once, not once per file.
 //! `autotests = false` means a new file is not run until it is listed; the
 //! `docs` gate in `cargo xtask check` fails until it is. Filter with
-//! `cargo test -p construct-dev --test it <file>::`, e.g. `delegate::`.
+//! `cargo test -p construct-dev --test it <file>::`, e.g. `jobs::`.
 
 #![expect(
     clippy::unwrap_used,
@@ -22,8 +22,6 @@ mod acp_live;
 mod acp_payloads;
 #[path = "catalog.rs"]
 mod catalog;
-#[path = "child.rs"]
-mod child;
 #[path = "compaction.rs"]
 mod compaction;
 #[path = "crash_sweep.rs"]
@@ -34,8 +32,6 @@ mod deck;
 mod deck_control;
 #[path = "deck_github.rs"]
 mod deck_github;
-#[path = "delegate.rs"]
-mod delegate;
 #[path = "developer.rs"]
 mod developer;
 #[path = "e2e.rs"]

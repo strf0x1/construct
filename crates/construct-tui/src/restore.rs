@@ -36,8 +36,8 @@ impl App {
         self.learning = None;
         self.toast = None;
         self.prompts.clear();
-        self.dock = Default::default();
-        self.dock.jobs = Some(ready.jobs);
+        self.jobs_running = 0;
+        self.jobs = Some(ready.jobs);
         self.generation = ready.tag;
         self.session = ready.session;
         self.cfg = ready.cfg;
@@ -110,8 +110,7 @@ impl App {
                 | Event::ToolEnd { .. }
                 | Event::Compacted { .. }
                 | Event::JobStart(_)
-                | Event::JobEnd(_)
-                | Event::Child { .. }) => self.on_event(ev),
+                | Event::JobEnd(_)) => self.on_event(ev),
                 _ => {}
             }
         }
@@ -142,34 +141,11 @@ impl App {
     pub(super) fn switch_blocked(&mut self) -> bool {
         let blocked = self.turn.blocks_switch()
             || !self.prompts.is_empty()
-            || self.dock.jobs.as_ref().is_some_and(|j| j.running() > 0);
+            || self.jobs.as_ref().is_some_and(|j| j.running() > 0);
         if blocked {
             self.notice(theme::YELLOW,
                 "Cannot switch sessions while a turn, queued prompt, permission request or background job is active. Wait or cancel it first.");
         }
         blocked
     }
-}
-
-/// Reattach delegated transcript events under their recorded call. They were
-/// stored once under the child ID, rather than duplicated in the parent's log.
-pub(super) fn with_children(
-    entries: Vec<construct_core::journal::Entry>,
-    db: &construct_core::journal::Journal,
-) -> anyhow::Result<Vec<construct_core::journal::Entry>> {
-    let mut out = vec![];
-    for e in entries {
-        if let Event::ToolEnd { id, data: Some(data), .. } = &e.event
-            && let Some(child) = data.get("session").and_then(|v| v.as_str())
-        {
-            for row in db.strict(child)? {
-                out.push(construct_core::journal::Entry {
-                    event: Event::Child { id: id.clone(), inner: Box::new(row.event) },
-                    ..row
-                });
-            }
-        }
-        out.push(e);
-    }
-    Ok(out)
 }

@@ -83,8 +83,7 @@ pub fn build(
 }
 
 /// What the tools can and cannot reach, as the model needs to know it. It
-/// mirrors `sandbox::Policy::new` for the main agent, which never blocks the
-/// network itself; a delegated child's prompt comes from its definition.
+/// mirrors `sandbox::Policy::new`, which never blocks the network itself.
 fn sandbox_block(cfg: &SandboxConfig) -> String {
     let secrets = "- Credentials and secrets are removed from the tools' environment.\n";
     let network = "- The network is not blocked by construct, but the machine may be offline. If a fetch fails, don't retry it; work from what is on disk.\n";

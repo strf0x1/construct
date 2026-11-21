@@ -10,35 +10,31 @@
 //! released Deck still finds them (issue #171).
 
 use super::map;
-use super::server::{Mode, Server};
+use super::server::Server;
 use serde_json::{Value, json};
 
 impl Server {
     /// The `agentCapabilities` object for `initialize`.
     pub(super) fn capabilities(&self) -> Value {
         let mut caps = json!({
-            "loadSession": self.mode == Mode::User,
+            "loadSession": true,
+            "sessionCapabilities": { "resume": {}, "close": {} },
             "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
             "mcpCapabilities": { "http": false, "sse": false },
             "_meta": {
-                map::META_KEY: { "events": true },
-                map::LEGACY_META_KEY: { "events": true },
+                // Current key only for idempotent prompts; the bare key has
+                // no form of it (contract 1.3.0 §12.1).
+                map::META_KEY: { "events": true, "liveAttach": true, map::IDEMPOTENT_PROMPTS: true },
+                map::LEGACY_META_KEY: { "events": true, "liveAttach": true },
             },
         });
-        if self.mode == Mode::User && self.cfg.deck.is_some() {
+        if self.cfg.deck.is_some() {
             caps["_meta"][map::DECK_KEY] = json!({ "boundary": true });
             caps["_meta"][map::LEGACY_DECK_KEY] = json!({ "boundary": true });
         }
         // The GitHub operation API has no bare form (contract 1.2.0 §11.1).
-        if self.mode == Mode::User && self.cfg.github_gateway.is_some() {
+        if self.cfg.github_gateway.is_some() {
             caps["_meta"][map::DECK_KEY][map::GITHUB_OPERATIONS] = json!(map::GITHUB_OPERATIONS_VERSION);
-        }
-        if self.mode == Mode::User {
-            caps["sessionCapabilities"] = json!({ "resume": {}, "close": {} });
-            caps["_meta"][map::META_KEY]["liveAttach"] = json!(true);
-            caps["_meta"][map::LEGACY_META_KEY]["liveAttach"] = json!(true);
-            // Current key only; the bare key has no form of it (contract 1.3.0 §12.1).
-            caps["_meta"][map::META_KEY][map::IDEMPOTENT_PROMPTS] = json!(true);
         }
         caps
     }

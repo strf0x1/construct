@@ -2,24 +2,10 @@
 //! accounting survive; permissions, processes and cancellation handles do not.
 
 use super::*;
-use crate::sandbox::Policy;
-use serde::{Deserialize, Serialize};
-
-/// What makes a session a child's: the prompt it runs under and who
-/// delegated to it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Origin {
-    /// The sandbox the child's whole process runs under, which its own file
-    /// tools check against too, so a refusal names the real boundary.
-    pub policy: Policy,
-    pub system: String,
-    pub parent_session: String,
-    pub parent_call_id: String,
-}
 
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, None, None)
+        Self::build(cfg, paths, cwd, resume, None)
     }
 
     /// An explicit launch or recovery model choice wins over saved policy.
@@ -30,13 +16,7 @@ impl Agent {
         resume: Option<String>,
         model_override: Option<&str>,
     ) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, None, model_override)
-    }
-
-    /// The session of a delegated child: its own prompt, and a head row that
-    /// names who delegated.
-    pub fn child(cfg: Config, paths: Paths, cwd: std::path::PathBuf, origin: Origin) -> Result<Self> {
-        Self::build(cfg, paths, cwd, None, Some(origin), None)
+        Self::build(cfg, paths, cwd, resume, model_override)
     }
 
     fn build(
@@ -44,7 +24,6 @@ impl Agent {
         paths: Paths,
         cwd: std::path::PathBuf,
         resume: Option<String>,
-        origin: Option<Origin>,
         model_override: Option<&str>,
     ) -> Result<Self> {
         let file = journal::path(&paths, &cwd);
@@ -97,8 +76,7 @@ impl Agent {
         }
         check_window(&cfg.context.strategy, u64::from(cfg.context_window), &cfg.model)?;
         let ep = cfg.endpoint();
-        let key = if origin.is_some() { ep.env_key() } else { ep.key() };
-        let client = llm::Client::new(&ep, ep.require(key)?)?;
+        let client = llm::Client::new(&ep, ep.require(ep.key())?)?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -106,23 +84,12 @@ impl Agent {
         } else {
             Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
         };
-        let is_child = origin.is_some();
-        // A delegated child shares the task but not the boundary tools or the
-        // notification capability: the parent's time-based note already covers
-        // blocks its delegates cause.
-        // Nor the coordinator's control gateway: coordination depth stays one.
-        if is_child {
-            cfg.deck = None;
-        }
         let deck = crate::tools::Deck {
             boundary: cfg.deck.is_some(),
             github: cfg.github_gateway.is_some(),
-            control: if is_child { None } else { crate::config::deck::control_url() },
+            control: crate::config::deck::control_url(),
         };
         let catalog = Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), &deck)?);
-        if !cfg.agents.is_empty() {
-            catalog.add(Arc::new(crate::tools::delegate::Delegate::new(&cfg, &catalog.table(), &cwd)?));
-        }
         let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();
         let mut unsent = vec![];
@@ -137,40 +104,28 @@ impl Agent {
                     cwd: cwd_s.clone(),
                     model: cfg.model.clone(),
                     manifest: manifest.clone(),
-                    parent_session: origin.as_ref().map(|o| o.parent_session.clone()),
-                    parent_call_id: origin.as_ref().map(|o| o.parent_call_id.clone()),
+                    parent_session: None,
+                    parent_call_id: None,
                 })?;
                 unsent.push(head);
                 (w, crate::context::build(&cfg.context.strategy, vec![])?)
             }
         };
-        let (system, sandbox) = match origin {
-            // The child's boundary was decided by its parent; `parent` is the
-            // pid the helper watches, and that is this process now.
-            Some(o) => (o.system, crate::sandbox::Policy { parent: std::process::id(), ..o.policy }),
-            None => (
-                crate::prompt::build(
-                    &cwd,
-                    &memory,
-                    &cfg.learn.strategy,
-                    crate::prompt::ToolNames {
-                        shell: crate::tools::shell::Shell::NAME,
-                        grep: crate::tools::grep::Grep::NAME,
-                    },
-                    cfg.tools.search_tool(),
-                    &cfg.sandbox,
-                ),
-                crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths),
-            ),
-        };
+        let system = crate::prompt::build(
+            &cwd,
+            &memory,
+            &cfg.learn.strategy,
+            crate::prompt::ToolNames { shell: crate::tools::shell::Shell::NAME, grep: crate::tools::grep::Grep::NAME },
+            cfg.tools.search_tool(),
+            &cfg.sandbox,
+        );
+        let sandbox = crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths);
         let prompt = Message::system(system);
         let system_recorded = context.set_system(prompt.clone());
         let jobs = crate::jobs::Jobs::new(&cfg.jobs);
         if let Some(id) = &resume_id {
             jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
         }
-        // A delegated child shares the task but not the boundary tools: the
-        // parent's time-based note already covers blocks its delegates cause.
         let boundary =
             cfg.deck.as_ref().map(|deck| Arc::new(crate::tools::boundary::Boundary::new(&deck.boundary_url)));
         let ctx = Arc::new(
@@ -181,11 +136,7 @@ impl Agent {
         );
         let entries = writer.entries()?;
         let bytes_per_token = learned_ratio(&entries).unwrap_or(4.0);
-        let totals = journal::Totals::session(
-            &journal::Journal::read_only(&file)?,
-            &entries,
-            crate::tools::delegate::MAX_DEPTH,
-        )?;
+        let totals = journal::Totals::of(&entries);
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
         if ctx.boundary.is_some() {

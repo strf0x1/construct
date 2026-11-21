@@ -21,8 +21,8 @@ fn tilde(p: &Path) -> String {
     }
 }
 
-/// Add `value` to the string array `table.key` (`table` is `["sandbox"]` or
-/// `["agents", name]`), creating what is missing. Already there: nothing changes.
+/// Add `value` to the string array `table.key` (`table` is a path of table
+/// names, `["sandbox"]`), creating what is missing. Already there: nothing changes.
 fn add(paths: &Paths, table: &[&str], key: &str, value: &str) -> Result<()> {
     let file = paths.config();
     let text = match std::fs::read_to_string(&file) {
@@ -50,15 +50,9 @@ fn add(paths: &Paths, table: &[&str], key: &str, value: &str) -> Result<()> {
 }
 
 /// The session's agent may reach `p`: `[sandbox] allow_read` / `allow_write`.
-pub fn allow_path(paths: &Paths, agent: &str, write: bool, p: &Path) -> Result<()> {
+pub fn allow_path(paths: &Paths, write: bool, p: &Path) -> Result<()> {
     let key = if write { "allow_write" } else { "allow_read" };
-    let value = tilde(p);
-    if agent.is_empty() { add(paths, &["sandbox"], key, &value) } else { add(paths, &["agents", agent], key, &value) }
-}
-
-/// A delegated agent's calls of this ACP kind need no question: `allow_kinds`.
-pub fn allow_kind(paths: &Paths, agent: &str, kind: &str) -> Result<()> {
-    add(paths, &["agents", agent], "allow_kinds", kind)
+    add(paths, &["sandbox"], key, &tilde(p))
 }
 
 #[cfg(test)]
@@ -80,9 +74,9 @@ mod tests {
             "# mine\nmodel = \"m\"\n\n[sandbox]\nmode = \"workspace\" # keep\nallow_read = [\"~/a\"]\n",
         )
         .unwrap();
-        allow_path(&paths, "", false, Path::new("/srv/data")).unwrap();
-        allow_path(&paths, "", false, Path::new("/srv/data")).unwrap();
-        allow_path(&paths, "", true, Path::new("/srv/out")).unwrap();
+        allow_path(&paths, false, Path::new("/srv/data")).unwrap();
+        allow_path(&paths, false, Path::new("/srv/data")).unwrap();
+        allow_path(&paths, true, Path::new("/srv/out")).unwrap();
         let text = std::fs::read_to_string(paths.config()).unwrap();
         assert!(text.starts_with("# mine\nmodel"), "{text}");
         assert!(text.contains("mode = \"workspace\" # keep"), "{text}");
@@ -92,13 +86,11 @@ mod tests {
     }
 
     #[test]
-    fn an_agent_entry_and_a_missing_file_are_both_fine() {
-        let paths = home("agent");
-        allow_kind(&paths, "codex", "read").unwrap();
-        allow_path(&paths, "scout", false, Path::new("/srv/x")).unwrap();
+    fn a_missing_file_is_created() {
+        let paths = home("missing");
+        allow_path(&paths, false, Path::new("/srv/x")).unwrap();
         let cfg: toml::Value = toml::from_str(&std::fs::read_to_string(paths.config()).unwrap()).unwrap();
-        assert_eq!(cfg["agents"]["codex"]["allow_kinds"][0].as_str(), Some("read"));
-        assert_eq!(cfg["agents"]["scout"]["allow_read"][0].as_str(), Some("/srv/x"));
+        assert_eq!(cfg["sandbox"]["allow_read"][0].as_str(), Some("/srv/x"));
     }
 
     #[test]

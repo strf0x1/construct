@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct JobsConfig {
-    /// Jobs running at once, background delegates and commands together.
+    /// Background commands running at once.
     pub limit: usize,
 }
 

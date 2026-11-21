@@ -3,8 +3,8 @@ id: interrupt-quit
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/input.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/status.rs, crates/construct-core/src/agent.rs, crates/construct-tui/src/lib.rs, crates/construct-tui/src/app_events.rs]
-verified_at: e9512d0
-verified_deps: 654b0351db3951ce
+verified_at: 40f7a7a
+verified_deps: 605f82be7de90b64
 ---
 # Interrupt and quit
 

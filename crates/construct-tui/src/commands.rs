@@ -157,7 +157,7 @@ fn status(app: &App) -> Result<Vec<(&'static str, String)>, String> {
         let file = construct_core::journal::path(&paths, &std::env::current_dir()?);
         let db = construct_core::journal::Journal::open(&file)?;
         let entries = db.since(&app.session, 0)?;
-        let totals = construct_core::journal::Totals::session(&db, &entries, construct_core::child::MAX_DEPTH)?;
+        let totals = construct_core::journal::Totals::of(&entries);
         Ok(construct_core::journal::status_rows(&app.session, &file, &app.cfg, &totals))
     };
     if app.session.is_empty() {

@@ -42,7 +42,7 @@ A recipe is a directory named after the feature id:
 
 | file | what |
 |---|---|
-| `model.json` | the scripted model: `{"steps":[{"call":"read","args":{"path":"{outside}/a.txt"}},{"text":"done"}]}`. One step per model request, in order, across the parent and any delegated children. |
+| `model.json` | the scripted model: `{"steps":[{"call":"read","args":{"path":"{outside}/a.txt"}},{"text":"done"}]}`. One step per model request, in order. |
 | `drive.txt` | the drive script (commands below) |
 | `serve.args` | optional; extra `construct-dev serve` flags on one line, e.g. `--chunk-ms 500` to stream a reply slowly enough to snap mid-way |
 | `setup.sh` | optional; runs first with `WORK`, `OUTSIDE`, `CHOME` (the construct home: put `config.toml` there) and `EVIDENCE` set |
@@ -52,8 +52,8 @@ A recipe is a directory named after the feature id:
 `drive.txt` become those paths. For a one-off check, copy a recipe dir to your
 scratch space, edit it, and pass that path.
 
-Existing recipes, in `recipes/`: `permission-prompt`, `delegation`,
-`delegate-progress`, `slash-commands`, `status-line`, `long-text`.
+Existing recipes, in `recipes/`: `permission-prompt`, `background-job`,
+`slash-commands`, `status-line`, `long-text`, and more (`ls recipes/`).
 
 ## Drive script commands
 
@@ -97,16 +97,15 @@ reader: you see the frame as a user would. Use it for layout and for anything
   permission outcome shows up as the result text). `requests.jsonl` has one
   summary line per request (model, tool names, sizes).
 - `journal.txt`: the session journal (`seq | session | type | payload`):
-  `access` rows hold permission decisions, `tool_end` rows hold results, and a
-  child's rows sit under its own session id.
+  `access` rows hold permission decisions, `tool_end` rows hold results.
 - any `image` output.
 
 **The screen can be right while the feature is broken.** The scripted model
 says whatever its steps say, whether or not the tool call behind it worked:
-the `delegation` recipe drew a perfect subagent prompt, recorded the user's
-"once", and showed the child's cheerful reply, while the child's read had
-failed with EACCES (issue #66). Only its `check.sh`, reading the child's
-`tool_end` row, caught it. Every recipe that triggers a tool call needs a
+a (since removed) delegation recipe drew a perfect permission prompt,
+recorded the user's "once", and showed a cheerful reply, while the read
+behind it had failed with EACCES (issue #66). Only its `check.sh`, reading
+the `tool_end` row, caught it. Every recipe that triggers a tool call needs a
 `check.sh` that reads the call's real outcome.
 
 Prove a change from both sides: what the user sees (snap/image/expect-style)
@@ -129,13 +128,11 @@ name: the user may be running their own.
 - **The permission panel's border animates**, so `settle` never returns while
   one is open. Use `wait` and `sleep` there.
 - **`expect-style` checks the first match on screen.** Your typed message is
-  on screen too: `expect-style "scout" …` hits "ask scout". Pick text that only
-  the element you mean contains (`"subagent · scout"`).
+  on screen too: `expect-style "read" …` hits "read it". Pick text that only
+  the element you mean contains (`"PERMISSION"`).
 - **`NO_COLOR`**: agent shells often export it. The driver removes it from the
   child, so colors are real; `--env NO_COLOR=1` puts it back on purpose.
-- Mock steps are consumed in request order by everyone: a delegated child's
-  requests take the next steps, so write the parent's call, then the child's
-  steps, then the parent's reply.
+- Mock steps are consumed in request order, one per model request.
 - A recipe never sees `~/.construct`: it runs with its own home, model
   `openrouter/free` from defaults, and a dummy key. Put any config it needs in
   `setup.sh`.

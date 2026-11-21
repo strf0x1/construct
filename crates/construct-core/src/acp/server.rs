@@ -24,10 +24,10 @@
 
 use super::cwd;
 use super::live::{Command, Phase, Session, Turn};
-use super::map::{self, META_KEY};
+use super::map;
 use super::questions::Questions;
 use super::replay::Transcript;
-use super::{Start, VERSION, rpc};
+use super::{VERSION, rpc};
 use crate::agent::Agent;
 use crate::config::{Config, Paths};
 use anyhow::Result;
@@ -40,17 +40,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinSet;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
-    /// `construct acp`: the user's own config and sandbox policy.
-    User,
-    /// `construct __child --acp`: one session, set up by the parent.
-    Child,
-}
-
 type Out = mpsc::UnboundedSender<String>;
 
-pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
+pub async fn run(cfg: Config, paths: Paths) -> Result<()> {
     let (out, mut lines_out) = mpsc::unbounded_channel::<String>();
     // Only this loop writes protocol frames; diagnostic writes go to stderr
     // because `claim_stdout` points fd 1 there (ADR 0035).
@@ -70,7 +62,6 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
     let mut srv = Server {
         cfg,
         paths,
-        mode,
         out,
         commands,
         questions: Questions::default(),
@@ -124,7 +115,7 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
     while let Ok(command) = pending.try_recv() {
         srv.command(command, &mut turns);
     }
-    if srv.mode == Mode::User && srv.cfg.learn.enabled {
+    if srv.cfg.learn.enabled {
         for s in srv.sessions.values() {
             let a = s.agent.lock().await;
             if crate::learn::kind_for(a.user_turns, a.tool_calls).is_some() {
@@ -140,7 +131,6 @@ pub async fn run(cfg: Config, paths: Paths, mode: Mode) -> Result<()> {
 pub(super) struct Server {
     pub(super) cfg: Config,
     pub(super) paths: Paths,
-    pub(super) mode: Mode,
     pub(super) out: Out,
     pub(super) questions: Questions,
     pub(super) commands: mpsc::UnboundedSender<Command>,
@@ -161,11 +151,6 @@ impl Server {
     }
 
     fn request(&mut self, id: Value, method: &str, params: Value, turns: &mut JoinSet<()>) {
-        // A delegated child has one session, set up by its parent; loading
-        // another would build a user-config agent inside its boundary.
-        if self.mode == Mode::Child && matches!(method, "session/load" | "session/resume" | "session/close") {
-            return self.reply(&id, Err((rpc::METHOD_NOT_FOUND, format!("unknown method {method}"))));
-        }
         match method {
             "initialize" => {
                 self.attachment += 1;
@@ -205,21 +190,7 @@ impl Server {
 
     fn new_session(&mut self, params: &Value) -> Result<String> {
         let cwd = cwd(params)?;
-        let agent = match self.mode {
-            Mode::User => Agent::new(self.cfg.clone(), self.paths.clone(), cwd, None)?,
-            Mode::Child => {
-                anyhow::ensure!(self.sessions.is_empty(), "a delegated child has one session");
-                let meta = &params["_meta"];
-                let start = if meta[META_KEY]["start"].is_null() {
-                    meta[map::LEGACY_META_KEY]["start"].clone()
-                } else {
-                    meta[META_KEY]["start"].clone()
-                };
-                let Start { config, origin } = serde_json::from_value(start)
-                    .map_err(|e| anyhow::anyhow!("session/new needs _meta[\"{META_KEY}\"].start: {e}"))?;
-                Agent::child(*config, self.paths.clone(), cwd, *origin)?
-            }
-        };
+        let agent = Agent::new(self.cfg.clone(), self.paths.clone(), cwd, None)?;
         self.register(agent)
     }
 

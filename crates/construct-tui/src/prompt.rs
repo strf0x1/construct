@@ -3,13 +3,12 @@
 //!
 //! The design choice: it must be impossible to miss and impossible to mistake
 //! for output. The border breathes between orange and amber, the title is a
-//! filled badge naming who is asking (main agent in blue, a subagent in
-//! lavender), the thing being asked about is the brightest text in the panel,
+//! filled badge, the thing being asked about is the brightest text in the panel,
 //! and the choices are colored by consequence: green to let it through once or
 //! for a while, amber for what is written to config, red for no. The selected
 //! row is a filled bar, so the default is visible before any key is pressed.
 //!
-//! What is being approved (paths, the command, the tool call) is wrapped, never
+//! What is being approved (paths, the command, the operation) is wrapped, never
 //! cut with `…`: a user can't approve what they can't read. Those rows share
 //! a budget sized so the choices always stay on screen; only past that does a
 //! row say how many it left out.
@@ -54,35 +53,13 @@ fn clip(mut lines: Vec<Line<'static>>, budget: usize) -> Vec<Line<'static>> {
     lines
 }
 
-fn agent_of(p: &Prompt) -> &str {
-    match &p.request {
-        Request::Path(r) => &r.agent,
-        Request::Tool(t) => &t.agent,
-        Request::Operation(o) => &o.agent,
-    }
-}
-
 fn label(p: &Prompt, c: Choice) -> (String, Color) {
-    let (agent, kind) = match &p.request {
-        Request::Path(r) => (r.agent.as_str(), None),
-        Request::Tool(t) => (t.agent.as_str(), t.kind.as_deref()),
-        Request::Operation(o) => (o.agent.as_str(), None),
-    };
-    let saves = if agent.is_empty() { "config.toml".to_string() } else { format!("[agents.{agent}] in config.toml") };
     let text = match (&p.request, c) {
         (Request::Path(r), Choice::Once) if r.rerun => "Allow and run the command again".into(),
         (Request::Path(r), Choice::Once) if r.ahead => "Allow and run the command".into(),
         (Request::Path(_), Choice::Once) => "Allow once".into(),
         (Request::Path(_), Choice::Session) => "Allow for this session".into(),
-        (Request::Path(_), Choice::Always) => format!("Always allow · saved to {saves}"),
-        (Request::Tool(_), Choice::Once) => "Allow this call".into(),
-        (Request::Tool(_), Choice::Session) => match kind {
-            Some(k) => format!("Allow {k} calls from {agent} this session"),
-            None => "Allow this call for this session".into(),
-        },
-        (Request::Tool(_), Choice::Always) => {
-            format!("Always allow {} from {agent} · saved to {saves}", kind.unwrap_or("these"))
-        }
+        (Request::Path(_), Choice::Always) => "Always allow · saved to config.toml".into(),
         (Request::Operation(_), Choice::Once) => "Allow this operation".into(),
         (Request::Operation(_), Choice::Session) => "Allow this exact operation this session".into(),
         (Request::Operation(_), Choice::Always) => "Unavailable".into(),
@@ -186,19 +163,6 @@ fn body(p: &Prompt, w: usize, mut budget: usize) -> Vec<Line<'static>> {
                 theme::dim(),
             )));
         }
-        Request::Tool(t) => {
-            let kind = t.kind.as_deref().map(|k| format!(" ({k})")).unwrap_or_default();
-            out.push(Line::from(Span::styled(
-                format!("{} wants to run a tool call{kind}:", t.agent),
-                Style::new().fg(theme::DIM),
-            )));
-            out.push(Line::default());
-            let mut title = Vec::new();
-            for l in t.title.lines() {
-                title.extend(wrapped(l, strong, w, Span::styled("  ▸ ", Style::new().fg(theme::ORANGE))));
-            }
-            out.extend(clip(title, budget));
-        }
     }
     out.push(Line::default());
     for (i, c) in p.choices().into_iter().enumerate() {
@@ -232,17 +196,8 @@ pub(super) fn height(p: &Prompt, width: u16, max: u16) -> u16 {
 
 pub(super) fn render(f: &mut Frame, area: Rect, p: &Prompt, waiting: usize, phase: f32) {
     let edge = theme::pulse(phase, theme::ORANGE, theme::YELLOW);
-    let (who, who_color) = match agent_of(p) {
-        "" => ("main agent".to_string(), theme::ACCENT),
-        a => (format!("subagent · {a}"), theme::ACCENT2),
-    };
     let badge = Span::styled(" ⚠ PERMISSION ", Style::new().fg(BADGE_FG).bg(edge).add_modifier(Modifier::BOLD));
-    let title = Line::from(vec![
-        badge,
-        Span::raw(" "),
-        Span::styled(who, Style::new().fg(who_color).add_modifier(Modifier::BOLD)),
-        Span::raw(" "),
-    ]);
+    let title = Line::from(vec![badge, Span::raw(" ")]);
     let mut hint = String::from(" ↑↓ select · enter confirm");
     if p.folder_offered().is_some() {
         hint.push_str(" · tab scope");
@@ -268,7 +223,7 @@ pub(super) fn render(f: &mut Frame, area: Rect, p: &Prompt, waiting: usize, phas
 #[cfg(test)]
 mod tests {
     use super::*;
-    use construct_core::permission::{PathAsk, ToolAsk};
+    use construct_core::permission::PathAsk;
 
     fn ask(request: Request) -> Prompt {
         Prompt::new(request, tokio::sync::oneshot::channel().0)
@@ -276,7 +231,6 @@ mod tests {
 
     fn shell(detail: &str) -> Prompt {
         ask(Request::Path(PathAsk {
-            agent: String::new(),
             tool: "shell".into(),
             access: Access::Read,
             paths: vec!["/home/me/.ssh/id_ed25519".into()],
@@ -284,7 +238,6 @@ mod tests {
             detail: detail.into(),
             rerun: false,
             ahead: true,
-            no_always: false,
         }))
     }
 
@@ -312,20 +265,6 @@ mod tests {
     }
 
     #[test]
-    fn every_line_of_a_tool_call_is_shown() {
-        let p = ask(Request::Tool(ToolAsk {
-            agent: "worker".into(),
-            call_id: "1".into(),
-            title: "one\ntwo\nthree\nfour".into(),
-            kind: None,
-            can_allow: true,
-            can_reject: true,
-        }));
-        let rows = text(&lay_out(&p, 50, 30));
-        assert!(rows.iter().any(|r| r.contains("four")), "{rows:#?}");
-    }
-
-    #[test]
     fn a_huge_command_leaves_the_choices_on_screen() {
         let rows = text(&lay_out(&shell(&"word ".repeat(2000)), 60, 18));
         assert!(rows.len() <= 18, "{} rows", rows.len());
@@ -343,7 +282,6 @@ mod tests {
         let detail =
             format!("/usr/bin/gh in /private/tmp/construct\n{}\nFINAL CONTENT", "review this body\n".repeat(80));
         let mut p = ask(Request::Operation(construct_core::permission::OperationAsk {
-            agent: String::new(),
             operation: "issue_create".into(),
             scope: "github.com/owner/repo".into(),
             detail,

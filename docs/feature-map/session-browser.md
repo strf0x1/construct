@@ -3,8 +3,8 @@ id: session-browser
 status: verified
 surfaces: [tui, cli]
 depends: [crates/construct-core/src/journal, crates/construct-core/src/agent/restore.rs, crates/construct-core/src/agent/user_turn.rs, crates/construct-tui/src/sessions, crates/construct-tui/src/restore.rs, crates/construct-tui/src/worker.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct/src/cli/resume.rs]
-verified_at: ab4f74b
-verified_deps: 9092ee70937d550a
+verified_at: 89a5949
+verified_deps: 77ddd42caa770d7a
 ---
 # Resume saved sessions
 
@@ -13,7 +13,7 @@ Find conversations from the exact current directory by their first prompt or a n
 ## Sub-features
 
 - `session-browser-open` `/resume` and `construct --resume` show the same local archive without needing credentials. Startup escape exits; in-app escape returns to the conversation. Selecting the current session closes the browser.
-- `session-browser-labels` the original first prompt labels a session; `/rename <title>` persists a manual name. Empty names are rejected and duplicates are allowed. Rows show conversation activity, user turns and current/interrupted/in-use markers. Unused heads and delegated children are excluded.
+- `session-browser-labels` the original first prompt labels a session; `/rename <title>` persists a manual name. Empty names are rejected and duplicates are allowed. Rows show conversation activity, user turns and current/interrupted/in-use markers. Unused heads and the delegated children of old journals are excluded.
 - `session-browser-search` typing searches names, complete first/latest prompts and IDs across the entire eligible archive. Arrows, ctrl+p/n, Page Up/Down and Home/End move the visible highlight; ctrl+u clears the query. Selected details include full first prompt, latest preview, directory, provider/model, UTC time and full ID; alt+Page Up/Down scrolls details. Narrow terminals keep compact previews and row metadata (`*` current, `!` interrupted, `busy` in use).
 - `session-browser-switch` `/resume <id>` switches directly. Busy turns, queued prompts, permission requests and background jobs refuse switching immediately. A failed destination leaves the active conversation usable. Runtime generations keep old asynchronous events out of a newly opened conversation.
 - `session-browser-context` switching appends to the selected ID, replays saved compaction for the model, and shows historical tools with ctrl+o. Saved model/provider wins unless explicitly overridden with `--model` or a model chosen after restoration fails. Missing providers/credentials require explicit selection.

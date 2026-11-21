@@ -133,10 +133,8 @@ impl Prompt {
                     (true, Some(f)) => f.clone(),
                     _ => p.paths.join(", "),
                 };
-                let who = if p.agent.is_empty() { String::new() } else { format!("{}: ", p.agent) };
-                format!("{who}{} access to {target} for {}", p.access.word(), p.tool)
+                format!("{} access to {target} for {}", p.access.word(), p.tool)
             }
-            Request::Tool(t) => format!("{}: {}", t.agent, t.title),
             Request::Operation(o) => format!("{} ({})", o.operation, o.scope),
         }
     }

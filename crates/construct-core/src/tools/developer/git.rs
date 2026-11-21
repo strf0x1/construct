@@ -253,7 +253,7 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
     };
     detail.push_str(&format!("\nHost executable: {}", executable.identity()));
     Ok(Prepared {
-        request: OperationAsk { agent: String::new(), operation: operation.into(), scope, detail },
+        request: OperationAsk { operation: operation.into(), scope, detail },
         executable,
         cwd,
         operation: body,

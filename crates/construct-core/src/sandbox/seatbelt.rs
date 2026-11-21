@@ -23,15 +23,9 @@ unsafe extern "C" {
 /// Apply the profile for `policy` to this process and everything it will start.
 ///
 /// A sandboxed process cannot apply another profile (`sandbox_init` fails
-/// with EPERM; Landlock stacks, Seatbelt does not). A delegated child's own
-/// process therefore gets none (`net_only`): its tools are confined per call
-/// (ADR 0017), and each shell call is a fresh helper built from the child's
-/// policy, network included. What this gives up is the kernel's hold on the
-/// child's in-process network use, ADR 0028.
+/// with EPERM; Landlock stacks, Seatbelt does not), so this runs only in the
+/// helper, never in construct itself.
 pub(super) fn restrict(policy: &Policy) -> Result<(), String> {
-    if policy.net_only {
-        return Ok(());
-    }
     let profile = CString::new(profile(policy)).map_err(|e| format!("seatbelt: {e}"))?;
     let mut err: *mut c_char = std::ptr::null_mut();
     // SAFETY: `profile` is a NUL-terminated string; no parameters; `err` is
@@ -118,11 +112,7 @@ pub(super) fn profile(policy: &Policy) -> String {
     if !w.is_empty() {
         out.push_str(&format!("(allow file-write* file-ioctl {w})\n"));
     }
-    if policy.no_network {
-        for port in &policy.connect_ports {
-            out.push_str(&format!("(allow network-outbound (remote ip \"localhost:{port}\"))\n"));
-        }
-    } else {
+    if !policy.no_network {
         out.push_str("(allow network*)\n");
     }
     out
@@ -151,10 +141,9 @@ mod tests {
     }
 
     #[test]
-    fn network_is_closed_to_all_but_the_listed_ports() {
-        let p = profile(&Policy { no_network: true, connect_ports: vec![8080], ..policy() });
-        assert!(!p.contains("(allow network*)"));
-        assert!(p.contains("(allow network-outbound (remote ip \"localhost:8080\"))"));
+    fn no_network_allows_none() {
+        let p = profile(&Policy { no_network: true, ..policy() });
+        assert!(!p.contains("(allow network"), "{p}");
     }
 
     #[test]

@@ -6,7 +6,6 @@ wait "PERMISSION" 8000
 # keys are ignored for 450 ms after the prompt appears (so a stray key can't answer it)
 sleep 600
 snap --style prompt
-expect "main agent"
 expect-style "PERMISSION" fg=#1a1b26 bold
 expect-style "Allow once" fg=#9ece6a bg=#2c3048 bold
 expect-style "Always allow" fg=#e0af68

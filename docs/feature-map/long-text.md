@@ -3,14 +3,14 @@ id: long-text
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/table.rs, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/markdown.rs]
-verified_at: be1e735
-verified_deps: a3b39edf6dd40570
+verified_at: 40f7a7a
+verified_deps: 97a9f058a8c0ca27
 ---
 # Long text wraps
 
 Text the user has to read is wrapped to the screen, never cut with `…`. A markdown table cell too long for its column wraps onto more lines (a row is as tall as its tallest cell, and a faint rule separates the rows once any cell wraps); only column widths shrink, widest first. In the permission panel, a long path, shell command or tool call wraps too, because the user is deciding on exactly the part a cut would hide. Those panel rows share a budget sized to the screen so the four choices always stay visible; past it a row says `… N more rows`.
 
-Cut on purpose, and not covered here: one-row widgets (tool header detail, the model picker, the slash palette, the status line, the delegate dock and peek) and tool output previews, whose lines are still cut to the width (`… N more lines` is their line cap).
+Cut on purpose, and not covered here: one-row widgets (tool header detail, the model picker, the slash palette, the status line) and tool output previews, whose lines are still cut to the width (`… N more lines` is their line cap).
 
 ## Sub-features
 

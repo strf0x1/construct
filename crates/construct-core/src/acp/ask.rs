@@ -74,14 +74,12 @@ pub fn params(session: &str, id: u64, req: &Request) -> Value {
 }
 
 fn title(req: &Request) -> String {
-    let who = |agent: &str| if agent.is_empty() { String::new() } else { format!("{agent}: ") };
     match req {
         Request::Path(p) => {
             let rerun = if p.rerun { " (allowing runs the command again)" } else { "" };
-            format!("{}{} access to {} for {}{rerun}", who(&p.agent), p.access.word(), p.paths.join(", "), p.tool)
+            format!("{} access to {} for {}{rerun}", p.access.word(), p.paths.join(", "), p.tool)
         }
-        Request::Tool(t) => format!("{}{}", who(&t.agent), t.title),
-        Request::Operation(o) => format!("{}{} ({})", who(&o.agent), o.operation, o.scope),
+        Request::Operation(o) => format!("{} ({})", o.operation, o.scope),
     }
 }
 
@@ -91,7 +89,6 @@ fn kind(req: &Request) -> &str {
         Request::Path(p) if p.rerun => "execute",
         Request::Path(p) if p.access == Access::Write => "edit",
         Request::Path(_) => "read",
-        Request::Tool(t) => t.kind.as_deref().unwrap_or("other"),
         Request::Operation(_) => "execute",
     }
 }
@@ -147,11 +144,10 @@ pub fn decision(result: &Value) -> Decision {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::permission::{PathAsk, ToolAsk};
+    use crate::permission::PathAsk;
 
-    fn path(folder: Option<&str>, no_always: bool) -> Request {
+    fn path(folder: Option<&str>) -> Request {
         Request::Path(PathAsk {
-            agent: String::new(),
             tool: "read".into(),
             access: Access::Read,
             paths: vec!["/elsewhere/a.txt".into()],
@@ -159,7 +155,6 @@ mod tests {
             detail: String::new(),
             rerun: false,
             ahead: false,
-            no_always,
         })
     }
 
@@ -169,26 +164,16 @@ mod tests {
 
     #[test]
     fn the_options_are_what_the_tui_would_offer() {
-        assert_eq!(ids(&path(None, false)), ["once", "session", "always", "deny"]);
+        assert_eq!(ids(&path(None)), ["once", "session", "always", "deny"]);
         assert_eq!(
-            ids(&path(Some("/elsewhere"), false)),
+            ids(&path(Some("/elsewhere"))),
             ["once", "session", "folder-session", "always", "folder-always", "deny"]
         );
-        assert_eq!(ids(&path(Some("/elsewhere"), true)), ["once", "session", "folder-session", "deny"]);
-        let tool = Request::Tool(ToolAsk {
-            agent: "scout".into(),
-            call_id: "c1".into(),
-            title: "rm -rf build".into(),
-            kind: Some("execute".into()),
-            can_allow: false,
-            can_reject: true,
-        });
-        assert_eq!(ids(&tool), ["deny"]);
-        let p = params("s1", 4, &tool);
+        let p = params("s1", 4, &path(None));
         assert_eq!(p["toolCall"]["toolCallId"], "ask-4");
-        assert_eq!(p["toolCall"]["title"], "scout: rm -rf build");
-        assert_eq!(p["toolCall"]["kind"], "execute");
-        assert_eq!(p["toolCall"]["rawInput"]["type"], "tool");
+        assert_eq!(p["toolCall"]["title"], "read access to /elsewhere/a.txt for read");
+        assert_eq!(p["toolCall"]["kind"], "read");
+        assert_eq!(p["toolCall"]["rawInput"]["type"], "path");
     }
 
     #[test]

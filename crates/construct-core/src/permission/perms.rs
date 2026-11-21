@@ -8,9 +8,9 @@
 //! Config the user wrote by hand is already inside `Policy`, so it never
 //! reaches here.
 
-use super::grants::{Grants, Roots, folder_for, protected};
+use super::grants::{Roots, folder_for};
 use super::persist;
-use super::{Access, Ask, Decision, NoAsk, PathAsk, Request, ToolAsk, Verdict};
+use super::{Access, Ask, Decision, NoAsk, PathAsk, Request, Verdict};
 use crate::event::{Event, Events};
 use crate::home::Paths;
 use crate::journal::Writer;
@@ -27,7 +27,7 @@ pub struct Perms {
     /// The session's sandbox policy before any approval.
     base: Policy,
     ask: Mutex<Arc<dyn Ask>>,
-    grants: Mutex<Grants>,
+    grants: Mutex<Roots>,
     /// Weak: a sender kept here would hold the event stream open, and the
     /// printer at the other end waits for every sender to be gone.
     sink: Mutex<Option<(Arc<Writer>, WeakUnboundedSender<Event>)>>,
@@ -57,7 +57,7 @@ impl Perms {
             operations: Mutex::new(Vec::new()),
             base,
             ask: Mutex::new(Arc::new(NoAsk)),
-            grants: Mutex::new(Grants::default()),
+            grants: Mutex::new(Roots::default()),
             sink: Mutex::new(None),
             tools: super::PolicyTools::default(),
         }
@@ -73,7 +73,7 @@ impl Perms {
         &self.tools
     }
 
-    /// Who answers from now on (the TUI's prompt, or a parent process).
+    /// Who answers from now on (the TUI's prompt, or an ACP client).
     pub fn set_ask(&self, ask: Arc<dyn Ask>) {
         *self.ask.lock().unwrap_or_else(|e| e.into_inner()) = ask;
     }
@@ -88,7 +88,7 @@ impl Perms {
         self.ask.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
-    fn grants(&self) -> std::sync::MutexGuard<'_, Grants> {
+    fn grants(&self) -> std::sync::MutexGuard<'_, Roots> {
         self.grants.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -100,21 +100,15 @@ impl Perms {
         }
     }
 
-    /// The sandbox policy plus what this session has approved for its own agent.
+    /// The sandbox policy plus what this session has approved.
     pub fn policy(&self) -> Policy {
-        let r = self.grants().roots("");
+        let r = self.grants();
         self.base.widened(&r.read, &r.write)
     }
 
-    /// What this session approved for a delegated agent, to add to the next
-    /// policy it runs under.
-    pub fn roots_for(&self, agent: &str) -> Roots {
-        self.grants().roots(agent)
-    }
-
     /// The roots a decision grants: the folder only if the request's own
-    /// folder is one `folder_for` would offer for that path (a child's
-    /// request is not taken at its word).
+    /// folder is one `folder_for` would offer for that path (a request is not
+    /// taken at its word).
     fn granted(req: &PathAsk, d: Decision) -> Vec<PathBuf> {
         let paths: Vec<PathBuf> = req.paths.iter().map(PathBuf::from).collect();
         if d.folder
@@ -134,12 +128,12 @@ impl Perms {
         }
         let mut g = self.grants();
         for r in roots {
-            g.add_path(&req.agent, req.access, r.clone());
+            g.add(req.access, r.clone());
         }
         drop(g);
         if d.verdict == Verdict::Always {
             for r in roots {
-                if let Err(e) = persist::allow_path(&self.paths, &req.agent, req.access == Access::Write, r) {
+                if let Err(e) = persist::allow_path(&self.paths, req.access == Access::Write, r) {
                     return Some(format!("couldn't save {} to config.toml: {e:#}", r.display()));
                 }
             }
@@ -158,68 +152,13 @@ impl Perms {
             self.record(Event::Error { message: error });
         }
         self.record(Event::Access {
-            agent: req.agent.clone(),
+            agent: String::new(),
             tool: req.tool.clone(),
             access: req.access.word().into(),
             paths: roots.iter().map(|p| p.display().to_string()).collect(),
             decision: d.verdict.word().into(),
         });
         Some((d.verdict, roots))
-    }
-
-    /// A delegated child's question, as its parent decides it. A path is
-    /// remembered (and written) under the child's definition; an ACP agent's
-    /// call under its kind. The child gets the decision back to act on.
-    pub async fn decide(&self, req: Request) -> Decision {
-        let ask = self.asker();
-        match &req {
-            Request::Path(p) => {
-                if p.paths.iter().any(|x| protected(Path::new(x))) {
-                    return Decision::DENY;
-                }
-                // "Always" writes the path into the child's definition, which
-                // must stay inside what the session itself may reach
-                // (docs/adr/0014); beyond that the user can only lend it.
-                let policy = self.policy();
-                let inside = p.paths.iter().all(|x| match p.access {
-                    Access::Read => policy.check_read(Path::new(x)).is_ok(),
-                    Access::Write => policy.check_write(Path::new(x)).is_ok(),
-                });
-                let mut p = p.clone();
-                p.no_always = !inside;
-                let d = ask.ask(Request::Path(p.clone())).await;
-                let d = if p.no_always && d.verdict == Verdict::Always {
-                    Decision { verdict: Verdict::Session, ..d }
-                } else {
-                    d
-                };
-                let roots = Self::granted(&p, d);
-                if let Some(error) = self.apply(&p, d, &roots) {
-                    self.record(Event::Error { message: error });
-                }
-                d
-            }
-            Request::Tool(t) => self.tool(&*ask, t).await,
-            Request::Operation(_) => Decision::DENY,
-        }
-    }
-
-    async fn tool(&self, ask: &dyn Ask, t: &ToolAsk) -> Decision {
-        let key = t.key();
-        if self.grants().has_tool(&t.agent, &key) {
-            return Decision { verdict: Verdict::Session, folder: false };
-        }
-        let d = ask.ask(Request::Tool(t.clone())).await;
-        if matches!(d.verdict, Verdict::Session | Verdict::Always) {
-            self.grants().add_tool(&t.agent, key);
-        }
-        if d.verdict == Verdict::Always
-            && let Some(kind) = &t.kind
-            && let Err(e) = persist::allow_kind(&self.paths, &t.agent, kind)
-        {
-            self.record(Event::Error { message: format!("couldn't save {kind} to config.toml: {e:#}") });
-        }
-        d
     }
 }
 
@@ -309,68 +248,10 @@ mod tests {
         assert!(pending.await.is_err());
     }
 
-    #[tokio::test]
-    async fn a_childs_always_is_only_lent_when_it_would_leave_the_sessions_own_reach() {
-        let (perms, file, root) = setup("child");
-        let inside = root.join("work").canonicalize().unwrap().join("g.txt");
-        std::fs::write(&inside, "y").unwrap();
-        let ask = Script::new(&[Verdict::Always, Verdict::Always]);
-        perms.set_ask(ask.clone());
-        let req = |p: &Path| {
-            Request::Path(PathAsk {
-                agent: "scout".into(),
-                tool: "read".into(),
-                access: Access::Read,
-                paths: vec![p.display().to_string()],
-                folder: None,
-                detail: String::new(),
-                rerun: false,
-                ahead: false,
-                no_always: false,
-            })
-        };
-        // Beyond the session's reach: the user saw no "always", and a child
-        // claiming one gets a session grant, nothing is written.
-        let d = perms.decide(req(&file)).await;
-        assert_eq!(d.verdict, Verdict::Session);
-        assert!(!perms.paths.config().exists());
-        assert_eq!(perms.roots_for("scout").read, std::slice::from_ref(&file));
-        // Inside it: written to the child's definition.
-        let d = perms.decide(req(&inside)).await;
-        assert_eq!(d.verdict, Verdict::Always);
-        let cfg = std::fs::read_to_string(perms.paths.config()).unwrap();
-        assert!(cfg.contains("[agents.scout]") && cfg.contains("allow_read"), "{cfg}");
-        let asked = ask.asked();
-        let flags: Vec<bool> = asked.iter().map(|r| matches!(r, Request::Path(p) if p.no_always)).collect();
-        assert_eq!(flags, [true, false]);
-    }
-
-    #[tokio::test]
-    async fn a_protected_path_from_a_child_is_refused_without_asking() {
-        let (perms, _, _) = setup("prot");
-        let ask = Script::new(&[Verdict::Always]);
-        perms.set_ask(ask.clone());
-        let home = std::env::var("HOME").unwrap();
-        let req = Request::Path(PathAsk {
-            agent: "scout".into(),
-            tool: "read".into(),
-            access: Access::Read,
-            paths: vec![format!("{home}/.ssh/id_rsa")],
-            folder: None,
-            detail: String::new(),
-            rerun: false,
-            ahead: false,
-            no_always: false,
-        });
-        assert_eq!(perms.decide(req).await, Decision::DENY);
-        assert!(ask.asked().is_empty());
-    }
-
     #[test]
     fn a_folder_is_only_taken_if_it_is_the_one_that_would_have_been_offered() {
         let (_, file, _) = setup("folder");
         let ask = |folder: &Path| PathAsk {
-            agent: String::new(),
             tool: "read".into(),
             access: Access::Read,
             paths: vec![file.display().to_string()],
@@ -378,12 +259,11 @@ mod tests {
             detail: String::new(),
             rerun: false,
             ahead: false,
-            no_always: false,
         };
         let d = Decision { verdict: Verdict::Session, folder: true };
         let real = file.parent().unwrap();
         assert_eq!(Perms::granted(&ask(real), d), [real.to_path_buf()]);
-        // A child that names some other folder gets the path itself.
+        // A request that names some other folder gets the path itself.
         assert_eq!(Perms::granted(&ask(Path::new("/")), d), std::slice::from_ref(&file));
     }
 }

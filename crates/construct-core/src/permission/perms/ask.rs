@@ -51,7 +51,6 @@ impl Perms {
             return Err(format!("{msg} That place is protected; only a path typed into config.toml opens it."));
         }
         let req = PathAsk {
-            agent: String::new(),
             tool: tool.into(),
             access,
             folder: folder_for(&real).map(|f| f.display().to_string()),
@@ -59,7 +58,6 @@ impl Perms {
             detail: String::new(),
             rerun: false,
             ahead: false,
-            no_always: false,
         };
         match self.ask_paths(req, cancel).await {
             Some((v, _)) if v.allows() => Ok(Some(real)),
@@ -80,7 +78,6 @@ impl Perms {
         cancel: watch::Receiver<bool>,
     ) -> Option<Vec<PathBuf>> {
         let req = PathAsk {
-            agent: String::new(),
             tool: self.tools.shell.into(),
             access,
             paths: paths.iter().map(|p| p.display().to_string()).collect(),
@@ -88,7 +85,6 @@ impl Perms {
             detail: command.to_string(),
             rerun: !ahead,
             ahead,
-            no_always: false,
         };
         let (verdict, roots) = self.ask_paths(req, cancel).await?;
         verdict.allows().then_some(roots)

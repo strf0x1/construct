@@ -27,7 +27,6 @@ use std::path::{Path, PathBuf};
 mod beneath;
 mod denied;
 mod env;
-mod grant;
 #[cfg(target_os = "linux")]
 mod landlock;
 pub mod open;
@@ -42,7 +41,6 @@ mod supervise;
 #[path = "supervise_macos.rs"]
 mod supervise;
 pub use env::{is_secret_name, scrub_env};
-pub use grant::Grant;
 pub use stop::{GRACE, StopOnDrop};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -61,17 +59,10 @@ pub struct Policy {
     /// Deny TCP connect and bind (Landlock ABI 4+; best effort below it).
     #[serde(default)]
     pub no_network: bool,
-    /// TCP ports still reachable when `no_network` (a child's model endpoint).
-    #[serde(default)]
-    pub connect_ports: Vec<u16>,
     /// Leave the program's stderr where the helper's goes instead of merging
     /// it into stdout: an MCP server's stdout is its protocol.
     #[serde(default)]
     pub own_stderr: bool,
-    /// Lock only network and signals, not the filesystem: the process is a
-    /// delegated child, whose tools are confined per call instead (ADR 0017).
-    #[serde(default)]
-    pub net_only: bool,
 }
 
 /// Read-only, executable everywhere a shell needs to look.
@@ -154,9 +145,7 @@ impl Policy {
             tmp,
             parent: std::process::id(),
             no_network: false,
-            connect_ports: vec![],
             own_stderr: false,
-            net_only: false,
         }
     }
 
@@ -173,49 +162,6 @@ impl Policy {
             p.system.push(exe);
         }
         p
-    }
-
-    /// The policy a delegated child runs under: only what its definition
-    /// lists, each path inside what `self` (the parent's) allows, plus a
-    /// private temp dir that holds the child's whole home. The parent's
-    /// working directory is not implied: a child with nothing listed cannot
-    /// read it. The child may run the construct binary and nothing more of
-    /// the parent's tree.
-    pub fn for_agent(&self, grant: Grant, paths: &Paths, tag: &str, endpoint_port: u16) -> Result<Self, String> {
-        for p in &grant.read {
-            self.check_read(p)?;
-        }
-        for p in &grant.write {
-            self.check_write(p)?;
-        }
-        let tmp = paths.home.join("tmp").join(format!("{}-{tag}", std::process::id()));
-        std::fs::create_dir_all(&tmp).map_err(|e| format!("creating {}: {e}", tmp.display()))?;
-        let canon = |v: Vec<PathBuf>| v.into_iter().filter_map(|p| p.canonicalize().ok()).collect::<Vec<_>>();
-        let mut system = self.system.clone();
-        system.extend(std::env::current_exe().and_then(|e| e.canonicalize()));
-        let mut write = canon(grant.write);
-        write.extend(tmp.canonicalize());
-        // Devices a program can't start without, as for any tool.
-        write.extend(self.write.iter().filter(|p| p.starts_with("/dev")).cloned());
-        Ok(Self {
-            off: self.off,
-            read: canon(grant.read),
-            write,
-            system,
-            tmp,
-            parent: std::process::id(),
-            no_network: !grant.network,
-            connect_ports: vec![endpoint_port],
-            own_stderr: true,
-            net_only: false,
-        })
-    }
-
-    /// This policy as the delegated child's own process is started under it:
-    /// the filesystem is left to its per-call confinement (ADR 0017), so an
-    /// approval can widen what its next tool call may reach.
-    pub fn net_only(&self) -> Self {
-        Self { net_only: true, ..self.clone() }
     }
 
     fn under(roots: &[PathBuf], p: &Path) -> bool {

@@ -10,8 +10,6 @@ use tokio::sync::watch;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationAsk {
-    #[serde(default)]
-    pub agent: String,
     pub operation: String,
     pub scope: String,
     /// The complete frozen execution plan, without credentials.
@@ -25,9 +23,6 @@ impl Perms {
         let granted = self.operations.lock().unwrap_or_else(|e| e.into_inner()).contains(&req);
         let verdict = if *cancel.borrow() {
             Verdict::Cancel
-        } else if !req.agent.is_empty() {
-            // Children do not inherit the host runner or its credentials.
-            Verdict::Deny
         } else if granted {
             Verdict::Session
         } else {
@@ -84,7 +79,6 @@ mod tests {
 
     fn request() -> OperationAsk {
         OperationAsk {
-            agent: String::new(),
             operation: "issue_create".into(),
             scope: "github.com/owner/repo".into(),
             detail: "executable=/usr/bin/gh cwd=/private/tmp/construct input={title: bug, body: reproduction}".into(),
@@ -124,15 +118,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cancellation_and_children_cannot_use_the_host_grant() {
+    async fn cancellation_cannot_use_the_host_grant() {
         let (perms, answers) = setup(&[Verdict::Session]);
         assert!(perms.operation(request(), cancel()).await);
         let cancelled = watch::channel(true).1;
         assert!(!perms.operation(request(), cancelled).await);
-        let mut child = request();
-        child.agent = "child".into();
-        assert!(!perms.operation(child.clone(), cancel()).await);
-        assert_eq!(perms.decide(Request::Operation(child)).await, Decision::DENY);
         assert_eq!(answers.requests.lock().unwrap().len(), 1);
     }
 

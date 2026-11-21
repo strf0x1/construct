@@ -96,23 +96,6 @@ fn a_loopback_provider_gets_no_key_and_a_missing_key_names_the_provider() {
     assert!(b.auth_seen().is_empty());
 }
 
-#[test]
-fn a_child_on_another_provider_reaches_only_that_endpoint_with_only_that_key() {
-    let a = Env::new(
-        "providers-child-a",
-        json!({ "steps": [{ "call": "delegate", "args": { "agent": "scout", "task": "hi" } }, { "text": "done" }] }),
-    );
-    let b = Env::new("providers-child-b", json!({ "steps": [{ "text": "child-says" }] }));
-    let agent =
-        "[agents.scout]\ndescription = \"reads\"\nprompt = \"You are a scout.\"\ntools = [\"read\"]\nmodel = \"b/x\"\n";
-    a.config(&format!("{}{agent}", two(&a, &b)));
-    let out = a.run_with(&KEYS, &["run", "--no-learn", "go"]);
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert_eq!(a.auth_seen(), vec![json!("Bearer aaaa…"); 2], "parent, then parent again");
-    assert_eq!(b.auth_seen(), vec![json!("Bearer bbbb…")], "the child: b's key, never a's");
-    assert_eq!(b.requests()[0]["model"], "x");
-}
-
 fn stdout(out: &std::process::Output) -> String {
     String::from_utf8_lossy(&out.stdout).into_owned()
 }
