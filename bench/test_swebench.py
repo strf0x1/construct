@@ -109,7 +109,7 @@ class Bridge(unittest.TestCase):
         self.assertNotEqual(a["run_id"], b["run_id"])
         self.assertNotEqual(a["cwd"], b["cwd"])
         self.assertEqual(a["command"].count("-i"), 3)
-        self.assertIn(str(self.work), a["command"])
+        self.assertIn(str(self.work.resolve()), a["command"])
         self.assertEqual(a["predictions_sha256"], sb.sha256(predictions))
         (self.work / "code.py").write_text("dirty\n")
         with self.assertRaisesRegex(ValueError, "clean"):

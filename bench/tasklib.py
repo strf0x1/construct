@@ -184,7 +184,8 @@ def materialize(task: Task, dest: Path, vars: dict, remote=None, warm=True, src=
         _copy_filled(o, dest, vars)
     for r in remove:
         (dest / r).unlink()
-    git = lambda *a: subprocess.run(["git", *a], cwd=dest, check=True)
+    # No detached auto-gc: it would prune loose objects while the work dir is removed.
+    git = lambda *a: subprocess.run(["git", "-c", "gc.auto=0", "-c", "maintenance.auto=false", *a], cwd=dest, check=True)
     git("init", "-q")
     if remote:
         git("remote", "add", "origin", remote)
