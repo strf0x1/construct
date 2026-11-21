@@ -221,7 +221,7 @@ pub fn run() -> Result<()> {
                 bail!("no session {id} in this project's journal");
             }
             let mut out = std::io::stdout().lock();
-            for line in journal::export(&entries) {
+            for line in journal::export(&entries, construct_core::tools::ENABLE_TOOLS) {
                 writeln!(out, "{line}")?;
             }
             Ok(())

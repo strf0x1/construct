@@ -1,8 +1,30 @@
 //! The conditions the client records instead of failing on: each is a branch
 //! that used to be silent. Declared once here; call sites pass the constant
-//! to `Coalescer::record` and nothing else (see `journal::notes`).
+//! to `Notes::record` and nothing else. `Kind` and the `Notes` trait live
+//! here so the client reports conditions through a type it owns; the
+//! journal's `Coalescer` implements `Notes` and turns them into rows (see
+//! `journal::notes`).
 
-use crate::journal::notes::Kind;
+/// One condition worth a journal row: which subsystem saw it, what it is, and
+/// how many rows of it a session keeps.
+#[derive(Debug, Clone, Copy)]
+pub struct Kind {
+    pub class: &'static str,
+    pub name: &'static str,
+    pub cap: u32,
+}
+
+/// Where a subsystem reports a condition it recovered from.
+pub trait Notes: Send {
+    fn record(&mut self, kind: Kind, detail: &str);
+}
+
+/// A call whose notes nobody reads.
+pub struct Discard;
+
+impl Notes for Discard {
+    fn record(&mut self, _: Kind, _: &str) {}
+}
 
 const CLASS: &str = "provider";
 

@@ -20,7 +20,6 @@ pub use message::{FunctionCall, Message, Part, ToolCall};
 pub use usage::Usage;
 
 use crate::endpoint::Endpoint;
-use crate::journal::notes::Coalescer;
 use anyhow::{Context, Result, bail};
 use futures::StreamExt;
 use serde_json::Value;
@@ -111,7 +110,7 @@ impl Client {
 
     /// A call whose notes nobody reads; the agent loop uses [`Client::stream_body`].
     pub async fn stream(&self, req: Request<'_>, tx: Option<&mpsc::UnboundedSender<Delta>>) -> Result<Completion> {
-        self.stream_body(self.body(&req), tx, &mut Coalescer::default()).await
+        self.stream_body(self.body(&req), tx, &mut notes::Discard).await
     }
 
     /// The request body exactly as it goes on the wire, shaped for this
@@ -129,7 +128,7 @@ impl Client {
         &self,
         body: Vec<u8>,
         tx: Option<&mpsc::UnboundedSender<Delta>>,
-        notes: &mut Coalescer,
+        notes: &mut dyn notes::Notes,
     ) -> Result<Completion> {
         let mut attempt = 0u32;
         let (resp, first_deadline) = loop {

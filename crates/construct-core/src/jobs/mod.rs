@@ -15,13 +15,13 @@ mod config;
 mod info;
 mod spec;
 
+pub use crate::event::payload::{Delivered, Info, Kind, Started, Status};
 pub use command::body as command_body;
 pub use config::{JobsConfig, ShellConfig};
-pub use info::{Delivered, Info, Kind, Started, Status, TAIL_MAX, Tail, highest_id, render, unconsumed};
-pub use spec::{Body, Finish, Run, Spec};
+pub use info::{TAIL_MAX, Tail, highest_id, render, unconsumed};
+pub use spec::{Body, Finish, Run, Sink, Spec};
 
 use crate::event::{Event, Events};
-use crate::journal::Writer;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use tokio::sync::{Notify, watch};
@@ -161,14 +161,14 @@ impl Jobs {
                 Ok(f) => f,
                 Err(e) => Finish { status: Status::Failed, exit: None, note: format!("[the job crashed: {e}]") },
             };
-            jobs.end(&job_id, fin, tail, started.elapsed(), &journal, &tx);
+            jobs.end(&job_id, fin, tail, started.elapsed(), journal.as_ref(), &tx);
         });
         Ok(id)
     }
 
     /// Record an ending: the row first, then the registry, so the journal
     /// never shows a turn that read a completion before the completion.
-    fn end(&self, id: &str, fin: Finish, tail: Tail, took: Duration, journal: &Writer, tx: &Events) {
+    fn end(&self, id: &str, fin: Finish, tail: Tail, took: Duration, journal: &dyn Sink, tx: &Events) {
         let mut text = tail.text();
         if !fin.note.is_empty() {
             if !text.is_empty() && !text.ends_with('\n') {

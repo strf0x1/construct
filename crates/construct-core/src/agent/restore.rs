@@ -111,7 +111,14 @@ impl Agent {
                 (w, crate::context::build(&cfg.context.strategy, vec![])?)
             }
         };
-        let system = crate::prompt::build(&cwd, &memory, &cfg.learn.strategy, cfg.tools.search_tool(), &cfg.sandbox);
+        let system = crate::prompt::build(
+            &cwd,
+            &memory,
+            &cfg.learn.strategy,
+            crate::prompt::ToolNames { shell: crate::tools::shell::Shell::NAME, grep: crate::tools::grep::Grep::NAME },
+            cfg.tools.search_tool(),
+            &cfg.sandbox,
+        );
         let sandbox = crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths);
         let prompt = Message::system(system);
         let system_recorded = context.set_system(prompt.clone());

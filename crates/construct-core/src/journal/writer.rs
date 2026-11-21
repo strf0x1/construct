@@ -117,3 +117,9 @@ pub(super) fn in_use(file: &Path, session: &str) -> bool {
     let Ok(lock) = OpenOptions::new().read(true).write(true).open(path) else { return false };
     lock.try_lock().is_err()
 }
+
+impl crate::jobs::Sink for Writer {
+    fn emit(&self, ev: Event, tx: &Events) {
+        Writer::emit(self, ev, tx);
+    }
+}

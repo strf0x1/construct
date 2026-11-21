@@ -37,7 +37,7 @@ pub(super) fn start(
             label: command.to_string(),
             call_id: call.id.clone(),
             timeout: Duration::from_secs(secs),
-            sink,
+            sink: (sink.0, sink.1),
             body: jobs::command_body(policy.clone(), command.to_string(), cwd.to_path_buf()),
         })
         .map_err(|e| ToolError::new("job_limit", e))?;

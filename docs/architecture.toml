@@ -44,10 +44,10 @@ may_use = ["compact", "config", "context", "event", "jobs", "journal", "llm", "m
 may_use = []
 
 [crates.construct-core.modules.compact]
-may_use = ["config", "llm", "text"]
+may_use = ["config", "event", "llm", "text"]
 
 [crates.construct-core.modules.config]
-may_use = ["home", "jobs", "models", "providers", "tools"]
+may_use = ["home", "jobs", "models", "providers"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
@@ -71,10 +71,10 @@ may_use = []
 may_use = ["config", "journal", "text"]
 
 [crates.construct-core.modules.jobs]
-may_use = ["event", "journal", "llm", "sandbox", "text"]
+may_use = ["event", "sandbox", "text"]
 
 [crates.construct-core.modules.journal]
-may_use = ["clock", "config", "context", "event", "jobs", "llm", "project", "text", "tools"]
+may_use = ["clock", "config", "context", "event", "jobs", "llm", "project", "text"]
 
 [crates.construct-core.modules.learn]
 may_use = ["clock", "config", "guard", "http", "jev", "journal", "llm", "memory", "project", "router", "sandbox", "secrets", "skills", "text", "tools"]
@@ -83,7 +83,7 @@ may_use = ["clock", "config", "guard", "http", "jev", "journal", "llm", "memory"
 may_use = []
 
 [crates.construct-core.modules.llm]
-may_use = ["config", "endpoint", "http", "journal", "models", "providers", "text"]
+may_use = ["config", "endpoint", "http", "models", "providers", "text"]
 
 [crates.construct-core.modules.manifest]
 may_use = ["config", "llm", "tools"]
@@ -98,13 +98,13 @@ may_use = ["config", "guard", "project"]
 may_use = ["config", "endpoint"]
 
 [crates.construct-core.modules.permission]
-may_use = ["event", "home", "journal", "sandbox", "tools"]
+may_use = ["event", "home", "journal", "sandbox"]
 
 [crates.construct-core.modules.project]
 may_use = ["home"]
 
 [crates.construct-core.modules.prompt]
-may_use = ["config", "journal", "learn", "memory", "skills", "text", "tools"]
+may_use = ["config", "journal", "learn", "memory", "skills", "text"]
 
 [crates.construct-core.modules.providers]
 may_use = ["config", "endpoint", "models"]
