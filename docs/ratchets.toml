@@ -37,3 +37,14 @@ construct-tui = [
     "app <-> sessions",
     "palette <-> picker",
 ]
+
+# Every group of three or more modules joined into one cycle, per crate (a
+# strongly connected component, names sorted), from the same scan. Pairs
+# alone miss a loop like `a -> b -> c -> a`; this catches it (ADR 0062). A cycle that
+# grows, merges or appears fails; one that shrinks, splits or goes fails
+# until it is updated here.
+[cycles]
+# Intended (ADR 0057, 0060): config resolution.
+construct-core = ["config, endpoint, models, providers"]
+construct-dev = ["arch, feature_map, xtask"]
+construct-tui = ["app, ask, palette, picker, prompt, sessions, view"]
