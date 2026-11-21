@@ -68,10 +68,13 @@ async fn execute(policy: Policy, command: String, cwd: PathBuf, mut run: Run) ->
     guard.0 = None;
     let mut said = Vec::new();
     let _ = tokio::time::timeout(GRACE, stderr.read_to_end(&mut said)).await;
-    let (swept, helper) = report::parse_report(&String::from_utf8_lossy(&said));
-    let mut note = report::swept_note(swept);
-    if !helper.trim().is_empty() {
-        note = format!("{}\n{note}", helper.trim());
+    let said = report::parse_report(&String::from_utf8_lossy(&said));
+    let memory = said.memory_note();
+    let mut note = report::swept_note(said.swept);
+    for first in [said.other.trim(), &memory] {
+        if !first.is_empty() {
+            note = format!("{first}\n{note}");
+        }
     }
     let exit = status.and_then(|s| s.code());
     let status = match (stopped, exit) {

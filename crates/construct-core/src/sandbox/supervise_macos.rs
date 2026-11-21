@@ -9,9 +9,15 @@
 //! - all of that is one `kevent` wait, with no polling: the shell's exit,
 //!   construct's exit and the stop signals are kqueue events.
 //!
+//! With a memory ceiling the wait times out every `memory::SAMPLE` to sum the
+//! group's physical footprint (what Activity Monitor calls Memory: dirty and
+//! compressed pages, not clean file-backed ones); past the ceiling it writes
+//! the `memory::line` and kills the group (ADR 0061).
+//!
 //! What was killed goes to the helper's stderr as `SWEPT <pid> <comm>` lines,
 //! as on Linux.
 
+use super::memory;
 use std::ffi::c_int;
 use std::os::fd::AsFd;
 use std::os::unix::process::CommandExt;
@@ -50,7 +56,8 @@ fn register(kq: c_int, changes: &[libc::kevent]) -> bool {
 /// Run `prog` as a supervised child and exit with its status. `parent` is
 /// construct's pid (0 to skip the check). `merge_stderr` sends the program's
 /// stderr to stdout (shell calls); otherwise it keeps the helper's.
-pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
+/// `memory_max`: bytes the group may hold before it is killed.
+pub fn run(parent: u32, prog: &[String], merge_stderr: bool, memory_max: Option<u64>) -> ! {
     // SAFETY: plain syscalls; this process is single-threaded (see main.rs).
     let kq = unsafe {
         for s in STOP_SIGNALS {
@@ -93,8 +100,18 @@ pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
             break;
         }
         let mut ev: libc::kevent = event(0, 0, 0);
-        // SAFETY: waits for one event into `ev`; no timeout.
-        let n = unsafe { libc::kevent(kq, std::ptr::null(), 0, &mut ev, 1, std::ptr::null()) };
+        let tick = libc::timespec { tv_sec: 0, tv_nsec: memory::SAMPLE.as_nanos() as libc::c_long };
+        let timeout = if memory_max.is_some() { &tick as *const libc::timespec } else { std::ptr::null() };
+        // SAFETY: waits for one event into `ev`, at most one sample interval
+        // when there is a ceiling to check.
+        let n = unsafe { libc::kevent(kq, std::ptr::null(), 0, &mut ev, 1, timeout) };
+        if let Some(limit) = memory_max {
+            let used = group(shell).into_iter().map(footprint).sum::<u64>();
+            if used > limit {
+                eprintln!("{}", memory::line(used, limit));
+                break;
+            }
+        }
         if n > 0 && ev.filter == libc::EVFILT_SIGNAL {
             break;
         }
@@ -167,6 +184,15 @@ fn group(pgid: i32) -> Vec<i32> {
     }
 }
 
+/// `pid`'s physical footprint in bytes, 0 if it is gone.
+fn footprint(pid: i32) -> u64 {
+    // SAFETY: zeroed is a valid rusage_info_v2; the kernel fills it.
+    let mut info: libc::rusage_info_v2 = unsafe { std::mem::zeroed() };
+    // SAFETY: the buffer is a rusage_info_v2, as RUSAGE_INFO_V2 asks.
+    let ok = unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V2, (&raw mut info).cast()) } == 0;
+    if ok { info.ri_phys_footprint } else { 0 }
+}
+
 fn comm(pid: i32) -> String {
     let mut buf = [0u8; 256];
     // SAFETY: libproc writes at most buf.len() bytes.
@@ -200,5 +226,6 @@ mod tests {
         let me = std::process::id() as i32;
         assert!(group(pgid).contains(&me));
         assert!(!comm(me).is_empty());
+        assert!(footprint(me) > 0);
     }
 }

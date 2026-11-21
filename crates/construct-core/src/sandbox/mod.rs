@@ -12,7 +12,8 @@
 //! - the in-process file tools (read, write, edit, grep, glob) check every
 //!   path, after resolving symlinks, against the same roots.
 //!
-//! Tools also get an environment with credentials removed.
+//! Tools also get an environment with credentials removed, and a memory
+//! ceiling on everything a call starts (`memory.rs`, ADR 0061).
 //!
 //! Default ("workspace"): read and write the working directory, a private
 //! temp dir and construct's spill dir; read system paths and toolchains;
@@ -29,6 +30,7 @@ mod denied;
 mod env;
 #[cfg(target_os = "linux")]
 mod landlock;
+pub mod memory;
 pub mod open;
 pub mod report;
 mod roots;
@@ -63,6 +65,10 @@ pub struct Policy {
     /// it into stdout: an MCP server's stdout is its protocol.
     #[serde(default)]
     pub own_stderr: bool,
+    /// Bytes the program's whole process tree may hold before the helper
+    /// kills it (`[sandbox] memory_max`, ADR 0061); `None` for no ceiling.
+    #[serde(default)]
+    pub memory_max: Option<u64>,
 }
 
 /// Read-only, executable everywhere a shell needs to look.
@@ -146,6 +152,7 @@ impl Policy {
             parent: std::process::id(),
             no_network: false,
             own_stderr: false,
+            memory_max: cfg.memory_max_bytes().ok().flatten(),
         }
     }
 
@@ -276,5 +283,5 @@ pub fn exec_child(args: &[String]) -> ! {
         #[cfg(target_os = "macos")]
         seatbelt::restrict(&policy).unwrap_or_else(|e| fail(e));
     }
-    supervise::run(policy.parent, prog, !policy.own_stderr)
+    supervise::run(policy.parent, prog, !policy.own_stderr, policy.memory_max)
 }

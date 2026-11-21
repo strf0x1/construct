@@ -9,10 +9,16 @@
 //! this short-lived helper, never in construct, so the learner and MCP servers
 //! are never caught and tokio's own child reaping is never contended.
 //!
+//! With a memory ceiling the wait wakes every `memory::SAMPLE` to sum the
+//! tree's anonymous resident and swapped memory (file-backed pages, such as a
+//! model's mmapped weights, are not counted); past the ceiling it writes the
+//! `memory::line` and sweeps (ADR 0061).
+//!
 //! Signals are blocked and taken with `sigwaitinfo`, with no handlers. What
 //! was killed goes to the helper's stderr as `SWEPT <pid> <comm>` lines; the
 //! shell gets stdout as its stderr, so it never writes there.
 
+use super::memory;
 use std::collections::HashSet;
 use std::os::fd::AsFd;
 use std::time::{Duration, Instant};
@@ -30,7 +36,8 @@ const PDEATH: i32 = libc::SIGUSR1;
 /// Run `prog` as a supervised child and exit with its status. `parent` is
 /// construct's pid (0 to skip the check). `merge_stderr` sends the program's
 /// stderr to stdout (shell calls); otherwise it keeps the helper's.
-pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
+/// `memory_max`: bytes the tree may hold before it is killed.
+pub fn run(parent: u32, prog: &[String], merge_stderr: bool, memory_max: Option<u64>) -> ! {
     let watched = sigset(&[libc::SIGCHLD, libc::SIGTERM, libc::SIGINT, libc::SIGHUP, PDEATH]);
     // SAFETY: plain syscalls; this process is single-threaded (see main.rs).
     unsafe {
@@ -62,13 +69,29 @@ pub fn run(parent: u32, prog: &[String], merge_stderr: bool) -> ! {
     };
     let mut status = None;
     while status.is_none() {
-        // SAFETY: waits for one of the signals blocked above.
-        let sig = unsafe { libc::sigwaitinfo(&watched, std::ptr::null_mut()) };
+        let sig = match memory_max {
+            // SAFETY: waits for one of the signals blocked above.
+            None => unsafe { libc::sigwaitinfo(&watched, std::ptr::null_mut()) },
+            Some(_) => {
+                let tick = libc::timespec { tv_sec: 0, tv_nsec: memory::SAMPLE.as_nanos() as libc::c_long };
+                // SAFETY: as above, giving up after one sample interval.
+                unsafe { libc::sigtimedwait(&watched, std::ptr::null_mut(), &tick) }
+            }
+        };
         match sig {
             libc::SIGCHLD => reap(shell, &mut status),
             PDEATH if !orphaned() => {}
             -1 => {}
             _ => break,
+        }
+        if let Some(limit) = memory_max
+            && status.is_none()
+        {
+            let used = footprint();
+            if used > limit {
+                eprintln!("{}", memory::line(used, limit));
+                break;
+            }
         }
     }
     for (pid, comm) in sweep(shell, &mut status) {
@@ -133,6 +156,52 @@ fn children() -> Vec<i32> {
         .collect()
 }
 
+/// Bytes the helper's tree holds: anonymous resident plus swapped memory of
+/// every descendant (all of them stay ours: we are their subreaper).
+fn footprint() -> u64 {
+    let mut total = 0;
+    let mut todo = vec![std::process::id() as i32];
+    let mut seen = HashSet::new();
+    while let Some(pid) = todo.pop() {
+        if !seen.insert(pid) {
+            continue;
+        }
+        total += anon_and_swap(pid);
+        todo.extend(children_of(pid));
+    }
+    total
+}
+
+/// `pid`'s children from every one of its threads' `children` file (forks
+/// are listed under the thread that made them), or by scanning every
+/// process's parent on a kernel without those files.
+fn children_of(pid: i32) -> Vec<i32> {
+    let Ok(tasks) = std::fs::read_dir(format!("/proc/{pid}/task")) else { return Vec::new() };
+    let lists: Vec<String> =
+        tasks.flatten().filter_map(|t| std::fs::read_to_string(t.path().join("children")).ok()).collect();
+    if lists.is_empty() {
+        let Ok(dir) = std::fs::read_dir("/proc") else { return Vec::new() };
+        return dir
+            .flatten()
+            .filter_map(|e| e.file_name().to_str()?.parse::<i32>().ok())
+            .filter(|&p| ppid(p) == Some(pid))
+            .collect();
+    }
+    lists.iter().flat_map(|s| s.split_whitespace().filter_map(|p| p.parse().ok())).collect()
+}
+
+/// `RssAnon` plus `VmSwap` from /proc/<pid>/status, in bytes.
+fn anon_and_swap(pid: i32) -> u64 {
+    let Ok(s) = std::fs::read_to_string(format!("/proc/{pid}/status")) else { return 0 };
+    let kb = |key: &str| {
+        s.lines()
+            .find_map(|l| l.strip_prefix(key))
+            .and_then(|v| v.split_whitespace().next()?.parse::<u64>().ok())
+            .unwrap_or(0)
+    };
+    (kb("RssAnon:") + kb("VmSwap:")) * 1024
+}
+
 /// `comm` and state letter from /proc/<pid>/stat. comm may hold spaces and
 /// parentheses, so split at the last ')'.
 fn stat(pid: i32) -> Option<(String, char)> {
@@ -188,5 +257,6 @@ mod tests {
         // 'D' too: a test process paging under swap is in disk sleep, and alive.
         assert!(matches!(state, 'R' | 'S' | 'D'), "{state}");
         assert_eq!(ppid(me), Some(unsafe { libc::getppid() }));
+        assert!(anon_and_swap(me) > 0);
     }
 }

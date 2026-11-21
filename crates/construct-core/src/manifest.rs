@@ -54,6 +54,12 @@ pub struct Manifest {
     /// provider states in an overflow error is the session's, not this.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub window_source: String,
+    /// `[sandbox] memory_max` as configured, and the ceiling in bytes it
+    /// resolves to on this machine (absent: no ceiling). ADR 0061.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub memory_max: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_max_bytes: Option<u64>,
 }
 
 impl Manifest {
@@ -79,6 +85,8 @@ impl Manifest {
             cache: Default::default(),
             provider: None,
             window_source: String::new(),
+            memory_max: String::new(),
+            memory_max_bytes: None,
         }
     }
 
@@ -102,6 +110,8 @@ impl Manifest {
             cache: cfg.endpoint().provider.cache,
             provider: cfg.provider_name(),
             window_source: cfg.window_source().code().into(),
+            memory_max: cfg.sandbox.memory_max.clone(),
+            memory_max_bytes: cfg.sandbox.memory_max_bytes().ok().flatten(),
         }
     }
 

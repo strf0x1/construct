@@ -54,6 +54,8 @@ mod providers;
 mod proxy;
 #[path = "recovery.rs"]
 mod recovery;
+#[path = "sandbox_memory.rs"]
+mod sandbox_memory;
 #[path = "sessions.rs"]
 mod sessions;
 #[path = "slash.rs"]
