@@ -1,15 +1,12 @@
 //! The Agent Client Protocol (agentclientprotocol.com), both ways. `server`
 //! is `construct acp`: construct as an agent an editor or another harness
-//! drives. `client` runs any ACP agent as a delegated child. `rpc` is the
-//! framing they share; `map` is `Event` to ACP updates and back; `ask` puts
+//! drives. `rpc` is its framing; `map` is `Event` to ACP updates; `ask` puts
 //! the server's permission questions to its client.
 //!
 //! The design choice: ACP is a translation at the process edge. The agent
-//! loop, the journal and the delegate tool know nothing of it; what crosses
-//! the wire is `Event`s, as it does on the JSONL child transport.
+//! loop and the journal know nothing of it; what crosses the wire is `Event`s.
 
 pub mod ask;
-pub mod client;
 mod deck;
 mod keys;
 mod live;
@@ -20,10 +17,6 @@ mod replay;
 pub mod rpc;
 pub mod server;
 mod turn;
-
-use crate::agent::Origin;
-use crate::config::Config;
-use serde::{Deserialize, Serialize};
 
 /// The protocol version construct speaks.
 pub const VERSION: u64 = 1;
@@ -47,18 +40,6 @@ pub(crate) fn claim_stdout() -> Option<std::os::fd::OwnedFd> {
         return None;
     }
     Some(protocol)
-}
-
-/// What a parent hands a built-in child in `session/new`'s
-/// `_meta["com.sprawlcommons/construct"].start`, or under the bare
-/// `_meta.construct.start` a released parent sends: the setup the JSONL
-/// transport sends as `start`. Only `construct __child --acp` honours it; the
-/// public `construct acp` ignores it, so a client cannot widen what the user
-/// configured.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Start {
-    pub config: Box<Config>,
-    pub origin: Box<Origin>,
 }
 
 /// The `cwd` every session method requires: an absolute-enough path the agent

@@ -17,8 +17,7 @@ pub enum Group {
     /// endpoint, so it is never offered by the router.
     Boundary,
     /// The coordinator's `deck` tool; present only when Deck set a control
-    /// gateway, always on there, and never offered by the router or given to
-    /// a delegated child.
+    /// gateway, always on there, and never offered by the router.
     Coordinator,
     Mcp(String),
 }
@@ -40,7 +39,7 @@ impl Group {
         }
     }
 
-    /// Added only by Deck's environment, so a delegated child never has it.
+    /// Added only by Deck's environment.
     pub fn from_deck(&self) -> bool {
         matches!(self, Group::Boundary | Group::Coordinator)
     }

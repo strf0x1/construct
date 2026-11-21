@@ -9,7 +9,6 @@
 
 use super::Access;
 use crate::sandbox::Policy;
-use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Under `$HOME`; a prompt can't be the way in to any of them.
@@ -57,7 +56,7 @@ pub fn folder_for(path: &Path) -> Option<PathBuf> {
     Some(parent.to_path_buf())
 }
 
-/// Paths approved for one agent, as roots the sandbox policy takes.
+/// Paths the session has approved, as roots the sandbox policy takes.
 #[derive(Debug, Clone, Default)]
 pub struct Roots {
     pub read: Vec<PathBuf>,
@@ -65,7 +64,7 @@ pub struct Roots {
 }
 
 impl Roots {
-    fn add(&mut self, access: Access, p: PathBuf) {
+    pub fn add(&mut self, access: Access, p: PathBuf) {
         let list = match access {
             Access::Read => &mut self.read,
             Access::Write => &mut self.write,
@@ -73,32 +72,6 @@ impl Roots {
         if !list.contains(&p) {
             list.push(p);
         }
-    }
-}
-
-/// Session memory. An agent is named by its definition; the session's own
-/// agent is the empty name.
-#[derive(Default)]
-pub struct Grants {
-    paths: BTreeMap<String, Roots>,
-    tools: BTreeSet<(String, String)>,
-}
-
-impl Grants {
-    pub fn roots(&self, agent: &str) -> Roots {
-        self.paths.get(agent).cloned().unwrap_or_default()
-    }
-
-    pub fn add_path(&mut self, agent: &str, access: Access, p: PathBuf) {
-        self.paths.entry(agent.to_string()).or_default().add(access, p);
-    }
-
-    pub fn has_tool(&self, agent: &str, key: &str) -> bool {
-        self.tools.contains(&(agent.to_string(), key.to_string()))
-    }
-
-    pub fn add_tool(&mut self, agent: &str, key: String) {
-        self.tools.insert((agent.to_string(), key));
     }
 }
 
@@ -124,15 +97,11 @@ mod tests {
     }
 
     #[test]
-    fn grants_are_per_agent() {
-        let mut g = Grants::default();
-        g.add_path("", Access::Read, "/a".into());
-        g.add_path("scout", Access::Write, "/b".into());
-        g.add_path("scout", Access::Write, "/b".into());
-        assert_eq!(g.roots("").read, [PathBuf::from("/a")]);
-        assert_eq!(g.roots("scout").write, [PathBuf::from("/b")]);
-        assert!(g.roots("other").read.is_empty());
-        g.add_tool("codex", "kind:edit".into());
-        assert!(g.has_tool("codex", "kind:edit") && !g.has_tool("claude", "kind:edit"));
+    fn a_root_is_kept_once() {
+        let mut r = Roots::default();
+        r.add(Access::Write, "/b".into());
+        r.add(Access::Write, "/b".into());
+        assert_eq!(r.write, [PathBuf::from("/b")]);
+        assert!(r.read.is_empty());
     }
 }

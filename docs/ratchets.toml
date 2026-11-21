@@ -10,9 +10,7 @@
 "crates/construct-dev/src/drive.rs" = 458
 "crates/construct-dev/src/serve/mod.rs" = 432
 "crates/construct-dev/src/style.rs" = 375
-"crates/construct-core/src/acp/client.rs" = 399
 "crates/construct-core/src/agent.rs" = 339
-"crates/construct-core/src/child/run.rs" = 324
 "crates/construct-core/src/compact/mod.rs" = 323
 "crates/construct-core/src/config.rs" = 320
 "crates/construct-core/src/event.rs" = 305
@@ -30,10 +28,6 @@
 # Modularity plan: issue #303.
 [pairs]
 construct-core = [
-    "acp <-> child",
-    "agents <-> config",
-    "agents <-> tools",
-    "child <-> tools",
     "config <-> models",
     "config <-> providers",
     "config <-> tools",

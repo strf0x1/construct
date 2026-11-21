@@ -32,9 +32,6 @@ pub struct Manifest {
     pub web_search: String,
     pub model: String,
     pub router_mode: String,
-    /// Configured agent definitions a model can delegate to (`[agents.*]`).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub agents: Vec<String>,
     /// The window compaction plans against, and its policy, so compaction
     /// arms are told apart. Absent in manifests from before the planner.
     #[serde(default)]
@@ -77,7 +74,6 @@ impl Manifest {
             web_search: String::new(),
             model: String::new(),
             router_mode: String::new(),
-            agents: vec![],
             context_window: 0,
             max_tokens: None,
             compaction: Default::default(),
@@ -102,7 +98,6 @@ impl Manifest {
             web_search: cfg.tools.web.search.clone(),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),
-            agents: cfg.agents.keys().cloned().collect(),
             context_window: cfg.context_window,
             max_tokens: cfg.max_tokens,
             compaction: cfg.compaction.clone(),

@@ -6,7 +6,7 @@ use super::ask::Answer;
 use super::map;
 use super::replay::Transcript;
 use super::rpc;
-use super::server::{Mode, Server};
+use super::server::Server;
 use super::turn::{self, Prompt};
 use crate::agent::Agent;
 use crate::event::Event;
@@ -93,9 +93,7 @@ impl Session {
 
 impl Server {
     pub(super) fn turn_notice(&self, sid: &str) {
-        if self.mode == Mode::User
-            && let Some(s) = self.sessions.get(sid)
-        {
+        if let Some(s) = self.sessions.get(sid) {
             let _ = self.out.send(rpc::notification(self.wire.turn, s.turn.value(sid)));
         }
     }
@@ -124,13 +122,7 @@ impl Server {
         s.keys.start(&mut prompt);
         s.turn.number += 1;
         s.turn.phase = Phase::Working;
-        turns.spawn(turn::run(
-            s.agent.clone(),
-            sid.to_string(),
-            prompt,
-            self.commands.clone(),
-            self.mode == Mode::User,
-        ));
+        turns.spawn(turn::run(s.agent.clone(), sid.to_string(), prompt, self.commands.clone()));
         self.turn_notice(sid);
     }
 

@@ -54,8 +54,6 @@ ALIASES = {
     "llm": ["provider dialect", "dialect", "sse", "stream"],
     "router": ["routing", "routed"],
     "journal": ["session export", "replay"],
-    "child": ["child process", "delegat", "subagent"],
-    "agents": ["[agents"],
     "acp": ["deck"],
     "permission": ["permission prompt", "permissions"],
     "providers": ["openrouter", "provider"],

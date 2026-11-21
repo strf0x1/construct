@@ -51,12 +51,7 @@ pub fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
     let cwd = super::runner::private_root(ctx)?;
     detail.push_str(&format!("\nHost executable: {}\nWorking directory: {}\nCommand: api --hostname github.com --method POST {endpoint} --input -", executable.identity(), cwd.display()));
     Ok(Prepared {
-        request: OperationAsk {
-            agent: String::new(),
-            operation: operation.into(),
-            scope: format!("github.com/{repo}"),
-            detail,
-        },
+        request: OperationAsk { operation: operation.into(), scope: format!("github.com/{repo}"), detail },
         executable,
         cwd,
         operation: Body::Github {

@@ -6,8 +6,6 @@
 
 pub mod acp;
 pub mod agent;
-pub mod agents;
-pub mod child;
 pub mod clock;
 pub mod compact;
 pub mod config;

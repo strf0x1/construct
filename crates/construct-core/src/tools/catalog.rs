@@ -117,17 +117,6 @@ impl Catalog {
         self.tools.read().unwrap()
     }
 
-    /// Each tool and its group: what a delegation definition is checked against.
-    pub fn table(&self) -> Vec<(String, Group)> {
-        self.tools().iter().map(|t| (t.name().to_string(), t.group())).collect()
-    }
-
-    /// Add a tool built after the catalog (one that needs to know the rest).
-    #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
-    pub fn add(&self, tool: Arc<dyn Tool>) {
-        self.tools.write().unwrap().push(tool);
-    }
-
     /// The tool called `name`, or the one it was renamed to: a model that
     /// learned the old name, or an old journal replayed, still reaches it.
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {

@@ -1,7 +1,6 @@
 # 0017 — Delegated children lock per tool call, like the session
 
-Status: accepted, except the `openat2` item, which is deferred (see Evidence). 2026-10-25. Partly supersedes 0014 (the child process is no
-longer confined as a whole on the filesystem).
+Status: superseded by 0055 (accepted 2026-10-25, except the `openat2` item, which was deferred; it had partly superseded 0014).
 
 ## Context
 

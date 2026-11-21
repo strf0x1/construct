@@ -1,6 +1,4 @@
-//! `Event` to the ACP updates a client understands, and (for a child that is
-//! not construct) the other way: an ACP update stream to the `Event`s the
-//! parent journals.
+//! `Event` to the ACP updates a client understands.
 //!
 //! `history` is the same mapping for a whole recorded session, which is what
 //! `session/load` replays before it answers.

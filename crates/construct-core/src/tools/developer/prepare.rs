@@ -213,7 +213,6 @@ mod tests {
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o700)).unwrap();
         Prepared {
             request: OperationAsk {
-                agent: String::new(),
                 operation: "issue_create".into(),
                 scope: "github.com/o/r".into(),
                 detail: "review".into(),

@@ -6,7 +6,7 @@ depends: [crates/construct-core/src/providers, crates/construct-core/src/endpoin
 ---
 # Providers
 
-Several named endpoints, each with its own url, key and models (ADR 0027). A `[providers.<name>]` table in `config.toml` declares one; the top-level `base_url`, `api_key_secret` and `[models.*]` are the implicit provider `default`. A model is chosen as `provider/id` anywhere a model is accepted (`model =`, `--model`, `/model`, `[learn] model`, `[compaction] model`, `[agents.*] model`); a bare id goes to the one provider that lists it, else to `default`. `construct providers` lists them, `construct providers add` adds one and `construct providers test <name>` probes one.
+Several named endpoints, each with its own url, key and models (ADR 0027). A `[providers.<name>]` table in `config.toml` declares one; the top-level `base_url`, `api_key_secret` and `[models.*]` are the implicit provider `default`. A model is chosen as `provider/id` anywhere a model is accepted (`model =`, `--model`, `/model`, `[learn] model`, `[compaction] model`); a bare id goes to the one provider that lists it, else to `default`. `construct providers` lists them, `construct providers add` adds one and `construct providers test <name>` probes one.
 
 ## Sub-features
 

@@ -24,7 +24,6 @@ pub(super) async fn run(
     session: String,
     prompt: Prompt,
     commands: mpsc::UnboundedSender<Command>,
-    ask_client: bool,
 ) {
     let (tx, mut rx) = mpsc::unbounded_channel::<Event>();
     let (questions, mut asks) = mpsc::unbounded_channel();
@@ -62,9 +61,7 @@ pub(super) async fn run(
     };
     let turn = async {
         let mut agent = agent.lock().await;
-        if ask_client {
-            agent.ctx.perms.set_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
-        }
+        agent.ctx.perms.set_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
         let result = agent.turn_keyed(&prompt.text, prompt.key.clone(), &tx).await;
         drop(tx);
         result

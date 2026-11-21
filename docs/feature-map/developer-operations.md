@@ -66,5 +66,5 @@ Preconditions:
 - Commits are unsigned and skip hooks. Pushes skip hooks and do not force.
 - Finish a merge with an autostash in Git to restore the unstaged changes.
 - Create and push the head branch before requesting PR creation; PR creation never pushes.
-- Headless runs and delegated children cannot acquire host-operation approval.
+- Headless runs cannot acquire host-operation approval.
 - An ambiguous remote result needs reconciliation before any repeat.

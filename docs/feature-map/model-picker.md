@@ -34,7 +34,7 @@ Preconditions:
 - **Filter and switch.** Drive: `type opus`, `wait "1/4"`, `gone "mini/tiny-8k"`, `key enter`, `wait "model → anthropic/claude-opus-5.5"`, `expect "1M ctx"`. Expect: the box closed and the notice.
 - **Second view.** The recipe's `check.sh`. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/model-picker`. Expect: `ok: request model opus; model row 1M/32000; head row manifest 200000` — the last request's `model`, the `model` journal row and the `head` row's manifest agree with what the screen said.
 - **Providers.** Recipe: `.agents/skills/verify-construct/recipes/providers-picker` (two unreachable named providers listing `qwen3-8b`). Drive: `wait "first-reply"`, `type /model`, `expect "local/qwen3-8b"`, `expect "gpubox/qwen3-8b"`, `type laptop`, `wait "1/3"`, `key enter`, `wait "model → local/qwen3-8b"`, `type /model gpubox/qwen3-8b`, `wait "gpubox: no API key"`. Expect: `ok: one request to default; model row local/qwen3-8b provider local 32768; gpubox refused` from `check.sh`.
-- Contract: `crates/construct-dev/tests/catalog.rs`, `crates/construct-dev/tests/providers.rs` (two scripted endpoints, keys, a child on another provider; `a_list_that_lands_after_the_picker_opened_appears_in_it` with a 2 s `/models`).
+- Contract: `crates/construct-dev/tests/catalog.rs`, `crates/construct-dev/tests/providers.rs` (two scripted endpoints and their keys; `a_list_that_lands_after_the_picker_opened_appears_in_it` with a 2 s `/models`).
 
 ## Gotchas
 

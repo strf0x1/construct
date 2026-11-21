@@ -163,32 +163,6 @@ impl Config {
         }
     }
 
-    /// Make `ep` the declared endpoint and the selected model a plain id on
-    /// it: a delegated child is handed its endpoint this way, already
-    /// resolved, so nothing in its config can send it elsewhere.
-    pub fn pin_endpoint(&mut self, ep: Endpoint) {
-        let id = self.wire_id(&self.model);
-        let entry = self.lookup(&self.model).cloned();
-        // A summarizer elsewhere is not the child's to reach; it uses its own model.
-        let summarizer = std::mem::take(&mut self.compaction.model);
-        if !summarizer.is_empty() && self.endpoint_for(&summarizer).base_url == ep.base_url {
-            self.compaction.model = self.wire_id(&summarizer);
-        }
-        self.base_url = ep.base_url;
-        self.api_key_secret = ep.api_key_secret;
-        self.headers = ep.headers;
-        self.provider = ep.provider;
-        self.providers.clear();
-        if let Some(mut e) = entry {
-            e.base_url.clear();
-            e.api_key_secret.clear();
-            e.dialect = None;
-            e.cache = None;
-            self.models.insert(id.clone(), e);
-        }
-        self.model = id;
-    }
-
     /// The catalog entry of the selected model.
     pub fn entry(&self) -> Option<&ModelEntry> {
         self.lookup(&self.model)

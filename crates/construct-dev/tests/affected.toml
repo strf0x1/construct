@@ -22,7 +22,7 @@
 # is complete: the full run on main is the net under a missing entry.
 
 # The full-screen front end. Only `construct` with no subcommand starts it
-# (cli.rs); `run`, `acp` and `__child` never link a frame. These files drive
+# (cli.rs); `run` and `acp` never link a frame. These files drive
 # the TUI in a pty.
 [[area]]
 name = "tui"
@@ -32,7 +32,7 @@ paths = [
   "crates/construct-dev/src/drive/",
   "crates/construct-dev/src/style.rs",
 ]
-tests = ["catalog", "delegate", "developer", "e2e", "jobs", "optchat", "permission", "providers", "recovery", "sessions", "slash", "snapshots", "turn"]
+tests = ["catalog", "developer", "e2e", "jobs", "optchat", "permission", "providers", "recovery", "sessions", "slash", "snapshots", "turn"]
 
 # The repo's own tooling: compiled into the test binary, run by none of it.
 [[area]]
@@ -60,12 +60,11 @@ name = "acp-contract"
 paths = ["CONTRACT.lock", "crates/construct-core/tests/fixtures/acp-contract/"]
 tests = ["acp_payloads"]
 
-# ACP: the editor-facing server, Deck's sessions over it, and the child wire
-# that reuses its framing.
+# ACP: the editor-facing server and Deck's sessions over it.
 [[area]]
 name = "acp"
 paths = ["crates/construct-core/src/acp/", "crates/construct-dev/src/acp_fake.rs"]
-tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "child", "deck", "deck_control", "deck_github", "delegate", "developer", "permission"]
+tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "deck", "deck_control", "deck_github", "developer", "permission"]
 
 # Deck-only tools: the boundary trio, the coordinator's `deck` tool and the
 # `developer` tool. Snapshots pin every tool schema the model is sent.
@@ -77,16 +76,6 @@ paths = [
   "crates/construct-core/src/tools/developer/",
 ]
 tests = ["acp", "acp_live", "deck", "deck_control", "deck_github", "developer", "permission", "snapshots"]
-
-# Delegation: the tool and the child process it starts.
-[[area]]
-name = "delegate"
-paths = [
-  "crates/construct-core/src/child/",
-  "crates/construct-core/src/tools/delegate.rs",
-  "crates/construct-core/src/tools/delegate/",
-]
-tests = ["acp", "acp_payloads", "child", "delegate", "e2e", "jobs", "permission", "providers", "recovery", "sessions", "snapshots"]
 
 # Background jobs. crash_sweep's recorded session runs one.
 [[area]]

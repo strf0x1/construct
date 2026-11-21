@@ -139,7 +139,6 @@ async fn approve(ctx: &Ctx, operation: &str, repository: &str, detail: &str) -> 
         return Ok(());
     }
     let request = OperationAsk {
-        agent: String::new(),
         operation: operation.into(),
         scope: format!("deck-gateway/{repository}"),
         detail: format!("{detail}\nThrough Deck's GitHub gateway; it decides again."),

@@ -123,11 +123,9 @@ impl Config {
         for (name, p) in &self.providers {
             p.check(name)?;
         }
-        let agents = self.agents.iter().map(|(n, a)| (format!("[agents.{n}] model"), &a.model));
         let named = [("model".to_string(), &self.model), ("[learn] model".into(), &self.learn.model)]
             .into_iter()
-            .chain([("[compaction] model".to_string(), &self.compaction.model)])
-            .chain(agents);
+            .chain([("[compaction] model".to_string(), &self.compaction.model)]);
         for (field, selector) in named.filter(|(_, s)| !s.is_empty()) {
             self.resolve(selector).map_err(|e| anyhow::anyhow!("{field}: {e}"))?;
         }

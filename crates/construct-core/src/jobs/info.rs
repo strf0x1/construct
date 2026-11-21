@@ -19,6 +19,8 @@ pub const TAIL_MAX: usize = 8 * 1024;
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
     Shell,
+    /// A delegated child: only in journals from before delegation was
+    /// removed (#294), kept so their job rows still read.
     Delegate,
 }
 
@@ -28,9 +30,9 @@ pub enum Status {
     Running,
     /// The previous process stopped before recording a completion.
     Interrupted,
-    /// Ended on its own and well: a command that exited 0, a child that answered.
+    /// Ended on its own and well: a command that exited 0.
     Completed,
-    /// Ended on its own and badly: a nonzero exit, a child that errored.
+    /// Ended on its own and badly: a nonzero exit.
     Failed,
     /// Stopped at its time limit.
     Timeout,
@@ -75,7 +77,7 @@ impl Kind {
 pub struct Info {
     pub id: String,
     pub kind: Kind,
-    /// The command, or the delegated task: what the job is.
+    /// The command: what the job is.
     pub label: String,
     pub status: Status,
     #[serde(default, skip_serializing_if = "Option::is_none")]

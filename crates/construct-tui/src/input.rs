@@ -122,9 +122,6 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
     if app.turn.switching() {
         return false;
     }
-    if app.peek_key(k) {
-        return false;
-    }
     if palette_key(app, k) {
         return false;
     }

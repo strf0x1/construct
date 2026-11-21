@@ -21,7 +21,6 @@ use crate::manifest::Manifest;
 use crate::router::{self, Route};
 use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group};
 use anyhow::Result;
-pub use restore::Origin;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;

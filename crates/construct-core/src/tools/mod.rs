@@ -16,7 +16,6 @@ mod cap;
 mod catalog;
 pub mod control;
 mod ctx;
-pub mod delegate;
 pub mod developer;
 pub mod edit;
 pub mod fs;

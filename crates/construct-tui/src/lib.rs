@@ -9,10 +9,8 @@ mod app_events;
 mod args;
 mod ask;
 mod boxed;
-mod children;
 mod clip;
 mod commands;
-mod dock;
 mod help;
 mod input;
 mod jobs;
@@ -20,7 +18,6 @@ mod learning;
 mod listing;
 mod markdown;
 mod palette;
-mod peek;
 mod picker;
 mod prompt;
 mod restore;
@@ -178,14 +175,10 @@ async fn run_inner(
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    // A child on the dock only needs its elapsed time and spinner now and then.
-    let mut slow = tokio::time::interval(Duration::from_secs(1));
-    slow.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut dirty = false;
     let mut last_draw = Instant::now();
     loop {
         let animating = app.animating();
-        let docked = app.dock.active();
         tokio::select! {
             Some(()) = landed_rx.recv() => {
                 // A file read: the fetch is done. The running model's window stays the agent's.
@@ -226,7 +219,6 @@ async fn run_inner(
                 dirty = true;
             }
             _ = tick.tick(), if animating => { dirty = true; }
-            _ = slow.tick(), if docked => { dirty = true; }
             // a frame held back by the redraw cap still gets drawn
             _ = tokio::time::sleep_until((last_draw + Duration::from_millis(8)).into()), if dirty => {}
         }

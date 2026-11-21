@@ -25,9 +25,6 @@ pub(super) fn start(
     max_secs: u64,
     asked: Option<&Value>,
 ) -> Result<Started, ToolError> {
-    if crate::child::depth() > 0 {
-        return Err(ToolError::new("depth", "background jobs are not available inside a delegated agent"));
-    }
     let Some(sink) = call.sink() else {
         return Err(ToolError::new("no_session", "background jobs need a session to report to"));
     };

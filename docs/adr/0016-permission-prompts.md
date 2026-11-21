@@ -1,6 +1,6 @@
 # 0016 — Permission prompts: ask the user, remember the answer
 
-Status: accepted. 2026-10-22.
+Status: accepted. 2026-10-22. Everything about delegated agents asking (the upward channel, per-agent grants, `[agents.*]` writes) is superseded by 0055.
 
 ## Context
 

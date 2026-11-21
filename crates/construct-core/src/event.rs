@@ -29,6 +29,8 @@ pub enum Event {
         model: String,
         manifest: Manifest,
         /// Set for a child session (#32): who delegated, and through which call.
+        /// Only journals from before delegation was removed (#294) have these;
+        /// they stay so those sessions still read as children.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         parent_session: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -228,6 +230,7 @@ pub enum Event {
     /// A delegated ACP agent asked for permission (`session/request_permission`)
     /// and the parent answered by the definition's `on_permission`. `decision`
     /// is "allow", "reject" or "cancelled" (no option of the wanted kind).
+    /// Only journals from before delegation was removed (#294) have these.
     Permission {
         tool_call_id: String,
         title: String,
@@ -242,7 +245,8 @@ pub enum Event {
     /// The user decided whether a tool may go past the sandbox. Not recorded
     /// for headless runs, which only ever say no. `decision` is "once",
     /// "session", "always", "deny" or "cancelled"; `paths` are what was granted
-    /// (the folder, if the user chose that). `agent` names a delegated agent.
+    /// (the folder, if the user chose that). `agent` named a delegated agent
+    /// before delegation was removed (#294); it is empty in new rows.
     Access {
         #[serde(default, skip_serializing_if = "String::is_empty")]
         agent: String,
@@ -258,13 +262,6 @@ pub enum Event {
         scope: String,
         detail: String,
         decision: String,
-    },
-    /// A delegated child asks its parent a question (`permission::Request`).
-    /// Child to parent on the wire only: the parent answers it itself and
-    /// neither journals nor shows it.
-    Ask {
-        id: String,
-        request: crate::permission::Request,
     },
     /// A background job started (ADR 0026, `jobs`).
     JobStart(crate::jobs::Started),
@@ -287,15 +284,6 @@ pub enum Event {
     Nudge {
         why: String,
         message: Message,
-    },
-    /// An event from a child session a tool is running, as the parent sees
-    /// it. `id` is the delegating call's id, so a UI nests it under that call.
-    /// Wire only: the parent journals the inner event under the child's own
-    /// session id (`journal::Writer::relay`), never this wrapper.
-    Child {
-        id: String,
-        /// Not `event`: that is the tag's name.
-        inner: Box<Event>,
     },
 }
 

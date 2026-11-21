@@ -109,13 +109,16 @@ pub(super) struct App {
     pub(super) last_activity: Instant,
     pub(super) started: Instant,
     pub(super) expand: bool,
-    /// The session's accounting, for the status line: summaries and
-    /// sub-agents included, the same sums `/status` reads from the journal.
+    /// The session's accounting, for the status line: summaries included,
+    /// the same sums `/status` reads from the journal.
     pub(super) totals: construct_core::journal::Totals,
     pub(super) context_pct: u64,
     pub(super) groups: Vec<String>,
     pub(super) learning: Option<(String, Instant)>,
-    pub(super) dock: super::children::Dock,
+    /// Background jobs running, for the status line's count.
+    pub(super) jobs_running: usize,
+    /// The session's jobs, so a session switch can see one still running.
+    pub(super) jobs: Option<construct_core::jobs::Jobs>,
     pub(super) toast: Option<(String, Color, Instant)>,
     pub(super) ready: bool,
     pub(super) session: String,
@@ -163,7 +166,8 @@ impl App {
             context_pct: 0,
             groups: vec![],
             learning: None,
-            dock: Default::default(),
+            jobs_running: 0,
+            jobs: None,
             toast: None,
             ready: false,
             session: String::new(),

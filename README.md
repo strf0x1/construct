@@ -103,17 +103,9 @@ tool calls, permission decisions, jobs. Resume uses it, `construct sessions`
 reads and exports it, and the agent can query its own history with read-only
 SQL.
 
-**Subagents.** Define agents under `[agents.<name>]` and the model can
-`delegate` a self-contained task to one. Each child is its own sandboxed
-process with its own tools, model and prompt. It can also be an external ACP
-agent, such as a Codex, Claude, Gemini or opencode adapter. When a child
-needs more access, you get the same permission prompt, labeled with the
-child's name.
-
-**Background jobs.** A shell command or a delegated agent can run in the
-background. The model gets a job id right away and keeps working. When the
-job finishes, the agent picks it up on its own, whether that's a CI watch, a
-slow test suite or a long-running child.
+**Background jobs.** A shell command can run in the background. The model
+gets a job id right away and keeps working. When the job finishes, the agent
+picks it up on its own, whether that's a CI watch or a slow test suite.
 
 **Learning.** After a session ends, a background pass looks at what happened.
 A cheap gate runs first and decides whether there's anything worth reviewing,
@@ -137,7 +129,7 @@ Commits are unsigned and skip hooks; PR creation never pushes. See
 
 **Providers.** Several endpoints side by side, each with its own url, key
 and models, selected as `provider/model` anywhere a model is accepted
-(`--model`, `/model`, compaction, learning, subagents). Context windows come
+(`--model`, `/model`, compaction, learning). Context windows come
 from the server where it states them, and `/status` says which source set
 the window. The design is in [ADR 0027](docs/adr/0027-named-providers.md).
 
@@ -153,7 +145,7 @@ otherwise.
 
 **Tools.** shell, read, write, edit (search/replace or hash-anchored lines),
 grep, glob, web fetch and search (Exa, Brave or Tavily), memory, skills,
-history, delegate, jobs, and any stdio MCP server you configure.
+history, jobs, and any stdio MCP server you configure.
 
 **Editors.** `construct acp` runs construct as an Agent Client Protocol
 agent, so editors and other harnesses can drive it.

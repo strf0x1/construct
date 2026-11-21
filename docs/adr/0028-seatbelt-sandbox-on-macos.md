@@ -1,7 +1,8 @@
 # 0028 — Shell commands run under a Seatbelt profile on macOS
 
 Status: accepted, 2026-10-31. Extends 0004 (Landlock); changes what 0017 can
-promise about a delegated child's own process.
+promise about a delegated child's own process. The child items are moot since
+0055 removed delegation.
 
 ## Context
 

@@ -6,7 +6,7 @@ use super::ask::{Prompt, TuiAsk};
 use super::learning::{finish, maybe_learn};
 use construct_core::agent::{Agent, Event, Events};
 use construct_core::config::{Config, Paths};
-use construct_core::journal::{Entry, Journal, Totals};
+use construct_core::journal::{Entry, Totals};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -25,12 +25,10 @@ pub(super) struct Ready {
 
 impl Ready {
     fn of(a: &Agent) -> anyhow::Result<Self> {
-        let mut entries = a.journal.entries()?;
-        let db = Journal::read_only(&construct_core::journal::path(&a.paths, &a.ctx.cwd))?;
+        let entries = a.journal.entries()?;
         static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let tag = format!("{}:{}", a.journal.session, GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-        let spent = Totals::session(&db, &entries)?;
-        entries = super::restore::with_children(entries, &db)?;
+        let spent = Totals::of(&entries);
         Ok(Self {
             ack: None,
             tag,

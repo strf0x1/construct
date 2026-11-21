@@ -10,17 +10,16 @@ use std::time::Instant;
 impl App {
     pub(super) fn on_event(&mut self, ev: Event) {
         self.last_activity = Instant::now();
-        // Anything billed counts, a summary's or a child's included.
+        // Anything billed counts, a summary's included.
         self.totals.add(&ev);
         match ev {
             // The record, not the screen: the UI already shows what these carry.
             Event::Manifest(_)
             | Event::Head { .. }
             | Event::Permission { .. }
-            // Shown when the prompt is answered, so a child's are too.
+            // Shown when the prompt is answered.
             | Event::Access { .. }
             | Event::Operation { .. }
-            | Event::Ask { .. }
             | Event::System { .. }
             | Event::User { .. }
             | Event::SessionName { .. }
@@ -104,7 +103,6 @@ impl App {
                 self.push(b);
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
-                self.end_call(&id);
                 if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id) {
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
@@ -163,7 +161,6 @@ impl App {
                 self.turn.error();
                 self.notice(theme::RED, format!("✗ {message}"));
             }
-            Event::Child { id, inner } => self.on_child(&id, *inner),
             Event::JobStart(_) | Event::JobEnd(_) => self.on_job(&ev),
             // The turn it starts or joins says it.
             Event::JobsDelivered(_) => {}

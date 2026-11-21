@@ -1,6 +1,6 @@
 //! Stopping a sandboxed process the way its helper expects: SIGTERM first, so
 //! the helper can sweep everything the program started, and the process group
-//! killed only if that fails. Shell calls and delegated children share it.
+//! killed only if that fails. Shell calls use it.
 
 use std::time::Duration;
 
