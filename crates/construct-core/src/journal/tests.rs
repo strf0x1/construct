@@ -1,5 +1,5 @@
 //! The journal's promise, in tests: append then read back in seq order,
-//! rewind, full-text search, one migration, and per-directory sessions.
+//! full-text search, one migration, and per-directory sessions.
 use super::*;
 use crate::llm::Message;
 
@@ -10,7 +10,7 @@ fn tmp(name: &str) -> PathBuf {
 }
 
 #[test]
-fn rows_project_back_to_the_conversation_and_rewind_truncates() {
+fn rows_project_back_to_the_conversation_and_fts_indexes_messages() {
     let f = tmp("project");
     let db = Journal::open(&f).unwrap();
     let msgs = [Message::system("sys"), Message::user("hi"), Message::text("assistant", "hello")];
@@ -23,14 +23,13 @@ fn rows_project_back_to_the_conversation_and_rewind_truncates() {
     let all = db.since("s", 0).unwrap();
     assert_eq!(all.len(), 6);
     assert_eq!(project(all.iter().map(|e| &e.event)).unwrap(), msgs);
-    db.rewind("s", all[3].seq).unwrap();
-    assert_eq!(project(db.since("s", 0).unwrap().iter().map(|e| &e.event)).unwrap(), msgs[..2]);
-    assert_eq!(db.last_seq("s").unwrap(), all[3].seq);
-    // FTS follows inserts and the rewind's deletes.
+    assert_eq!(db.last_seq("s").unwrap(), all[5].seq);
+    // FTS follows inserts: user and assistant text is indexed, the system
+    // prompt is not. The journal is append-only; nothing deletes these rows.
     let hits = |q: &str| -> i64 {
         db.conn.query_row("SELECT count(*) FROM events_fts WHERE events_fts MATCH ?1", [q], |r| r.get(0)).unwrap()
     };
-    assert_eq!((hits("hi"), hits("hello"), hits("sys")), (1, 0, 0));
+    assert_eq!((hits("hi"), hits("hello"), hits("sys")), (1, 1, 0));
 }
 
 #[test]

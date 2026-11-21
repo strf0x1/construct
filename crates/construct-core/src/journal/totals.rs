@@ -81,9 +81,9 @@ impl Totals {
 
     /// A session as `/status` reports it: its own rows, plus every session
     /// it delegated to (named in the `delegate` result's `data.session`).
-    pub fn session(db: &Journal, entries: &[Entry]) -> Result<Self> {
+    pub fn session(db: &Journal, entries: &[Entry], max_depth: u32) -> Result<Self> {
         let mut t = Self::of(entries);
-        t.children(db, entries, crate::child::MAX_DEPTH)?;
+        t.children(db, entries, max_depth)?;
         Ok(t)
     }
 

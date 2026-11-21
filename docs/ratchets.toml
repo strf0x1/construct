@@ -14,11 +14,9 @@
 "crates/construct-core/src/agent.rs" = 339
 "crates/construct-core/src/child/run.rs" = 324
 "crates/construct-core/src/compact/mod.rs" = 323
-"crates/construct-core/src/config.rs" = 320
 "crates/construct-core/src/event.rs" = 305
 "crates/construct-core/src/router.rs" = 304
 "crates/construct-core/src/sandbox/mod.rs" = 334
-"crates/construct-core/src/skills.rs" = 305
 "crates/construct-core/src/tools/edit/hashline/mod.rs" = 362
 "crates/construct-core/src/tools/edit/hashline/ops.rs" = 312
 "crates/construct-core/src/tools/shell.rs" = 301
@@ -37,13 +35,8 @@ construct-core = [
     "child <-> tools",
     "config <-> models",
     "config <-> providers",
-    "config <-> tools",
     "event <-> jobs",
     "event <-> permission",
-    "jobs <-> journal",
-    "journal <-> llm",
-    "journal <-> tools",
-    "skills <-> tools",
 ]
 construct-dev = [
     "arch <-> xtask",
