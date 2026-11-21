@@ -3,8 +3,8 @@ id: permission-prompt
 status: verified
 surfaces: [tui]
 depends: [crates/construct-core/src/permission, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/ask.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct-dev/tests/permission.rs]
-verified_at: 1c532be
-verified_deps: ab6706600f4e4565
+verified_at: 40f7a7a
+verified_deps: be3df4abae7cda6b
 ---
 # Permission prompt
 
