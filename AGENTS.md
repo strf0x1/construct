@@ -171,7 +171,7 @@ The `arch` gate checks every workspace crate's module graph and the edges
 between crates against `docs/architecture.toml` (per-crate tables, ADR 0047),
 and the counts in `docs/ratchets.toml` (the non-test line count of each file
 over 300 lines, the list of two-way module pairs per crate, and the modules
-in each cycle of three or more, ADR 0061) against reality: a count that
+in each cycle of three or more, ADR 0062) against reality: a count that
 grows or a pair or cycle that appears or grows fails, and one that drops or
 is cut fails until its baseline is lowered to match.
 

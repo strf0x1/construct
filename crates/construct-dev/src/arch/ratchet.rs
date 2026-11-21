@@ -11,7 +11,7 @@
 //!
 //! `[cycles]` lists, per crate, every group of three or more modules joined
 //! into one cycle (a strongly connected component, names sorted), because
-//! pairs alone miss a loop like `a -> b -> c -> a` (ADR 0061). A component of
+//! pairs alone miss a loop like `a -> b -> c -> a` (ADR 0062). A component of
 //! two is a pair, and `[pairs]` already says where its edges are. A cycle that
 //! grows, merges with another or appears fails; one that shrinks, splits or
 //! goes away fails until the list says so.

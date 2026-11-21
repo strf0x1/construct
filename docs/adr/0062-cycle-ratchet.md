@@ -1,4 +1,4 @@
-# 0061 — The `arch` gate ratchets every module cycle, not only pairs
+# 0062 — The `arch` gate ratchets every module cycle, not only pairs
 
 Status: accepted, 2026-11-21. Follows 0060.
 
