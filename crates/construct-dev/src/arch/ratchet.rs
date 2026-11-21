@@ -3,11 +3,18 @@
 //! asking for the lower baseline, so an improvement is locked in by the PR
 //! that made it.
 //!
-//! Two are kept. `[pairs]` lists, per crate, the module pairs that use each
+//! Three are kept. `[pairs]` lists, per crate, the module pairs that use each
 //! other both ways (`a <-> b`, names sorted), found by the same scan as the
 //! edge check. A pair not listed fails naming where each direction occurs; a
 //! listed one that is gone fails until it is deleted. `may_use` makes a new
 //! edge one line; this makes a new *back*-edge a visible, reviewed decision.
+//!
+//! `[cycles]` lists, per crate, every group of three or more modules joined
+//! into one cycle (a strongly connected component, names sorted), because
+//! pairs alone miss a loop like `a -> b -> c -> a` (ADR 0061). A component of
+//! two is a pair, and `[pairs]` already says where its edges are. A cycle that
+//! grows, merges with another or appears fails; one that shrinks, splits or
+//! goes away fails until the list says so.
 //!
 //! `[lines]`: each source file under `crates/*/src` over the
 //! 300-line soft ceiling (AGENTS.md convention 3), counting only lines
@@ -20,7 +27,7 @@
 use super::edges::krates;
 use super::lex::{lex, strip_tests};
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 pub(super) const RATCHETS: &str = "docs/ratchets.toml";
@@ -33,6 +40,8 @@ struct Ratchets {
     lines: BTreeMap<String, usize>,
     #[serde(default)]
     pairs: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    cycles: BTreeMap<String, Vec<String>>,
 }
 
 /// Per crate, each two-way module pair as `a <-> b` with where each direction
@@ -60,6 +69,81 @@ fn two_way(root: &Path) -> BTreeMap<String, BTreeMap<String, String>> {
         }
     }
     out
+}
+
+/// Per crate, each cycle of three or more modules as its sorted names joined by `, `.
+fn cycles(root: &Path) -> BTreeMap<String, BTreeSet<String>> {
+    let ks = krates(root);
+    let (idents, target_mods) = super::names(&ks);
+    let mut out = BTreeMap::new();
+    for k in &ks {
+        let (intra, _) = super::graph(k, &idents, &target_mods, &mut Vec::new());
+        let mut next: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+        for e in &intra {
+            next.entry(&e.from).or_default().insert(&e.to);
+        }
+        let reach = |from: &str| {
+            let mut seen = BTreeSet::new();
+            let mut todo = vec![from];
+            while let Some(n) = todo.pop() {
+                for &m in next.get(n).into_iter().flatten() {
+                    if seen.insert(m) {
+                        todo.push(m);
+                    }
+                }
+            }
+            seen
+        };
+        let reaches: BTreeMap<&str, BTreeSet<&str>> = next.keys().map(|&n| (n, reach(n))).collect();
+        let mut found = BTreeSet::new();
+        for (&n, r) in &reaches {
+            let group: Vec<&str> =
+                r.iter().copied().filter(|m| reaches.get(m).is_some_and(|back| back.contains(n))).collect();
+            if group.len() > 2 {
+                found.insert(group.join(", "));
+            }
+        }
+        if !found.is_empty() {
+            out.insert(k.name.clone(), found);
+        }
+    }
+    out
+}
+
+fn members(cycle: &str) -> BTreeSet<&str> {
+    cycle.split(", ").collect()
+}
+
+/// Found cycles against listed ones, for one crate.
+fn cycle_problems(krate: &str, found: &BTreeSet<String>, listed: &[String], bad: &mut Vec<String>) {
+    let mut accounted: BTreeSet<&str> = BTreeSet::new();
+    for c in found.iter().filter(|c| !listed.contains(c)) {
+        let m = members(c);
+        let inside: Vec<&String> = listed.iter().filter(|l| members(l).is_subset(&m)).collect();
+        if let Some(was) = listed.iter().find(|l| m.is_subset(&members(l))) {
+            accounted.insert(was);
+            bad.push(format!(
+                "{RATCHETS}: [cycles] {krate}: \"{was}\" shrank to \"{c}\"; replace it with the smaller cycle"
+            ));
+        } else if inside.is_empty() {
+            bad.push(format!(
+                "{krate}: new cycle \"{c}\"; cut an edge (`construct-dev code-graph` shows every reference), or if it is intended add it under [cycles] \"{krate}\" in {RATCHETS}"
+            ));
+        } else {
+            accounted.extend(inside.iter().map(|l| l.as_str()));
+            let was: Vec<String> = inside.iter().map(|l| format!("\"{l}\"")).collect();
+            let old: BTreeSet<&str> = inside.iter().flat_map(|l| members(l)).collect();
+            let new: Vec<&str> = m.difference(&old).copied().collect();
+            let joined = if new.is_empty() { String::new() } else { format!(", now with {}", new.join(", ")) };
+            bad.push(format!(
+                "{krate}: cycle {} grew to \"{c}\"{joined}; cut the edge that closed it (`construct-dev code-graph` shows every reference), or if it is intended replace it under [cycles] \"{krate}\" in {RATCHETS}",
+                was.join(" and ")
+            ));
+        }
+    }
+    for l in listed.iter().filter(|l| !found.contains(*l) && !accounted.contains(l.as_str())) {
+        bad.push(format!("{RATCHETS}: [cycles] {krate}: \"{l}\" is no longer a cycle; delete it from the list"));
+    }
 }
 
 /// Non-test lines of every file over the soft limit, by repo-relative path.
@@ -130,6 +214,13 @@ pub(super) fn problems(root: &Path) -> Vec<String> {
                 "{RATCHETS}: [pairs] {krate}: {pair} is no longer a two-way pair (or is gone); delete it from the list"
             ));
         }
+    }
+
+    let real = cycles(root);
+    let empty = BTreeSet::new();
+    for krate in real.keys().chain(r.cycles.keys()).collect::<BTreeSet<_>>() {
+        let listed = r.cycles.get(krate).map_or(&[][..], Vec::as_slice);
+        cycle_problems(krate, real.get(krate).unwrap_or(&empty), listed, &mut bad);
     }
 
     bad

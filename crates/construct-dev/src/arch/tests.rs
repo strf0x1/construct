@@ -461,6 +461,52 @@ fn a_new_two_way_pair_fails_naming_it_and_a_gone_one_is_deleted() {
 }
 
 #[test]
+fn a_cycle_with_no_pair_fails_and_its_changes_are_named() {
+    let t = tree("cycles");
+    let lib = "//! l\npub mod a;\npub mod b;\npub mod c;\npub mod d;\n";
+    write(&t, "crates/construct/src/lib.rs", lib);
+    write(&t, "crates/construct/src/b.rs", "//! b\nuse crate::c::Z;\n");
+    write(&t, "crates/construct/src/c.rs", "//! c\nuse crate::a::Y;\n");
+    write(&t, "crates/construct/src/d.rs", "//! d\n");
+    write(&t, "docs/ratchets.toml", "");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec![
+            "construct: new cycle \"a, b, c\"; cut an edge (`construct-dev code-graph` shows every reference), or if it is intended add it under [cycles] \"construct\" in docs/ratchets.toml"
+        ]
+    );
+    write(&t, "docs/ratchets.toml", "[cycles]\nconstruct = [\"a, b, c\"]\n");
+    assert_eq!(ratchet::problems(&t.0), Vec::<String>::new());
+
+    // d joins: c -> d -> a
+    write(&t, "crates/construct/src/c.rs", "//! c\nuse crate::d::W;\n");
+    write(&t, "crates/construct/src/d.rs", "//! d\nuse crate::a::Y;\n");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec![
+            "construct: cycle \"a, b, c\" grew to \"a, b, c, d\", now with d; cut the edge that closed it (`construct-dev code-graph` shows every reference), or if it is intended replace it under [cycles] \"construct\" in docs/ratchets.toml"
+        ]
+    );
+
+    // listed as four, then c drops out: b -> d -> a -> b
+    write(&t, "docs/ratchets.toml", "[cycles]\nconstruct = [\"a, b, c, d\"]\n");
+    write(&t, "crates/construct/src/b.rs", "//! b\nuse crate::d::V;\n");
+    write(&t, "crates/construct/src/c.rs", "//! c\n");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec![
+            "docs/ratchets.toml: [cycles] construct: \"a, b, c, d\" shrank to \"a, b, d\"; replace it with the smaller cycle"
+        ]
+    );
+
+    write(&t, "crates/construct/src/d.rs", "//! d\n");
+    assert_eq!(
+        ratchet::problems(&t.0),
+        vec!["docs/ratchets.toml: [cycles] construct: \"a, b, c, d\" is no longer a cycle; delete it from the list"]
+    );
+}
+
+#[test]
 fn a_ratchet_that_rises_fails() {
     assert_eq!(
         ratchets("rise", 305, "[lines]\n\"crates/construct/src/big.rs\" = 301\n"),
