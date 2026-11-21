@@ -78,7 +78,7 @@ impl Agent {
         self.cfg = cfg;
         // A limit a provider stated about the last model says nothing of this one.
         self.window_seen = None;
-        self.manifest = Manifest::new(&self.cfg, &self.catalog);
+        self.manifest = Manifest::new(&self.cfg, self.catalog.names());
         self.journal.emit(
             Event::Model {
                 model: self.cfg.model.clone(),

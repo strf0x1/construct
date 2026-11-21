@@ -1,5 +1,7 @@
 //! The knobs for background jobs: how many may run at once, and how long a
-//! background shell command may live.
+//! background shell command may live. Plain data kept in `config`, so
+//! `config` never names a type from `jobs` (which sits above it through
+//! `event` and `sandbox`); `jobs` reads its settings from here.
 
 use serde::{Deserialize, Serialize};
 
