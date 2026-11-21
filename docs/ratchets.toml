@@ -39,9 +39,7 @@ construct-core = [
     "config <-> tools",
     "event <-> jobs",
     "event <-> permission",
-    "jobs <-> journal",
     "journal <-> llm",
-    "journal <-> tools",
     "permission <-> tools",
 ]
 construct-dev = [

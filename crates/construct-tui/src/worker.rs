@@ -29,7 +29,7 @@ impl Ready {
         let db = Journal::read_only(&construct_core::journal::path(&a.paths, &a.ctx.cwd))?;
         static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let tag = format!("{}:{}", a.journal.session, GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-        let spent = Totals::session(&db, &entries)?;
+        let spent = Totals::session(&db, &entries, construct_core::child::MAX_DEPTH)?;
         entries = super::restore::with_children(entries, &db)?;
         Ok(Self {
             ack: None,

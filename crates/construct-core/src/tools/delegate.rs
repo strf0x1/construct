@@ -15,8 +15,9 @@ mod background;
 
 use super::{Call, Ctx, Display, Group, Output, Tool, ToolError, def, obj};
 use crate::agents::AgentDef;
+pub use crate::child::MAX_DEPTH;
 use crate::child::run::{Outcome, Spec, Stop, run};
-use crate::child::{self, MAX_DEPTH};
+use crate::child::{self};
 use crate::config::Config;
 use crate::sandbox::Grant;
 use anyhow::{Context, Result};

@@ -171,7 +171,11 @@ impl Agent {
         );
         let entries = writer.entries()?;
         let bytes_per_token = learned_ratio(&entries).unwrap_or(4.0);
-        let totals = journal::Totals::session(&journal::Journal::read_only(&file)?, &entries)?;
+        let totals = journal::Totals::session(
+            &journal::Journal::read_only(&file)?,
+            &entries,
+            crate::tools::delegate::MAX_DEPTH,
+        )?;
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
         if ctx.boundary.is_some() {
