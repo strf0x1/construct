@@ -56,7 +56,7 @@ may_use = ["compact", "config", "event", "llm"]
 may_use = ["config", "secrets"]
 
 [crates.construct-core.modules.event]
-may_use = ["compact", "jobs", "llm", "manifest"]
+may_use = ["llm", "manifest"]
 
 [crates.construct-core.modules.guard]
 may_use = []
