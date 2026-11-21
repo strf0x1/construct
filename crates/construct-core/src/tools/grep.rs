@@ -22,7 +22,7 @@ pub struct Grep {
 }
 
 impl Grep {
-    pub const NAME: &str = "grep";
+    pub const NAME: &str = crate::config::SEARCH_TOOL;
 
     /// The tool under another wire name (`[tools] search_name`).
     pub fn named(name: &str) -> Self {

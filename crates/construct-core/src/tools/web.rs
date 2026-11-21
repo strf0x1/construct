@@ -12,7 +12,7 @@ mod select;
 pub use select::{Backend, Choice};
 
 use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
-use serde::{Deserialize, Serialize};
+use crate::config::WebConfig;
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -156,20 +156,4 @@ fn html_to_markdown(html: &str) -> String {
         out.push('\n');
     }
     out
-}
-
-/// Knobs for the web tools.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct WebConfig {
-    /// Which backend answers `web_search`: "auto" (the keyed backends in
-    /// order Exa, Brave, Tavily, else DuckDuckGo) or one of "exa", "brave",
-    /// "tavily", "ddg". A named backend is the only one tried.
-    pub search: String,
-}
-
-impl Default for WebConfig {
-    fn default() -> Self {
-        Self { search: "auto".into() }
-    }
 }
