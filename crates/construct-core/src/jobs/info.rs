@@ -8,35 +8,12 @@
 //! start waking it by accident (ADR 0026).
 
 use crate::event::Event;
-use serde::{Deserialize, Serialize};
+use crate::event::payload::{Info, Kind, Status};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 
 /// What the model gets of a job's output: the end of it.
 pub const TAIL_MAX: usize = 8 * 1024;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Kind {
-    Shell,
-    Delegate,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Status {
-    Running,
-    /// The previous process stopped before recording a completion.
-    Interrupted,
-    /// Ended on its own and well: a command that exited 0, a child that answered.
-    Completed,
-    /// Ended on its own and badly: a nonzero exit, a child that errored.
-    Failed,
-    /// Stopped at its time limit.
-    Timeout,
-    /// Stopped by the model, the user or quitting.
-    Cancelled,
-}
 
 impl Status {
     /// Whether ending this way wakes the agent. The explicit list of wake
@@ -67,43 +44,6 @@ impl Kind {
             Kind::Delegate => "delegate",
         }
     }
-}
-
-/// A job at one moment, and the payload of its `job_end` row. It may still be
-/// running (`check`); a row is written only once it is not.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Info {
-    pub id: String,
-    pub kind: Kind,
-    /// The command, or the delegated task: what the job is.
-    pub label: String,
-    pub status: Status,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub exit: Option<i32>,
-    pub ms: u64,
-    pub tail: String,
-}
-
-/// The payload of a `job_start` row.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Started {
-    pub id: String,
-    pub kind: Kind,
-    pub label: String,
-    /// The tool call that made it.
-    pub call_id: String,
-}
-
-/// The payload of a `jobs_delivered` row: the model has these endings, either
-/// because they rode in at a turn boundary (`via` "turn", with the `message`)
-/// or because it read them itself (`via` "check"). What the journal says is
-/// unconsumed is every wake-worthy ending no such row names.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Delivered {
-    pub ids: Vec<String>,
-    pub via: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message: Option<crate::llm::Message>,
 }
 
 impl Info {
@@ -212,6 +152,7 @@ pub fn highest_id(events: &[Event]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event::payload::Delivered;
 
     fn info(id: &str, status: Status, tail: &str) -> Info {
         Info {

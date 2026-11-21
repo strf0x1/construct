@@ -12,6 +12,7 @@
 mod overflow;
 mod summary;
 
+pub use crate::event::payload::{Cut, Summary};
 pub use overflow::{is_overflow, overflow_limit, overflow_tokens};
 pub use summary::{
     SYSTEM as SUMMARY_SYSTEM, allowance as summary_allowance, max_tokens as summary_max_tokens,
@@ -30,27 +31,6 @@ const SUMMARY_HEAD: &str = "<system-reminder>\nThe conversation so far was compa
 const SUMMARY_TAIL: &str = "\n</system-reminder>";
 const REQUEST_HEAD: &str = "\n\nThe request being worked on (verbatim):\n\n";
 const FILLER: &str = "Understood; continuing from that summary.";
-
-/// What a cut did to the view, enough to replay it on the same messages.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-pub struct Cut {
-    /// Call ids whose results became stubs.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub elide: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub summary: Option<Summary>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Summary {
-    /// Messages `1..upto` (after eliding) were replaced by the summary.
-    pub upto: usize,
-    pub text: String,
-    /// The user's latest request, when it was among the replaced messages:
-    /// pinned verbatim under the summary rather than paraphrased by it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request: Option<String>,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
