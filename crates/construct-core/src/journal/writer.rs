@@ -55,6 +55,17 @@ impl Writer {
         let _ = tx.send(ev);
     }
 
+    /// Journal events that are sent together, then send them in order. One
+    /// transaction makes the whole group durable before the first event goes
+    /// out (ADR 0034, #248); the lock still spans both halves.
+    pub fn emit_batch(&self, events: Vec<Event>, tx: &Events) {
+        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
+        self.report(db.append_batch(&self.session, &events), Some(tx));
+        for ev in events {
+            let _ = tx.send(ev);
+        }
+    }
+
     /// Journal without sending: events from before there was a UI to send to.
     pub fn record(&self, ev: &Event) {
         let db = self.db.lock().unwrap_or_else(|e| e.into_inner());

@@ -16,6 +16,17 @@ use serde_json::Value;
 use std::time::Instant;
 
 impl Agent {
+    /// Push a group of tool messages that are ready together in one journal
+    /// commit. The rows are durable before the first event is sent (ADR 0034,
+    /// #248).
+    fn push_batch(&mut self, messages: Vec<Message>, tx: &Events) {
+        let events = messages.iter().cloned().map(Event::for_message).collect();
+        self.journal.emit_batch(events, tx);
+        for m in messages {
+            self.context.push(m);
+        }
+    }
+
     /// Run `calls` and push one tool message per call.
     pub(super) async fn run_tools(&mut self, calls: &[llm::ToolCall], tx: &Events) {
         // Model-facing switches first: they change state, not the world.
@@ -163,12 +174,16 @@ impl Agent {
                 results[i] = Some(run(c).await);
             }
         }
+        let mut messages = Vec::with_capacity(calls.len());
         for (c, r) in calls.iter().zip(results) {
             let out = r.unwrap_or_else(|| "Error: not run".into());
-            self.push(Message::tool(&c.id, out), tx);
+            messages.push(Message::tool(&c.id, out));
             self.tool_calls += 1;
             self.tool_calls_since_skill += 1;
         }
+        // All tool messages for this turn are ready now: one journal commit
+        // makes them durable before any of them is sent (ADR 0034, #248).
+        self.push_batch(messages, tx);
         self.offer_job_tool();
     }
 }
