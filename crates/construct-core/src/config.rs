@@ -13,8 +13,10 @@ pub mod deck;
 mod jobs;
 pub mod learn;
 mod mcp;
+mod sandbox;
 mod tools;
 pub use jobs::{JobsConfig, ShellConfig};
+pub use sandbox::SandboxConfig;
 pub use tools::{SEARCH_TOOL, ToolsConfig, WebConfig};
 pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
@@ -161,25 +163,6 @@ impl Default for MemoryConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct SandboxConfig {
-    /// "workspace" (default): tools read and write the working directory and
-    /// read system paths and toolchains, nothing else under $HOME.
-    /// "read-only": no writes outside construct's temp dir. "off": no boundary.
-    pub mode: String,
-    /// Extra paths tools may read (`~/` expands).
-    pub allow_read: Vec<String>,
-    /// Extra paths tools may read and write.
-    pub allow_write: Vec<String>,
-}
-
-impl Default for SandboxConfig {
-    fn default() -> Self {
-        Self { mode: "workspace".into(), allow_read: vec![], allow_write: vec![] }
-    }
-}
-
 impl Default for RouterConfig {
     fn default() -> Self {
         Self {
@@ -205,6 +188,7 @@ impl Config {
         // so every consumer sees the resolved values.
         cfg.check_providers().with_context(|| format!("in {}", path.display()))?;
         cfg.select_model(&cfg.model.clone())?;
+        cfg.sandbox.memory_max_bytes().map_err(anyhow::Error::msg).with_context(|| format!("in {}", path.display()))?;
         for name in cfg.mcp.keys() {
             mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }

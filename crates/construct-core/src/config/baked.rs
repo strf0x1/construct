@@ -55,6 +55,7 @@ pub fn apply_env(cfg: &mut Config) {
         ("CONSTRUCT_BASE_URL", "base_url", |c, v| c.base_url = v),
         ("CONSTRUCT_MODEL", "model", |c, v| c.model = v),
         ("CONSTRUCT_SANDBOX", "sandbox.mode", |c, v| c.sandbox.mode = v),
+        ("CONSTRUCT_SANDBOX_MEMORY_MAX", "sandbox.memory_max", |c, v| c.sandbox.memory_max = v),
         ("CONSTRUCT_ROUTER", "router.mode", |c, v| c.router.mode = v),
         ("CONSTRUCT_TOOLS_WEB_SEARCH", "tools.web.search", |c, v| c.tools.web.search = v),
     ];

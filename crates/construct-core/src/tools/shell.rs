@@ -271,14 +271,13 @@ async fn run_once(
     let elapsed = started.elapsed();
     let mut report = Vec::new();
     let _ = tokio::time::timeout(GRACE, stderr.read_to_end(&mut report)).await;
-    let (swept, helper) = parse_report(&String::from_utf8_lossy(&report));
-    let text = String::from_utf8_lossy(&buf).to_string();
-    let mut out = super::cap_output(ctx, "shell", &text);
-    out.push_str(&helper);
+    let report = parse_report(&String::from_utf8_lossy(&report));
+    let mut out = super::cap_output(ctx, "shell", &String::from_utf8_lossy(&buf));
+    out.push_str(&report.other);
     if out.is_empty() {
         out.push_str("(no output)");
     }
-    let note = swept_note(swept);
+    let note = swept_note(report.swept.clone());
     if !note.is_empty() {
         if !out.ends_with('\n') {
             out.push('\n');
@@ -287,6 +286,7 @@ async fn run_once(
     }
     let code = status.and_then(|s| s.code());
     match (stopped, code) {
+        _ if report.memory.is_some() => Err(ToolError::new("memory", format!("{out}\n{}", report.memory_note()))),
         (Some(why), _) => Err(ToolError::new(
             if why == "timed out" { "timeout" } else { "interrupted" },
             format!("{out}\n[{why} after {:.1}s]", elapsed.as_secs_f32()),
