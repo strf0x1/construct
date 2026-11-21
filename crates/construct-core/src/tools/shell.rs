@@ -7,7 +7,7 @@
 
 use super::Call;
 use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
-use crate::jobs::ShellConfig;
+use crate::config::ShellConfig;
 use crate::permission::{Access, Outside, blocked_in, outside};
 use crate::sandbox::report::{parse_report, swept_note};
 use crate::sandbox::{GRACE, Policy, StopOnDrop};

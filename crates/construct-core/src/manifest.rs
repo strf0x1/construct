@@ -1,9 +1,11 @@
 //! What produced a result: the build, the effective config and the tools.
 //! Carried by every session's head event in the journal, sent as the first
 //! event of a turn, and printed by `construct manifest` for the bench to record.
+//! It takes the tool names, not the `tools::Catalog`: `Event` carries a
+//! `Manifest`, and naming the catalog here tied the event vocabulary to the
+//! whole tools layer.
 
 use crate::config::{CacheMode, CompactionConfig, Config};
-use crate::tools::Catalog;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -80,14 +82,14 @@ impl Manifest {
         }
     }
 
-    pub fn new(cfg: &Config, catalog: &Catalog) -> Self {
+    pub fn new(cfg: &Config, tools: Vec<String>) -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").into(),
             git_sha: env!("CONSTRUCT_GIT_SHA").into(),
             git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
             binary_sha256: None,
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
-            tools: catalog.names(),
+            tools,
             editor: "replace".into(),
             context: cfg.context.strategy.clone(),
             web_search: cfg.tools.web.search.clone(),

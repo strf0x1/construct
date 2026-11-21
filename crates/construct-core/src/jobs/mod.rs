@@ -11,13 +11,12 @@
 //! the agent's (`agent::wake`); jobs live and die with this process.
 
 mod command;
-mod config;
 mod info;
 mod spec;
 
+use crate::config::JobsConfig;
 pub use crate::event::payload::{Delivered, Info, Kind, Started, Status};
 pub use command::body as command_body;
-pub use config::{JobsConfig, ShellConfig};
 pub use info::{TAIL_MAX, Tail, highest_id, render, unconsumed};
 pub use spec::{Body, Finish, Run, Sink, Spec};
 

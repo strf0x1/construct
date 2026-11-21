@@ -265,7 +265,7 @@ pub fn run() -> Result<()> {
         }
         Some(Cmd::Manifest) => {
             let catalog = tools::Catalog::build(&cfg.tools, None)?;
-            let m = manifest::Manifest::new(&cfg, &catalog).with_binary_hash();
+            let m = manifest::Manifest::new(&cfg, catalog.names()).with_binary_hash();
             println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
         }

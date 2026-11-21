@@ -104,7 +104,7 @@ impl Agent {
             control: crate::config::deck::control_url(),
         };
         let catalog = Arc::new(Catalog::build_extended(&cfg.tools, mcp.clone(), &deck, sources)?);
-        let manifest = Manifest::new(&cfg, &catalog);
+        let manifest = Manifest::new(&cfg, catalog.names());
         let cwd_s = cwd.display().to_string();
         let mut unsent = vec![];
         let resume_id = resume.clone();

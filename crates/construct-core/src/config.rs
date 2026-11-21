@@ -10,9 +10,11 @@ use std::collections::BTreeMap;
 mod baked;
 pub mod context;
 pub mod deck;
+mod jobs;
 pub mod learn;
 mod mcp;
 mod tools;
+pub use jobs::{JobsConfig, ShellConfig};
 pub use tools::{SEARCH_TOOL, ToolsConfig, WebConfig};
 pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
@@ -48,7 +50,7 @@ pub struct Config {
     /// Deck's GitHub gateway (`DECK_GITHUB_URL`); see `config/deck.rs`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub github_gateway: Option<String>,
-    pub jobs: crate::jobs::JobsConfig,
+    pub jobs: JobsConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,

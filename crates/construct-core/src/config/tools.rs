@@ -22,7 +22,7 @@ pub struct ToolsConfig {
     /// reach for a tool by that name (docs/adr, issue #10).
     pub search_name: String,
     pub web: WebConfig,
-    pub shell: crate::jobs::ShellConfig,
+    pub shell: super::ShellConfig,
 }
 
 impl ToolsConfig {
