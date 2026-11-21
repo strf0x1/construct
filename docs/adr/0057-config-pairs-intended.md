@@ -74,9 +74,12 @@ Option A. `config <-> models` and `config <-> providers` are intended pairs.
   are unchanged. With this ADR, every pair left in `construct-core` is
   intended, which meets #303's "cut or written down as intended" for that
   crate.
-- The three modules form a closed cycle of their own. `endpoint` is used by
-  `models` and `providers` but does not use them back, and `event`,
-  `journal` and `llm` are outside the cycle, so #303's done-when does not
+- The two pairs join four modules into one cycle: these three and
+  `endpoint`. `endpoint` is in it without a pair of its own: it uses
+  `config` (`endpoint.rs:9`, `Config` and `ProviderConfig`), and `models`
+  and `providers` use it, but it never uses them back. So the loop runs
+  `config → providers → endpoint → config` and is all config resolution;
+  `event`, `journal` and `llm` are outside it, so #303's done-when does not
   depend on it.
 - What would make us revisit it: a plan to move `config` into its own crate.
   Cargo forbids crate cycles, and an inherent `impl Config` will not compile
