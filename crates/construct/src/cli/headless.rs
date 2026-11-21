@@ -5,18 +5,26 @@
 use anyhow::Result;
 use construct_core::agent::{Agent, Event};
 use construct_core::config::{Config, Paths};
+use construct_core::tools::ToolSources;
 use construct_core::{learn, llm};
 use std::io::Write;
+
+/// What to run: the prompt, how to print it, and whether to learn after.
+pub(super) struct Prompt {
+    pub(super) text: String,
+    pub(super) json: bool,
+    pub(super) learn: bool,
+}
 
 pub(super) async fn run(
     cfg: Config,
     paths: Paths,
     resume: Option<String>,
-    text: String,
-    json: bool,
-    learn: bool,
+    prompt: Prompt,
     model_override: Option<String>,
+    sources: ToolSources,
 ) -> Result<()> {
+    let Prompt { text, json, learn } = prompt;
     let learn = learn && cfg.learn.enabled;
     let mut cfg = cfg;
     llm::overlay::prepare(&mut cfg, &paths, None).await;
@@ -24,7 +32,7 @@ pub(super) async fn run(
         eprintln!("construct: {w}");
     }
     let cwd = std::env::current_dir()?;
-    let mut agent = Agent::new_with_model(cfg, paths, cwd, resume, model_override.as_deref())?;
+    let mut agent = Agent::new_with_tools(cfg, paths, cwd, resume, model_override.as_deref(), &sources)?;
     // Overlaps the model's TLS handshake with routing.
     agent.warm();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();

@@ -14,7 +14,6 @@ pub mod boundary;
 pub mod call;
 mod cap;
 mod catalog;
-pub mod control;
 mod ctx;
 pub mod developer;
 pub mod edit;
@@ -31,6 +30,7 @@ pub mod shell;
 mod shell_exit;
 mod shell_job;
 pub mod skill;
+mod source;
 pub mod web;
 pub mod write;
 
@@ -42,6 +42,7 @@ pub use ctx::Ctx;
 pub use group::Group;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+pub use source::{ToolSource, ToolSources};
 
 /// The switch the model uses to turn on a group the router missed. The agent
 /// answers it itself; it is not a catalog tool.
@@ -187,11 +188,13 @@ impl std::fmt::Display for ToolError {
     }
 }
 
-fn def(name: &str, description: &str, params: Value) -> Value {
+/// The OpenAI function definition around a tool's parameters.
+pub fn def(name: &str, description: &str, params: Value) -> Value {
     json!({ "type": "function", "function": { "name": name, "description": description, "parameters": params } })
 }
 
-fn obj(props: Value, required: &[&str]) -> Value {
+/// A JSON-schema object with these properties and required keys.
+pub fn obj(props: Value, required: &[&str]) -> Value {
     json!({ "type": "object", "properties": props, "required": required })
 }
 

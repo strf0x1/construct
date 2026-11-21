@@ -30,6 +30,7 @@ use super::replay::Transcript;
 use super::{VERSION, rpc};
 use crate::agent::Agent;
 use crate::config::{Config, Paths};
+use crate::tools::ToolSources;
 use anyhow::Result;
 use rpc::Incoming;
 use serde_json::{Value, json};
@@ -42,7 +43,7 @@ use tokio::task::JoinSet;
 
 type Out = mpsc::UnboundedSender<String>;
 
-pub async fn run(cfg: Config, paths: Paths) -> Result<()> {
+pub async fn run(cfg: Config, paths: Paths, sources: ToolSources) -> Result<()> {
     let (out, mut lines_out) = mpsc::unbounded_channel::<String>();
     // Only this loop writes protocol frames; diagnostic writes go to stderr
     // because `claim_stdout` points fd 1 there (ADR 0035).
@@ -62,6 +63,7 @@ pub async fn run(cfg: Config, paths: Paths) -> Result<()> {
     let mut srv = Server {
         cfg,
         paths,
+        sources,
         out,
         commands,
         questions: Questions::default(),
@@ -131,6 +133,8 @@ pub async fn run(cfg: Config, paths: Paths) -> Result<()> {
 pub(super) struct Server {
     pub(super) cfg: Config,
     pub(super) paths: Paths,
+    /// Tools the composition root adds to every session's catalog.
+    pub(super) sources: ToolSources,
     pub(super) out: Out,
     pub(super) questions: Questions,
     pub(super) commands: mpsc::UnboundedSender<Command>,
@@ -190,7 +194,7 @@ impl Server {
 
     fn new_session(&mut self, params: &Value) -> Result<String> {
         let cwd = cwd(params)?;
-        let agent = Agent::new(self.cfg.clone(), self.paths.clone(), cwd, None)?;
+        let agent = Agent::new_with_tools(self.cfg.clone(), self.paths.clone(), cwd, None, None, &self.sources)?;
         self.register(agent)
     }
 

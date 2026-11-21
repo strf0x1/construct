@@ -6,12 +6,14 @@ mod headless;
 mod learning;
 mod providers;
 mod resume;
+mod sources;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
 use construct_core::{acp, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools};
 use resume::resolve_resume;
+use sources::tool_sources;
 use std::io::{IsTerminal, Read, Write};
 
 #[derive(Parser)]
@@ -146,7 +148,7 @@ pub fn run() -> Result<()> {
                 &paths,
                 std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
             )?;
-            rt.block_on(construct_tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model))
+            rt.block_on(construct_tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model, tool_sources()))
         }
         Some(Cmd::Run { prompt, json, no_learn }) => {
             let resume = resolve_resume(&cli.resume, cli.cont, &paths, false)?;
@@ -158,9 +160,16 @@ pub fn run() -> Result<()> {
             if text.trim().is_empty() {
                 bail!("nothing to run: pass a prompt");
             }
-            rt.block_on(headless::run(cfg, paths, resume, text, json, !no_learn, cli.model))
+            rt.block_on(headless::run(
+                cfg,
+                paths,
+                resume,
+                headless::Prompt { text, json, learn: !no_learn },
+                cli.model,
+                tool_sources(),
+            ))
         }
-        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths)),
+        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths, tool_sources())),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {

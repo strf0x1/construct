@@ -39,6 +39,16 @@ impl Catalog {
 
     /// `build` for a process Deck runs, with the surfaces it gave this task.
     pub fn build_with(cfg: &ToolsConfig, mcp: Option<Arc<crate::mcp::Manager>>, deck: &Deck) -> Result<Catalog> {
+        Self::build_extended(cfg, mcp, deck, &ToolSources::default())
+    }
+
+    /// `build_with` plus the tools the composition root's `sources` add.
+    pub fn build_extended(
+        cfg: &ToolsConfig,
+        mcp: Option<Arc<crate::mcp::Manager>>,
+        deck: &Deck,
+        sources: &ToolSources,
+    ) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         match cfg.editor.as_str() {
             "replace" => {
@@ -74,9 +84,7 @@ impl Catalog {
             tools.push(Arc::new(boundary::Status));
             tools.push(Arc::new(boundary::Withdraw));
         }
-        if let Some(url) = &deck.control {
-            tools.push(Arc::new(control::Control::new(url)));
-        }
+        tools.extend(sources.tools(cfg, deck)?);
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
             bail!("tools.search_name: {:?} is already a tool", t.name());

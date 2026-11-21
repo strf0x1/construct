@@ -27,6 +27,7 @@ keyring = ["construct-core/keyring"]
 [dependencies]
 construct-core = { workspace = true, default-features = false }
 construct-tui.workspace = true
+construct-deck.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true

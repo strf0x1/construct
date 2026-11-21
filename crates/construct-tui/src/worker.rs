@@ -7,6 +7,7 @@ use super::learning::{finish, maybe_learn};
 use construct_core::agent::{Agent, Event, Events};
 use construct_core::config::{Config, Paths};
 use construct_core::journal::{Entry, Totals};
+use construct_core::tools::ToolSources;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -68,15 +69,22 @@ fn session_events(id: String, out: mpsc::UnboundedSender<(String, Event)>) -> Ev
     tx
 }
 
+/// How this run started: what to resume, how, and the tools the binary adds.
+pub(super) struct Launch {
+    pub(super) resume: Option<String>,
+    pub(super) startup_browser: bool,
+    pub(super) model_override: Option<String>,
+    pub(super) sources: ToolSources,
+}
+
 pub(super) async fn agent_task(
     mut cfg: Config,
     paths: Paths,
-    resume: Option<String>,
-    startup_browser: bool,
-    model_override: Option<String>,
+    launch: Launch,
     mut cmds: mpsc::UnboundedReceiver<Cmd>,
     out: Out,
 ) {
+    let Launch { resume, startup_browser, model_override, sources } = launch;
     let cwd = std::env::current_dir().unwrap_or_default();
     let mut active: Option<(Agent, Events)> = None;
     let mut pending = resume.clone();
@@ -114,7 +122,7 @@ pub(super) async fn agent_task(
                 }
                 pending = id.clone();
                 construct_core::llm::overlay::prepare(&mut cfg, &paths, Some(out.landed.clone())).await;
-                match prepare(&cfg, &paths, &cwd, id, model_override.as_deref()) {
+                match prepare(&cfg, &paths, &cwd, id, model_override.as_deref(), &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
@@ -137,7 +145,7 @@ pub(super) async fn agent_task(
                 }
             }
             Cmd::Model(m) if active.is_none() || pending.is_some() => {
-                match prepare(&cfg, &paths, &cwd, pending.clone(), Some(&m)) {
+                match prepare(&cfg, &paths, &cwd, pending.clone(), Some(&m), &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
@@ -204,7 +212,7 @@ pub(super) async fn agent_task(
                     a.stop_jobs().await;
                 }
                 let current_cfg = active.as_ref().map(|(a, _)| &a.cfg).unwrap_or(&cfg);
-                match prepare(current_cfg, &paths, &cwd, None, None) {
+                match prepare(current_cfg, &paths, &cwd, None, None, &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
@@ -234,8 +242,9 @@ fn prepare(
     cwd: &std::path::Path,
     id: Option<String>,
     model_override: Option<&str>,
+    sources: &ToolSources,
 ) -> anyhow::Result<(Agent, Ready)> {
-    let a = Agent::new_with_model(cfg.clone(), paths.clone(), cwd.to_path_buf(), id, model_override)?;
+    let a = Agent::new_with_tools(cfg.clone(), paths.clone(), cwd.to_path_buf(), id, model_override, sources)?;
     construct_core::trace::mark("agent ready");
     let ready = Ready::of(&a)?;
     Ok((a, ready))

@@ -9,8 +9,8 @@
 //! and `retryable` decide the wording, and nothing here retries: a refusal is
 //! the host's answer, never a network outage.
 
-use crate::config::deck::CONTROL_TOKEN;
-use crate::tools::ToolError;
+use construct_core::config::deck::CONTROL_TOKEN;
+use construct_core::tools::ToolError;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -87,9 +87,10 @@ pub async fn send(
             ),
         ));
     }
-    let http = crate::http::build(crate::http::loopback().connect_timeout(Duration::from_secs(2))).map_err(|e| {
-        ToolError::new("deck_control", format!("could not start the client for Deck's control gateway: {e}"))
-    })?;
+    let http = construct_core::http::build(construct_core::http::loopback().connect_timeout(Duration::from_secs(2)))
+        .map_err(|e| {
+            ToolError::new("deck_control", format!("could not start the client for Deck's control gateway: {e}"))
+        })?;
     let mut request =
         http.post(format!("{base}{PATH}")).header("content-type", "application/json").body(bytes).timeout(timeout);
     if let Some(header) = bearer(token)? {
