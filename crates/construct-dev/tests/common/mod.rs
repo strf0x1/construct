@@ -129,7 +129,6 @@ impl Env {
             ("CONSTRUCT_MODEL".into(), String::new()),
             ("CONSTRUCT_ROUTER".into(), String::new()),
             ("CONSTRUCT_SANDBOX".into(), String::new()),
-            ("CONSTRUCT_TOOLS_EDITOR".into(), String::new()),
             ("DECK_BOUNDARY_URL".into(), String::new()),
             ("DECK_MANAGED".into(), String::new()),
             ("DECK_CONTROL_URL".into(), String::new()),

@@ -104,8 +104,3 @@ name = "history-tools"
 paths = ["crates/construct-core/src/tools/history.rs"]
 tests = ["e2e", "snapshots"]
 
-# The hashline editor; the default editor is "replace", which every test uses.
-[[area]]
-name = "hashline"
-paths = ["crates/construct-core/src/tools/edit/hashline/"]
-tests = ["e2e", "snapshots", "special_files"]

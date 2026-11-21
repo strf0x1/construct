@@ -1,8 +1,7 @@
 //! edit: exact-text replacement through `replace::replace_once`. The
 //! replacement itself is a plain function, also used to patch skills, and is
-//! never swapped by `[tools] editor`. `hashline` is the other editor family.
+//! the one editor (the hashline family lost the bench and was removed, ADR 0059).
 
-pub mod hashline;
 pub mod replace;
 
 use super::fs::{encoding_error, is_utf16, resolve};

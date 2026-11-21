@@ -13,7 +13,7 @@ pub mod deck;
 pub mod learn;
 mod mcp;
 mod tools;
-pub use tools::{AnchorMode, HashlineConfig, SEARCH_TOOL, Salt, ToolsConfig, WebConfig};
+pub use tools::{SEARCH_TOOL, ToolsConfig, WebConfig};
 pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

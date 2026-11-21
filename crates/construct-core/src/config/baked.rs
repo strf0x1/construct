@@ -56,7 +56,6 @@ pub fn apply_env(cfg: &mut Config) {
         ("CONSTRUCT_MODEL", "model", |c, v| c.model = v),
         ("CONSTRUCT_SANDBOX", "sandbox.mode", |c, v| c.sandbox.mode = v),
         ("CONSTRUCT_ROUTER", "router.mode", |c, v| c.router.mode = v),
-        ("CONSTRUCT_TOOLS_EDITOR", "tools.editor", |c, v| c.tools.editor = v),
         ("CONSTRUCT_TOOLS_WEB_SEARCH", "tools.web.search", |c, v| c.tools.web.search = v),
     ];
     for (var, key, set) in OVERRIDES {

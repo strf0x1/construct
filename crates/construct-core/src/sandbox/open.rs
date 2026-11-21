@@ -253,7 +253,7 @@ pub fn replace_file(policy: &Policy, path: &Path, bytes: &[u8], mode: u32) -> Re
     };
     let mut tmp = OsString::from(".");
     tmp.push(&name);
-    tmp.push(format!(".hashline-{}.tmp", std::process::id()));
+    tmp.push(format!(".construct-{}.tmp", std::process::id()));
     let staged = || -> io::Result<()> {
         let flags = libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW;
         let mut f = file(open_beneath(dir.as_raw_fd(), Path::new(&tmp), flags, 0o600)?);

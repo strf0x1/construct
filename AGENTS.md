@@ -19,7 +19,7 @@ and observe it end to end without a model or a terminal.
 | `crates/construct-core/src/journal/` | Per-project SQLite WAL journal (`$CONSTRUCT_HOME/projects/<id>/journal.sqlite`): writer, readers (`since`, `latest`, projector for resume), `sessions export` to the old JSONL shape; `notes.rs` is the `Coalescer` behind `Event::Note` (recovered provider conditions, one row per kind per model call; ADR 0025). See ADR 0008. |
 | `crates/construct-core/src/http.rs` | The one `reqwest` constructor and trust policy (#290, #293): `builder()` installs the ring crypto provider and returns a bare `ClientBuilder`; `build()` applies `CONSTRUCT_CA_FILE` as extra roots and turns an empty platform store into an actionable error; static musl builds bake Mozilla roots in as extras. `engine()` adds the construct UA, `loopback()` adds UA + `no_proxy()` for Deck's gateways. Per-site knobs (timeouts, pool idle, redirects, retry) stay at the call site. All reqwest clients come from `construct_core::http`: clippy `disallowed-methods` (`clippy.toml`) makes a raw `Client::new()`/`Client::builder()` anywhere else a build failure. |
 | `crates/construct-core/src/llm/` | Streaming `/chat/completions` client (hand-rolled SSE) with two deadlines per call; `message.rs` is `Message` and its wire form (reasoning echoed under the key it streamed in, ADR 0044). Provider quirks live only in `dialect.rs` (it builds and edits the standard body); `usage.rs` reads every provider's token, cache and cost fields; `discover.rs` asks a provider's server for its models and windows by server kind (fixtures in `crates/construct-core/tests/fixtures/discover/`), `catalog.rs` caches and searches the list, `overlay.rs` lays it under the catalog. |
-| `crates/construct-core/src/tools/` | One `impl Tool` per file (shell (wire name `bash`, ADR 0046), read, write, edit, grep, glob, web, memory, skill, history, mcp); `source.rs` is `ToolSource`, how a crate above core adds tools (ADR 0056, 0058); `boundary.rs` is `BoundaryHost`, the trait the agent and ACP hold in place of Deck's client; `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `edit/hashline/` is the anchored read/edit pair; `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
+| `crates/construct-core/src/tools/` | One `impl Tool` per file (shell (wire name `bash`, ADR 0046), read, write, edit, grep, glob, web, memory, skill, history, mcp); `source.rs` is `ToolSource`, how a crate above core adds tools (ADR 0056, 0058); `boundary.rs` is `BoundaryHost`, the trait the agent and ACP hold in place of Deck's client; `history.rs` is `recall_result` and read-only `journal_query` over this project's journal (limits in ADR 0009); `mod.rs` holds the trait and the `Catalog`, built from `[tools]` config. |
 | `crates/construct-deck/` | Tools above the engine (ADR 0056): the coordinator's `deck` tool (`control/`), the `developer` tool (`developer/`: approved git and GitHub operations, Deck's GitHub gateway), the three boundary tools and Deck's boundary client (`boundary/`), and `DeckTools`, the `ToolSource` the binary registers in `crates/construct/src/cli/sources.rs`. Its contract test is `tests/deck_control.rs`. |
 | `crates/construct-core/src/mcp/` | The stdio MCP client: `conn.rs` (one server: spawn under the sandbox, handshake, request multiplexing, ping, progress, cancel), `content.rs` (results as text), `mod.rs` (per-server slots, wire names). Guarantees and gaps in ADR 0011. |
 | `crates/construct-core/src/permission/` | Asking the user before a tool goes past the sandbox, and remembering it: `Request`/`Ask`, `Perms` (session grants, `config.toml` edits, protected paths), the shell-output path heuristic. ADR 0016, 0055. |
@@ -272,9 +272,7 @@ release-tag form remains the default; a candidate commit is not a release.
 - A tool's wire name appears only in its `impl Tool` (`Shell::NAME` elsewhere).
   Nothing outside `tools/` matches on tool names: the UI uses `Display` and
   `OutputKind`, policy uses `Group` and `readonly()`. A tool not in the
-  `Catalog` does not exist; `[tools] disabled` removes one, `editor` swaps the
-  read/edit family (`"replace"`, or `"hashline"` with knobs under
-  `[tools.hashline]`; `CONSTRUCT_TOOLS_EDITOR` for one run);
+  `Catalog` does not exist; `[tools] disabled` removes one;
   `[tools.web] search` picks the `web_search` backend
   (`CONSTRUCT_TOOLS_WEB_SEARCH` for one run). `construct
   manifest` prints what a build and config run.
@@ -316,10 +314,10 @@ release-tag form remains the default; a candidate commit is not a release.
   `bench/tasks/` whose `check.sh` scores the work dir, never the transcript;
   `bench.py task --tasks <name>` runs it.
 - A/B a construct setting with arms, not by hand: `bench.py task --arm
-  replace:'editor="replace"' --arm hashline:'editor="hashline"' --no-learn
-  --tasks edit-…` writes each arm's `[tools]` overlay into its own home,
+  auto:'web={search="auto"}' --arm ddg:'web={search="ddg"}' --no-learn
+  --tasks …` writes each arm's `[tools]` overlay into its own home,
   interleaves the arms, records each arm's manifest, and `bench.py compare
-  result.json --a replace --b hashline` judges them. Edit outcomes (rejections
+  result.json --a auto --b ddg` judges them. Edit outcomes (rejections
   by code, recoveries, re-reads) come from the `tool_end` events in the
   project journal (read by `bench/journal.py` as the old `tool` records),
   never from prose.

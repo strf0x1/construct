@@ -55,7 +55,7 @@ is complete.
 ## Consequences
 
 - PRs confined to the TUI, ACP, Deck tools, delegation, jobs, MCP, web,
-  history or hashline, or to the repo's tooling, docs or bench, run a
+  history, or to the repo's tooling, docs or bench, run a
   fraction of `it`.
 - Changes to the spine (the agent loop, llm, event, journal, config,
   prompt, compaction, router, memory, skills, learn, sandbox, permission

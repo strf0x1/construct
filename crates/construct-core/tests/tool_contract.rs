@@ -2,7 +2,6 @@
 //! is covered by being in the catalog: its schema is well-formed, a call with
 //! no arguments is refused in prose that names the missing one, file tools
 //! refuse what the sandbox denies, and output stays under `OUTPUT_MAX`.
-//! Each check runs under every editor in `EDITORS`.
 
 use construct_core::config::{MemoryConfig, Paths, ToolsConfig};
 use construct_core::memory::Store;
@@ -10,8 +9,6 @@ use construct_core::sandbox::Policy;
 use construct_core::tools::{Catalog, Ctx, Deck, Group, OUTPUT_MAX};
 use serde_json::{Value, json};
 use std::path::PathBuf;
-
-const EDITORS: &[&str] = &["replace", "hashline"];
 
 struct Fixture {
     root: PathBuf,
@@ -21,11 +18,7 @@ struct Fixture {
 
 impl Fixture {
     fn new(name: &str) -> Self {
-        Self::with(name, "replace")
-    }
-
-    fn with(name: &str, editor: &str) -> Self {
-        let root = std::env::temp_dir().join(format!("construct-contract-{name}-{editor}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("construct-contract-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let work = root.join("work");
         std::fs::create_dir_all(&work).unwrap();
@@ -46,8 +39,7 @@ impl Fixture {
         // A coordinator's catalog, so the `deck` tool is checked too; its
         // gateway is never reached, since every call here is refused first.
         let deck = Deck { control: Some("http://127.0.0.1:9".into()), ..Deck::default() };
-        let catalog =
-            Catalog::build_with(&ToolsConfig { editor: editor.into(), ..Default::default() }, None, &deck).unwrap();
+        let catalog = Catalog::build_with(&ToolsConfig::default(), None, &deck).unwrap();
         Self { root, ctx, catalog }
     }
 
@@ -78,9 +70,7 @@ fn all_groups() -> Vec<Group> {
 
 #[test]
 fn every_schema_is_a_well_formed_function() {
-    for editor in EDITORS {
-        schemas_are_well_formed(&Fixture::with("schema", editor));
-    }
+    schemas_are_well_formed(&Fixture::new("schema"));
 }
 
 fn schemas_are_well_formed(f: &Fixture) {
@@ -104,16 +94,13 @@ fn schemas_are_well_formed(f: &Fixture) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_arguments_are_refused_in_prose() {
-    for editor in EDITORS {
-        let f = Fixture::with("args", editor);
-        for d in f.catalog.definitions(&all_groups()) {
-            let name = d["function"]["name"].as_str().unwrap();
-            let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
-            let (msg, _) = f.call(name, json!({})).await.expect_err(name);
-            assert!(msg.contains(first), "{editor} {name}: {msg:?} should name {first}");
-        }
-    }
     let f = Fixture::new("args");
+    for d in f.catalog.definitions(&all_groups()) {
+        let name = d["function"]["name"].as_str().unwrap();
+        let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
+        let (msg, _) = f.call(name, json!({})).await.expect_err(name);
+        assert!(msg.contains(first), "{name}: {msg:?} should name {first}");
+    }
     let (msg, code) = f.call("read", json!("not an object")).await.expect_err("bad args");
     assert!(msg.contains("path is required"), "{msg}");
     assert_eq!(code, "error");
@@ -126,9 +113,7 @@ async fn missing_arguments_are_refused_in_prose() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn file_tools_refuse_what_the_sandbox_denies() {
-    for editor in EDITORS {
-        sandbox_refusals(&Fixture::with("sandbox", editor), editor).await;
-    }
+    sandbox_refusals(&Fixture::new("sandbox")).await;
 }
 
 #[test]
@@ -152,7 +137,7 @@ fn sandbox_refusals_with_tmpdir_in_an_allowed_cache() {
     );
 }
 
-async fn sandbox_refusals(f: &Fixture, editor: &str) {
+async fn sandbox_refusals(f: &Fixture) {
     let secret = f.root.join("outside/secret.txt");
     let outside = f.root.join("outside");
     assert!(f.ctx.sandbox.check_read(&secret).is_err());
@@ -161,20 +146,15 @@ async fn sandbox_refusals(f: &Fixture, editor: &str) {
     let cases = [
         ("read", json!({ "path": s(&secret) })),
         ("write", json!({ "path": s(&outside.join("new.txt")), "content": "x" })),
-        match editor {
-            "hashline" => {
-                ("edit", json!({ "path": s(&secret), "edits": [{ "op": "set", "anchor": "1:aa", "text": "public" }] }))
-            }
-            _ => ("edit", json!({ "path": s(&secret), "old_string": "secret", "new_string": "public" })),
-        },
+        ("edit", json!({ "path": s(&secret), "old_string": "secret", "new_string": "public" })),
         ("grep", json!({ "pattern": "secret", "path": s(&outside) })),
         ("glob", json!({ "pattern": "*.txt", "path": s(&outside) })),
         ("bash", json!({ "command": "true", "workdir": s(&outside) })),
     ];
     for (name, args) in cases {
         let (msg, code) = f.call(name, args).await.expect_err(name);
-        assert_eq!(code, "sandbox", "{editor} {name}: {msg}");
-        assert!(msg.contains("blocked by the sandbox"), "{editor} {name}: {msg}");
+        assert_eq!(code, "sandbox", "{name}: {msg}");
+        assert!(msg.contains("blocked by the sandbox"), "{name}: {msg}");
     }
     assert_eq!(std::fs::read_to_string(&secret).unwrap(), "secret\n");
     assert!(!outside.join("new.txt").exists());
@@ -182,17 +162,15 @@ async fn sandbox_refusals(f: &Fixture, editor: &str) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn output_stays_under_the_cap() {
-    for editor in EDITORS {
-        output_capped(&Fixture::with("cap", editor), editor).await;
-    }
+    output_capped(&Fixture::new("cap")).await;
 }
 
-async fn output_capped(f: &Fixture, editor: &str) {
+async fn output_capped(f: &Fixture) {
     let line = format!("{}\n", "needle ".repeat(40));
     std::fs::write(f.ctx.cwd.join("big.txt"), line.repeat(3000)).unwrap();
     for (name, args) in [("read", json!({ "path": "big.txt" })), ("grep", json!({ "pattern": "needle" }))] {
         let out = f.call(name, args).await.unwrap();
-        assert!(out.len() <= OUTPUT_MAX, "{editor} {name}: {} bytes", out.len());
+        assert!(out.len() <= OUTPUT_MAX, "{name}: {} bytes", out.len());
     }
 }
 
@@ -241,8 +219,6 @@ fn disabled_tools_are_not_in_the_catalog() {
     assert!(!offered.contains(&"web".to_string()), "an empty group isn't offered: {offered:?}");
     let bad = ToolsConfig { disabled: vec!["wirte".into()], ..Default::default() };
     assert!(Catalog::build(&bad, None).err().unwrap().to_string().contains("unknown tool \"wirte\""));
-    let bad = ToolsConfig { editor: "nope".into(), ..Default::default() };
-    assert!(Catalog::build(&bad, None).is_err());
 }
 
 #[test]

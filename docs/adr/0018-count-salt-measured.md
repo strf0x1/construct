@@ -1,6 +1,6 @@
 # 0018 — The count salt closes stale duplicates under line+hash; hash-only stays unsafe
 
-Status: accepted, 2026-10-21. Accepts 0007's proposal (build the salt as a
+Status: superseded by 0059 (the hashline editor was removed). Was: accepted, 2026-10-21. Accepts 0007's proposal (build the salt as a
 knob, rerun). The salt stays in the codebase as an opt-in knob, and no
 default changes. 0002's decision (the default editor stays `replace`)
 stands.
