@@ -14,13 +14,25 @@
 
 use super::grants::protected;
 use crate::sandbox::Policy;
-use crate::tools::history::JournalQuery;
-use crate::tools::skill::{SkillManage, SkillView};
 use std::path::{Path, PathBuf};
 
 /// `find` tests whose next word is a pattern, not a place the command reads.
 const PATTERN_FLAGS: &[&str] =
     &["-name", "-iname", "-path", "-ipath", "-wholename", "-iwholename", "-regex", "-iregex", "-lname", "-ilname"];
+
+/// The wire names of the tools the policy's asks and messages mention: the
+/// shell it asks about, and the ones that reach what lives in construct's own
+/// home. The policy owns the words around the names; whoever builds the
+/// session (`tools::Ctx`) owns the names, so `permission` does not depend on
+/// `tools`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PolicyTools {
+    pub shell: &'static str,
+    pub skill_view: &'static str,
+    pub skill_manage: &'static str,
+    pub memory: &'static str,
+    pub journal_query: &'static str,
+}
 
 /// The paths a command names that its policy won't let it read, by what the
 /// user can be asked about them.
@@ -54,7 +66,7 @@ impl Outside {
 
     /// What the model is told, one bracketed line per kind; empty when
     /// nothing was blocked. `skills` is where skill files can be read.
-    pub fn note(&self, construct_home: &Path, skills: &Path) -> String {
+    pub fn note(&self, construct_home: &Path, skills: &Path, tools: &PolicyTools) -> String {
         let mut out = vec![];
         let specific: Vec<&PathBuf> = self.ask.iter().chain(&self.protected).collect();
         if !specific.is_empty() {
@@ -74,10 +86,10 @@ impl Outside {
             out.push(format!(
                 "[sandbox: construct's own files ({}) aren't reachable from the shell. Load a skill with {}, change it with {} (its files can be read under {}); past sessions are in {}.]",
                 construct_home.display(),
-                SkillView::NAME,
-                SkillManage::NAME,
+                tools.skill_view,
+                tools.skill_manage,
                 skills.display(),
-                JournalQuery::NAME
+                tools.journal_query
             ));
         }
         out.join("\n")
@@ -355,11 +367,11 @@ mod tests {
             .run("ls /tmp/ptest/sibling /tmp/ptest/notes.txt")
             .still_blocked(&w.policy.widened(&[w.ptest.join("sibling")], &[]));
         assert_eq!(out.ask, [w.ptest.join("notes.txt")]);
-        let note = out.note(&w.construct, &w.construct.join("skills"));
+        let note = out.note(&w.construct, &w.construct.join("skills"), &PolicyTools::default());
         assert!(
             note.contains("notes.txt is outside the sandbox") && note.contains("doesn't mean it isn't there"),
             "{note}"
         );
-        assert_eq!(Outside::default().note(&w.construct, &w.construct), "");
+        assert_eq!(Outside::default().note(&w.construct, &w.construct, &PolicyTools::default()), "");
     }
 }

@@ -25,7 +25,7 @@ mod persist;
 mod upstream;
 
 pub use grants::protected;
-pub use named::{Outside, outside};
+pub use named::{Outside, PolicyTools, outside};
 pub use operation::OperationAsk;
 pub use paths::blocked_in;
 pub use perms::Perms;

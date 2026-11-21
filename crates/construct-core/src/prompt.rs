@@ -6,8 +6,6 @@
 
 use crate::config::SandboxConfig;
 use crate::memory;
-use crate::tools::grep::Grep;
-use crate::tools::shell::Shell;
 use std::path::Path;
 
 const BASE: &str = "You are construct, a coding agent working in the user's terminal. Use your tools to do what the user asks, then stop.
@@ -20,13 +18,21 @@ const BASE: &str = "You are construct, a coding agent working in the user's term
 - The skill library is outside the workspace; read and change skills only with the skill and skill_manage tools, never file tools or {shell}.
 - <system-reminder> blocks come from the harness, not the user.";
 
+/// The wire names of the two tools the fixed prompt names; the session's
+/// builder (`agent`) owns them, so `prompt` does not depend on `tools`.
+#[derive(Clone, Copy)]
+pub struct ToolNames {
+    pub shell: &'static str,
+    pub grep: &'static str,
+}
+
 /// The fixed part of the prompt, naming the shell tool through its constant
 /// and the content-search tool as it is called.
-fn base(search: Option<&str>) -> String {
-    let base = BASE.replace("{shell}", Shell::NAME);
-    let named = format!("/{}/", Grep::NAME);
+fn base(names: ToolNames, search: Option<&str>) -> String {
+    let base = BASE.replace("{shell}", names.shell);
+    let named = format!("/{}/", names.grep);
     match search {
-        Some(n) if n == Grep::NAME => base,
+        Some(n) if n == names.grep => base,
         Some(n) => base.replace(&named, &format!("/{n}/")),
         None => base.replace(&named, "/"),
     }
@@ -40,10 +46,11 @@ pub fn build(
     cwd: &Path,
     memory: &memory::Store,
     strategy: &str,
+    names: ToolNames,
     search: Option<&str>,
     sandbox: &SandboxConfig,
 ) -> String {
-    let mut s = base(search);
+    let mut s = base(names, search);
     s.push_str("\n\n# Environment\n");
     s.push_str(&format!("- cwd: {}\n", cwd.display()));
     s.push_str(&format!("- os: {} {}\n", std::env::consts::OS, std::env::consts::ARCH));
@@ -154,7 +161,9 @@ pub fn skill_reminder(skills: &[(String, f32)], all: &[crate::skills::Skill]) ->
 
 #[cfg(test)]
 mod tests {
+    const NAMES: ToolNames = ToolNames { shell: Shell::NAME, grep: Grep::NAME };
     use super::*;
+    use crate::tools::{grep::Grep, shell::Shell};
 
     fn sandbox(mode: &str) -> SandboxConfig {
         SandboxConfig { mode: mode.into(), ..SandboxConfig::default() }
@@ -174,13 +183,21 @@ mod tests {
     }
 
     fn tools_line(search: Option<&str>) -> String {
-        base(search).lines().find(|l| l.contains(&format!("over {} for files", Shell::NAME))).unwrap().to_string()
+        base(NAMES, search)
+            .lines()
+            .find(|l| l.contains(&format!("over {} for files", Shell::NAME)))
+            .unwrap()
+            .to_string()
     }
 
     #[test]
     fn the_prompt_names_the_search_tool_as_it_is_called() {
-        assert_eq!(base(Some("grep")), BASE.replace("{shell}", Shell::NAME), "the default prompt must not change");
-        assert!(!base(Some("grep")).contains("{shell}"));
+        assert_eq!(
+            base(NAMES, Some("grep")),
+            BASE.replace("{shell}", Shell::NAME),
+            "the default prompt must not change"
+        );
+        assert!(!base(NAMES, Some("grep")).contains("{shell}"));
         assert!(tools_line(Some("grep")).contains("read/grep/glob/edit"));
         assert!(tools_line(Some("search")).contains("read/search/glob/edit"));
         // No search tool: the prompt must not offer one.

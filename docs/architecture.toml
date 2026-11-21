@@ -104,13 +104,13 @@ may_use = ["config", "guard", "project"]
 may_use = ["config", "endpoint"]
 
 [crates.construct-core.modules.permission]
-may_use = ["event", "home", "journal", "sandbox", "tools"]
+may_use = ["event", "home", "journal", "sandbox"]
 
 [crates.construct-core.modules.project]
 may_use = ["home"]
 
 [crates.construct-core.modules.prompt]
-may_use = ["config", "journal", "learn", "memory", "skills", "text", "tools"]
+may_use = ["config", "journal", "learn", "memory", "skills", "text"]
 
 [crates.construct-core.modules.providers]
 may_use = ["config", "endpoint", "models"]
