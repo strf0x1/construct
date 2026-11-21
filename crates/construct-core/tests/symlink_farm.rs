@@ -2,7 +2,7 @@
 //! that leaves the granted roots, and an approved outside path still works.
 //! The farm is a workspace full of links to a sibling directory (a plain
 //! link, a chain, a directory link, `..` after a link); every path goes
-//! through every tool under both editors. Each call must be refused or leave
+//! through every tool. Each call must be refused or leave
 //! the outside tree exactly as it was.
 
 use construct_core::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
@@ -20,8 +20,8 @@ struct Farm {
 }
 
 impl Farm {
-    fn new(name: &str, editor: &str) -> Self {
-        let root = std::env::temp_dir().join(format!("construct-farm-{name}-{editor}-{}", std::process::id()));
+    fn new(name: &str) -> Self {
+        let root = std::env::temp_dir().join(format!("construct-farm-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let root = {
             std::fs::create_dir_all(&root).unwrap();
@@ -43,7 +43,7 @@ impl Farm {
         let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
         let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
-        let catalog = Catalog::build(&ToolsConfig { editor: editor.into(), ..Default::default() }, None).unwrap();
+        let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
         Self { root, ctx, catalog }
     }
 
@@ -98,56 +98,44 @@ fn paths(f: &Farm) -> Vec<String> {
     .into()
 }
 
-fn edits(editor: &str, path: &str) -> Value {
-    if editor == "hashline" {
-        json!({ "path": path, "edits": [{ "op": "set", "anchor": "1:aa", "text": "pwned" }] })
-    } else {
-        json!({ "path": path, "old_string": "secret", "new_string": "pwned" })
-    }
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn nothing_leaves_the_workspace_through_a_link() {
-    for editor in ["replace", "hashline"] {
-        let f = Farm::new("farm", editor);
-        let before = f.outside_state();
-        for p in paths(&f) {
-            let calls = [
-                ("read", json!({ "path": p })),
-                ("write", json!({ "path": p, "content": "pwned\n" })),
-                ("edit", edits(editor, &p)),
-                ("grep", json!({ "pattern": "secret", "path": p })),
-                ("glob", json!({ "pattern": "*", "path": p })),
-            ];
-            for (tool, args) in calls {
-                if let Ok(out) = f.call(tool, args).await {
-                    assert!(!out.contains("secret"), "{editor} {tool} {p} leaked: {out}");
-                }
-                assert_eq!(f.outside_state(), before, "{editor} {tool} {p} changed the outside tree");
+    let f = Farm::new("farm");
+    let before = f.outside_state();
+    for p in paths(&f) {
+        let calls = [
+            ("read", json!({ "path": p })),
+            ("write", json!({ "path": p, "content": "pwned\n" })),
+            ("edit", json!({ "path": p, "old_string": "secret", "new_string": "pwned" })),
+            ("grep", json!({ "pattern": "secret", "path": p })),
+            ("glob", json!({ "pattern": "*", "path": p })),
+        ];
+        for (tool, args) in calls {
+            if let Ok(out) = f.call(tool, args).await {
+                assert!(!out.contains("secret"), "{tool} {p} leaked: {out}");
             }
+            assert_eq!(f.outside_state(), before, "{tool} {p} changed the outside tree");
         }
-        // Searching the workspace itself never follows the farm's links out.
-        let out = f.call("grep", json!({ "pattern": "secret" })).await.unwrap_or_default();
-        assert!(!out.contains("secret"), "{editor} grep over the workspace: {out}");
-        let out = f.call("glob", json!({ "pattern": "**/*.txt" })).await.unwrap();
-        assert!(out.contains("ok.txt") && !out.contains("secret"), "{editor} glob: {out}");
-        // The listing shows the links, but does not open them.
-        let out = f.call("read", json!({ "path": f.work().display().to_string() })).await.unwrap();
-        assert!(out.contains("ok.txt"), "{out}");
     }
+    // Searching the workspace itself never follows the farm's links out.
+    let out = f.call("grep", json!({ "pattern": "secret" })).await.unwrap_or_default();
+    assert!(!out.contains("secret"), "grep over the workspace: {out}");
+    let out = f.call("glob", json!({ "pattern": "**/*.txt" })).await.unwrap();
+    assert!(out.contains("ok.txt") && !out.contains("secret"), "glob: {out}");
+    // The listing shows the links, but does not open them.
+    let out = f.call("read", json!({ "path": f.work().display().to_string() })).await.unwrap();
+    assert!(out.contains("ok.txt"), "{out}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_link_that_stays_inside_still_works() {
-    for editor in ["replace", "hashline"] {
-        let f = Farm::new("inside", editor);
-        let out = f.call("read", json!({ "path": "lnk_in/in.txt" })).await.unwrap();
-        assert!(out.contains("inside"), "{out}");
-        f.call("write", json!({ "path": "lnk_in/new.txt", "content": "n\n" })).await.unwrap();
-        assert_eq!(std::fs::read_to_string(f.work().join("sub/new.txt")).unwrap(), "n\n");
-        let out = f.call("read", json!({ "path": "lnk_in" })).await.unwrap();
-        assert!(out.contains("in.txt"), "{out}");
-    }
+    let f = Farm::new("inside");
+    let out = f.call("read", json!({ "path": "lnk_in/in.txt" })).await.unwrap();
+    assert!(out.contains("inside"), "{out}");
+    f.call("write", json!({ "path": "lnk_in/new.txt", "content": "n\n" })).await.unwrap();
+    assert_eq!(std::fs::read_to_string(f.work().join("sub/new.txt")).unwrap(), "n\n");
+    let out = f.call("read", json!({ "path": "lnk_in" })).await.unwrap();
+    assert!(out.contains("in.txt"), "{out}");
 }
 
 /// The race, as a stress: one thread keeps replacing a file with a link to a
@@ -155,7 +143,7 @@ async fn a_link_that_stays_inside_still_works() {
 /// result is whichever the swap allowed, never the outside content.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_file_flipping_to_a_link_is_never_followed() {
-    let f = Farm::new("flip", "replace");
+    let f = Farm::new("flip");
     let (swap, target) = (f.work().join("swap"), f.outside().join("secret.txt"));
     std::fs::write(&swap, "plain\n").unwrap();
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -193,7 +181,7 @@ fn granted(f: &Farm, read: &[&Path], write: &[&Path]) -> Policy {
 
 #[test]
 fn an_approved_outside_path_works_but_only_as_far_as_the_grant() {
-    let f = Farm::new("grant", "replace");
+    let f = Farm::new("grant");
     let secret = f.outside().join("secret.txt");
     // The folder was approved: its files read and write, links out of it do not.
     let policy = granted(&f, &[&f.outside()], &[&f.outside()]);
@@ -217,7 +205,7 @@ fn an_approved_outside_path_works_but_only_as_far_as_the_grant() {
 #[test]
 fn replace_keeps_the_mode_and_leaves_no_temp_file() {
     use std::os::unix::fs::PermissionsExt;
-    let f = Farm::new("replace", "replace");
+    let f = Farm::new("replace");
     let policy = f.ctx.policy();
     let p = f.work().join("ok.txt");
     open::replace_file(&policy, &p, b"new\n", 0o750).unwrap();

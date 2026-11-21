@@ -2,7 +2,7 @@
 //! Carried by every session's head event in the journal, sent as the first
 //! event of a turn, and printed by `construct manifest` for the bench to record.
 
-use crate::config::{CacheMode, CompactionConfig, Config, HashlineConfig};
+use crate::config::{CacheMode, CompactionConfig, Config};
 use crate::tools::Catalog;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -19,14 +19,11 @@ pub struct Manifest {
     /// Hash of the effective config (file plus environment overrides).
     pub config_sha256: String,
     pub tools: Vec<String>,
+    /// Always "replace" now; kept so old results and journals still parse.
     pub editor: String,
     /// The `[context] strategy` that owns the message list (ADR 0042).
     #[serde(default)]
     pub context: String,
-    /// The editor's knobs, when it has any, so bench arms that differ only
-    /// in them (`anchor`, `window_radius`) are told apart.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hashline: Option<HashlineConfig>,
     /// `[tools.web] search`, so arms that differ only in the backend are told apart.
     #[serde(default)]
     pub web_search: String,
@@ -70,7 +67,6 @@ impl Manifest {
             tools: vec![],
             editor: String::new(),
             context: String::new(),
-            hashline: None,
             web_search: String::new(),
             model: String::new(),
             router_mode: String::new(),
@@ -92,9 +88,8 @@ impl Manifest {
             binary_sha256: None,
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools: catalog.names(),
-            editor: cfg.tools.editor.clone(),
+            editor: "replace".into(),
             context: cfg.context.strategy.clone(),
-            hashline: (cfg.tools.editor == "hashline").then(|| cfg.tools.hashline.clone()),
             web_search: cfg.tools.web.search.clone(),
             model: cfg.model.clone(),
             router_mode: cfg.router.mode.clone(),

@@ -578,15 +578,15 @@ class Arms(unittest.TestCase):
         import bench
 
         h = bench.Construct(tmpdir(self) / "home")
-        h.tools, h.no_web = 'editor="hashline"', True
+        h.tools, h.no_web = 'search_name="find"', True
         h.configure("http://127.0.0.1:9/v1", "m")
-        self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["tools"], {"editor": "hashline", "disabled": ["web_search", "web_fetch"]})
+        self.assertEqual(tomllib.loads((h.home / "config.toml").read_text())["tools"], {"search_name": "find", "disabled": ["web_search", "web_fetch"]})
 
     def test_an_arm_is_construct_with_a_tools_overlay(self):
         import bench
 
-        name, body = bench.parse_arm('hashonly:editor="hashline", hashline={anchor="hash"}')
-        self.assertEqual(name, "hashonly")
+        name, body = bench.parse_arm('ddg:web={search="ddg"}')
+        self.assertEqual(name, "ddg")
         bench.ARMS[name] = body
         try:
             h = bench.make_harness(name, tmpdir(self) / "home")
@@ -596,7 +596,7 @@ class Arms(unittest.TestCase):
             import tomllib
 
             parsed = tomllib.loads(cfg)
-            self.assertEqual(parsed["tools"], {"editor": "hashline", "hashline": {"anchor": "hash"}})
+            self.assertEqual(parsed["tools"], {"web": {"search": "ddg"}})
             self.assertEqual(parsed["learn"], {"enabled": False})
             # construct itself reads it that way
             exe = next((p for p in (bench.ROOT / "target" / "debug" / "construct", bench.CONSTRUCT) if p.exists()), None)
@@ -604,7 +604,7 @@ class Arms(unittest.TestCase):
                 self.skipTest("no construct binary built")
             r = subprocess.run([str(exe), "manifest"], env={**h.full_env(), "PATH": os.environ.get("PATH", "")}, capture_output=True, text=True, timeout=60)
             m = json.loads(r.stdout)
-            self.assertEqual((m["editor"], m["hashline"]["anchor"]), ("hashline", "hash"))
+            self.assertEqual(m["web_search"], "ddg")
         finally:
             bench.ARMS.pop(name, None)
 
@@ -689,7 +689,7 @@ class Arms(unittest.TestCase):
     def test_bad_arms_are_refused(self):
         import bench
 
-        for spec in ["noname", "construct:editor=\"x\"", "a:editor=hashline", "a:cfg:compaction = {", "a@/no/such/bin:"]:
+        for spec in ["noname", "construct:search_name=\"x\"", "a:search_name=find", "a:cfg:compaction = {", "a@/no/such/bin:"]:
             with self.subTest(spec), self.assertRaises(SystemExit):
                 bench.parse_arm(spec)
 

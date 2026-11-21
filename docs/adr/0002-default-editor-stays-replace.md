@@ -1,6 +1,6 @@
 # 0002 — The default editor stays `replace`; hashline stays an arm
 
-Status: accepted, 2026-10-21. The count-salt deferral and "line+hash … never wrong" are superseded by 0007; the decision (default stays `replace`) stands.
+Status: superseded by 0059 (the hashline editor was removed), 2026-11-21. Was: accepted, 2026-10-21. The count-salt deferral and "line+hash … never wrong" are superseded by 0007; the decision (default stays `replace`) stands.
 
 ## Context
 

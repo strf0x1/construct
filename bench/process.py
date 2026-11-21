@@ -65,8 +65,9 @@ def metrics(events: list) -> dict:
     rewrites:   an applied edit that rewrites a line an earlier applied edit of
                 the same path wrote: the trace of a wrong-line edit that was
                 noticed and fixed (one never noticed fails the task's check).
-                Only editors that report line regions (hashline) can show one,
-                and positions are not shifted for edits in between.
+                Only editors that report line regions can show one (the
+                replace editor does not; the hashline editor did), and
+                positions are not shifted for edits in between.
     """
     edits = [i for i, e in enumerate(events) if e["name"] == "edit"]
     rejected = [i for i in edits if not events[i]["ok"]]

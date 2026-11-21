@@ -50,19 +50,9 @@ impl Catalog {
         sources: &ToolSources,
     ) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
-        match cfg.editor.as_str() {
-            "replace" => {
-                tools.push(Arc::new(read::Read));
-                tools.push(Arc::new(write::Write));
-                tools.push(Arc::new(edit::Edit));
-            }
-            "hashline" => {
-                tools.push(Arc::new(edit::hashline::HashlineRead::new(&cfg.hashline)));
-                tools.push(Arc::new(write::Write));
-                tools.push(Arc::new(edit::hashline::HashlineEdit::new(&cfg.hashline)));
-            }
-            other => bail!("tools.editor: unknown editor {other:?} (expected \"replace\" or \"hashline\")"),
-        }
+        tools.push(Arc::new(read::Read));
+        tools.push(Arc::new(write::Write));
+        tools.push(Arc::new(edit::Edit));
         if cfg.search_name.is_empty()
             || !cfg.search_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
         {

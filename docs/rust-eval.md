@@ -29,7 +29,6 @@ but not the solution.
 | `rust-replay-tui-copy` | #78 | the TUI | 1 pty-driven e2e | 193 |
 | `rust-replay-openat2` | #82 | sandbox, file tools | 5 contract (`symlink_farm.rs`) | 763 |
 | `rust-replay-journal-query` | #43 | journal, history tools | 6 e2e | 427 |
-| `rust-replay-hashline-salt` | #40 | hashline editor, config | 1 e2e + the whole hashline contract | 164 |
 | `rust-replay-child-key-issue` | #76 | the same as `child-key`, prompted with issue #65 verbatim | 2 e2e (`delegate.rs`) | 57 |
 | `rust-replay-child-key-plan` | #76 | the same as `child-key`, plus a step plan written from the issue and the fixture only | 2 e2e (`delegate.rs`) | 57 |
 
@@ -76,7 +75,7 @@ One-time setup:
 ```sh
 cargo build --release -p construct && cargo build -p construct-dev
 python3 bench/replay.py warm rust-replay-child-key rust-replay-tui-copy \
-  rust-replay-openat2 rust-replay-journal-query rust-replay-hashline-salt
+  rust-replay-openat2 rust-replay-journal-query
 ```
 
 `warm` builds each fixture once into `~/.cache/construct-bench/warm/<task>/target`
@@ -152,7 +151,7 @@ file:
 
 ```sh
 export BENCH_WORK=~/.cache/construct-bench/work
-TASKS="rust-replay-child-key rust-replay-tui-copy rust-replay-openat2 rust-replay-journal-query rust-replay-hashline-salt"
+TASKS="rust-replay-child-key rust-replay-tui-copy rust-replay-openat2 rust-replay-journal-query"
 python3 bench/bench.py task --harness construct --no-learn --no-warmup --rounds 5 \
   --model <model-a> --tasks $TASKS          # -> bench/results/task-<timestamp>.json
 python3 bench/bench.py task --harness construct --no-learn --no-warmup --rounds 5 \

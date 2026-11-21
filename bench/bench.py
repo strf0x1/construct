@@ -417,7 +417,7 @@ ARMS = {}
 def parse_arm(spec: str):
     """`NAME[@BIN]:OVERLAY` -> (name, {"tools", "cfg", "bin"}). OVERLAY is
     the body of the [tools] table as an inline table, e.g.
-    hashonly:'editor="hashline", hashline={anchor="hash"}', or with a `cfg:`
+    ddg:'web={search="ddg"}', or with a `cfg:`
     prefix top-level TOML, e.g. aging:'cfg:compaction = { age_rounds = 16 }'.
     BIN runs another construct build, e.g. main@/var/tmp/main/construct: ."""
     import tomllib
@@ -425,7 +425,7 @@ def parse_arm(spec: str):
     head, sep, body = spec.partition(":")
     name, _, bin = head.partition("@")
     if not sep or not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
-        sys.exit(f"--arm {spec!r}: expected NAME[@BIN]:TOOLS, e.g. hashline:'editor=\"hashline\"'")
+        sys.exit(f"--arm {spec!r}: expected NAME[@BIN]:TOOLS, e.g. ddg:'web={{search=\"ddg\"}}'")
     if name in HARNESSES or name in VARIANTS:
         sys.exit(f"--arm {name}: that name is a harness")
     if bin and not Path(bin).is_file():
@@ -1658,7 +1658,7 @@ def main():
     ap.add_argument("--no-warmup", action="store_true")
     ap.add_argument("--harness", nargs="+", default=None, help="default: all three, or none when --arm is given")
     ap.add_argument("--arm", action="append", default=[], metavar="NAME[@BIN]:OVERLAY",
-                    help="a construct arm: a [tools] overlay, e.g. hashline:'editor=\"hashline\"', or cfg:TOML for top-level config; @BIN runs another build; repeat for each arm")
+                    help="a construct arm: a [tools] overlay, e.g. ddg:'web={search=\"ddg\"}', or cfg:TOML for top-level config; @BIN runs another build; repeat for each arm")
     ap.add_argument("--sessions", type=int, default=None, help="curriculum: run only the first N sessions")
     ap.add_argument("--no-learn", action="store_true", help="[learn] enabled = false in every construct home")
     ap.add_argument("--invalid-retries", type=int, default=2, help="re-run a task run the provider failed under (task suite) up to N times")
