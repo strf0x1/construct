@@ -937,6 +937,55 @@ fn a_model_that_keeps_hitting_the_output_limit_ends_the_turn_with_the_error() {
     assert_eq!(rows.iter().filter(|r| r.ty == "nudge").count(), 3);
 }
 
+/// The same call round after round is told once, with the call and its last
+/// result, at `max_repeats` (5); one more identical round ends the turn
+/// instead of running to `max_steps` (#232).
+#[test]
+fn a_model_repeating_the_same_tool_call_is_told_then_stopped() {
+    let mut steps: Vec<Value> = (0..8).map(|_| json!({ "call": "read", "args": { "path": "a.txt" } })).collect();
+    steps.push(json!({ "text": "never reached" }));
+    let env = Env::new("tool-loop", json!({ "steps": steps }));
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "read a.txt"]);
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 6, "five rounds, the reminder, one more round, then it stops: {}", text(&out));
+    let last = reqs[5]["messages"].as_array().unwrap().last().unwrap().clone();
+    let reminder = last["content"].as_str().unwrap();
+    assert_eq!(last["role"], "user");
+    assert!(reminder.contains("same tool call 5 times") && reminder.contains("read"), "{reminder}");
+    assert!(reminder.contains("hello"), "the reminder quotes the last result: {reminder}");
+    let rows = env.journal();
+    let whys: Vec<&str> = rows.iter().filter(|r| r.ty == "nudge").filter_map(|r| r.payload["why"].as_str()).collect();
+    assert_eq!(whys, ["tool_loop"]);
+    let errors: Vec<&str> =
+        rows.iter().filter(|r| r.ty == "error").filter_map(|r| r.payload["message"].as_str()).collect();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("(max_repeats)") && errors[0].contains("read"), "{errors:?}");
+    assert_eq!(rows.iter().filter(|r| r.ty == "tool_start").count(), 6);
+}
+
+/// A model that heeds the reminder finishes the turn normally, and
+/// `max_repeats = 0` turns the guard off.
+#[test]
+fn the_loop_guard_lets_a_heeded_reminder_finish_and_can_be_turned_off() {
+    let mut steps: Vec<Value> = (0..5).map(|_| json!({ "call": "read", "args": { "path": "a.txt" } })).collect();
+    steps.push(json!({ "text": "It says hello." }));
+    let env = Env::new("tool-loop-heeded", json!({ "steps": steps.clone() }));
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "read a.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let rows = env.journal();
+    assert_eq!(rows.iter().filter(|r| r.ty == "nudge").count(), 1);
+    assert!(rows.iter().all(|r| r.ty != "error"), "a heeded reminder is not an error");
+
+    let env = Env::new("tool-loop-off", json!({ "steps": steps }));
+    env.config("max_repeats = 0\n");
+    std::fs::write(env.work.join("a.txt"), "hello\n").unwrap();
+    let out = env.run(&["run", "--no-learn", "read a.txt"]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(env.journal().iter().all(|r| r.ty != "nudge"));
+}
+
 #[test]
 fn journal_holds_a_turn_as_the_same_events_json_prints() {
     let env = Env::new(

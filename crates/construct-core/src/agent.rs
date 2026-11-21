@@ -6,6 +6,7 @@
 mod compaction;
 mod deck;
 mod limits;
+mod loop_guard;
 mod nudge;
 mod restore;
 mod tools;
@@ -187,7 +188,7 @@ impl Agent {
         let mut interrupted = false;
         // One forced cut and resend per step when the provider says the
         // prompt is too long; a second rejection ends the turn.
-        let (mut overflowed, mut nudges) = (false, 0);
+        let (mut overflowed, mut nudges, mut guard) = (false, 0, loop_guard::Guard::default());
         loop {
             if self.cancelled() {
                 interrupted = true;
@@ -238,25 +239,16 @@ impl Agent {
                 }
             };
             overflowed = false;
-            turn_usage.add(&completion.usage);
-            self.usage.add(&completion.usage);
-            self.last_prompt_tokens = completion.usage.prompt_tokens;
-            self.measure(bytes, completion.usage.prompt_tokens);
-            self.journal.emit(
-                Event::Usage {
-                    prompt: completion.usage.prompt_tokens,
-                    completion: completion.usage.completion_tokens,
-                    cached: completion.usage.cached_tokens,
-                    cache_write: completion.usage.cache_write_tokens,
-                    cost: completion.usage.cost,
-                    served: completion.usage.served.clone(),
-                },
-                tx,
-            );
+            self.account(&completion.usage, bytes, &mut turn_usage, tx);
             self.push(completion.message.clone(), tx);
-            if !completion.message.tool_calls.is_empty() {
-                self.run_tools(&completion.message.tool_calls, tx).await;
-            } else if !self.nudge(&completion, &mut nudges, tx) {
+            let calls = &completion.message.tool_calls;
+            if !calls.is_empty() {
+                self.run_tools(calls, tx).await;
+            }
+            // A text round resets the loop guard; one that is not an answer is nudged.
+            if !self.guard_loop(&mut guard, calls, tx)
+                || (calls.is_empty() && !self.nudge(&completion, &mut nudges, tx))
+            {
                 break;
             }
         }

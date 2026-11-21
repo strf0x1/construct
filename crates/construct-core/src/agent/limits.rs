@@ -1,7 +1,7 @@
 //! The model's accounting: what a turn costs, and the window compaction plans
 //! against. Kept out of the loop so a pricing or window change has one home.
 
-use super::Agent;
+use super::{Agent, Event, Events};
 use crate::config::Config;
 use crate::llm::Usage;
 
@@ -22,6 +22,26 @@ pub(super) fn price(cfg: &Config, model: &str, u: &mut Usage) {
 }
 
 impl Agent {
+    /// A completed model call's usage: added to the turn and the session,
+    /// measured for compaction and journaled.
+    pub(super) fn account(&mut self, u: &Usage, bytes: u64, turn: &mut Usage, tx: &Events) {
+        turn.add(u);
+        self.usage.add(u);
+        self.last_prompt_tokens = u.prompt_tokens;
+        self.measure(bytes, u.prompt_tokens);
+        self.journal.emit(
+            Event::Usage {
+                prompt: u.prompt_tokens,
+                completion: u.completion_tokens,
+                cached: u.cached_tokens,
+                cache_write: u.cache_write_tokens,
+                cost: u.cost,
+                served: u.served.clone(),
+            },
+            tx,
+        );
+    }
+
     /// Learn bytes per token from a request the provider counted. Small
     /// requests are skipped: fixed overheads would skew the ratio.
     pub(super) fn measure(&mut self, bytes: u64, prompt_tokens: u64) {
