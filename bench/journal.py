@@ -111,9 +111,11 @@ def cache_metrics(home: Path, since: float = 0) -> dict:
     """Journaled agent-call usage, with per-session and per-call diagnostics.
 
     Usage-bearing calls are numbered from 1 within their complete session; only usage at
-    or after `since` is included. A drop is a strictly smaller share than the
-    preceding included call on the same model. Model switches and zero-token
-    calls reset that comparison. Missing cached counts mean zero reported
+    or after `since` is included. A drop is a call whose cached tokens are under
+    half the preceding included call's prompt on the same model: the prefix it
+    re-sent was mostly not reused. A share that falls only because a call added
+    much new content is not a drop. Model switches and zero-token calls reset
+    that comparison. Missing cached counts mean zero reported
     hits, not proof that a provider supports caching. `series` is diagnostic
     data, excluded by bench compare's existing series rule.
     """
@@ -132,11 +134,11 @@ def cache_metrics(home: Path, since: float = 0) -> dict:
             cached = usage.get("cached_tokens") or 0
             share = cached / prompt if prompt else None
             model = row.get("model") or header.get("model", "")
-            drop = bool(previous and share is not None and model == previous[0] and share < previous[1])
+            drop = bool(previous and prompt and model == previous[0] and cached < previous[1] / 2)
             calls.append({"index": index, "at": row.get("at"), "model": model,
                           "prompt_tokens": prompt, "cached_tokens": cached,
                           "cache_hit_rate": share, "drop": drop})
-            previous = (model, share) if share is not None else None
+            previous = (model, prompt) if prompt else None
         if calls:
             series.append({"session": header.get("id", ""), **cache_totals(calls),
                            "first_drop": next((c["index"] for c in calls if c["drop"]), None), "calls": calls})

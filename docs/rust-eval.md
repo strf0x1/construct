@@ -117,16 +117,17 @@ Task runs include `prompt_cache` from Construct's journal, alongside the
 existing endpoint-wide `cache_hit_rate`. The journal report covers agent
 calls (including separately journaled children); endpoint totals also include
 side calls such as summaries and learning. `prompt_cache.cache_hit_rate` is
-Σcached / Σprompt, and `prompt_cache.drops` counts strict decreases from the
-preceding call on the same model within each session. Both are comparable
+Σcached / Σprompt, and `prompt_cache.drops` counts calls whose cached tokens
+are under half the preceding call's prompt on the same model within each
+session: the prefix it re-sent was mostly not reused. A share that falls
+because a call added a lot of new content is not a drop. Both are comparable
 with `bench.py compare --only '^prompt_cache\.'`: higher share and fewer
 drops are better. A drop is an observation, not proof of prefix invalidation.
 
 `prompt_cache.series` retains each session's weighted share, `first_drop`
 (the 1-based usage-bearing call number, or null), and its individual calls. `compare` skips
 this diagnostic series rather than scoring call indices or timestamps.
-Model changes and zero-prompt calls reset the comparison; an equal share is
-not a drop. An absent cached count means zero reported hits; it does not
+Model changes and zero-prompt calls reset the comparison. An absent cached count means zero reported hits; it does not
 establish that a provider supports caching. Zero total prompt tokens produce
 null share.
 

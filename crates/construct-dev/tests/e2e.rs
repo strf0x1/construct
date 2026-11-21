@@ -101,6 +101,44 @@ fn model_can_enable_a_group_the_router_missed() {
     assert!(std::fs::read_to_string(env.home.join("memory/USER.md")).unwrap().contains("Prefers terse answers"));
 }
 
+/// A group switched on mid-session changes the `tools` array, which leads a
+/// provider's cached prefix, so the next request misses the cache entirely.
+/// `[tools] initial` sends the group from the first request: the array never
+/// changes and every later request hits (#187). A mistyped label fails.
+#[test]
+fn tools_initial_keeps_the_tool_list_and_the_prompt_cache_stable() {
+    let steps = json!({ "steps": [
+        { "call": "enable_tools", "args": { "groups": ["memory"] } },
+        { "call": "memory", "args": { "target": "user", "operations": [ { "action": "add", "content": "Likes tea" } ] } },
+        { "text": "noted" }
+    ] });
+    let cached = |env: &Env| -> Vec<u64> {
+        env.journal().iter().filter(|r| r.ty == "usage").map(|r| r.payload["cached"].as_u64().unwrap_or(0)).collect()
+    };
+
+    let routed = Env::new("initial-off", steps.clone());
+    routed.config("[router]\nmode = \"local\"\n");
+    assert!(routed.run(&["run", "--no-learn", "go on"]).status.success());
+    let c = cached(&routed);
+    assert!(c[1] == 0 && c[2] > 0, "the request after the enable misses: {c:?}");
+
+    let initial = Env::new("initial-on", steps);
+    initial.config("[router]\nmode = \"local\"\n[tools]\ninitial = [\"memory\"]\n");
+    let out = initial.run(&["run", "--no-learn", "go on"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let reqs = initial.requests();
+    assert!(tool_names(&reqs[0]).contains(&"memory".to_string()));
+    assert!(reqs.iter().all(|r| r["tools"] == reqs[0]["tools"]), "the tool list never changes");
+    let c = cached(&initial);
+    assert!(c[1..].iter().all(|&n| n > 0), "every later request hits: {c:?}");
+
+    let typo = Env::new("initial-typo", json!({ "steps": [ { "text": "hi" } ] }));
+    typo.config("[tools]\ninitial = [\"wbe\"]\n");
+    let out = typo.run(&["run", "--no-learn", "hi"]);
+    assert!(!out.status.success());
+    assert!(text(&out).contains("[tools] initial: unknown group \"wbe\""), "{}", text(&out));
+}
+
 #[test]
 fn disabled_tools_do_not_exist_for_the_session_or_the_learning_pass() {
     let obs = json!({ "observations": [{ "problem_class": "missing release output directory", "summary": "release dir was missing", "fix": "mkdir -p dist first", "evidence": "ls: cannot access '/nonexistent-release-dir'" }] }).to_string();
