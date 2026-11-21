@@ -6,7 +6,7 @@
 //! model request or output line.
 
 use crate::common::*;
-use construct_core::tools::control::NAME;
+use construct_deck::NAME;
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;

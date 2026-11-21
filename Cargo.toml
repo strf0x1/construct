@@ -16,6 +16,8 @@ publish = false
 construct-core = { path = "crates/construct-core" }
 # The TUI front end; only the construct binary starts it (#277).
 construct-tui = { path = "crates/construct-tui" }
+# Deck-only tools, above the engine; the construct binary wires them in (#314).
+construct-deck = { path = "crates/construct-deck" }
 anyhow = "1"
 # Both the engine and the TUI name async trait impls.
 async-trait = "0.1"

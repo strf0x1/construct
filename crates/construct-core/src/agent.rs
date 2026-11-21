@@ -19,7 +19,7 @@ use crate::journal::{self, notes::Coalescer};
 use crate::llm::{self, Delta, Message, Usage};
 use crate::manifest::Manifest;
 use crate::router::{self, Route};
-use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group};
+use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, ToolSources};
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};

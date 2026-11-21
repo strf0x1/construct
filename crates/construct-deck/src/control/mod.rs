@@ -1,13 +1,6 @@
-//! The coordinator's `deck` tool (#222, contract 1.6.0 §13, Deck ADR 0011
-//! §4): the closed set of task-control operations a Deck coordinator uses to
-//! create, integrate, prompt, wait for and stop worker tasks through Deck's gateway.
-//!
-//! The design choice: the tool is a typed mirror of the wire, nothing more.
-//! Each operation takes exactly the wire's fields, is checked here so a
-//! malformed call never leaves the process, and goes out as one bounded JSON
-//! body; the host decides everything else. There is no operation Deck does
-//! not serve, so the tool cannot answer approvals, grant, publish, destroy,
-//! resume, start, mark done or change budgets, and it never retries.
+//! The `deck` tool: wire shaping, the HTTP client, the listing summaries and
+//! the `ToolSource` the composition root registers. See the crate docs for the
+//! design choice.
 
 mod client;
 mod integration;
@@ -16,10 +9,11 @@ mod summary;
 pub use client::{MAX_BODY, MAX_REPLY, PATH, REFUSALS, refusal};
 pub use integration::{MAX_CONTRIBUTORS, MAX_INTEGRATION_REASON};
 
-use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def};
+use construct_core::config::ToolsConfig;
+use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def};
 use serde_json::{Map, Value, json};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// The tool's wire name.
@@ -255,7 +249,17 @@ impl Tool for Control {
         let body = request(&args)?;
         let reply = self.send(ctx, &body).await?;
         let (text, data) = summary::reply(&body, &reply);
-        Ok(Output::plain(crate::tools::cap_output(ctx, NAME, &text)).with_data(data))
+        Ok(Output::plain(construct_core::tools::cap_output(ctx, NAME, &text)).with_data(data))
+    }
+}
+
+/// What the composition root registers: the `deck` tool, for a task with a
+/// control gateway.
+pub struct DeckTools;
+
+impl ToolSource for DeckTools {
+    fn tools(&self, _cfg: &ToolsConfig, deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(deck.control.iter().map(|url| Arc::new(Control::new(url)) as Arc<dyn Tool>).collect())
     }
 }
 

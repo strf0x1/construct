@@ -8,8 +8,8 @@
 use construct_core::config::{MemoryConfig, Paths};
 use construct_core::memory::Store;
 use construct_core::sandbox::Policy;
-use construct_core::tools::control::{self, Control, MAX_BODY, MAX_WAIT_MS, OPERATIONS, PATH, REFUSALS};
 use construct_core::tools::{Ctx, Tool};
+use construct_deck::{self as control, Control, MAX_BODY, MAX_WAIT_MS, OPERATIONS, PATH, REFUSALS};
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;

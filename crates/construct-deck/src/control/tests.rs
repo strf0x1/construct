@@ -108,13 +108,19 @@ fn replies_read_as_what_to_do_next() {
 
 #[test]
 fn the_tool_exists_only_with_a_control_url() {
-    use crate::tools::{Catalog, Deck};
-    let cfg = crate::config::ToolsConfig::default();
-    assert!(Catalog::build(&cfg, None).unwrap().get(NAME).is_none(), "an ordinary session has no deck tool");
+    use construct_core::tools::{Catalog, ToolSources};
+    let cfg = ToolsConfig::default();
+    let sources = ToolSources::default().with(DeckTools);
+    let build = |deck: &Deck| Catalog::build_extended(&cfg, None, deck, &sources).unwrap();
+    assert!(build(&Deck::default()).get(NAME).is_none(), "an ordinary session has no deck tool");
     let github = Deck { boundary: true, github: true, control: None };
-    assert!(Catalog::build_with(&cfg, None, &github).unwrap().get(NAME).is_none(), "nor a worker task");
+    assert!(build(&github).get(NAME).is_none(), "nor a worker task");
     let coordinator = Deck { control: Some("http://127.0.0.1:9".into()), ..Deck::default() };
-    let catalog = Catalog::build_with(&cfg, None, &coordinator).unwrap();
+    let catalog = build(&coordinator);
     assert_eq!(catalog.group_of(NAME), Some(Group::Coordinator));
     assert_eq!(catalog.kind_of(NAME), ToolKind::Execute);
+    assert_eq!(catalog.names().last().map(String::as_str), Some(NAME), "it stays last, as it was");
+    let off = ToolsConfig { disabled: vec![NAME.into()], ..ToolsConfig::default() };
+    let catalog = Catalog::build_extended(&off, None, &coordinator, &sources).unwrap();
+    assert!(catalog.get(NAME).is_none(), "[tools] disabled reaches a registered tool");
 }

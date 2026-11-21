@@ -34,6 +34,7 @@ use anyhow::Result;
 use app::{App, Cmd};
 use construct_core::agent::Event;
 use construct_core::config::{Config, Paths};
+use construct_core::tools::ToolSources;
 use crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event as CEvent, EventStream, KeyEventKind, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -47,7 +48,7 @@ use ratatui::backend::CrosstermBackend;
 use std::io::Write;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
-use worker::{Ready, agent_task};
+use worker::{Launch, Ready, agent_task};
 
 struct Guard {
     kbd: bool,
@@ -120,9 +121,10 @@ pub async fn run(
     resume: Option<String>,
     startup_browser: bool,
     model_override: Option<String>,
+    sources: ToolSources,
 ) -> Result<()> {
     let saved_stderr = quiet_stderr(&paths);
-    let r = run_inner(cfg, paths, resume, startup_browser, model_override).await;
+    let r = run_inner(cfg, paths, resume, startup_browser, model_override, sources).await;
     restore_stderr(saved_stderr);
     r
 }
@@ -133,6 +135,7 @@ async fn run_inner(
     resume: Option<String>,
     startup_browser: bool,
     model_override: Option<String>,
+    sources: ToolSources,
 ) -> Result<()> {
     construct_core::trace::mark("tui start");
     terminal::enable_raw_mode()?;
@@ -169,8 +172,13 @@ async fn run_inner(
     let (landed_tx, mut landed_rx) = mpsc::unbounded_channel::<()>();
     let (refused_tx, mut refused_rx) = mpsc::unbounded_channel::<()>();
     let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx, refused: refused_tx };
-    let worker =
-        tokio::spawn(agent_task(cfg.clone(), paths.clone(), resume, startup_browser, model_override, cmd_rx, out));
+    let worker = tokio::spawn(agent_task(
+        cfg.clone(),
+        paths.clone(),
+        Launch { resume, startup_browser, model_override, sources },
+        cmd_rx,
+        out,
+    ));
 
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));

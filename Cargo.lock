@@ -908,6 +908,7 @@ dependencies = [
  "anyhow",
  "clap",
  "construct-core",
+ "construct-deck",
  "construct-tui",
  "reqwest",
  "serde_json",
@@ -948,6 +949,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "construct-deck"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "reqwest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "construct-dev"
 version = "0.4.0"
 dependencies = [
@@ -956,6 +969,7 @@ dependencies = [
  "bytes",
  "clap",
  "construct-core",
+ "construct-deck",
  "futures",
  "insta",
  "jsonschema",

@@ -72,7 +72,7 @@ tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "deck", "deck_control", 
 name = "deck-tools"
 paths = [
   "crates/construct-core/src/tools/boundary/",
-  "crates/construct-core/src/tools/control/",
+  "crates/construct-deck/",
   "crates/construct-core/src/tools/developer/",
 ]
 tests = ["acp", "acp_live", "deck", "deck_control", "deck_github", "developer", "permission", "snapshots"]

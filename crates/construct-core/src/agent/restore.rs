@@ -5,7 +5,7 @@ use super::*;
 
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, None)
+        Self::build(cfg, paths, cwd, resume, None, &ToolSources::default())
     }
 
     /// An explicit launch or recovery model choice wins over saved policy.
@@ -16,7 +16,20 @@ impl Agent {
         resume: Option<String>,
         model_override: Option<&str>,
     ) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, model_override)
+        Self::build(cfg, paths, cwd, resume, model_override, &ToolSources::default())
+    }
+
+    /// `new_with_model` for a process whose composition root adds tools
+    /// (`ToolSources`), such as the Deck ones.
+    pub fn new_with_tools(
+        cfg: Config,
+        paths: Paths,
+        cwd: std::path::PathBuf,
+        resume: Option<String>,
+        model_override: Option<&str>,
+        sources: &ToolSources,
+    ) -> Result<Self> {
+        Self::build(cfg, paths, cwd, resume, model_override, sources)
     }
 
     fn build(
@@ -25,6 +38,7 @@ impl Agent {
         cwd: std::path::PathBuf,
         resume: Option<String>,
         model_override: Option<&str>,
+        sources: &ToolSources,
     ) -> Result<Self> {
         let file = journal::path(&paths, &cwd);
         if let Some(choice) = model_override {
@@ -89,7 +103,7 @@ impl Agent {
             github: cfg.github_gateway.is_some(),
             control: crate::config::deck::control_url(),
         };
-        let catalog = Arc::new(Catalog::build_with(&cfg.tools, mcp.clone(), &deck)?);
+        let catalog = Arc::new(Catalog::build_extended(&cfg.tools, mcp.clone(), &deck, sources)?);
         let manifest = Manifest::new(&cfg, &catalog);
         let cwd_s = cwd.display().to_string();
         let mut unsent = vec![];

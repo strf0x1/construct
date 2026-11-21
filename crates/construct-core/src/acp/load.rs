@@ -66,8 +66,15 @@ impl Server {
         // the resume path's, so `--resume` and ACP cannot disagree. The
         // client's `mcpServers` are ignored, as in `session/new`: construct's
         // servers come from config, and their credentials never reach a log.
-        let agent = Agent::new(self.cfg.clone(), self.paths.clone(), cwd, Some(sid.to_string()))
-            .map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
+        let agent = Agent::new_with_tools(
+            self.cfg.clone(),
+            self.paths.clone(),
+            cwd,
+            Some(sid.to_string()),
+            None,
+            &self.sources,
+        )
+        .map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
         if replay {
             let entries = agent.journal.entries().map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
             let catalog = agent.catalog.clone();

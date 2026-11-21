@@ -95,7 +95,7 @@ fn projects(list: &Value) -> Option<String> {
         .map(|p| {
             let id = p["id"].as_str().unwrap_or("?");
             match p["name"].as_str().filter(|n| !n.is_empty() && *n != id) {
-                Some(name) => format!("{} ({id})", crate::text::truncate(name, 64)),
+                Some(name) => format!("{} ({id})", construct_core::text::truncate(name, 64)),
                 None => id.to_string(),
             }
         })
@@ -122,13 +122,13 @@ fn detail(task: &Value) -> String {
     if integration.is_object() {
         out.push_str(&integration_detail(integration));
     } else if let Some(commit) = worktree["base_commit"].as_str() {
-        out.push_str(&format!("\nStarting commit: {}", crate::text::truncate(commit, 64)));
+        out.push_str(&format!("\nStarting commit: {}", construct_core::text::truncate(commit, 64)));
     }
     if let Some(target) = worktree["target_ref"].as_str().filter(|_| !integration.is_object()) {
-        out.push_str(&format!("\nTarget ref: {}", crate::text::truncate(target, 200)));
+        out.push_str(&format!("\nTarget ref: {}", construct_core::text::truncate(target, 200)));
     }
     if let Some(commit) = worktree["review_commit"].as_str() {
-        out.push_str(&format!("\nReview commit: {}", crate::text::truncate(commit, 64)));
+        out.push_str(&format!("\nReview commit: {}", construct_core::text::truncate(commit, 64)));
     }
     if let Some(message) = task["last_message"].as_str().filter(|m| !m.is_empty()) {
         let cut = if task["last_message_truncated"].as_bool().unwrap_or(false) { " (cut by Deck)" } else { "" };
@@ -151,23 +151,30 @@ fn integration_detail(integration: &Value) -> String {
         }
         _ => "unknown".to_string(),
     };
-    text.push_str(&format!("\nDestination: {}", crate::text::truncate(&place, 480)));
+    text.push_str(&format!("\nDestination: {}", construct_core::text::truncate(&place, 480)));
     if let Some(branch) = integration["branch"].as_str() {
-        text.push_str(&format!("\nReview branch: {}", crate::text::truncate(branch, 200)));
+        text.push_str(&format!("\nReview branch: {}", construct_core::text::truncate(branch, 200)));
     }
     if let Some(commit) = integration["base_commit"].as_str() {
-        text.push_str(&format!("\nStarting commit: {}", crate::text::truncate(commit, 64)));
+        text.push_str(&format!("\nStarting commit: {}", construct_core::text::truncate(commit, 64)));
     }
     if let Some(contributors) = integration["contributors"].as_array() {
         text.push_str("\nContributors in merge order:");
         for contributor in contributors.iter().take(MAX_CONTRIBUTORS) {
             let id = contributor["id"].as_str().unwrap_or("?");
             let commit = contributor["commit"].as_str().unwrap_or("waiting for commit");
-            text.push_str(&format!("\n- {}: {}", crate::text::truncate(id, 128), crate::text::truncate(commit, 64)));
+            text.push_str(&format!(
+                "\n- {}: {}",
+                construct_core::text::truncate(id, 128),
+                construct_core::text::truncate(commit, 64)
+            ));
         }
     }
     if let Some(reason) = integration["reason"].as_str() {
-        text.push_str(&format!("\nWaiting for input: {}", crate::text::truncate(reason, MAX_INTEGRATION_REASON)));
+        text.push_str(&format!(
+            "\nWaiting for input: {}",
+            construct_core::text::truncate(reason, MAX_INTEGRATION_REASON)
+        ));
     }
     text
 }
@@ -187,14 +194,14 @@ pub fn line(task: &Value, message: bool) -> String {
         None => out.push_str(", no turn yet"),
     }
     if let Some(title) = s("title") {
-        out.push_str(&format!(" \"{}\"", crate::text::truncate(title, 80)));
+        out.push_str(&format!(" \"{}\"", construct_core::text::truncate(title, 80)));
     }
     match s("attention") {
         Some(known @ ("approval" | "question" | "finished" | "failed")) => {
             out.push_str(&format!("; needs you: {known}"))
         }
         Some("integration_input") => out.push_str(". Integration needs input"),
-        Some(other) => out.push_str(&format!("; needs a person: {}", crate::text::truncate(other, 64))),
+        Some(other) => out.push_str(&format!("; needs a person: {}", construct_core::text::truncate(other, 64))),
         None => {}
     }
     if let Some(n) = task["pending_approvals"].as_u64().filter(|n| *n > 0) {
@@ -214,16 +221,16 @@ pub fn line(task: &Value, message: bool) -> String {
     } else if publication["kind"] == "branch" {
         let commit = publication["commit"].as_str().unwrap_or_default();
         let branch = publication["branch"].as_str().unwrap_or("?");
-        out.push_str(&format!("; published {branch}@{}", crate::text::head(commit, 12)));
+        out.push_str(&format!("; published {branch}@{}", construct_core::text::head(commit, 12)));
     }
     if let Some(phase) = task["integration"]["phase"].as_str() {
-        out.push_str(&format!(". Integration: {}", crate::text::truncate(phase, 32)));
+        out.push_str(&format!(". Integration: {}", construct_core::text::truncate(phase, 32)));
     } else if let Some(branch) = task["worktree"]["branch"].as_str() {
-        out.push_str(&format!(". Local branch {}", crate::text::truncate(branch, 200)));
+        out.push_str(&format!(". Local branch {}", construct_core::text::truncate(branch, 200)));
     }
     if message && let Some(last) = s("last_message").filter(|m| !m.is_empty()) {
         let flat = last.split_whitespace().collect::<Vec<_>>().join(" ");
-        out.push_str(&format!(" | last: {}", crate::text::truncate(&flat, LINE_MESSAGE)));
+        out.push_str(&format!(" | last: {}", construct_core::text::truncate(&flat, LINE_MESSAGE)));
     }
     out
 }
