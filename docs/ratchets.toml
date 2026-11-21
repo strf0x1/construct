@@ -25,6 +25,8 @@
 # Modularity plan: issue #303.
 [pairs]
 construct-core = [
+    # Intended (ADR 0057): Config's fields use these modules' types, and
+    # they add `impl Config` blocks. Cut only the dependency, not the path.
     "config <-> models",
     "config <-> providers",
 ]
