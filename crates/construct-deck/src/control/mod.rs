@@ -9,11 +9,10 @@ mod summary;
 pub use client::{MAX_BODY, MAX_REPLY, PATH, REFUSALS, refusal};
 pub use integration::{MAX_CONTRIBUTORS, MAX_INTEGRATION_REASON};
 
-use construct_core::config::ToolsConfig;
-use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def};
+use construct_core::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def};
 use serde_json::{Map, Value, json};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// The tool's wire name.
@@ -250,16 +249,6 @@ impl Tool for Control {
         let reply = self.send(ctx, &body).await?;
         let (text, data) = summary::reply(&body, &reply);
         Ok(Output::plain(construct_core::tools::cap_output(ctx, NAME, &text)).with_data(data))
-    }
-}
-
-/// What the composition root registers: the `deck` tool, for a task with a
-/// control gateway.
-pub struct DeckTools;
-
-impl ToolSource for DeckTools {
-    fn tools(&self, _cfg: &ToolsConfig, deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
-        Ok(deck.control.iter().map(|url| Arc::new(Control::new(url)) as Arc<dyn Tool>).collect())
     }
 }
 

@@ -4,6 +4,9 @@
 
 use super::summary::{LINE_MESSAGE, line, reply};
 use super::*;
+use crate::DeckTools;
+use construct_core::config::ToolsConfig;
+use construct_core::tools::Deck;
 
 #[test]
 fn each_operation_takes_exactly_the_wire_s_fields() {

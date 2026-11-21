@@ -293,7 +293,7 @@ async fn run_once(
         )),
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
-            let hint = super::shell_exit::hint(policy, cwd, &out);
+            let hint = super::shell_exit::hint(policy, cwd, &ctx.sources, &out);
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),

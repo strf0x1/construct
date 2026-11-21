@@ -15,7 +15,6 @@ pub mod call;
 mod cap;
 mod catalog;
 mod ctx;
-pub mod developer;
 pub mod edit;
 pub mod fs;
 pub mod glob;
@@ -198,11 +197,13 @@ pub fn obj(props: Value, required: &[&str]) -> Value {
     json!({ "type": "object", "properties": props, "required": required })
 }
 
-fn arg<'a>(a: &'a Value, k: &str) -> Option<&'a str> {
+/// A string argument, for tools above core (#315).
+pub fn arg<'a>(a: &'a Value, k: &str) -> Option<&'a str> {
     a.get(k).and_then(Value::as_str)
 }
 
-fn num(a: &Value, k: &str) -> Option<usize> {
+/// A non-negative integer argument, given as a number or a numeric string.
+pub fn num(a: &Value, k: &str) -> Option<usize> {
     a.get(k).and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).map(|n| n as usize)
 }
 

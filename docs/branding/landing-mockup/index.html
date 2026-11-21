@@ -1,0 +1,650 @@
+<title>Construct Landing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="construct: an agent harness in a single small binary. Headless, journaled, and it learns between sessions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: one centred column. The voxel factory hero runs to 1120px, then the install line,
+   then a 2×2 grid of small live machines, one per thing that makes construct different. */
+:root {
+  --bg: #E7EAEE;
+  --surface: #F2F4F6;
+  --ink: #12161B;
+  --muted: #586372;
+  --line: #CBD2DA;
+  --cube-top: #7F98FF;
+  --cube-front: #3E5FE6;
+  --cube-side: #2843B3;
+  --cube-edge: rgba(12, 22, 70, .30);
+  --steel-top: #C3CAD3;
+  --steel-front: #8F99A6;
+  --steel-side: #6E7885;
+  --accent: #F2BC00;
+  --accent-ink: #1B1500;
+  --grid: rgba(28, 40, 62, .10);
+  --ok: #1E8A55;
+  --skip: #8A93A0;
+  --f-body: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1116; --surface: #141A21; --ink: #E4E8EE; --muted: #8C97A5; --line: #25303B;
+    --cube-top: #95ABFF; --cube-front: #5373F2; --cube-side: #2F48B6; --cube-edge: rgba(0, 0, 0, .40);
+    --steel-top: #5B6674; --steel-front: #3D4652; --steel-side: #2C343E;
+    --accent: #FFCB1F; --accent-ink: #1B1500; --grid: rgba(190, 210, 235, .07);
+    --ok: #4CC487; --skip: #66707D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1116; --surface: #141A21; --ink: #E4E8EE; --muted: #8C97A5; --line: #25303B;
+  --cube-top: #95ABFF; --cube-front: #5373F2; --cube-side: #2F48B6; --cube-edge: rgba(0, 0, 0, .40);
+  --steel-top: #5B6674; --steel-front: #3D4652; --steel-side: #2C343E;
+  --accent: #FFCB1F; --accent-ink: #1B1500; --grid: rgba(190, 210, 235, .07);
+  --ok: #4CC487; --skip: #66707D;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 17px/1.55 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* top bar */
+.bar { display: flex; justify-content: space-between; align-items: center; padding-block: 22px 0; gap: 16px; }
+.mark { font: 700 13px/1 var(--f-mono); letter-spacing: .02em; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
+.mark i { width: 10px; height: 10px; background: var(--cube-front); box-shadow: 3px -3px 0 var(--cube-top); display: inline-block; }
+.bar nav { display: flex; gap: 22px; font: 400 12px/1 var(--f-mono); }
+.bar nav a { color: var(--muted); text-decoration: none; }
+.bar nav a:hover { color: var(--ink); }
+
+/* hero */
+.hero { padding-block: 28px 0; }
+.stage { position: relative; width: 100%; aspect-ratio: 1120 / 400; min-height: 150px; max-width: 100%; }
+#factory { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.readout {
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  font: 400 11px/1 var(--f-mono); color: var(--muted); letter-spacing: .04em;
+  border-top: 1px solid var(--line); padding-block: 10px 0; margin-top: 4px;
+}
+.readout b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.pitch { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 40px; align-items: end; padding-block: 44px 0; }
+h1 {
+  font: 600 clamp(30px, 4.4vw, 50px)/1.04 var(--f-body);
+  letter-spacing: -.025em; margin: 0; text-wrap: balance;
+}
+.lede { margin: 0; color: var(--muted); max-width: 44ch; font-size: 18px; text-wrap: pretty; }
+
+.install { margin-top: 36px; }
+.cmd {
+  display: flex; align-items: stretch; border: 1px solid var(--ink); background: var(--surface);
+  max-width: 100%; min-width: 0;
+}
+.cmd code {
+  flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap;
+  font: 400 14px/1 var(--f-mono); padding: 18px 18px; scrollbar-width: none;
+}
+.cmd code::-webkit-scrollbar { display: none; }
+.cmd code .p { color: var(--muted); user-select: none; margin-right: .8ch; }
+.cmd button {
+  flex: none; border: 0; border-left: 1px solid var(--ink); background: var(--accent); color: var(--accent-ink);
+  font: 700 12px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 0 22px; cursor: pointer;
+  min-width: 96px;
+}
+.cmd button:hover { filter: brightness(1.05); }
+.cmd button:active { transform: translateY(1px); }
+.fine { margin: 12px 0 0; font: 400 11px/1.7 var(--f-mono); color: var(--muted); letter-spacing: .02em; }
+.fine a { color: var(--ink); }
+
+/* machines */
+.machines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-block: 88px 0; }
+.m { background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+.viz { position: relative; height: 200px; border-bottom: 1px solid var(--line); overflow: hidden; }
+.viz canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.m .txt { padding: 22px 24px 26px; }
+.m h3 { margin: 0 0 8px; font: 600 21px/1.2 var(--f-body); letter-spacing: -.01em; }
+.m p { margin: 0; color: var(--muted); font-size: 16px; max-width: 46ch; }
+.tag { font: 400 10.5px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; display: block; }
+
+.term { position: absolute; left: 16px; top: 14px; font: 400 11px/1.7 var(--f-mono); color: var(--muted); z-index: 1; }
+.term b { color: var(--ink); font-weight: 500; }
+
+/* headless */
+.link { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; gap: 10px; }
+.node { flex: none; border: 1px solid var(--ink); background: var(--bg); padding: 10px 12px; font: 400 11px/1.5 var(--f-mono); z-index: 1; }
+.node small { display: block; color: var(--muted); font-size: 10px; }
+.node.dev { border-color: var(--cube-front); }
+.track { position: relative; flex: 1; height: 26px; min-width: 40px; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--muted); opacity: .6; }
+.pkt { position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; background: var(--cube-front); animation: go 2.4s linear infinite; }
+.pkt.back { background: var(--accent); animation-name: back; }
+@keyframes go { from { left: 0; } to { left: calc(100% - 8px); } }
+@keyframes back { from { left: calc(100% - 8px); } to { left: 0; } }
+.wire { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font: 400 10.5px/1 var(--f-mono); color: var(--muted); letter-spacing: .04em; }
+.wire em { font-style: normal; color: var(--ink); }
+
+/* journal */
+.rows { position: absolute; inset: 14px 16px; font: 400 11px/1 var(--f-mono); display: flex; flex-direction: column; justify-content: flex-end; gap: 0; }
+.row { display: grid; grid-template-columns: 4ch 11ch minmax(0, 1fr); gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; animation: in .35s ease-out; }
+.row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { color: var(--muted); text-align: right; }
+.row .k { color: var(--cube-front); }
+.row.new .k { color: var(--ink); }
+.row.new { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%); }
+.row.head { border-top: 0; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; animation: none; }
+.row.head .k { color: var(--muted); }
+@keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* learn */
+.learn { position: absolute; inset: 14px 16px; display: grid; grid-template-rows: auto 1fr; gap: 12px; font: 400 11px/1.45 var(--f-mono); }
+.obs { display: flex; align-items: center; gap: 10px; min-height: 40px; border: 1px dashed var(--line); padding: 8px 10px; }
+.obs .q { flex: 1; min-width: 0; color: var(--ink); transition: opacity .3s; }
+.verdict { flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border: 1px solid currentColor; opacity: 0; transition: opacity .25s; }
+.verdict.on { opacity: 1; }
+.verdict.keep { color: var(--ok); }
+.verdict.skip { color: var(--skip); }
+.mem { border-left: 2px solid var(--cube-front); padding-left: 12px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; overflow: hidden; }
+.mem .f { color: var(--muted); font-size: 10px; letter-spacing: .06em; }
+.mem .b { animation: in .4s ease-out; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem .b::before { content: "§ "; color: var(--cube-front); }
+.mem .b i { font-style: normal; color: var(--muted); }
+
+footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-block: 96px 40px; font: 400 11px/1 var(--f-mono); color: var(--muted); }
+footer nav { display: flex; gap: 20px; }
+
+@media (max-width: 760px) {
+  .pitch { grid-template-columns: minmax(0, 1fr); gap: 16px; padding-block-start: 28px; }
+  .machines { grid-template-columns: minmax(0, 1fr); padding-block-start: 56px; }
+  .cmd code { font-size: 12.5px; padding: 16px 14px; }
+  .cmd button { padding: 0 14px; min-width: 76px; }
+  .bar nav { gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pkt, .row, .mem .b { animation: none; }
+  .pkt { left: 40%; } .pkt.back { left: 60%; }
+}
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <a class="mark" href="#top" aria-label="construct home"><i></i>construct</a>
+    <nav>
+      <a href="https://construct.sprawlcommons.com/install.sh">install.sh</a>
+      <a href="https://github.com/strf0x1/construct">github</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-label="construct">
+      <div class="stage">
+        <canvas id="factory" role="img" aria-label="The word CONSTRUCT, assembled block by block by a small gantry"></canvas>
+      </div>
+      <div class="readout" aria-hidden="true">
+        <span>blocks <b id="placed">0</b>/<b id="total">0</b></span>
+        <span id="status">assembling</span>
+        <span>1 file · <b>~7 MB</b></span>
+      </div>
+
+      <div class="pitch">
+        <h1><span class="sr-only">construct. </span>An agent harness in a single 7&nbsp;MB binary.</h1>
+        <p class="lede">Run it in your terminal, or headless on a small board across the network. It writes down everything it does, and learns from the sessions it's had.</p>
+      </div>
+
+      <div class="install">
+        <div class="cmd">
+          <code id="cmd"><span class="p">$</span>curl -fsSL https://construct.sprawlcommons.com/install.sh | sh</code>
+          <button type="button" id="copy">Copy</button>
+        </div>
+        <p class="fine">Linux x86-64 · macOS arm64 and x86-64 · no sudo · checksum verified · <a href="https://construct.sprawlcommons.com/install.sh">read the script</a></p>
+      </div>
+    </section>
+
+    <section class="machines" aria-label="What makes it different">
+      <article class="m">
+        <div class="viz">
+          <div class="term">$ ls -lh construct<br><b>-rwxr-xr-x  7.0M  construct</b></div>
+          <canvas id="shrink" aria-hidden="true"></canvas>
+        </div>
+        <div class="txt">
+          <span class="tag">size</span>
+          <h3>One file, about 7 MB</h3>
+          <p>Static and self-contained. No runtime, no package manager, nothing else to install. Copy it to a machine and run it. It's getting smaller.</p>
+        </div>
+      </article>
+
+      <article class="m">
+        <div class="viz">
+          <div class="link" aria-hidden="true">
+            <div class="node">editor<small>your laptop</small></div>
+            <div class="track" id="track"></div>
+            <div class="node dev">construct acp<small>pi@workshop</small></div>
+          </div>
+          <div class="wire" aria-hidden="true">ACP · <em>stdio today</em> · network next</div>
+        </div>
+        <div class="txt">
+          <span class="tag">headless</span>
+          <h3>Runs without a screen</h3>
+          <p>Put it on a Raspberry Pi, a VPS, or a box in a closet. Drive it from your editor over ACP, the Agent Client Protocol.</p>
+        </div>
+      </article>
+
+      <article class="m">
+        <div class="viz">
+          <div class="rows" id="rows" aria-hidden="true">
+            <div class="row head"><span class="s">seq</span><span class="k">event</span><span>detail</span></div>
+          </div>
+        </div>
+        <div class="txt">
+          <span class="tag">journal</span>
+          <h3>Writes everything down</h3>
+          <p>Every event goes to a local SQLite journal as it happens. Resume after a crash, audit what ran and why, or query it with plain SQL.</p>
+        </div>
+      </article>
+
+      <article class="m">
+        <div class="viz">
+          <div class="learn" aria-hidden="true">
+            <div class="obs"><span class="q" id="obs">user: use pnpm here, not npm</span><span class="verdict" id="verdict">keep</span></div>
+            <div class="mem" id="mem"><span class="f">MEMORY.md</span></div>
+          </div>
+        </div>
+        <div class="txt">
+          <span class="tag">learning</span>
+          <h3>Learns between sessions</h3>
+          <p>When a session ends, a background pass looks for corrections and fixes worth keeping and saves them as memory or skills. No evidence, no tokens spent.</p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <span>construct · MIT</span>
+    <nav>
+      <a href="https://github.com/strf0x1/construct">source</a>
+      <a href="https://github.com/strf0x1/construct/releases">releases</a>
+    </nav>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- colours from tokens ---------- */
+  let pal = {};
+  function hex(c) {
+    c = c.trim();
+    if (c.startsWith("#")) {
+      const n = parseInt(c.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
+    }
+    const m = c.match(/[\d.]+/g) || [0, 0, 0, 1];
+    return [+m[0], +m[1], +m[2], m[3] == null ? 1 : +m[3]];
+  }
+  const rgba = (a, k = 1) => `rgba(${a[0] | 0},${a[1] | 0},${a[2] | 0},${a[3] * k})`;
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3]];
+  const dim = (a, k) => [a[0] * k, a[1] * k, a[2] * k, a[3]];
+  function readPal() {
+    const s = getComputedStyle(document.documentElement);
+    const g = n => hex(s.getPropertyValue(n));
+    pal = {
+      top: g("--cube-top"), front: g("--cube-front"), side: g("--cube-side"), edge: g("--cube-edge"),
+      stTop: g("--steel-top"), stFront: g("--steel-front"), stSide: g("--steel-side"),
+      accent: g("--accent"), grid: g("--grid"), muted: g("--muted"),
+    };
+    pal.cube = { top: pal.top, front: pal.front, side: pal.side };
+    pal.steel = { top: pal.stTop, front: pal.stFront, side: pal.stSide };
+    pal.head = { top: pal.accent, front: dim(pal.accent, .82), side: dim(pal.accent, .66) };
+  }
+  readPal();
+
+  /* ---------- a tiny orthographic voxel view ---------- */
+  class View {
+    constructor(canvas) { this.c = canvas; this.x = canvas.getContext("2d"); this.yaw = -.38; this.pitch = .42; this.S = 10; this.ox = 0; this.oy = 0; this.C = [0, 0, 0]; }
+    size() {
+      const r = this.c.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+      this.W = r.width; this.H = r.height;
+      this.c.width = Math.round(r.width * d); this.c.height = Math.round(r.height * d);
+      this.x.setTransform(d, 0, 0, d, 0, 0);
+    }
+    trig() { this.cy = Math.cos(this.yaw); this.sy = Math.sin(this.yaw); this.cp = Math.cos(this.pitch); this.sp = Math.sin(this.pitch); }
+    p(x, y, z) {
+      x -= this.C[0]; y -= this.C[1]; z -= this.C[2];
+      const x1 = x * this.cy + z * this.sy, z1 = -x * this.sy + z * this.cy;
+      const y2 = y * this.cp - z1 * this.sp, z2 = y * this.sp + z1 * this.cp;
+      return [this.ox + x1 * this.S, this.oy - y2 * this.S, z2];
+    }
+    fit(b, padX = .94, padY = .9) {
+      this.C = [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2];
+      this.trig(); this.S = 1; this.ox = 0; this.oy = 0;
+      let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
+      for (const X of [b[0], b[3]]) for (const Y of [b[1], b[4]]) for (const Z of [b[2], b[5]]) {
+        const [sx, sy] = this.p(X, Y, Z);
+        mnx = Math.min(mnx, sx); mxx = Math.max(mxx, sx); mny = Math.min(mny, sy); mxy = Math.max(mxy, sy);
+      }
+      this.S = Math.min(this.W * padX / (mxx - mnx), this.H * padY / (mxy - mny));
+      this.ox = this.W / 2 - (mnx + mxx) / 2 * this.S;
+      this.oy = this.H / 2 - (mny + mxy) / 2 * this.S;
+    }
+    nz(nx, ny, nz) { const z1 = -nx * this.sy + nz * this.cy; return ny * this.sp + z1 * this.cp; }
+    poly(pts, fill, stroke) {
+      const x = this.x; x.beginPath();
+      pts.forEach((q, i) => { const [a, b] = this.p(q[0], q[1], q[2]); i ? x.lineTo(a, b) : x.moveTo(a, b); });
+      x.closePath(); x.fillStyle = fill; x.fill();
+      if (stroke) { x.strokeStyle = stroke; x.stroke(); }
+    }
+    // cull: [+x,-x,+y,-y,+z,-z] booleans meaning "hidden by a neighbour"
+    box(x0, y0, z0, x1, y1, z1, P, o = {}) {
+      const a = o.alpha == null ? 1 : o.alpha, f = o.flash || 0, cull = o.cull;
+      const tint = c => rgba(f ? mix(c, pal.accent, f) : c, a);
+      const edge = o.edge === false ? null : rgba(pal.edge, a);
+      this.x.lineWidth = Math.max(.5, this.S * .045); this.x.lineJoin = "round";
+      const F = [
+        [1, 0, 0, P.side, [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]]],
+        [-1, 0, 0, P.side, [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]]],
+        [0, 1, 0, P.top, [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]],
+        [0, -1, 0, P.side, [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]]],
+        [0, 0, 1, P.front, [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]],
+        [0, 0, -1, P.front, [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]]],
+      ];
+      F.forEach((q, i) => {
+        if (cull && cull[i]) return;
+        if (this.nz(q[0], q[1], q[2]) <= .001) return;
+        this.poly(q[4], tint(q[3]), edge);
+      });
+    }
+    line(a, b, style, w = 1, dash) {
+      const x = this.x, p = this.p(...a), q = this.p(...b);
+      x.save(); x.strokeStyle = style; x.lineWidth = w; if (dash) x.setLineDash(dash);
+      x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(q[0], q[1]); x.stroke(); x.restore();
+    }
+  }
+
+  const ease = t => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+  const inout = t => { t = Math.min(1, Math.max(0, t)); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
+  /* ---------- hero: the word, printed by a gantry ---------- */
+  const G = {
+    C: ["#####", "#....", "#....", "#....", "#....", "#....", "#####"],
+    O: ["#####", "#...#", "#...#", "#...#", "#...#", "#...#", "#####"],
+    N: ["#...#", "##..#", "#.#.#", "#.#.#", "#..##", "#...#", "#...#"],
+    S: ["#####", "#....", "#....", "#####", "....#", "....#", "#####"],
+    T: ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+    R: ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+    U: ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", "#####"],
+  };
+  const WORD = "CONSTRUCT", D = 2, GY = 9.2, X0 = -2.5, X1 = 55.5, ZA = -1.4, ZB = D + 1.4;
+  const cubes = [], at = new Map(), key = (x, y, z) => x + "," + y + "," + z;
+  [...WORD].forEach((ch, li) => G[ch].forEach((row, r) => [...row].forEach((v, c) => {
+    if (v !== "#") return;
+    for (let z = 0; z < D; z++) {
+      const q = { x: li * 6 + c, y: 6 - r, z, st: "pending", t0: 0, land: -9 };
+      cubes.push(q); at.set(key(q.x, q.y, q.z), q);
+    }
+  })));
+  const T_IN = .5, T_SWEEP = 3.2, DROP = .42;
+  const gxAt = t => X0 + (X1 - X0) * inout((t - T_IN) / T_SWEEP);
+  cubes.forEach(q => {
+    // when the gantry passes over this column, bottom rows first
+    let lo = 0, hi = 1;
+    const target = q.x + .5;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; (gxAt(T_IN + m * T_SWEEP) < target ? lo = m : hi = m); }
+    q.t0 = T_IN + lo * T_SWEEP + q.y * .03 + (D - 1 - q.z) * .05 + Math.random() * .04;
+  });
+
+  const placedEl = document.getElementById("placed"), statusEl = document.getElementById("status");
+  document.getElementById("total").textContent = cubes.length;
+
+  const hv = new View(document.getElementById("factory"));
+  const BOUNDS = [X0 - .5, 0, ZA, X1 + .5, GY + .6, ZB];
+  let mouse = 0, mouseS = 0;
+  function layoutHero() { hv.size(); hv.yaw = -.3; hv.pitch = .4; hv.fit(BOUNDS); }
+
+  let gx = X0, printing = false, idle = { ph: "wait", until: 0 }, buildDone = false;
+
+  function settled(x, y, z) { const n = at.get(key(x, y, z)); return n && n.st === "settled"; }
+
+  function step(t) {
+    let placed = 0;
+    for (const q of cubes) {
+      if (q.st === "pending" && t >= q.t0) q.st = "drop";
+      if (q.st === "drop" && t >= q.t0 + DROP) { q.st = "settled"; q.land = t; }
+      if (q.st === "settled") placed++;
+    }
+    if (!buildDone) {
+      gx = gxAt(t); printing = t > T_IN && t < T_IN + T_SWEEP + .3;
+      if (placed === cubes.length) { buildDone = true; idle = { ph: "wait", until: t + 1.4 }; statusEl.textContent = "assembled"; }
+      else statusEl.textContent = "assembling";
+    } else idleStep(t);
+    placedEl.textContent = placed;
+  }
+
+  function idleStep(t) {
+    const I = idle;
+    if (I.ph === "wait" && t > I.until) {
+      const tops = cubes.filter(q => q.st === "settled" && !at.has(key(q.x, q.y + 1, q.z)) && q.z === D - 1);
+      I.q = tops[(Math.random() * tops.length) | 0];
+      I.ph = "move"; I.t = t; I.from = gx; I.to = I.q.x + .5; I.dur = .5 + Math.abs(I.to - gx) * .018;
+      statusEl.textContent = "inspecting block " + (cubes.indexOf(I.q) + 1);
+    } else if (I.ph === "move") {
+      gx = I.from + (I.to - I.from) * inout((t - I.t) / I.dur);
+      if (t - I.t >= I.dur) { I.ph = "lift"; I.t = t; I.q.st = "lift"; I.q.t0 = t; printing = true; }
+    } else if (I.ph === "lift" && t - I.t > .38) { I.ph = "hold"; I.t = t; I.q.st = "held"; }
+    else if (I.ph === "hold" && t - I.t > .3) { I.ph = "drop"; I.q.st = "drop"; I.q.t0 = t; }
+    else if (I.ph === "drop" && I.q.st === "settled") {
+      printing = false; I.ph = "wait"; I.until = t + 1.2 + Math.random() * 1.6; statusEl.textContent = "assembled";
+    }
+  }
+
+  function drawHero(t) {
+    const v = hv, x = v.x;
+    mouseS += (mouse - mouseS) * .06;
+    v.yaw = -.3 + mouseS * .12 + (reduce ? 0 : Math.sin(t * .23) * .025);
+    v.pitch = .4 + (reduce ? 0 : Math.sin(t * .17) * .015);
+    v.trig();
+    x.clearRect(0, 0, v.W, v.H);
+
+    // build plate
+    const ga = reduce ? 1 : Math.min(1, t / T_IN);
+    const gs = rgba(pal.grid, ga);
+    for (let gxl = -2; gxl <= 55; gxl += 1) v.line([gxl, 0, ZA], [gxl, 0, ZB], gs, 1);
+    for (let gz = Math.ceil(ZA); gz <= ZB; gz += 1) v.line([X0, 0, gz], [X1, 0, gz], gs, 1);
+
+    // frame posts and back rail
+    const rail = rgba(pal.stFront, ga), railW = Math.max(1, v.S * .12);
+    for (const px of [X0, X1]) for (const pz of [ZA, ZB]) v.line([px, 0, pz], [px, GY, pz], rgba(pal.stSide, ga * .9), railW * .7);
+    v.line([X0, GY, ZA], [X1, GY, ZA], rail, railW);
+
+    // cubes, far to near
+    const list = [];
+    for (const q of cubes) {
+      if (q.st === "pending" || q.st === "held") continue;
+      let dy = 0, s = 1, a = 1, f = 0;
+      const fall = GY - 1.1 - q.y;
+      if (q.st === "drop") { const e = ease((t - q.t0) / DROP); dy = (1 - e) * fall; s = .55 + .45 * e; a = Math.min(1, (t - q.t0) / DROP * 5); }
+      else if (q.st === "lift") { const e = inout((t - q.t0) / .38); dy = e * fall; s = 1 - .45 * e; }
+      else f = Math.max(0, 1 - (t - q.land) / .7) * .85;
+      const d = v.p(q.x + .5, q.y + .5 + dy, q.z + .5)[2];
+      list.push({ q, dy, s, a, f, d });
+    }
+    list.sort((A, B) => A.d - B.d);
+    for (const it of list) {
+      const { q, dy, s, a, f } = it, h = s / 2, cx = q.x + .5, cy = q.y + .5 + dy, cz = q.z + .5;
+      const cull = q.st === "settled" ? DIRS.map(n => settled(q.x + n[0], q.y + n[1], q.z + n[2])) : null;
+      v.box(cx - h, cy - h, cz - h, cx + h, cy + h, cz + h, pal.cube, { cull, alpha: a, flash: f });
+    }
+
+    // light from the print head
+    if (printing && !reduce) {
+      const zc = D / 2, p0 = v.p(gx, GY - 1.0, zc), p1 = v.p(gx, 0, zc);
+      const gr = x.createLinearGradient(p0[0], p0[1], p1[0], p1[1]);
+      gr.addColorStop(0, rgba(pal.accent, .55)); gr.addColorStop(1, rgba(pal.accent, 0));
+      x.fillStyle = gr; const w = v.S * .35;
+      x.beginPath(); x.moveTo(p0[0] - w * .4, p0[1]); x.lineTo(p0[0] + w * .4, p0[1]); x.lineTo(p1[0] + w, p1[1]); x.lineTo(p1[0] - w, p1[1]); x.fill();
+    }
+
+    // gantry beam, head, front rail
+    v.box(gx - .32, GY - .1, ZA, gx + .32, GY + .45, ZB, pal.steel, { alpha: ga, edge: false });
+    v.box(gx - .5, GY - 1.0, D / 2 - .5, gx + .5, GY - .1, D / 2 + .5, pal.head, { alpha: ga });
+    v.line([X0, GY, ZB], [X1, GY, ZB], rail, railW);
+  }
+
+  /* ---------- size: a cube that keeps losing blocks ---------- */
+  const sv = new View(document.getElementById("shrink"));
+  const N = 4, small = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) for (let z = 0; z < N; z++) small.push({ x, y, z, st: "on", t0: 0 });
+  const sAt = new Map(small.map(q => [key(q.x, q.y, q.z), q]));
+  let sNext = 1.5, sRemoved = 0, sPhase = "shave";
+  function layoutSmall() { sv.size(); sv.yaw = -.62; sv.pitch = .5; sv.fit([-.5, -.5, -.5, N + .5, N + 1.2, N + .5], .7, .72); sv.oy += sv.H * .08; sv.ox += sv.W * .12; }
+  function stepSmall(t) {
+    if (sPhase === "shave" && t > sNext) {
+      const tops = small.filter(q => q.st === "on" && !(sAt.get(key(q.x, q.y + 1, q.z)) || {}).st?.startsWith("on") && (q.x === N - 1 || q.z === N - 1 || q.y === N - 1));
+      const q = tops[(Math.random() * tops.length) | 0];
+      if (q) { q.st = "off"; q.t0 = t; sRemoved++; }
+      sNext = t + .7;
+      if (sRemoved >= 14) { sPhase = "rest"; sNext = t + 1.6; }
+    } else if (sPhase === "rest" && t > sNext) {
+      small.forEach((q, i) => { if (q.st !== "on") { q.st = "back"; q.t0 = t + (i % 7) * .05; } });
+      sPhase = "back"; sNext = t + 1.2;
+    } else if (sPhase === "back" && t > sNext) {
+      small.forEach(q => q.st = "on"); sRemoved = 0; sPhase = "shave"; sNext = t + 1.2;
+    }
+  }
+  function drawSmall(t) {
+    const v = sv; v.yaw = -.62 + Math.sin(t * .3) * .05; v.trig();
+    v.x.clearRect(0, 0, v.W, v.H);
+    const list = [];
+    for (const q of small) {
+      let dy = 0, dx = 0, a = 1, s = 1;
+      if (q.st === "off") { const e = ease((t - q.t0) / .9); dy = e * 3; dx = e * 1.5; a = 1 - e; s = 1 - .5 * e; if (a <= 0) continue; }
+      if (q.st === "back") { const e = ease((t - q.t0) / .6); if (e <= 0) continue; dy = (1 - e) * 3; a = e; }
+      list.push({ q, dx, dy, a, s, d: v.p(q.x + .5 + dx, q.y + .5 + dy, q.z + .5)[2] });
+    }
+    list.sort((A, B) => A.d - B.d);
+    for (const it of list) {
+      const { q, dx, dy, a, s } = it, h = s * .46, cx = q.x + .5 + dx, cy = q.y + .5 + dy, cz = q.z + .5;
+      const cull = q.st === "on" ? DIRS.map(n => (sAt.get(key(q.x + n[0], q.y + n[1], q.z + n[2])) || {}).st === "on") : null;
+      v.box(cx - h, cy - h, cz - h, cx + h, cy + h, cz + h, pal.cube, { alpha: a, cull });
+    }
+  }
+
+  /* ---------- headless: packets ---------- */
+  const track = document.getElementById("track");
+  for (let i = 0; i < 5; i++) {
+    const p = document.createElement("span");
+    p.className = "pkt" + (i % 2 ? " back" : "");
+    p.style.animationDelay = (-i * .48) + "s";
+    track.appendChild(p);
+  }
+
+  /* ---------- journal: rows arriving ---------- */
+  const EV = [
+    ["turn_start", "session 4f2a"], ["route", "core + web"], ["model", "12.4k tokens in"],
+    ["tool_start", "bash  cargo test"], ["tool_end", "bash  ok  2.1s"], ["tool_start", "edit  src/lib.rs"],
+    ["tool_end", "edit  ok"], ["usage", "in 14.0k · out 380"], ["turn_end", "done"], ["learn", "1 correction kept"],
+  ];
+  const rowsEl = document.getElementById("rows");
+  let seq = 211, ev = 0;
+  function addRow(animate) {
+    const [k, d] = EV[ev++ % EV.length];
+    const r = document.createElement("div");
+    r.className = "row" + (animate ? " new" : "");
+    r.innerHTML = `<span class="s">${++seq}</span><span class="k">${k}</span><span>${d}</span>`;
+    rowsEl.querySelectorAll(".row.new").forEach(n => n.classList.remove("new"));
+    rowsEl.appendChild(r);
+    const all = rowsEl.querySelectorAll(".row:not(.head)");
+    if (all.length > 6) all[0].remove();
+  }
+  for (let i = 0; i < 6; i++) addRow(false);
+
+  /* ---------- learning: the gate ---------- */
+  const OBS = [
+    ["user: use pnpm here, not npm", 1, "pnpm, not npm", "convention"],
+    ["read README.md", 0],
+    ["bash failed: DATABASE_URL unset → fixed with .env.test", 1, "tests need .env.test", "fix"],
+    ["user: thanks", 0],
+    ["release: tag, build, then publish notes", 1, "release procedure", "skill"],
+    ["grep -r TODO", 0],
+  ];
+  const obsEl = document.getElementById("obs"), vEl = document.getElementById("verdict"), memEl = document.getElementById("mem");
+  let oi = 0;
+  function addMem(text, kind, animate) {
+    const b = document.createElement("div"); b.className = "b";
+    if (!animate) b.style.animation = "none";
+    b.innerHTML = `${text} <i>· ${kind}</i>`;
+    memEl.appendChild(b);
+    const all = memEl.querySelectorAll(".b"); if (all.length > 3) all[0].remove();
+  }
+  addMem("cargo xtask check before a PR", "convention", false);
+  addMem("never edit .snap files by hand", "fix", false);
+  function nextObs() {
+    const o = OBS[oi++ % OBS.length];
+    obsEl.style.opacity = 0; vEl.classList.remove("on");
+    setTimeout(() => {
+      obsEl.textContent = o[0]; obsEl.style.opacity = 1;
+      vEl.className = "verdict " + (o[1] ? "keep" : "skip"); vEl.textContent = o[1] ? "keep" : "skip";
+      setTimeout(() => { vEl.classList.add("on"); if (o[1]) setTimeout(() => addMem(o[2], o[3], true), 450); }, 700);
+    }, 300);
+  }
+
+  /* ---------- copy ---------- */
+  const copyBtn = document.getElementById("copy");
+  const CMD = "curl -fsSL https://construct.sprawlcommons.com/install.sh | sh";
+  copyBtn.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(CMD); copyBtn.textContent = "Copied"; }
+    catch {
+      const r = document.createRange(), code = document.getElementById("cmd");
+      r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      copyBtn.textContent = "Selected";
+    }
+    setTimeout(() => copyBtn.textContent = "Copy", 1600);
+  });
+
+  /* ---------- run ---------- */
+  const stage = document.querySelector(".stage");
+  stage.addEventListener("pointermove", e => { const r = stage.getBoundingClientRect(); mouse = (e.clientX - r.left) / r.width * 2 - 1; });
+  stage.addEventListener("pointerleave", () => mouse = 0);
+
+  function layout() { layoutHero(); layoutSmall(); }
+  layout();
+  addEventListener("resize", () => { layout(); if (reduce) still(); });
+  const retheme = () => { readPal(); if (reduce) still(); };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  function still() {
+    cubes.forEach(q => { q.st = "settled"; q.land = -9; }); buildDone = true; gx = X1; printing = false;
+    placedEl.textContent = cubes.length; statusEl.textContent = "assembled";
+    drawHero(10); drawSmall(0);
+  }
+
+  if (reduce) { still(); return; }
+
+  const t0 = performance.now();
+  function frame(now) {
+    const t = (now - t0) / 1000;
+    step(t); drawHero(t);
+    stepSmall(t); drawSmall(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  setInterval(() => addRow(true), 1100);
+  nextObs(); setInterval(nextObs, 2600);
+})();
+</script>

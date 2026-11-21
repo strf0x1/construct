@@ -170,7 +170,7 @@ impl Policy {
 
     /// The real location of `p`; for a path that doesn't exist yet, its
     /// nearest existing ancestor resolved plus the rest.
-    pub(crate) fn real(p: &Path) -> PathBuf {
+    pub fn real(p: &Path) -> PathBuf {
         if let Ok(c) = p.canonicalize() {
             return c;
         }

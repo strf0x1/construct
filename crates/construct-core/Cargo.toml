@@ -34,7 +34,7 @@ workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
-sha2 = "0.10"
+sha2.workspace = true
 futures.workspace = true
 globset = "0.4"
 grep-matcher = "0.1"

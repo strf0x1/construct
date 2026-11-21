@@ -8,7 +8,6 @@
 use super::{Agent, Event, Events};
 use crate::llm::Message;
 use crate::tools::Ctx;
-use crate::tools::boundary;
 
 /// The gateway sequence before a tool runs; `None` when there is no boundary
 /// endpoint or it is unreachable.
@@ -38,15 +37,13 @@ impl Agent {
         let Some(boundary) = self.ctx.boundary.clone() else {
             return false;
         };
-        let notices = boundary.take_notices();
-        if notices.is_empty() {
+        let Some(late) = boundary.take_late() else {
             return false;
-        }
-        let ids: Vec<String> = notices.iter().map(|n| n.id.clone()).collect();
-        let message = Message::user(boundary::notifications(&notices));
-        self.journal.emit(Event::DeckBoundary { ids: ids.clone(), message: message.clone() }, tx);
+        };
+        let message = Message::user(late.text);
+        self.journal.emit(Event::DeckBoundary { ids: late.ids.clone(), message: message.clone() }, tx);
         self.context.push(message);
-        for id in ids {
+        for id in late.ids {
             boundary.mark_seen(&id);
         }
         true

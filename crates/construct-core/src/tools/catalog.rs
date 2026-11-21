@@ -78,12 +78,6 @@ impl Catalog {
         tools.push(Arc::new(history::RecallResult));
         tools.push(Arc::new(history::JournalQuery));
         tools.push(Arc::new(job::JobTool));
-        tools.push(Arc::new(developer::Developer::new(deck.github)));
-        if deck.boundary {
-            tools.push(Arc::new(boundary::Wait));
-            tools.push(Arc::new(boundary::Status));
-            tools.push(Arc::new(boundary::Withdraw));
-        }
         tools.extend(sources.tools(cfg, deck)?);
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {

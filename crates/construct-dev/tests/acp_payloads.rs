@@ -5,7 +5,7 @@
 use crate::acp::Client;
 use crate::common::*;
 use construct_core::acp::map;
-use construct_core::tools::boundary::Notice;
+use construct_deck::Notice;
 use jsonschema::{Registry, Validator};
 use serde_json::{Value, json};
 use std::collections::HashMap;

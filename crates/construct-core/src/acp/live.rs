@@ -34,7 +34,7 @@ pub(super) struct Session {
     pub catalog: Arc<Catalog>,
     /// Deck's boundary endpoint, when this session has one; the reader loop
     /// pushes late decisions here without taking the agent lock.
-    pub boundary: Option<Arc<crate::tools::boundary::Boundary>>,
+    pub boundary: Option<Arc<dyn crate::tools::boundary::BoundaryHost>>,
     pub cwd: PathBuf,
     pub transcript: Transcript,
     pub announced: BTreeSet<String>,
