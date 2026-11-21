@@ -32,6 +32,9 @@ pub struct Config {
     pub temperature: Option<f32>,
     /// Tool-call rounds per user turn before the agent must stop.
     pub max_steps: u32,
+    /// Identical tool-call rounds in a row before the model is told it is
+    /// looping; one more ends the turn. 0 turns the guard off.
+    pub max_repeats: u32,
     /// Tokens the model can take; compaction plans against this less the output reserve.
     pub context_window: u32,
     /// Whether the config file set `context_window` (the endpoint's list then supplies none).
@@ -132,6 +135,7 @@ impl Default for Config {
             max_tokens: None,
             temperature: None,
             max_steps: 200,
+            max_repeats: 5,
             context_window: 131_072,
             window_pinned: false,
             compaction: CompactionConfig::default(),
