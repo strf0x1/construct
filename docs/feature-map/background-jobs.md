@@ -3,8 +3,8 @@ id: background-jobs
 status: verified
 surfaces: [tui, cli]
 depends: [crates/construct-core/src/jobs, crates/construct/src/cli/headless.rs, crates/construct-core/src/agent/wake.rs, crates/construct-core/src/tools/shell_job.rs, crates/construct-core/src/tools/job.rs, crates/construct-tui/src/jobs.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct-dev/tests/jobs.rs]
-verified_at: 83715c0
-verified_deps: 1d70b41ddb5cb3f1
+verified_at: b3c0058
+verified_deps: 77a7a68a7b363597
 ---
 # Background jobs
 
