@@ -73,6 +73,12 @@ Two ways to make a tool optional:
   they exist.
 - Core's catalog now holds only the core group: bash, read, write, edit,
   grep and glob.
+- Deck's tools (`construct-deck`: `developer`, the boundary tools, the
+  coordinator's `deck`, and the boundary client) went behind a `deck`
+  feature, in `full` but not `lean`: only a process Deck runs needs them,
+  and they were the largest tool crate left. A build without `deck` that
+  Deck starts anyway gets no boundary client or Deck tools; Deck ships
+  `full`, so this is not guarded.
 - Without `memory` and `skills`, the `review` and `curate` learning paths
   end before any model call ("this build has no memory or skill tools").
   The default `hybrid` strategy, `playbook` and `workflow` write their
@@ -122,6 +128,12 @@ tools: core's six and Deck's `developer`; −16,704 against main's bare). The
 two tools' own code is about 17 KB; `full` grew by about as much, from the
 optional names in the denials and prompt and the crate boundaries, as it
 did when web moved.
+
+With `deck` a feature too (main at edd5712, which also has more TUI
+motion from #345): `full` 8,393,936; `lean` 6,322,912 (11 tools) against
+6,523,248 with `--features lean,deck`; bare 5,792,496 (6 tools: bash,
+read, write, edit, grep, glob) against 5,992,880 with `deck`. Deck's tools
+cost about 200 KB, the most of any tool crate.
 
 An earlier experiment that also removed memory, skill, history, job and
 Deck's tools measured 5,692,256 B against 6,472,656 B for the env-only build
