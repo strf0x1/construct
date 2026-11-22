@@ -41,6 +41,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Queued messages](./turn-queue.md) — a message typed while a turn runs waits and runs next; the TUI settles when the queue empties
 - [Interrupt and quit](./interrupt-quit.md) — `esc` or ctrl-c interrupts a turn; idle ctrl-c arms quit for two seconds
 - [Activity line](./activity-line.md) — the line above the prompt: starting, thinking, writing, running a tool, the timer and chars/s
+- [Motion: comet and unfurl](./tool-motion.md) — a comet laps the rule while a turn runs; a finished tool's output unfurls; `CONSTRUCT_MOTION=off` stills it
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
 - [Providers](./providers.md) — named endpoints with their own url, key and models; `provider/model` selection; `construct providers [test <name>]`
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch

@@ -1,0 +1,21 @@
+# Motion on (drive.env). While the tool runs, a comet rides the rule above the
+# input; when it finishes, its output unfurls: the gutter fills top to bottom
+# with a bright head, then settles. Idle, the rule is plain again. The unfurl
+# lasts ~700 ms, so snap it several times in a row.
+wait "ask construct" 5000
+type list three words
+key enter
+wait "running bash" 8000
+snap --style busy
+image {evidence}/comet.png
+wait "✓ bash" 8000
+snap --style unfurl-1
+image {evidence}/unfurl.png
+snap --style unfurl-2
+snap --style unfurl-3
+snap --style unfurl-4
+wait "listed three words" 10000
+wait "ask construct anything… (/help)" 10000
+sleep 1500
+snap --style idle
+image {evidence}/idle.png
