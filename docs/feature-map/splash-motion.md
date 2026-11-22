@@ -3,8 +3,8 @@ id: splash-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/splash.rs, crates/construct-tui/src/splash.rs, crates/construct-tui/src/view.rs]
-verified_at: 0fbd4ad
-verified_deps: 1c9332bd2897d1f7
+verified_at: caeb8f5
+verified_deps: 1ab341d451e8bde4
 ---
 # Motion: splash intro
 
