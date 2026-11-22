@@ -40,22 +40,44 @@ Two ways to make a tool optional:
   catalog's duplicate-name check refuses a build that turns on both. To
   compare behaviour rather than bytes, compile both in and pick one at
   runtime with config, so `bench.py task --arm` can run them side by side.
-- A catalog built without the binary's sources (`build_without_sources`,
-  the learner's) accepts a `[tools] disabled` name it lacks, since that
-  name may belong to a source. `build_extended` still rejects typos.
-  `construct manifest` and `construct route` now build with the sources, so
-  they report what the binary runs.
-- `text::prop`, the shared property-test strategies, is public behind
-  construct-core's `test-support` feature, which tool crates take as a
-  dev-dependency.
+- Every catalog a process builds takes the binary's sources: the session's,
+  the learner's (`learn::review` and `learn::curate` take `&ToolSources`),
+  `construct manifest` and `construct route`. So `[tools] disabled` is
+  checked against the same tools everywhere, and a typo is still an error.
+- The engine's own prose names a tool from a crate only through
+  `ToolSource::policy_tools` (`PolicyTools`, all optional but the shell):
+  the sandbox's denials and the system prompt leave out what the build
+  lacks. In the full build the text is unchanged.
+- `memory`, `skill` and `skill_manage` declare their wire names in core
+  (`memory::TOOL`, `skills::VIEW_TOOL`, `skills::MANAGE_TOOL`), beside the
+  store and library they front, and the tool crates take `NAME` from there.
+  This is the one exception to "a wire name appears only in its `impl
+  Tool`": the learning pass's prompts and the gate that counts loaded
+  skills speak about these tools without having them.
+- `test-support` in construct-core makes public `text::prop` (shared
+  property-test strategies) and `tools::contract` (every schema
+  well-formed, missing arguments refused in prose, and a scratch `Ctx`).
+  Every tool crate's tests run `contract::holds` on its catalog, so a tool
+  moved out of core, or a replacement for one, meets the same contract.
 
 ## Consequences
 
 - Moving another tool out is mechanical when nothing outside `tools/` names
   it. `history` (`construct-tools-history`) and `job` (`construct-tools-jobs`)
-  followed, behind the `history` and `jobs` features, both in `full`.
-  `memory` and `skill` are entangled with the learning pass and the per-turn
-  skill loader, and need a cut first.
+  followed, behind the `history` and `jobs` features, both in `full`. Then
+  `memory` (`construct-tools-memory`) and `skill`/`skill_manage`
+  (`construct-tools-skills`), behind `memory` and `skills`, both in `full`
+  and `lean`. Their cuts: the loader a user's `/<skill>` shares with the
+  `skill` tool became `Ctx::load_skill`; the learner builds its catalog
+  from the binary's sources; the prompt names the skill tools only when
+  they exist.
+- Core's catalog now holds only the core group: bash, read, write, edit,
+  grep and glob.
+- Without `memory` and `skills`, the `review` and `curate` learning paths
+  end before any model call ("this build has no memory or skill tools").
+  The default `hybrid` strategy, `playbook` and `workflow` write their
+  stores directly and keep working; the store, the skill library, the
+  memory prompt block and `/<skill>` stay in core.
 - A tool whose name core's prose used to spell (`journal_query` in the
   sandbox's denials) is named by its source through
   `ToolSource::policy_tools`; without the source the sentence leaves it out.
@@ -92,6 +114,14 @@ With `history` and `jobs` moved out as well: `full` 8,310,288 (15 tools,
 +96), `lean` 6,456,096 (12 tools), bare 5,942,496 (10 tools). Together they
 cost 16,752 bytes: `rusqlite` stays for the journal, so only their own
 code goes.
+
+With `memory` and `skills` moved out too, against main at b802994 (which
+also gained the TUI's motion, ADR 0065): `full` 8,377,088 (15 tools,
++16,576), `lean` 6,506,400 (12 tools, +64), bare 5,976,016 (7
+tools: core's six and Deck's `developer`; −16,704 against main's bare). The
+two tools' own code is about 17 KB; `full` grew by about as much, from the
+optional names in the denials and prompt and the crate boundaries, as it
+did when web moved.
 
 An earlier experiment that also removed memory, skill, history, job and
 Deck's tools measured 5,692,256 B against 6,472,656 B for the env-only build

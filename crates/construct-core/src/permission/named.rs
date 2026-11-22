@@ -28,9 +28,11 @@ const PATTERN_FLAGS: &[&str] =
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PolicyTools {
     pub shell: &'static str,
-    pub skill_view: &'static str,
-    pub skill_manage: &'static str,
-    pub memory: &'static str,
+    /// The tools below are named only when this build has them (#271): a
+    /// tool crate's source fills its own in (`ToolSource::policy_tools`).
+    pub skill_view: Option<&'static str>,
+    pub skill_manage: Option<&'static str>,
+    pub memory: Option<&'static str>,
     /// The past-sessions tool, when this build has one (#271).
     pub journal_query: Option<&'static str>,
 }
@@ -85,15 +87,31 @@ impl Outside {
         }
         if !self.construct.is_empty() {
             out.push(format!(
-                "[sandbox: construct's own files ({}) aren't reachable from the shell. Load a skill with {}, change it with {} (its files can be read under {}){}.]",
+                "[sandbox: construct's own files ({}) aren't reachable from the shell.{}]",
                 construct_home.display(),
-                tools.skill_view,
-                tools.skill_manage,
-                skills.display(),
-                tools.journal_query.map(|q| format!("; past sessions are in {q}")).unwrap_or_default()
+                home_tools(tools, skills)
             ));
         }
         out.join("\n")
+    }
+}
+
+/// Where the model goes instead, naming only the tools this build has:
+/// " Load a skill with …, change it with … (…); past sessions are in …."
+fn home_tools(tools: &PolicyTools, skills: &Path) -> String {
+    let files = format!("(its files can be read under {})", skills.display());
+    let mut said: Vec<String> = match (tools.skill_view, tools.skill_manage) {
+        (Some(v), Some(m)) => vec![format!("load a skill with {v}, change it with {m} {files}")],
+        (Some(v), None) => vec![format!("load a skill with {v} {files}")],
+        (None, Some(m)) => vec![format!("change a skill with {m} {files}")],
+        (None, None) => vec![],
+    };
+    said.extend(tools.journal_query.map(|q| format!("past sessions are in {q}")));
+    let text = said.join("; ");
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(c) => format!(" {}{}.", c.to_uppercase(), chars.as_str()),
+        None => String::new(),
     }
 }
 

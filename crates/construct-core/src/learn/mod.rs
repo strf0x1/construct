@@ -26,7 +26,7 @@ pub use review::review;
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
 use crate::memory::Store;
-use crate::tools::{Catalog, Ctx, ToolError};
+use crate::tools::{Catalog, Ctx, ToolError, ToolSources};
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
@@ -143,13 +143,15 @@ pub struct Outcome {
 
 /// The learner only gets memory and skill tools, but its context still
 /// carries a sandbox: read-only, so nothing it does can write the workspace.
-/// Its catalog is built from the same `[tools]` config as the session's, so a
-/// disabled tool doesn't exist here either.
+/// Its catalog is built from the same `[tools]` config and the binary's
+/// `sources` as the session's, so a disabled tool doesn't exist here either,
+/// and a build without the memory and skill crates has nothing to learn with.
 fn learner(
     cfg: &Config,
     paths: &Paths,
     memory: Store,
     rx: tokio::sync::watch::Receiver<bool>,
+    sources: &ToolSources,
 ) -> Result<(Ctx, Catalog)> {
     let cwd = std::env::current_dir().unwrap_or_default();
     let memory = memory.with_project(paths, &cwd);
@@ -158,7 +160,8 @@ fn learner(
         sb.mode = "read-only".into();
     }
     let policy = crate::sandbox::Policy::new(&sb, &cwd, paths);
-    Ok((Ctx::new(cwd, paths.clone(), memory, rx, None, policy), Catalog::build_without_sources(&cfg.tools)?))
+    let ctx = Ctx::new(cwd, paths.clone(), memory, rx, None, policy).with_sources(sources.clone());
+    Ok((ctx, Catalog::build_extended(&cfg.tools, None, &crate::tools::Deck::default(), sources)?))
 }
 
 async fn run_loop(

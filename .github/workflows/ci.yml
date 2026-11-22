@@ -54,10 +54,14 @@ jobs:
       # Bare: no optional feature at all, so a `cfg` around a tool source
       # cannot rot (#271, ADR 0064). Then the lean drop build, smoked below.
       - run: cargo clippy -p construct --no-default-features -- -D warnings
-      - run: cargo build -p construct --no-default-features --features lean
-      - name: the lean build has its web tools
+      - run: cargo build -p construct --no-default-features
+      - name: the bare build has only core's tools
         run: |
-          target/debug/construct manifest | grep -q '"web_search"'
+          target/debug/construct manifest | jq -e '.tools == ["bash", "read", "write", "edit", "grep", "glob", "developer"]'
+      - run: cargo build -p construct --no-default-features --features lean
+      - name: the lean build has its web and memory tools
+        run: |
+          target/debug/construct manifest | jq -e '.tools | index("web_search") and index("memory")'
       - name: env resolution works and keyring writes refuse
         run: |
           OPENAI_API_KEY=*** target/debug/construct secrets status | grep -q '✓ OPENAI_API_KEY'

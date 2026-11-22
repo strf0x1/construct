@@ -22,6 +22,8 @@ construct-deck = { path = "crates/construct-deck" }
 construct-tools-web = { path = "crates/construct-tools-web" }
 construct-tools-history = { path = "crates/construct-tools-history" }
 construct-tools-jobs = { path = "crates/construct-tools-jobs" }
+construct-tools-memory = { path = "crates/construct-tools-memory" }
+construct-tools-skills = { path = "crates/construct-tools-skills" }
 anyhow = "1"
 # Both the engine and the TUI name async trait impls.
 async-trait = "0.1"

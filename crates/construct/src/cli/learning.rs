@@ -55,7 +55,7 @@ pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, cura
                 }
             };
             if let Some(kind) = gate.kind {
-                match learn::review(&cfg, &paths, &id, &fresh, kind).await {
+                match learn::review(&cfg, &paths, &id, &fresh, kind, &super::tool_sources()).await {
                     Ok(o) => {
                         learn::log_line(&paths, &format!("session {id}: {} | {}", o.summary, o.actions.join("; ")));
                         println!("{}", o.summary);
@@ -74,7 +74,7 @@ pub(super) async fn run(cfg: Config, paths: Paths, session: Option<String>, cura
     let last = st["curated_at"].as_u64().unwrap_or(0);
     let due = construct_core::clock::now().saturating_sub(last) > cfg.learn.curator_every_days as u64 * 86_400;
     if curate || due {
-        if let Some(o) = learn::curate(&cfg, &paths).await? {
+        if let Some(o) = learn::curate(&cfg, &paths, &super::tool_sources()).await? {
             learn::log_line(&paths, &format!("curator: {} | {}", o.summary, o.actions.join("; ")));
             println!("curator: {}", o.summary);
         }

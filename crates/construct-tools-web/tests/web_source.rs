@@ -37,7 +37,12 @@ fn disabled_reaches_the_web_tools() {
     let c = build(&cfg).unwrap();
     assert!(c.get("web_search").is_none() && c.group_of("web_fetch").is_none());
     assert!(!c.groups().contains(&Group::Web));
-    // A catalog built without sources (the learner's) accepts the names.
-    assert!(Catalog::build_without_sources(&cfg).is_ok());
-    assert!(Catalog::build(&cfg, None).is_err(), "a strict one without the source does not");
+    assert!(Catalog::build(&cfg, None).is_err(), "without the source the names are unknown");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_tools_keep_the_tool_contract() {
+    let sources = ToolSources::default().with(Web);
+    let c = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
+    construct_core::tools::contract::holds(&c, "web-contract").await;
 }

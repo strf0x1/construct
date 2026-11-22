@@ -6,6 +6,7 @@
 use construct_core::config::{MemoryConfig, Paths, ToolsConfig};
 use construct_core::memory::Store;
 use construct_core::sandbox::Policy;
+use construct_core::tools::contract::{self, all_groups};
 use construct_core::tools::{Catalog, Ctx, Deck, Group, OUTPUT_MAX};
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -54,53 +55,19 @@ impl Drop for Fixture {
     }
 }
 
-fn all_groups() -> Vec<Group> {
-    vec![
-        Group::Core,
-        Group::Web,
-        Group::Memory,
-        Group::Skills,
-        Group::SkillWrite,
-        Group::History,
-        Group::Jobs,
-        Group::Developer,
-        Group::Coordinator,
-    ]
-}
-
 #[test]
 fn every_schema_is_a_well_formed_function() {
     schemas_are_well_formed(&Fixture::new("schema"));
 }
 
 fn schemas_are_well_formed(f: &Fixture) {
-    let defs = f.catalog.definitions(&all_groups());
-    assert_eq!(defs.len(), f.catalog.names().len(), "every tool belongs to a group");
-    for (d, name) in defs.iter().zip(f.catalog.names()) {
-        assert_eq!(d["type"], "function");
-        assert_eq!(d["function"]["name"], name, "definition order follows the catalog");
-        assert!(!d["function"]["description"].as_str().unwrap_or("").is_empty(), "{name} has a description");
-        let params = &d["function"]["parameters"];
-        assert_eq!(params["type"], "object", "{name}");
-        let props = params["properties"].as_object().unwrap_or_else(|| panic!("{name} has properties"));
-        for r in params["required"].as_array().unwrap() {
-            assert!(props.contains_key(r.as_str().unwrap()), "{name}: required {r} is a property");
-        }
-        for (k, p) in props {
-            assert!(p.get("type").is_some(), "{name}.{k} has a type");
-        }
-    }
+    contract::schemas_are_well_formed(&f.catalog, &all_groups());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_arguments_are_refused_in_prose() {
     let f = Fixture::new("args");
-    for d in f.catalog.definitions(&all_groups()) {
-        let name = d["function"]["name"].as_str().unwrap();
-        let first = d["function"]["parameters"]["required"][0].as_str().unwrap();
-        let (msg, _) = f.call(name, json!({})).await.expect_err(name);
-        assert!(msg.contains(first), "{name}: {msg:?} should name {first}");
-    }
+    contract::missing_arguments_are_refused(&f.catalog, &f.ctx, &all_groups()).await;
     let (msg, code) = f.call("read", json!("not an object")).await.expect_err("bad args");
     assert!(msg.contains("path is required"), "{msg}");
     assert_eq!(code, "error");
@@ -210,13 +177,12 @@ async fn other_encodings_are_refused_with_the_way_out() {
 
 #[test]
 fn disabled_tools_are_not_in_the_catalog() {
-    let cfg = ToolsConfig { disabled: vec!["write".into(), "memory".into()], ..Default::default() };
+    // An empty group not being offered or routed is the tool crates' to
+    // show: core has only the core group now (construct-tools-memory).
+    let cfg = ToolsConfig { disabled: vec!["write".into(), "glob".into()], ..Default::default() };
     let c = Catalog::build(&cfg, None).unwrap();
     assert!(c.get("write").is_none());
-    assert_eq!(c.group_of("memory"), None, "a disabled tool can't switch its group on");
-    let offered: Vec<String> = c.offerable(&Default::default()).into_iter().map(|(g, _)| g.label()).collect();
-    assert!(!offered.contains(&"memory".to_string()), "an empty group isn't offered: {offered:?}");
-    assert!(!c.groups().contains(&Group::Memory), "nor routed to");
+    assert_eq!(c.group_of("glob"), None, "a disabled tool can't switch its group on");
     let bad = ToolsConfig { disabled: vec!["wirte".into()], ..Default::default() };
     assert!(Catalog::build(&bad, None).err().unwrap().to_string().contains("unknown tool \"wirte\""));
 }

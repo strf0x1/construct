@@ -18,8 +18,6 @@ mod acp_kinds;
 mod edit_contract;
 #[path = "grep_search.rs"]
 mod grep_search;
-#[path = "skill_patch.rs"]
-mod skill_patch;
 #[path = "symlink_farm.rs"]
 mod symlink_farm;
 #[path = "tool_contract.rs"]

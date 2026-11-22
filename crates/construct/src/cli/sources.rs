@@ -7,10 +7,16 @@
 
 use construct_core::tools::ToolSources;
 
+/// In the order the tools were pushed when they lived in core, so the
+/// manifest's list reads as it did.
 pub(super) fn tool_sources() -> ToolSources {
     let sources = ToolSources::default();
     #[cfg(feature = "web")]
     let sources = sources.with(construct_tools_web::Web);
+    #[cfg(feature = "memory")]
+    let sources = sources.with(construct_tools_memory::MemoryTools);
+    #[cfg(feature = "skills")]
+    let sources = sources.with(construct_tools_skills::Skills);
     #[cfg(feature = "history")]
     let sources = sources.with(construct_tools_history::History);
     #[cfg(feature = "jobs")]
