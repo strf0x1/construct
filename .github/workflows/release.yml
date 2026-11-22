@@ -67,10 +67,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with: { toolchain: "${{ env.RUSTUP_TOOLCHAIN }}", targets: "${{ env.TARGET }}" }
-      - name: zig, the musl cross-toolchain
+      - name: Install Zig
+        if: contains(env.TARGET, '-musl')
+        uses: mlugg/setup-zig@v2
+        with: { version: "0.15.2" }
+      - name: Install cargo-zigbuild
         if: contains(env.TARGET, '-musl')
         uses: taiki-e/install-action@v2
-        with: { tool: cargo-zigbuild,zig }
+        with: { tool: cargo-zigbuild }
       - name: Build
         run: |
           if [[ "$TARGET" == *-musl ]]; then
