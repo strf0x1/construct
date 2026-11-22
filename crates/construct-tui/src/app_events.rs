@@ -104,7 +104,7 @@ impl App {
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
                 if let Some(i) = self.blocks.iter().rposition(|b| b.kind == Kind::Tool && b.id == id) {
-                    self.motion.tool_done(i, ok);
+                    self.motion.tool_done(i, ok, kind == construct_core::tools::OutputKind::Diff);
                     let b = &mut self.blocks[i];
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
@@ -116,7 +116,11 @@ impl App {
                     self.turn.set_phase(Phase::Waiting);
                 }
             }
-            Event::Usage { .. } => self.context_pct = self.context_pct_now(),
+            Event::Usage { .. } => {
+                let (old, now) = (self.context_pct, self.context_pct_now());
+                self.context_pct = now;
+                self.motion.gauge(old, now);
+            }
             Event::Model { model, context_window, .. } => {
                 let _ = self.cfg.select_model(&model); // the agent switched, so it resolves
                 self.context_pct = self.context_pct_now();
@@ -131,6 +135,7 @@ impl App {
                     format!("{before} → {after} messages")
                 };
                 self.notice(theme::ACCENT2, format!("◇ compacted history ({what})"));
+                self.motion.compacted(self.blocks.len() - 1);
             }
             Event::TurnEnd { steps, ms, interrupted, .. } => {
                 self.close_reasoning();

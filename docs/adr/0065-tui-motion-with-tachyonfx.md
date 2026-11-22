@@ -57,12 +57,21 @@ ourselves.
   frame is kept and dissolves over what replaced it (`rule()` is drawn last
   for that), washed green when allowed and amber when denied. A failed tool's
   header shakes and its error lines settle out of a hue glitch.
+- Then the diff highlighter and compaction: a finished edit's diff gets a
+  white highlighter pass. Compaction keeps the transcript on screen (only
+  what the model is sent shrinks), so motion must not dissolve rows away: a
+  lavender wash above the notice clears top-down into it, the notice
+  resolves out of block glyphs, and a drop of ten points or more in the
+  context share drains the gauge over 0.9 s. With motion off the gauge shows
+  the share as before.
 
 ## Consequences
 
 - New motion is an effect in `motion/` plus a trigger, not a change to the
-  renderers. The rest of the prototype (diff, compaction, splash) can land
-  the same way.
+  renderers. The prototype's splash is the one scene left, and can land the
+  same way.
+- tachyonfx runs `fade_from_fg` and `coalesce` sweeps in reverse: a sweep
+  that should clear top-first is written `down_to_up`.
 - The ghost puts back the panel's own cells, backgrounds included (the badge,
   the selected bar), for under half a second; nothing else sets a
   background.
@@ -85,4 +94,8 @@ ourselves.
   border gap caught arriving, white sweep on the moved row, green ghost after
   enter, the failed header off its indent; the journal shows the read
   allowed and the shell failed.
+- Recipe `diff-compact-motion`: PASS three runs in a row (`dc3`–`dc5`); the
+  added diff line white mid-pass, a compaction notice caught resolving out of
+  quadrant blocks, and the edit's `tool_end` and a `compacted` row in the
+  journal.
 - `cargo deny check`: advisories, bans, licenses, sources ok.

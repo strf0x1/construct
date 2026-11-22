@@ -43,6 +43,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Activity line](./activity-line.md) — the line above the prompt: starting, thinking, writing, running a tool, the timer and chars/s
 - [Motion: comet and unfurl](./tool-motion.md) — a comet laps the rule while a turn runs; a finished tool's output unfurls; `CONSTRUCT_MOTION=off` stills it
 - [Motion: permission panel and outcomes](./panel-motion.md) — the panel draws its border as it arrives and dissolves once answered; a failed tool shakes
+- [Motion: diff highlighter and compaction](./diff-compact-motion.md) — a finished edit's diff gets a highlighter pass; a compaction folds the transcript into its notice and drains the gauge
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
 - [Providers](./providers.md) — named endpoints with their own url, key and models; `provider/model` selection; `construct providers [test <name>]`
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
