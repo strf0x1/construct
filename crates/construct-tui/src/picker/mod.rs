@@ -22,6 +22,8 @@ pub(super) struct Row {
     pub(super) label: String,
     pub(super) description: String,
     pub(super) tags: Vec<String>,
+    /// Other ids this model answers to; searched, and shown in the details.
+    pub(super) aliases: Vec<String>,
     pub(super) window: u64,
     pub(super) max_tokens: Option<u32>,
     /// Prompt size at which compaction starts for this window.
@@ -50,6 +52,7 @@ impl Row {
             label: e.label,
             description: e.description,
             tags: e.tags,
+            aliases: e.aliases,
             window,
             max_tokens: c.max_tokens,
             compacts_at: (budget as f64 * cfg.compaction.threshold as f64) as u64,
@@ -63,9 +66,9 @@ impl Row {
         }
     }
 
-    /// What a search looks in after the id: label, tags and description.
+    /// What a search looks in after the id: label, tags, aliases and description.
     pub(super) fn about(&self) -> String {
-        format!("{} {} {}", self.label, self.tags.join(" "), self.description)
+        format!("{} {} {} {}", self.label, self.tags.join(" "), self.aliases.join(" "), self.description)
     }
 }
 
@@ -268,6 +271,7 @@ mod tests {
             context_window = 200000
             [models."b/two"]
             label = "Two"
+            aliases = ["second", "deux"]
             context_window = 1000000
             [models."c/three"]
             description = "the cheap one"
@@ -347,6 +351,9 @@ mod tests {
         let mut p = Picker::open(&cfg()).unwrap();
         typed(&mut p, "cheap");
         assert_eq!(p.current().unwrap().id, "c/three", "so is the description");
+        let mut p = Picker::open(&cfg()).unwrap();
+        typed(&mut p, "deux");
+        assert_eq!(p.current().unwrap().id, "b/two", "so is an alias");
         typed(&mut p, "zzz");
         assert!(p.current().is_none());
         assert_eq!(p.key(key(KeyCode::Enter)), Outcome::Stay, "nothing to pick");

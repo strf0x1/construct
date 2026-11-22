@@ -61,3 +61,16 @@ fn models_searches_the_list() {
     let none = text(&env.run(&["models", "zzz"]));
     assert!(none.contains("no model matches"), "{none}");
 }
+
+#[test]
+fn models_searches_the_endpoints_aliases() {
+    let env = env("models-aliases");
+    env.config(OPENROUTER);
+    let out = env.run(&["models", "compact", "--refresh"]);
+    let t = text(&out);
+    assert!(out.status.success(), "{t}");
+    assert!(t.contains("mock/small"), "an alias finds the one canonical row: {t}");
+    let cache = std::fs::read_dir(env.home.join("models")).unwrap().next().expect("a cached list").unwrap();
+    let body = std::fs::read_to_string(cache.path()).unwrap();
+    assert!(body.contains(r#""aliases":["compact","small"]"#), "aliases are cached: {body}");
+}
