@@ -141,7 +141,9 @@ impl Config {
             Some(p) => &self.providers.get(&p)?.discovered,
             None => &self.discovered,
         };
-        list.get(&id).or_else(|| list.get(id.split_once(':')?.0))
+        list.get(&id)
+            .or_else(|| id.split_once(':').and_then(|(base, _)| list.get(base)))
+            .or_else(|| list.values().find(|e| e.aliases.iter().any(|a| a == &id)))
     }
 
     /// Where the selected model's requests go.

@@ -43,6 +43,7 @@ fn entry_of(m: &ModelInfo, pinned: bool) -> ModelEntry {
     ModelEntry {
         label: if m.name == m.id { String::new() } else { m.name.clone() },
         tags,
+        aliases: m.aliases.clone(),
         context_window: if pinned { None } else { m.context },
         pricing: m.prompt_per_m.zip(m.completion_per_m).map(|(prompt, completion)| Pricing { prompt, completion }),
         ..ModelEntry::default()
@@ -170,7 +171,13 @@ mod tests {
         let paths = Paths { home: dir.clone() };
         let url = "http://127.0.0.1:9/v1";
         let listed = vec![
-            ModelInfo { id: "big".into(), context: Some(262_144), tools: true, ..ModelInfo::default() },
+            ModelInfo {
+                id: "big".into(),
+                aliases: vec!["the-big".into()],
+                context: Some(262_144),
+                tools: true,
+                ..ModelInfo::default()
+            },
             ModelInfo { id: "small".into(), context: Some(8192), tools: true, ..ModelInfo::default() },
         ];
         store(&paths, url, &listed);
@@ -185,7 +192,16 @@ mod tests {
         let plain = cfg_for("");
         assert_eq!(plain.context_window, 262_144, "the list states the window");
         assert!(plain.catalog_ids().contains(&"box/small".to_string()), "listed models are offered qualified");
+        assert_eq!(plain.entry().unwrap().aliases, ["the-big"], "the list's aliases travel with the entry");
+        assert_eq!(
+            plain.catalog_ids().iter().filter(|id| id.as_str() == "box/the-big").count(),
+            0,
+            "an alias is not a row"
+        );
         assert_eq!(plain.resolve("small").unwrap().provider, None, "a fetched list never routes a bare id");
+        let mut alias = cfg_for("");
+        alias.select_model("box/the-big").unwrap();
+        assert_eq!(alias.context_window, 262_144, "an alias selector takes the canonical entry's window");
 
         let provider_wins = cfg_for("context_window = 65536\n");
         assert_eq!(provider_wins.context_window, 65_536, "the provider's context_window over the list");

@@ -124,6 +124,38 @@ fn model_by_id_takes_any_id_and_an_empty_catalog_explains_itself() {
     d.kill();
 }
 
+/// A server's aliases are searched and shown on the one canonical row; they
+/// are not rows of their own, and picking one switches to the canonical id.
+#[test]
+fn model_picker_matches_aliases_and_shows_them_on_the_canonical_row() {
+    let env = Env::new("catalog-aliases", json!({ "steps": [ { "text": "alias-reply" } ] }));
+    env.config(
+        "model = \"mock\"\n[provider]\ndialect = \"openrouter\"\n[router]\nmode = \"local\"\n[learn]\nenabled = false\n",
+    );
+    let mut d = spawn(&env);
+    let mut log = Vec::new();
+    let (short, long) = (budget(3000), budget(5000));
+    // Let startup discovery lay the mock's two models (with their aliases).
+    run(&mut d, &mut log, &format!("wait \"ask construct\" {short}\nsettle 500 {long}\n"));
+    run(
+        &mut d,
+        &mut log,
+        &format!(
+            "type /model\nkey enter\nwait \"search models…\" {short}\ntype compact\nwait \"1/2\" {short}\nsettle 200 {long}\n"
+        ),
+    );
+    let screen = d.text();
+    for want in ["mock/small", "Aliases", "compact", "small"] {
+        assert!(screen.contains(want), "picker lacks {want:?}\n{screen}");
+    }
+    assert!(!screen.contains("mock/compact"), "an alias is not its own row\n{screen}");
+
+    run(&mut d, &mut log, &format!("key enter\nwait \"model → mock/small\" {short}\n"));
+    run(&mut d, &mut log, &format!("type hello\nkey enter\nwait \"alias-reply\" {long}\n"));
+    assert_eq!(env.requests().last().unwrap()["model"], "mock/small", "the canonical id goes on the wire");
+    d.kill();
+}
+
 /// `n` rounds that each read a ~8 KB file, then an answer.
 fn reads(n: usize) -> Value {
     let mut steps: Vec<Value> =

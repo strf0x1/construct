@@ -40,6 +40,10 @@ pub struct ModelEntry {
     pub description: String,
     /// Short facts (`"reasoning"`, `"vision"`), shown as chips and searched.
     pub tags: Vec<String>,
+    /// Other ids the model answers to, as the server's `/models` `aliases`
+    /// field states them. They are searched and shown beside the model, never
+    /// listed as rows of their own.
+    pub aliases: Vec<String>,
     /// Tokens the model can take; compaction and the `ctx` meter plan
     /// against it. Absent means the top-level `context_window`.
     pub context_window: Option<u32>,
