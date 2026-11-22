@@ -11,6 +11,7 @@
 mod compact;
 mod panel;
 mod shaders;
+pub(crate) mod splash;
 
 use super::theme;
 use super::turn::Phase;
@@ -42,6 +43,8 @@ enum Target {
     Block(usize),
     /// Every transcript row above the block.
     Above(usize),
+    /// A part of the splash (`splash::TITLE` …), drawn only while it shows.
+    Splash(usize),
 }
 
 pub(super) struct Motion {
@@ -96,7 +99,15 @@ impl Motion {
     /// On unless `CONSTRUCT_MOTION` is `off`, `0` or `false`.
     pub(super) fn from_env() -> Self {
         let off = std::env::var("CONSTRUCT_MOTION").is_ok_and(|v| matches!(v.trim(), "off" | "0" | "false"));
-        Self::new(!off)
+        let mut m = Self::new(!off);
+        if m.on {
+            m.splash_intro();
+        }
+        m
+    }
+
+    pub(super) fn on(&self) -> bool {
+        self.on
     }
 
     /// Something is moving, so the loop keeps drawing.
@@ -165,7 +176,16 @@ impl Motion {
     /// Draw this frame's effects over the transcript. `rows` holds each
     /// block's (first row, rows) in the transcript, `top` the first
     /// transcript row on screen, drawn at screen row `y0`, `h` rows tall.
-    pub(super) fn transcript(&mut self, buf: &mut Buffer, rows: &[(usize, usize)], top: usize, y0: u16, h: u16) {
+    /// `splash`: the splash is on screen and `rows` are its parts.
+    pub(super) fn transcript(
+        &mut self,
+        buf: &mut Buffer,
+        rows: &[(usize, usize)],
+        top: usize,
+        y0: u16,
+        h: u16,
+        splash: bool,
+    ) {
         let dt = self.tick();
         let area = buf.area;
         let place = |start: usize, len: usize| -> Option<Rect> {
@@ -174,6 +194,8 @@ impl Motion {
         };
         for (target, e) in &mut self.fx {
             let rect = match *target {
+                Target::Splash(k) => rows.get(k).and_then(|r| place(r.0, r.1)).filter(|_| splash),
+                _ if splash => None,
                 Target::Head(i) => rows.get(i).and_then(|r| place(r.0, 1)),
                 Target::Body(i) => rows.get(i).and_then(|r| place(r.0 + 1, r.1.saturating_sub(1))),
                 Target::Block(i) => rows.get(i).and_then(|r| place(r.0, r.1)),
@@ -186,7 +208,7 @@ impl Motion {
                 e.process(dt, &mut Buffer::empty(Rect::new(0, 0, 1, 1)), Rect::new(0, 0, 1, 1));
             }
         }
-        self.fx.retain(|(_, e)| e.running());
+        self.fx.retain(|(t, e)| e.running() && (splash || !matches!(t, Target::Splash(_))));
     }
 
     /// Draw the comet, or the dock flash, over the rule, and a panel that
@@ -306,7 +328,7 @@ mod tests {
     fn step(m: &mut Motion, ms: u64) {
         m.last = Instant::now() - std::time::Duration::from_millis(ms);
         let mut scratch = Buffer::empty(Rect::new(0, 0, 1, 1));
-        m.transcript(&mut scratch, &[], 0, 0, 0);
+        m.transcript(&mut scratch, &[], 0, 0, 0, false);
     }
 
     #[test]
@@ -386,7 +408,7 @@ mod tests {
             let mut b = Buffer::empty(Rect::new(0, 0, 20, 2));
             b.set_string(2, 0, "✗ bash", ratatui::style::Style::new());
             m.last = Instant::now() - std::time::Duration::from_millis(30);
-            m.transcript(&mut b, &[(0, 2)], 0, 0, 2);
+            m.transcript(&mut b, &[(0, 2)], 0, 0, 2, false);
             moved |= b[(2, 0)].symbol() != "✗";
         }
         assert!(moved, "the header shifted at least once");
@@ -404,12 +426,12 @@ mod tests {
         };
         draw(&mut b);
         m.last = Instant::now() - std::time::Duration::from_millis(20);
-        m.transcript(&mut b, &[(0, 4)], 0, 0, 4);
+        m.transcript(&mut b, &[(0, 4)], 0, 0, 4, false);
         assert_eq!(b[(GUTTER_X, 3)].symbol(), " ", "the last row's gutter is not filled yet");
         for _ in 0..12 {
             draw(&mut b);
             m.last = Instant::now() - std::time::Duration::from_millis(100);
-            m.transcript(&mut b, &[(0, 4)], 0, 0, 4);
+            m.transcript(&mut b, &[(0, 4)], 0, 0, 4, false);
         }
         assert!(!m.running(), "the unfurl runs out");
         assert_eq!(b[(GUTTER_X, 3)].symbol(), "│");

@@ -279,7 +279,7 @@ impl App {
             // pad from the top so short transcripts sit right above the input
             let pad = main_h.saturating_sub(visible.len() as u16);
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
-            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad);
+            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, self.blocks.is_empty());
             if let (Some(h), Some(p)) = (panel_h, self.prompts.front()) {
                 prompt::render(f, Rect::new(0, main_h, width, h), p, self.prompts.len() - 1, phase);
                 motion.panel(f.buffer_mut(), Rect::new(0, main_h, width, h));
