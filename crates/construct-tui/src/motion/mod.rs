@@ -165,14 +165,14 @@ impl Motion {
         let flash = if ok { FLASH_OK } else { FLASH_ERR };
         self.fx.push((Target::Head(i), fx::fade_from_fg(flash, (700, Interpolation::QuadOut))));
         // coalesce runs its sweep backwards: down_to_up reveals the top row first.
-        let trickle = fx::coalesce((700, Interpolation::QuadOut)).with_pattern(SweepPattern::down_to_up(3));
+        let trickle = fx::coalesce((1100, Interpolation::QuadOut)).with_pattern(SweepPattern::down_to_up(3));
         self.fx.push((Target::Body(i), trickle));
-        self.fx.push((Target::Body(i), gutter_fill(450, if ok { theme::ACCENT } else { theme::RED })));
+        self.fx.push((Target::Body(i), gutter_fill(800, if ok { theme::ACCENT } else { theme::RED })));
         if ok && diff {
             // a highlighter pass over the diff once it has trickled in
             let pass =
                 fx::fade_from_fg(WHITE, (1100, Interpolation::SineOut)).with_pattern(SweepPattern::left_to_right(14));
-            self.fx.push((Target::Body(i), fx::delay(250, pass)));
+            self.fx.push((Target::Body(i), fx::delay(500, pass)));
         }
         if !ok {
             self.fx.push((Target::Head(i), shake(380)));
@@ -395,7 +395,7 @@ mod tests {
         m.last = Instant::now() - std::time::Duration::from_millis(20);
         m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);
         assert_eq!(b[(GUTTER_X, 3)].symbol(), " ", "the last row's gutter is not filled yet");
-        for _ in 0..12 {
+        for _ in 0..16 {
             draw(&mut b);
             m.last = Instant::now() - std::time::Duration::from_millis(100);
             m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);

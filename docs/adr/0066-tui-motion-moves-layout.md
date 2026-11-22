@@ -30,8 +30,8 @@ It needs a streaming output event from core and is left for later.
 ## Decision
 
 - Motion may move layout, but only as a row count eased over at most about
-  half a second, read while the frame is laid out: `motion/grow.rs`.
-  - A finished tool's output opens from its header down over 500 ms
+  a second, read while the frame is laid out: `motion/grow.rs`.
+  - A finished tool's output opens from its header down over 900 ms
     (ease-out), and `App::transcript` cuts the block to what has opened
     (`Motion::clip`). The bottom anchor and scroll treat it as any block
     that grew, so the transcript above is pushed up. A scrolled-back view
@@ -71,7 +71,9 @@ It needs a streaming output event from core and is left for later.
   whose default foreground is far from the ink color, default-colored text
   steps from ink to the terminal's own color once it has dried.
 - Opening pushes the transcript up while the model may still be streaming
-  below it. That is the prototype's look, and it lasts half a second.
+  below it. That is the prototype's look, and it lasts under a second. The
+  prototype opened in 500 ms; driven live that read as too fast, so the
+  opening, the trickle (1100 ms) and the gutter fill (800 ms) were slowed.
 - `view.rs` lost `input_lines` to `input_line.rs`, and `motion/mod.rs` lost
   the rule and comet to `motion/rule.rs`, to stay under their ratchets.
 - The golden first frame changed (the logo, `/help commands`).

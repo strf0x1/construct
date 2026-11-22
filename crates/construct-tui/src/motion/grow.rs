@@ -13,7 +13,7 @@ use ratatui::text::Line;
 use std::time::{Duration, Instant};
 
 /// How long a tool's output takes to open.
-pub(super) const OPEN: Duration = Duration::from_millis(500);
+pub(super) const OPEN: Duration = Duration::from_millis(900);
 /// How long the permission panel takes to rise.
 const RISE: Duration = Duration::from_millis(320);
 /// How long the panel's room takes to close once its ghost is gone.

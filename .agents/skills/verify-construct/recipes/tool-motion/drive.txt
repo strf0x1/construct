@@ -3,7 +3,7 @@
 # up) while the gutter fills top to bottom with a bright head, then settles.
 # The reply then streams in slowly (serve.args): its newest characters land
 # bright and dry to ink behind a blinking caret. Idle, the rule is plain
-# again. Opening takes ~500 ms, so it is snapped several times in a row.
+# again. Opening takes ~900 ms, so it is snapped several times in a row.
 wait "ask construct" 5000
 type list eight words
 key enter
@@ -16,7 +16,7 @@ image {evidence}/unfurl.png
 snap --style unfurl-2
 snap --style unfurl-3
 snap --style unfurl-4
-sleep 600
+sleep 1100
 snap --style opened
 wait "listed eight" 10000
 snap --style stream-1
