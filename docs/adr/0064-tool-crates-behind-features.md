@@ -1,4 +1,4 @@
-# 0063 — Optional tools are crates behind binary features
+# 0064 — Optional tools are crates behind binary features
 
 Status: accepted. 2026-11-21. Part of #271; builds on ADR 0056.
 

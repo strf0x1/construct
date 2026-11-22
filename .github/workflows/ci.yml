@@ -39,7 +39,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo xtask check --skip bench ${{ github.event_name == 'pull_request' && '--affected' || '' }}
   # The env-only secrets build (#271, ADR 0051) and the feature bundles
-  # (ADR 0063): no keyring feature, no secretspec subtree. Its own job so
+  # (ADR 0064): no keyring feature, no secretspec subtree. Its own job so
   # the features cannot rot unnoticed — the workspace gates above all build
   # with default features.
   check-env-only:
@@ -52,7 +52,7 @@ jobs:
       - run: cargo clippy -p construct-core --no-default-features -- -D warnings
       - run: cargo test -p construct-core --no-default-features --lib
       # Bare: no optional feature at all, so a `cfg` around a tool source
-      # cannot rot (#271, ADR 0063). Then the lean drop build, smoked below.
+      # cannot rot (#271, ADR 0064). Then the lean drop build, smoked below.
       - run: cargo clippy -p construct --no-default-features -- -D warnings
       - run: cargo build -p construct --no-default-features --features lean
       - name: the lean build has its web tools
