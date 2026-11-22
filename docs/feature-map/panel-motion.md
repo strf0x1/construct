@@ -1,8 +1,10 @@
 ---
 id: panel-motion
-status: built
+status: verified
 surfaces: [tui]
-depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app.rs, crates/construct-tui/src/prompt.rs]
+depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/panel.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app.rs, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/theme.rs]
+verified_at: 97f158c
+verified_deps: 3cab4bd3dc0ab689
 ---
 # Motion: permission panel and outcomes
 
