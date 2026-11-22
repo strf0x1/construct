@@ -66,6 +66,21 @@ class Measure(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertGreater(gc.fsync_cost_ms(Path(tmp), count=10), 0)
 
+    def test_wal_commits_counts_transactions_not_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "t.sqlite"
+            db = sqlite3.connect(f)
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("CREATE TABLE t (x INTEGER)")
+            db.commit()
+            before = gc.wal_commits(f)
+            db.execute("BEGIN")
+            for i in range(4):
+                db.execute("INSERT INTO t VALUES (?)", (i,))
+            db.commit()
+            self.assertEqual(gc.wal_commits(f) - before, 1)
+            db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
