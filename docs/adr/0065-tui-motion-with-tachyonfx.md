@@ -64,12 +64,19 @@ ourselves.
   resolves out of block glyphs, and a drop of ten points or more in the
   context share drains the gauge over 0.9 s. With motion off the gauge shows
   the share as before.
+- Last, the splash: the title resolves out of shaded blocks and glows, and
+  the tagline, session rows and hints fade in after it. `App::splash` records
+  its parts in `App::rows`; the intro is queued only by `Motion::from_env`
+  and drawn only while the splash shows, so the first real block drops it.
+  With motion on it replaces the title's shimmer.
 
 ## Consequences
 
 - New motion is an effect in `motion/` plus a trigger, not a change to the
-  renderers. The prototype's splash is the one scene left, and can land the
-  same way.
+  renderers. All seven prototype scenes have landed this way.
+- A sweep pattern spans the rect it is given. Where the content is a few
+  cells of a terminal-wide row (the splash title), a sweep is over in a
+  fraction of its time; such effects run without one.
 - tachyonfx runs `fade_from_fg` and `coalesce` sweeps in reverse: a sweep
   that should clear top-first is written `down_to_up`.
 - The ghost puts back the panel's own cells, backgrounds included (the badge,
@@ -98,4 +105,9 @@ ourselves.
   added diff line white mid-pass, a compaction notice caught resolving out of
   quadrant blocks, and the edit's `tool_end` and a `compacted` row in the
   journal.
+- Recipe `splash-motion`: PASS three runs in a row (`splash4`–`splash6`); the
+  title caught in shaded blocks, hints absent at the first snap, the settled
+  splash whole with the configured router, and `trace.log`'s first frame at
+  about 2 ms (one run at 10 ms). An earlier version with a sweep on the title
+  failed two runs of three: its blocks were gone in ~100 ms.
 - `cargo deny check`: advisories, bans, licenses, sources ok.

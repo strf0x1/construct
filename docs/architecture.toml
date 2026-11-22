@@ -278,7 +278,7 @@ may_use = ["app", "boxed", "help", "markdown", "prompt", "text", "theme"]
 may_use = ["theme", "turn"]
 
 [crates.construct-tui.modules.splash]
-may_use = ["app", "theme"]
+may_use = ["app", "motion", "theme"]
 
 [crates.construct-tui.modules.worker]
 may_use = ["app", "ask", "learning"]
