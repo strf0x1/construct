@@ -10,7 +10,7 @@ use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Position, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::io::{Stdout, Write};
@@ -34,7 +34,7 @@ impl App {
         match &b.kind {
             Kind::User => {
                 let bar = Span::styled("▌ ", Style::new().fg(theme::ACCENT2));
-                for (n, para) in b.text.split('\n').enumerate() {
+                for para in b.text.split('\n') {
                     let style = Style::new().add_modifier(Modifier::BOLD);
                     let lines = markdown::wrap(
                         vec![Span::styled(para.to_string(), style)],
@@ -42,7 +42,6 @@ impl App {
                         vec![bar.clone()],
                         vec![bar.clone()],
                     );
-                    let _ = n;
                     out.extend(lines);
                 }
             }
@@ -174,49 +173,13 @@ impl App {
 
     pub(super) fn transcript(&mut self, width: u16, phase: f32) -> Vec<Line<'static>> {
         let mut lines = Vec::new();
+        self.rows.clear();
         for i in 0..self.blocks.len() {
-            lines.extend(self.block_lines(i, width, phase));
+            let b = self.block_lines(i, width, phase);
+            let gap = usize::from(b.first().is_some_and(|l| l.spans.is_empty())); // the blank line before a block
+            self.rows.push((lines.len() + gap, b.len() - gap));
+            lines.extend(b);
         }
-        lines
-    }
-
-    pub(super) fn splash(&self, area: Rect, phase: f32) -> Vec<Line<'static>> {
-        let mut lines = vec![];
-        let top = area.height.saturating_sub(9) / 3;
-        for _ in 0..top {
-            lines.push(Line::default());
-        }
-        let title = "◆ construct";
-        let mut t = vec![Span::raw("  ")];
-        if phase < 1.6 {
-            t.extend(theme::shimmer(title, phase, theme::ACCENT, Color::Rgb(235, 235, 255)));
-        } else {
-            t.extend(title.chars().enumerate().map(|(i, c)| {
-                Span::styled(
-                    c.to_string(),
-                    Style::new()
-                        .fg(theme::lerp(theme::ACCENT, theme::ACCENT2, i as f32 / 10.0))
-                        .add_modifier(Modifier::BOLD),
-                )
-            }));
-        }
-        lines.push(Line::from(t));
-        lines.push(Line::from(Span::styled("  lean · fast · learns as it goes", theme::dim())));
-        lines.push(Line::default());
-        let row = |k: &str, v: String| {
-            Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())])
-        };
-        lines.push(row("model", self.cfg.model.clone()));
-        lines.push(row("endpoint", self.cfg.endpoint().base_url));
-        lines.push(row("router", self.cfg.router.mode.clone()));
-        if !self.session.is_empty() {
-            lines.push(row("session", self.session.clone()));
-        }
-        lines.push(Line::default());
-        lines.push(Line::from(Span::styled(
-            "  enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help",
-            theme::faint(),
-        )));
         lines
     }
 
@@ -307,13 +270,20 @@ impl App {
         let activity = self.activity(phase);
         let status = self.status(width as usize, phase);
         let input_scroll = (input.len() as u16).saturating_sub(input_h);
-        let rule_color = if self.turn.busy() { theme::pulse(phase, theme::FAINT, theme::ACCENT) } else { theme::FAINT };
+        let rule_color = if self.turn.busy() && !self.motion.on() {
+            theme::pulse(phase, theme::FAINT, theme::ACCENT)
+        } else {
+            theme::FAINT
+        };
+        let mut motion = std::mem::take(&mut self.motion); // the draw closure reads the rest of self
+        motion.turn(self.turn.busy().then(|| self.turn.running().map(|r| &r.phase)));
         let mut stdout = std::io::stdout();
         queue!(stdout, BeginSynchronizedUpdate)?;
         term.draw(|f| {
             // pad from the top so short transcripts sit right above the input
             let pad = main_h.saturating_sub(visible.len() as u16);
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
+            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad);
             if let (Some(h), Some(p)) = (panel_h, self.prompts.front()) {
                 prompt::render(f, Rect::new(0, main_h, width, h), p, self.prompts.len() - 1, phase);
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + h, width, 1));
@@ -325,6 +295,7 @@ impl App {
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),
                 Rect::new(0, low + 1, width, 1),
             );
+            motion.rule(f.buffer_mut(), Rect::new(0, low + 1, width, 1));
             f.render_widget(
                 Paragraph::new(input.clone()).scroll((input_scroll, 0)),
                 Rect::new(0, low + 2, width, input_h),
@@ -335,6 +306,7 @@ impl App {
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), low + 2 + cy));
             self.render_modal(f, Rect::new(0, 0, width, area.height.saturating_sub(1)));
         })?;
+        self.motion = motion;
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;
         Ok(())

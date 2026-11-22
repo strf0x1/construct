@@ -6,7 +6,9 @@
 # A recipe dir holds model.json (the scripted model's steps), drive.txt (the
 # construct-dev drive script), optionally setup.sh (runs first, with WORK,
 # OUTSIDE, CHOME and EVIDENCE set; write config or files there) and
-# optionally serve.args (extra `serve` flags) and check.sh (runs after a passing
+# optionally serve.args (extra `serve` flags), drive.env (KEY=VALUE lines for
+# construct's environment; CONSTRUCT_MOTION=on turns motion back on, which
+# recipes run without so a frame never depends on its timing) and check.sh (runs after a passing
 # drive with the same variables and
 # the evidence collected; asserts what the system did, and exits non-zero to
 # fail the run). The screen can look right while the tool call failed:
@@ -72,11 +74,15 @@ mkdir -p "$scratch/requests"
 # serve.args (optional): extra `construct-dev serve` flags, e.g. --chunk-ms to slow a stream down.
 extra=(); [ -f "$recipe/serve.args" ] && read -r -a extra <"$recipe/serve.args"
 port=$("$root/scripts/mock.sh" "$scratch/mock" "$scratch/model.json" --dump "$scratch/requests" ${extra[@]+"${extra[@]}"})
+envs=(--env CONSTRUCT_MOTION=off)
+if [ -f "$recipe/drive.env" ]; then
+  while IFS= read -r kv; do [ -n "$kv" ] && envs+=(--env "$kv"); done <"$recipe/drive.env"
+fi
 set +e
 DRIVE_RAW_LOG="$EVIDENCE/raw.log" "$root/target/debug/construct-dev" drive --metrics --cols "$cols" --rows "$rows" --cwd "$WORK" \
   --script "$scratch/drive.txt" \
   --env CONSTRUCT_HOME="$CHOME" --env CONSTRUCT_BASE_URL="http://127.0.0.1:$port/v1" --env OPENAI_API_KEY=x \
-  --env CONSTRUCT_MODEL= --env OPENROUTER_API_KEY= --env TYPESAFE_API_KEY= \
+  --env CONSTRUCT_MODEL= --env OPENROUTER_API_KEY= --env TYPESAFE_API_KEY= "${envs[@]}" \
   -- "$root/target/debug/construct" >"$EVIDENCE/transcript.txt" 2>&1
 status=$?
 tail -n 40 "$EVIDENCE/transcript.txt"

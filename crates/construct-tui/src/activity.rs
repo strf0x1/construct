@@ -15,15 +15,17 @@ impl App {
         let since = self.last_activity.elapsed().as_secs_f32();
         let running = self.turn.running();
         let phase_now = running.map(|r| &r.phase);
-        let (mut label, mut base, mut hi) = match phase_now {
-            Some(Phase::Routing) => ("routing".to_string(), theme::DIM, theme::CYAN),
-            Some(Phase::Waiting) => ("waiting for model".to_string(), theme::DIM, theme::ACCENT),
-            Some(Phase::Thinking) => ("thinking".to_string(), theme::DIM, theme::ACCENT2),
-            Some(Phase::Writing) => ("writing".to_string(), theme::DIM, theme::ACCENT),
-            Some(Phase::Tool(n)) => (format!("running {n}"), theme::DIM, theme::YELLOW),
+        let mut label = match phase_now {
+            Some(Phase::Routing) => "routing".to_string(),
+            Some(Phase::Waiting) => "waiting for model".to_string(),
+            Some(Phase::Thinking) => "thinking".to_string(),
+            Some(Phase::Writing) => "writing".to_string(),
+            Some(Phase::Tool(n)) => format!("running {n}"),
             // Sent, and the worker has not started it yet.
-            None => ("starting".to_string(), theme::DIM, theme::DIM),
+            None => "starting".to_string(),
         };
+        // The rule's comet wears the same color (`motion::hue`).
+        let (mut base, mut hi) = (theme::DIM, super::motion::hue(phase_now).0);
         // Silence from the model reads as "broken"; say so plainly instead.
         if since > 6.0 && !matches!(phase_now, Some(Phase::Tool(_))) {
             label = format!("{label} · no output for {since:.0}s");

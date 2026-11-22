@@ -17,11 +17,13 @@ mod jobs;
 mod learning;
 mod listing;
 mod markdown;
+mod motion;
 mod palette;
 mod picker;
 mod prompt;
 mod restore;
 mod sessions;
+mod splash;
 mod status;
 mod table;
 mod text;
@@ -227,6 +229,8 @@ async fn run_inner(
                 dirty = true;
             }
             _ = tick.tick(), if animating => { dirty = true; }
+            // motion (a comet, an unfurl) wants ~30fps; it runs only while something moves
+            _ = tokio::time::sleep(Duration::from_millis(33)), if app.motion.running() => { dirty = true; }
             // a frame held back by the redraw cap still gets drawn
             _ = tokio::time::sleep_until((last_draw + Duration::from_millis(8)).into()), if dirty => {}
         }
