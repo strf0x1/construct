@@ -120,6 +120,8 @@ impl Env {
             ("CONSTRUCT_BASE_URL".into(), format!("http://127.0.0.1:{}/v1", self.port)),
             ("OPENAI_API_KEY".into(), "test".into()),
             ("CONSTRUCT_LEARN_DEBOUNCE_MS".into(), "0".into()),
+            // Motion makes a frame depend on when it was taken; snapshots need it still.
+            ("CONSTRUCT_MOTION".into(), "off".into()),
             // Empty means unset: the developer's shell must not change what the tests see.
             ("OPENROUTER_API_KEY".into(), String::new()),
             ("TYPESAFE_API_KEY".into(), String::new()),

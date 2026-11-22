@@ -27,6 +27,7 @@ libc.workspace = true
 pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 serde_json.workspace = true
+tachyonfx = { version = "0.25.2", default-features = false, features = ["std"] }
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
 toml.workspace = true
 unicode-width = "0.2"

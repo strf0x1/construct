@@ -103,7 +103,9 @@ impl App {
                 self.push(b);
             }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
-                if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id) {
+                if let Some(i) = self.blocks.iter().rposition(|b| b.kind == Kind::Tool && b.id == id) {
+                    self.motion.tool_done(i, ok);
+                    let b = &mut self.blocks[i];
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
                     b.ms = ms;

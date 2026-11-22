@@ -15,7 +15,7 @@
 "crates/construct-core/src/router.rs" = 304
 "crates/construct-core/src/tools/shell.rs" = 301
 "crates/construct-tui/src/markdown.rs" = 336
-"crates/construct-tui/src/view.rs" = 377
+"crates/construct-tui/src/view.rs" = 349
 
 # Module pairs that use each other both ways, per crate (`a <-> b`),
 # found by the same scan as `construct-dev code-graph`. A new pair fails the

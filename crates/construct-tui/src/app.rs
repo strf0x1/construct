@@ -99,6 +99,9 @@ pub(super) struct App {
     /// Notices from beside the turn, held while a reply streams (see `aside`).
     pub(super) held: Vec<Block>,
     pub(super) cache: HashMap<usize, (u16, u64, bool, Vec<Line<'static>>)>,
+    /// Each block's (first row, rows) in the last transcript drawn, for `motion`.
+    pub(super) rows: Vec<(usize, usize)>,
+    pub(super) motion: super::motion::Motion,
     pub(super) input: String,
     pub(super) cursor: usize,
     pub(super) history: Vec<String>,
@@ -152,6 +155,8 @@ impl App {
             blocks: vec![],
             held: vec![],
             cache: HashMap::new(),
+            rows: vec![],
+            motion: super::motion::Motion::from_env(),
             input: String::new(),
             cursor: 0,
             history: vec![],
@@ -225,6 +230,7 @@ impl App {
 
     pub(super) fn animating(&self) -> bool {
         self.turn.busy()
+            || self.motion.running()
             || self.browser.as_ref().is_some_and(|b| b.loading)
             || !self.prompts.is_empty()
             || self.learning.is_some()

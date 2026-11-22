@@ -161,10 +161,10 @@ must_not_use_crates = [
 used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, `construct acp`, the learner); construct's cli is the one place that chooses to start it" }
 
 [crates.construct-tui.modules.activity]
-may_use = ["app", "theme"]
+may_use = ["app", "motion", "theme"]
 
 [crates.construct-tui.modules.app]
-may_use = ["ask", "boxed", "palette", "picker", "sessions", "theme", "turn"]
+may_use = ["ask", "boxed", "motion", "palette", "picker", "sessions", "theme", "turn"]
 
 [crates.construct-tui.modules.app_events]
 may_use = ["app", "args", "theme"]
@@ -237,6 +237,12 @@ may_use = []
 
 [crates.construct-tui.modules.view]
 may_use = ["app", "boxed", "help", "markdown", "prompt", "text", "theme"]
+
+[crates.construct-tui.modules.motion]
+may_use = ["theme", "turn"]
+
+[crates.construct-tui.modules.splash]
+may_use = ["app", "theme"]
 
 [crates.construct-tui.modules.worker]
 may_use = ["app", "ask", "learning"]
