@@ -50,12 +50,22 @@ ourselves.
 - First two effects: the comet on the rule (its color is the phase, shared
   with the activity line through `motion::hue`) and the tool output unfurl on
   `ToolEnd` (outcome flash on the header, gutter fill, top-down coalesce).
+- Then the permission panel and outcomes: the panel's border draws itself
+  and its contents fade in within the 450 ms it ignores keys; a moved
+  selection is found in the drawn frame by `prompt::SELECTED_BG`, so the
+  prompt's layout code knows nothing of motion; an answered panel's last
+  frame is kept and dissolves over what replaced it (`rule()` is drawn last
+  for that), washed green when allowed and amber when denied. A failed tool's
+  header shakes and its error lines settle out of a hue glitch.
 
 ## Consequences
 
-- New motion is an effect in `motion.rs` plus a trigger, not a change to the
-  renderers. The rest of the prototype (panel, outcomes, diff, compaction,
-  splash) can land the same way.
+- New motion is an effect in `motion/` plus a trigger, not a change to the
+  renderers. The rest of the prototype (diff, compaction, splash) can land
+  the same way.
+- The ghost puts back the panel's own cells, backgrounds included (the badge,
+  the selected bar), for under half a second; nothing else sets a
+  background.
 - A live tail of bash output while it runs needs a streaming output event from
   core; today output arrives only at `ToolEnd`, so the unfurl plays then.
 - One duplicate crate: `compact_str` 0.10 (tachyonfx) beside 0.9
@@ -71,4 +81,8 @@ ourselves.
   PASS, run `motion2`; comet head on the rule while bash ran, gutter caught
   filling in `unfurl-1`, idle rule plain, `tool_end` with the output in the
   journal.
+- Recipe `panel-motion`: PASS three runs in a row (`panel6`–`panel8`);
+  border gap caught arriving, white sweep on the moved row, green ghost after
+  enter, the failed header off its indent; the journal shows the read
+  allowed and the shell failed.
 - `cargo deny check`: advisories, bans, licenses, sources ok.

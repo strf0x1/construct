@@ -1,0 +1,5 @@
+{"steps":[
+  {"call":"read","args":{"path":"{outside}/a.txt"}},
+  {"call":"shell","args":{"command":"sleep 1; echo publish-refused >&2; exit 3"}},
+  {"text":"the publish was refused","delay_ms":800}
+]}
