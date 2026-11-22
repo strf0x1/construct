@@ -153,6 +153,7 @@ impl Agent {
         let totals = journal::Totals::of(&entries);
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
+        groups.extend(Group::initial(&cfg.tools.initial).map_err(anyhow::Error::msg)?);
         if ctx.boundary.is_some() {
             groups.insert(Group::Boundary);
         }

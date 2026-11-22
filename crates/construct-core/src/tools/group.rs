@@ -56,4 +56,34 @@ impl Group {
             l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),
         })
     }
+
+    /// The groups `[tools] initial` turns on from the first request (#187):
+    /// built-in ones the model could be given later, plus `jobs`. A label that
+    /// is not one is an error, so a mistyped experiment arm fails instead of
+    /// measuring nothing.
+    pub fn initial(labels: &[String]) -> Result<Vec<Group>, String> {
+        labels
+            .iter()
+            .map(|l| match l.as_str() {
+                "jobs" => Ok(Group::Jobs),
+                l => Group::parse(l)
+                    .filter(|g| !matches!(g, Group::Mcp(_)))
+                    .ok_or_else(|| format!("[tools] initial: unknown group {l:?}")),
+            })
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Group;
+
+    #[test]
+    fn initial_takes_built_in_labels_and_rejects_the_rest() {
+        let l = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(Group::initial(&l(&["web", "memory", "jobs"])), Ok(vec![Group::Web, Group::Memory, Group::Jobs]));
+        assert!(Group::initial(&l(&["wbe"])).unwrap_err().contains("\"wbe\""));
+        assert!(Group::initial(&l(&["mcp:x"])).is_err());
+        assert!(Group::initial(&l(&["core"])).is_err());
+    }
 }
