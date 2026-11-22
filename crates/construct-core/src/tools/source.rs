@@ -28,6 +28,11 @@ pub trait ToolSource: Send + Sync {
         None
     }
 
+    /// Name this source's tools that the sandbox's denials point the model
+    /// at (`journal_query` for past sessions), so core never names a tool a
+    /// build may not have.
+    fn policy_tools(&self, _tools: &mut crate::permission::PolicyTools) {}
+
     /// This source's handle on Deck's boundary endpoint at `base_url`, for a
     /// session that has one. The engine holds it as a `BoundaryHost`; the
     /// source's own tools share it through `Ctx`.
@@ -54,6 +59,13 @@ impl ToolSources {
     /// The first source's note for a linked worktree out of reach.
     pub fn worktree_note(&self, git_dir: &Path) -> Option<String> {
         self.0.iter().find_map(|s| s.worktree_note(git_dir))
+    }
+
+    /// Every source's names for the sandbox's denials.
+    pub fn policy_tools(&self, tools: &mut crate::permission::PolicyTools) {
+        for s in &self.0 {
+            s.policy_tools(tools);
+        }
     }
 
     pub(super) fn tools(&self, cfg: &ToolsConfig, deck: &Deck) -> Result<Vec<Arc<dyn Tool>>> {

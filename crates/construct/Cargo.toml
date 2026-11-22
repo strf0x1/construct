@@ -23,19 +23,25 @@ default = ["full"]
 # Bundles (#271). `full` is every release build. `lean` is the small drop
 # build: `--no-default-features --features lean`. Add single features on top
 # (`--features lean,keyring`) to measure one at a time.
-full = ["keyring", "web"]
+full = ["keyring", "web", "history", "jobs"]
 lean = ["web"]
 # Forwarded to the engine: off is env-only secrets (ADR 0051). The TUI
 # never forces the keyring on.
 keyring = ["construct-core/keyring"]
 # web_search and web_fetch (construct-tools-web).
 web = ["dep:construct-tools-web"]
+# recall_result and journal_query (construct-tools-history).
+history = ["dep:construct-tools-history"]
+# The `job` tool (construct-tools-jobs); background jobs run either way.
+jobs = ["dep:construct-tools-jobs"]
 
 [dependencies]
 construct-core = { workspace = true, default-features = false }
 construct-tui.workspace = true
 construct-deck.workspace = true
 construct-tools-web = { workspace = true, optional = true }
+construct-tools-history = { workspace = true, optional = true }
+construct-tools-jobs = { workspace = true, optional = true }
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true

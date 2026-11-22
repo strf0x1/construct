@@ -6,7 +6,6 @@
 //! for process globals. That is what makes the catalog and the tools testable
 //! without a terminal or a model.
 
-use super::history::JournalQuery;
 use super::memory::Memory;
 use super::shell::Shell;
 use super::skill::{SkillManage, SkillView};
@@ -16,6 +15,24 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
+
+/// The session's permissions, naming core's tools and whatever `sources`
+/// add in the denials that point the model elsewhere.
+fn perms(
+    paths: &Paths,
+    sandbox: &crate::sandbox::Policy,
+    sources: &super::ToolSources,
+) -> Arc<crate::permission::Perms> {
+    let mut tools = crate::permission::PolicyTools {
+        shell: Shell::NAME,
+        skill_view: SkillView::NAME,
+        skill_manage: SkillManage::NAME,
+        memory: Memory::NAME,
+        journal_query: None,
+    };
+    sources.policy_tools(&mut tools);
+    Arc::new(crate::permission::Perms::new(paths, sandbox.clone()).with_tools(tools))
+}
 
 pub struct Ctx {
     pub cwd: PathBuf,
@@ -67,15 +84,7 @@ impl Ctx {
             .expect("http client");
         let skills = Library::new(&paths);
         let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
-        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox.clone()).with_tools(
-            crate::permission::PolicyTools {
-                shell: Shell::NAME,
-                skill_view: SkillView::NAME,
-                skill_manage: SkillManage::NAME,
-                memory: Memory::NAME,
-                journal_query: JournalQuery::NAME,
-            },
-        ));
+        let perms = perms(&paths, &sandbox, &super::ToolSources::default());
         Self {
             cwd,
             paths,
@@ -103,6 +112,7 @@ impl Ctx {
     }
     /// The sources the catalog was built with.
     pub fn with_sources(mut self, sources: super::ToolSources) -> Self {
+        self.perms = perms(&self.paths, &self.sandbox, &sources);
         self.sources = sources;
         self
     }

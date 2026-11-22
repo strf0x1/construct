@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core", "construct-deck", "construct-tools-web", "construct-tui"]
+may_use_crates = ["construct-core", "construct-deck", "construct-tools-history", "construct-tools-jobs", "construct-tools-web", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -150,6 +150,20 @@ may_use = []
 
 [crates.construct-deck.modules.source]
 may_use = ["boundary", "control", "developer"]
+
+[crates.construct-tools-history]
+may_use_crates = ["construct-core"]
+used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271): the binary's `history` feature registers it as a `ToolSource`; the engine never names it" }
+
+[crates.construct-tools-history.modules.lib]
+may_use = []
+
+[crates.construct-tools-jobs]
+may_use_crates = ["construct-core"]
+used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271): the binary's `jobs` feature registers it as a `ToolSource`; the engine never names it" }
+
+[crates.construct-tools-jobs.modules.lib]
+may_use = []
 
 [crates.construct-tools-web]
 may_use_crates = ["construct-core"]

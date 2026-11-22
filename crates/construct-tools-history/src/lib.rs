@@ -1,5 +1,7 @@
 //! History tools over this project's journal: `recall_result` (an earlier
-//! tool call's output by call id) and `journal_query` (read-only SQL).
+//! tool call's output by call id) and `journal_query` (read-only SQL). An
+//! optional tool crate (#271, ADR 0064): the binary registers `History` as a
+//! `ToolSource` when its `history` feature is on.
 //!
 //! The design choice a reader must know: both open the journal in-process,
 //! read-only, and only this project's file (`journal::path`). The sandbox
@@ -7,12 +9,15 @@
 //! the only way in, and every limit on the SQL one (docs/adr/0009) is
 //! enforced by SQLite itself, not by parsing the query.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
+use construct_core::config::ToolsConfig;
+use construct_core::permission::PolicyTools;
+use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def, obj};
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// A query running longer than this is interrupted.
@@ -23,6 +28,21 @@ const MAX_ROWS: usize = 200;
 const MAX_BYTES: usize = 16 * 1024;
 /// Pragmas that only describe; their argument is at most a table name.
 const READ_PRAGMAS: &[&str] = &["data_version", "table_info", "table_xinfo", "index_list", "index_info"];
+
+/// What the composition root registers: both history tools, in the order
+/// they had inside core, and `journal_query` as where the sandbox's denials
+/// send the model for past sessions.
+pub struct History;
+
+impl ToolSource for History {
+    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(RecallResult), Arc::new(JournalQuery)])
+    }
+
+    fn policy_tools(&self, tools: &mut PolicyTools) {
+        tools.journal_query = Some(JournalQuery::NAME);
+    }
+}
 
 pub struct RecallResult;
 
@@ -56,7 +76,7 @@ impl Tool for RecallResult {
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
         let id = a["id"].as_str().ok_or("id is required")?.to_string();
-        let file = crate::journal::path(&ctx.paths, &ctx.cwd);
+        let file = construct_core::journal::path(&ctx.paths, &ctx.cwd);
         let found = blocking(move || {
             let conn = open(file)?;
             // The expression matches the `events_id` index exactly. Ids can
@@ -116,7 +136,7 @@ impl Tool for JournalQuery {
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
         let sql = a["sql"].as_str().ok_or("sql is required")?.to_string();
-        let file = crate::journal::path(&ctx.paths, &ctx.cwd);
+        let file = construct_core::journal::path(&ctx.paths, &ctx.cwd);
         let cancel = ctx.cancel.clone();
         blocking(move || {
             let mut conn = open(file)?;
@@ -181,7 +201,7 @@ fn query(conn: &mut Connection, sql: &str, cancel: tokio::sync::watch::Receiver<
         if text.len() + 1 + line.len() > MAX_BYTES {
             let room = MAX_BYTES.saturating_sub(text.len() + 1);
             text.push('\n');
-            text.push_str(&crate::text::truncate(&line, room));
+            text.push_str(&construct_core::text::truncate(&line, room));
             cut = Some(format!("{} KB", MAX_BYTES / 1024));
             break;
         }

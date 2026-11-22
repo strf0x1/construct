@@ -52,8 +52,17 @@ Two ways to make a tool optional:
 ## Consequences
 
 - Moving another tool out is mechanical when nothing outside `tools/` names
-  it: `job` and `history` next. `memory` and `skill` are entangled with the
-  learning pass and the per-turn skill loader, and need a cut first.
+  it. `history` (`construct-tools-history`) and `job` (`construct-tools-jobs`)
+  followed, behind the `history` and `jobs` features, both in `full`.
+  `memory` and `skill` are entangled with the learning pass and the per-turn
+  skill loader, and need a cut first.
+- A tool whose name core's prose used to spell (`journal_query` in the
+  sandbox's denials) is named by its source through
+  `ToolSource::policy_tools`; without the source the sentence leaves it out.
+- Without `jobs`, the bash tool's `background` still works and a finished
+  job still wakes the agent, but its text says "the job tool reads it
+  sooner or cancels it" about a tool the build lacks. Hiding `background`
+  when nothing can cancel a job is a follow-up.
 - A user config that disables a tool the build does not have
   (`disabled = ["web_search"]` in a bare build) is refused as an unknown
   tool. That is right for typos but awkward for a shared config across

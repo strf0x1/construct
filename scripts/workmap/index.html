@@ -534,7 +534,7 @@ function openModule(id){
     <dl class="kv"><dt>Crate</dt><dd class="mono">${esc(m.crate)}</dd>${path ? `<dt>Source</dt><dd class="mono">${esc(path)}</dd>` : ""}
     ${m.submodules.length ? `<dt>Modules</dt><dd class="mono">${m.submodules.length}: ${esc(m.submodules.join(", "))}</dd>` : ""}
     ${uses.length ? `<dt>Uses</dt><dd class="mono">${esc(uses.join(", "))}</dd>` : ""}${usedBy.length ? `<dt>Used by</dt><dd class="mono">${esc(usedBy.join(", "))}</dd>` : ""}</dl>
-    <div class="btnrow"><button class="btn primary" data-area="${id}" data-go="work">Dependency graph for ${esc(m.label)}</button><button class="btn" data-area="${id}" data-go="next">Board for ${esc(m.label)}</button></div>
+    <div class="btnrow"><button class="btn primary" data-area="${id}" data-go="work">Issues for ${esc(m.label)}</button><button class="btn" data-area="${id}" data-go="next">Board for ${esc(m.label)}</button></div>
     ${codeSection(m)}
     <div><h3>Open issues · ${m.open.length}</h3>${byStage.length ? byStage.map(([s,l]) => `<ul class="links">${l.map(i => ilink(i.n, i.unblocks ? ` <span class="tag unb">unblocks ${i.unblocks}</span>` : "")).join("")}</ul>`).join("") : `<p class="ex">No open issues mention this module.</p>`}</div>
     ${m.features.length ? `<div><h3>Features · ${m.features.length}</h3><ul class="links">${m.features.map(f => `<li><span class="n">${esc(f.status)}</span><span>${esc(f.title)}${f.verified_at ? ` <span class="why">verified at ${esc(f.verified_at.slice(0,7))}</span>` : ""}</span></li>`).join("")}</ul></div>` : ""}

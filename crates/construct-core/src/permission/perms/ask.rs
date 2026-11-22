@@ -42,9 +42,12 @@ impl Perms {
         let real = Policy::real(path);
         if in_construct_home(&real) {
             let t = &self.tools;
+            let names: Vec<&str> =
+                [t.skill_view, t.skill_manage, t.memory].into_iter().chain(t.journal_query).collect();
+            let (last, rest) = names.split_last().unwrap_or((&"", &[]));
             return Err(format!(
-                "{msg} That is construct's own home: use the {}, {}, {} and {} tools for what lives there.",
-                t.skill_view, t.skill_manage, t.memory, t.journal_query
+                "{msg} That is construct's own home: use the {} and {last} tools for what lives there.",
+                rest.join(", ")
             ));
         }
         if protected(&real) {

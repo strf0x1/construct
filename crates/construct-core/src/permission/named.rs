@@ -31,7 +31,8 @@ pub struct PolicyTools {
     pub skill_view: &'static str,
     pub skill_manage: &'static str,
     pub memory: &'static str,
-    pub journal_query: &'static str,
+    /// The past-sessions tool, when this build has one (#271).
+    pub journal_query: Option<&'static str>,
 }
 
 /// The paths a command names that its policy won't let it read, by what the
@@ -84,12 +85,12 @@ impl Outside {
         }
         if !self.construct.is_empty() {
             out.push(format!(
-                "[sandbox: construct's own files ({}) aren't reachable from the shell. Load a skill with {}, change it with {} (its files can be read under {}); past sessions are in {}.]",
+                "[sandbox: construct's own files ({}) aren't reachable from the shell. Load a skill with {}, change it with {} (its files can be read under {}){}.]",
                 construct_home.display(),
                 tools.skill_view,
                 tools.skill_manage,
                 skills.display(),
-                tools.journal_query
+                tools.journal_query.map(|q| format!("; past sessions are in {q}")).unwrap_or_default()
             ));
         }
         out.join("\n")

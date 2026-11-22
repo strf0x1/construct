@@ -20,8 +20,6 @@ pub mod fs;
 pub mod glob;
 pub mod grep;
 mod group;
-pub mod history;
-pub mod job;
 pub mod mcp;
 pub mod memory;
 pub mod read;
