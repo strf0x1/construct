@@ -3,8 +3,8 @@ id: status-line
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/status.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct-core/src/journal/totals.rs, crates/construct-core/src/journal/show.rs]
-verified_at: c925454
-verified_deps: aab2940b4f1e7575
+verified_at: 310dde1
+verified_deps: 4c9c8ab6ba4b2971
 ---
 # Status line
 
