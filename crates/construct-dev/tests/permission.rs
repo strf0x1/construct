@@ -460,6 +460,8 @@ fn hidden_sandbox_denials_still_reach_the_model_and_a_hunt_is_stopped() {
     assert!(got[2].contains("only the workspace, system paths and toolchains are visible under /"), "{}", got[2]);
     assert!(!got[2].contains("Stop searching"), "{}", got[2]);
     assert!(got[3].contains("construct's own files") && got[3].contains("skill_manage"), "{}", got[3]);
+    // Named by the history crate's source, not by core (#271).
+    assert!(got[3].contains("past sessions are in journal_query"), "{}", got[3]);
     assert!(got[3].contains("3 shell calls this turn were blocked") && got[3].contains("ask the user"), "{}", got[3]);
     assert!(got[4].contains("not run") && got[4].contains("ask the user"), "{}", got[4]);
     assert!(!env.work.join("ran-anyway").exists(), "a refused command must not run");

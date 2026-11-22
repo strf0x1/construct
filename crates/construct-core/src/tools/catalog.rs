@@ -80,9 +80,6 @@ impl Catalog {
         tools.push(Arc::new(memory::Memory));
         tools.push(Arc::new(skill::SkillView));
         tools.push(Arc::new(skill::SkillManage));
-        tools.push(Arc::new(history::RecallResult));
-        tools.push(Arc::new(history::JournalQuery));
-        tools.push(Arc::new(job::JobTool));
         tools.extend(sources.tools(cfg, deck)?);
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {

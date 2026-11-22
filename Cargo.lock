@@ -945,6 +945,8 @@ dependencies = [
  "clap",
  "construct-core",
  "construct-deck",
+ "construct-tools-history",
+ "construct-tools-jobs",
  "construct-tools-web",
  "construct-tui",
  "reqwest",
@@ -1024,6 +1026,28 @@ dependencies = [
  "tokio",
  "toml",
  "vt100",
+]
+
+[[package]]
+name = "construct-tools-history"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "rusqlite",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "construct-tools-jobs"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "serde_json",
 ]
 
 [[package]]

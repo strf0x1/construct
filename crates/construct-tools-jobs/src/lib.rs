@@ -6,11 +6,27 @@
 //! The design choice: reading an ended job here counts as the model having its
 //! result. The read is journaled as a delivery, so the same ending never also
 //! wakes the agent (ADR 0026).
+//!
+//! An optional tool crate (#271, ADR 0064): the binary registers `Jobs` as a
+//! `ToolSource` when its `jobs` feature is on. Without it, background jobs
+//! still run and still wake the agent; the model just can't check or cancel
+//! one early.
 
-use super::{Call, Ctx, Display, Group, Output, Tool, ToolError, def, obj};
-use crate::event::Event;
-use crate::jobs::{Cancel, Delivered};
+use construct_core::config::ToolsConfig;
+use construct_core::event::Event;
+use construct_core::jobs::{Cancel, Delivered};
+use construct_core::tools::{Call, Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolSource, arg, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
+
+/// What the composition root registers: the one `job` tool.
+pub struct Jobs;
+
+impl ToolSource for Jobs {
+    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(JobTool)])
+    }
+}
 
 pub struct JobTool;
 
@@ -46,8 +62,8 @@ impl Tool for JobTool {
         self.call_with(ctx, &Call::detached(""), args).await
     }
     async fn call_with(&self, ctx: &Ctx, call: &Call, args: Value) -> Result<Output, ToolError> {
-        let id = super::arg(&args, "id");
-        match (super::arg(&args, "action"), id) {
+        let id = arg(&args, "id");
+        match (arg(&args, "action"), id) {
             (Some("check"), None) => {
                 let jobs = ctx.jobs.list();
                 if jobs.is_empty() {

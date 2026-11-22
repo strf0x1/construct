@@ -11,5 +11,9 @@ pub(super) fn tool_sources() -> ToolSources {
     let sources = ToolSources::default();
     #[cfg(feature = "web")]
     let sources = sources.with(construct_tools_web::Web);
+    #[cfg(feature = "history")]
+    let sources = sources.with(construct_tools_history::History);
+    #[cfg(feature = "jobs")]
+    let sources = sources.with(construct_tools_jobs::Jobs);
     sources.with(construct_deck::DeckTools)
 }

@@ -82,7 +82,7 @@ tests = ["acp", "acp_live", "deck", "deck_control", "deck_github", "developer", 
 name = "jobs"
 paths = [
   "crates/construct-core/src/jobs/",
-  "crates/construct-core/src/tools/job.rs",
+  "crates/construct-tools-jobs/",
   "crates/construct-core/src/tools/shell_job.rs",
 ]
 tests = ["crash_sweep", "e2e", "jobs", "recovery", "sessions", "snapshots"]
@@ -101,6 +101,6 @@ tests = ["deck", "e2e", "snapshots"]
 
 [[area]]
 name = "history-tools"
-paths = ["crates/construct-core/src/tools/history.rs"]
+paths = ["crates/construct-tools-history/"]
 tests = ["e2e", "snapshots"]
 

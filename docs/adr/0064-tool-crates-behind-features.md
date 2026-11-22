@@ -52,8 +52,17 @@ Two ways to make a tool optional:
 ## Consequences
 
 - Moving another tool out is mechanical when nothing outside `tools/` names
-  it: `job` and `history` next. `memory` and `skill` are entangled with the
-  learning pass and the per-turn skill loader, and need a cut first.
+  it. `history` (`construct-tools-history`) and `job` (`construct-tools-jobs`)
+  followed, behind the `history` and `jobs` features, both in `full`.
+  `memory` and `skill` are entangled with the learning pass and the per-turn
+  skill loader, and need a cut first.
+- A tool whose name core's prose used to spell (`journal_query` in the
+  sandbox's denials) is named by its source through
+  `ToolSource::policy_tools`; without the source the sentence leaves it out.
+- Without `jobs`, the bash tool's `background` still works and a finished
+  job still wakes the agent, but its text says "the job tool reads it
+  sooner or cancels it" about a tool the build lacks. Hiding `background`
+  when nothing can cancel a job is a follow-up.
 - A user config that disables a tool the build does not have
   (`disabled = ["web_search"]` in a bare build) is refused as an unknown
   tool. That is right for typos but awkward for a shared config across
@@ -78,6 +87,11 @@ The web tools alone cost about 513 KB, most of it `htmd` and the HTML
 parser it brings. `full` grew by 16 KB, probably from the router's group
 filter and the crate boundary changing what gets inlined; that is within
 this change, not attributed further.
+
+With `history` and `jobs` moved out as well: `full` 8,310,288 (15 tools,
++96), `lean` 6,456,096 (12 tools), bare 5,942,496 (10 tools). Together they
+cost 16,752 bytes: `rusqlite` stays for the journal, so only their own
+code goes.
 
 An earlier experiment that also removed memory, skill, history, job and
 Deck's tools measured 5,692,256 B against 6,472,656 B for the env-only build
