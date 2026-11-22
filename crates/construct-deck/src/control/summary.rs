@@ -228,6 +228,7 @@ pub fn line(task: &Value, message: bool) -> String {
     } else if let Some(branch) = task["worktree"]["branch"].as_str() {
         out.push_str(&format!(". Local branch {}", construct_core::text::truncate(branch, 200)));
     }
+    super::permissions::append(&mut out, &task["permissions"]);
     if message && let Some(last) = s("last_message").filter(|m| !m.is_empty()) {
         let flat = last.split_whitespace().collect::<Vec<_>>().join(" ");
         out.push_str(&format!(" | last: {}", construct_core::text::truncate(&flat, LINE_MESSAGE)));

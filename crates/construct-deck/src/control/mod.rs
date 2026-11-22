@@ -4,6 +4,7 @@
 
 mod client;
 mod integration;
+mod permissions;
 mod summary;
 
 pub use client::{MAX_BODY, MAX_REPLY, PATH, REFUSALS, refusal};
