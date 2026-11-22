@@ -57,7 +57,7 @@ jobs:
       - run: cargo build -p construct --no-default-features
       - name: the bare build has only core's tools
         run: |
-          target/debug/construct manifest | jq -e '.tools == ["bash", "read", "write", "edit", "grep", "glob", "developer"]'
+          target/debug/construct manifest | jq -e '.tools == ["bash", "read", "write", "edit", "grep", "glob"]'
       - run: cargo build -p construct --no-default-features --features lean
       - name: the lean build has its web and memory tools
         run: |

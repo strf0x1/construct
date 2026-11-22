@@ -18,6 +18,28 @@ fn two(a: &Env, b: &Env) -> String {
     )
 }
 
+/// A port on loopback whose server reads each request and closes the
+/// connection unanswered, so a provider there fails at once with "connection
+/// closed". A closed port (`127.0.0.1:1`) is not reliable for that: macOS
+/// limits how many resets it sends for closed ports, and on a busy runner a
+/// dropped one leaves the connect hanging. Reading the request first keeps
+/// the close a clean one, never a reset.
+fn dead_port() -> u16 {
+    use std::io::{BufRead, BufReader};
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = l.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for s in l.incoming().flatten() {
+            let mut r = BufReader::new(s);
+            let mut line = String::new();
+            while r.read_line(&mut line).is_ok_and(|n| n > 0) && line != "\r\n" {
+                line.clear();
+            }
+        }
+    });
+    port
+}
+
 const KEYS: [(&str, &str); 2] = [("A_KEY", "aaaa-1"), ("B_KEY", "bbbb-2")];
 
 fn run(d: &mut drive::Driver, log: &mut Vec<u8>, script: &str) {
@@ -215,7 +237,8 @@ fn providers_add_probes_writes_one_table_in_place_and_refuses_what_would_break()
 
     let again = a.run(&["providers", "add", "box", "--url", &url]);
     assert!(String::from_utf8_lossy(&again.stderr).contains("box is already a provider"));
-    let dead = a.run(&["providers", "add", "dead", "--url", "http://127.0.0.1:1/v1"]);
+    let dead_url = format!("http://127.0.0.1:{}/v1", dead_port());
+    let dead = a.run(&["providers", "add", "dead", "--url", &dead_url]);
     assert!(String::from_utf8_lossy(&dead.stderr).contains("pass --discover off to add it unprobed"));
     let bad = a.run(&["providers", "add", "x", "--url", &url, "--discover", "carrier-pigeon"]);
     assert!(String::from_utf8_lossy(&bad.stderr).contains("one of openai, vllm, llama.cpp, ollama, off"));
@@ -280,7 +303,7 @@ fn picker_driver(env: &Env) -> drive::Driver {
         .unwrap()
 }
 
-/// A provider whose server refused the startup fetch is marked in the box,
+/// A provider whose server failed the startup fetch is marked in the box,
 /// with when and why, and `construct providers` says the same.
 #[test]
 fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
@@ -288,8 +311,9 @@ fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
     a.config(&format!(
         "model = \"up/x\"\n[router]\nmode = \"local\"\n[learn]\nenabled = false\n\
          [providers.up]\nbase_url = \"http://127.0.0.1:{}/v1\"\n[providers.up.models.x]\n\
-         [providers.down]\nbase_url = \"http://127.0.0.1:1/v1\"\n[providers.down.models.y]\n",
-        a.port
+         [providers.down]\nbase_url = \"http://127.0.0.1:{}/v1\"\n[providers.down.models.y]\n",
+        a.port,
+        dead_port()
     ));
     let mut d = picker_driver(&a);
     let mut log = Vec::new();
@@ -308,12 +332,12 @@ fn an_unreachable_provider_is_marked_in_the_picker_with_the_cause() {
     run(
         &mut d,
         &mut log,
-        &format!("type down/y\nwait \"Reach       unreachable\" {short}\nwait \"Connection refused\" {short}\n"),
+        &format!("type down/y\nwait \"Reach       unreachable\" {short}\nwait \"connection closed\" {short}\n"),
     );
     d.kill();
     let list = stdout(&a.run(&["providers"]));
     assert!(
-        list.lines().any(|l| l.starts_with("down ") && l.contains("unreachable") && l.contains("Connection refused")),
+        list.lines().any(|l| l.starts_with("down ") && l.contains("unreachable") && l.contains("connection closed")),
         "{list}"
     );
 }
