@@ -1,9 +1,10 @@
 //! A provider's model list: fetched the provider's way (`llm::discover`),
 //! cached on disk per url, and searched by name; `llm::overlay` lays it
 //! under the hand-written catalog. OpenRouter states windows, prices and
-//! supported parameters; vLLM and llama.cpp state windows; others give ids
-//! at best. The design choice a reader must know: a fetch is never on the
-//! UI path, and a failed one falls back to a stale cache instead of failing
+//! supported parameters; vLLM and llama.cpp state windows; a server may also
+//! name the other ids a model answers to (`aliases`); others give ids at
+//! best. The design choice a reader must know: a fetch is never on the UI
+//! path, and a failed one falls back to a stale cache instead of failing
 //! anything.
 
 use super::Client;
@@ -25,6 +26,10 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct ModelInfo {
     pub id: String,
     pub name: String,
+    /// Other ids the server accepts for this model. They are selectors for
+    /// the same row, never rows of their own.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
     pub context: Option<u32>,
     pub max_output: Option<u32>,
     /// USD per million tokens.
@@ -59,6 +64,7 @@ pub fn parse(body: &Value) -> Vec<ModelInfo> {
 fn entry(e: &Value) -> Option<ModelInfo> {
     let id = e.get("id")?.as_str().filter(|s| !s.is_empty())?.to_string();
     let name = e.get("name").and_then(Value::as_str).filter(|s| !s.is_empty()).unwrap_or(&id).to_string();
+    let aliases = aliases(e, &id);
     let count = |v: Option<&Value>| v.and_then(Value::as_u64).and_then(|n| u32::try_from(n).ok()).filter(|n| *n > 0);
     // OpenRouter prices are USD per token, as strings; a router model's
     // price is "-1" (it depends on the pick), which is unknown, not negative.
@@ -76,6 +82,7 @@ fn entry(e: &Value) -> Option<ModelInfo> {
     Some(ModelInfo {
         id,
         name,
+        aliases,
         // vLLM states the window it serves as `max_model_len`, beside the
         // model's trained `context_length`; the served one is what fits.
         context: count(e.get("max_model_len")).or_else(|| count(e.get("context_length"))),
@@ -88,15 +95,28 @@ fn entry(e: &Value) -> Option<ModelInfo> {
     })
 }
 
-/// The entry for `id`, or for the id without an OpenRouter variant suffix
-/// (`vendor/model:nitro` is served by `vendor/model`'s window).
-pub fn find<'a>(models: &'a [ModelInfo], id: &str) -> Option<&'a ModelInfo> {
-    let get = |id: &str| models.iter().find(|m| m.id == id);
-    get(id).or_else(|| id.split_once(':').and_then(|(base, _)| get(base)))
+/// The other ids an entry answers to: non-empty, never the id itself, sorted
+/// and deduped so the same list renders the same way twice.
+fn aliases(e: &Value, id: &str) -> Vec<String> {
+    let list = e.get("aliases").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+    let mut out: Vec<String> =
+        list.iter().filter_map(Value::as_str).filter(|a| !a.is_empty() && *a != id).map(str::to_string).collect();
+    out.sort();
+    out.dedup();
+    out
 }
 
-/// Tool-capable models whose id or name contains every word of `query`,
-/// prefix matches on the id first.
+/// The entry for `id`, one of its aliases, or the id without an OpenRouter
+/// variant suffix (`vendor/model:nitro` is served by `vendor/model`'s window).
+pub fn find<'a>(models: &'a [ModelInfo], id: &str) -> Option<&'a ModelInfo> {
+    let get = |id: &str| models.iter().find(|m| m.id == id);
+    get(id)
+        .or_else(|| models.iter().find(|m| m.aliases.iter().any(|a| a == id)))
+        .or_else(|| id.split_once(':').and_then(|(base, _)| get(base)))
+}
+
+/// Tool-capable models whose id, name or an alias contains every word of
+/// `query`, prefix matches on the id first.
 pub fn search<'a>(models: &'a [ModelInfo], query: &str) -> Vec<&'a ModelInfo> {
     let q = query.to_lowercase();
     let words: Vec<&str> = q.split_whitespace().collect();
@@ -104,7 +124,8 @@ pub fn search<'a>(models: &'a [ModelInfo], query: &str) -> Vec<&'a ModelInfo> {
         .iter()
         .filter(|m| m.tools)
         .filter(|m| {
-            let hay = format!("{} {}", m.id.to_lowercase(), m.name.to_lowercase());
+            let hay =
+                format!("{} {} {}", m.id.to_lowercase(), m.name.to_lowercase(), m.aliases.join(" ").to_lowercase());
             words.iter().all(|w| hay.contains(w))
         })
         .collect();
@@ -258,6 +279,7 @@ pub(super) mod tests {
     pub(in crate::llm) fn sample() -> Value {
         json!({ "data": [
             { "id": "b/small", "name": "B: Small", "context_length": 32768,
+              "aliases": ["small", "compact", "small", "", "b/small"],
               "pricing": { "prompt": "0.0000003", "completion": "0.0000025" },
               "supported_parameters": ["tools", "tool_choice", "reasoning"],
               "architecture": { "input_modalities": ["text", "image"] },
@@ -281,6 +303,7 @@ pub(super) mod tests {
         let small = find(&models, "b/small").unwrap();
         assert_eq!((small.context, small.max_output), (Some(32768), Some(8192)));
         assert_eq!(small.name, "B: Small");
+        assert_eq!(small.aliases, ["compact", "small"], "sorted, deduped, id and blanks dropped");
         assert!((small.prompt_per_m.unwrap() - 0.3).abs() < 1e-9);
         assert!((small.completion_per_m.unwrap() - 2.5).abs() < 1e-9);
         assert!(small.tools && small.reasoning && small.images);
@@ -297,9 +320,26 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_cache_written_before_aliases_still_loads() {
+        let old = json!({ "fetched_at": 1, "models": [{
+            "id": "b/small", "name": "B: Small", "context": 32768, "max_output": null,
+            "prompt_per_m": null, "completion_per_m": null,
+            "tools": true, "reasoning": false, "images": false
+        }] });
+        let cached: Cached = serde_json::from_value(old).unwrap();
+        assert_eq!(cached.models[0].id, "b/small");
+        assert!(cached.models[0].aliases.is_empty());
+        assert!(
+            serde_json::to_value(&cached.models[0]).unwrap().get("aliases").is_none(),
+            "empty aliases stay out of the file"
+        );
+    }
+
+    #[test]
     fn find_drops_a_variant_suffix() {
         let models = parse(&sample());
         assert_eq!(find(&models, "b/small:nitro").map(|m| m.id.as_str()), Some("b/small"));
+        assert_eq!(find(&models, "compact").map(|m| m.id.as_str()), Some("b/small"), "an alias finds the row");
         assert!(find(&models, "z/none:free").is_none());
     }
 
@@ -309,6 +349,8 @@ pub(super) mod tests {
         let ids = |q: &str| search(&models, q).iter().map(|m| m.id.clone()).collect::<Vec<_>>();
         assert_eq!(ids(""), ["a/big", "b/small", "openrouter/auto"]);
         assert_eq!(ids("small"), ["b/small"]);
+        assert_eq!(ids("compact"), ["b/small"], "an alias matches");
+        assert_eq!(ids("COMPACT"), ["b/small"], "case-insensitively");
         assert_eq!(ids("b: sm"), ["b/small"]);
         assert!(ids("chat-only").is_empty());
         assert_eq!(ids("b/"), ["b/small"]);

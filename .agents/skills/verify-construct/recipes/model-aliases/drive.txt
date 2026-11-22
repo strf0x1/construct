@@ -1,0 +1,18 @@
+# An alias finds the one canonical row, and the details name the aliases.
+# Picking it switches to the canonical id, not the alias typed.
+wait "ask construct" 5000
+sleep 800
+type /model
+key enter
+wait "search models…" 3000
+type compact
+wait "1/2" 2000
+expect "mock/small"
+expect "Aliases"
+expect "small"
+image {evidence}/aliases.png
+key enter
+wait "model → mock/small" 3000
+type hello
+key enter
+wait "alias-reply" 5000

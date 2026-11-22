@@ -25,7 +25,11 @@ const MAX_H: u16 = 26;
 /// Draw the picker over `area` and park the cursor in its search line.
 pub(crate) fn render(f: &mut Frame, area: Rect, p: &mut Picker) {
     let w = area.width.saturating_sub(2).clamp(20, MAX_W);
-    let want = (p.rows.len() as u16 + 6).clamp(20, MAX_H);
+    // Aliases get a blank line, a heading and one line each in the details;
+    // ask for that room only when a row has them.
+    let aliases = p.rows.iter().map(|r| r.aliases.len()).max().unwrap_or(0) as u16;
+    let alias_room = if aliases > 0 { aliases + 2 } else { 0 };
+    let want = (p.rows.len() as u16 + 6 + alias_room).clamp(20, MAX_H);
     let h = area.height.saturating_sub(2).min(want).max(6);
     let r = Rect::new(area.x + area.width.saturating_sub(w) / 2, area.y + area.height.saturating_sub(h) / 2, w, h)
         .intersection(area);
@@ -197,6 +201,13 @@ fn details(r: &Row, group: Option<&Group>) -> Vec<Line<'static>> {
             Span::styled(v, Style::new().fg(theme::CYAN)),
         ])
     };
+    if !r.aliases.is_empty() {
+        out.push(Line::default());
+        out.push(Line::from(Span::styled("Aliases", theme::faint())));
+        for alias in &r.aliases {
+            out.push(Line::from(Span::styled(format!("  {alias}"), Style::new().fg(theme::CYAN))));
+        }
+    }
     out.push(kv("Context", format!("{} tokens", short_tokens(r.window))));
     out.push(kv("Compacts at", format!("~{}", short_tokens(r.compacts_at))));
     out.push(kv("Max output", r.max_tokens.map_or("provider default".into(), |m| short_tokens(m as u64))));
@@ -253,6 +264,7 @@ mod tests {
             [models."anthropic/claude-haiku-5.5"]
             label = "Haiku 5.5 — fast recon"
             tags = ["fast"]
+            aliases = ["haiku", "fast-haiku"]
             context_window = 200000
             max_tokens = 16000
             pricing = { prompt = 1.0, completion = 5.0 }
@@ -289,6 +301,9 @@ mod tests {
         for want in [
             "Haiku 5.5 — fast recon",
             "fast",
+            "Aliases",
+            "haiku",
+            "fast-haiku",
             "Context",
             "200k tokens",
             "Compacts at",

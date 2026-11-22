@@ -93,7 +93,7 @@ pub(super) fn model_candidates(q: &str, cfg: &Config) -> Vec<Item> {
         .iter()
         .filter_map(|id| {
             let e = cfg.lookup(id)?;
-            let about = format!("{} {} {}", e.label, e.tags.join(" "), e.description);
+            let about = format!("{} {} {} {}", e.label, e.tags.join(" "), e.aliases.join(" "), e.description);
             score(&q, &id.to_lowercase(), &about).map(|s| (s, id))
         })
         .collect();
