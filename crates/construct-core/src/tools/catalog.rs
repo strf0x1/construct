@@ -49,6 +49,23 @@ impl Catalog {
         deck: &Deck,
         sources: &ToolSources,
     ) -> Result<Catalog> {
+        Self::assemble(cfg, mcp, deck, sources, true)
+    }
+
+    /// A catalog for a process that runs without the composition root's
+    /// sources (the learner's). A disabled name it doesn't have may be one of
+    /// theirs, so it is not an error here; `build_extended` still catches typos.
+    pub fn build_without_sources(cfg: &ToolsConfig) -> Result<Catalog> {
+        Self::assemble(cfg, None, &Deck::default(), &ToolSources::default(), false)
+    }
+
+    fn assemble(
+        cfg: &ToolsConfig,
+        mcp: Option<Arc<crate::mcp::Manager>>,
+        deck: &Deck,
+        sources: &ToolSources,
+        strict: bool,
+    ) -> Result<Catalog> {
         let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
         tools.push(Arc::new(read::Read));
         tools.push(Arc::new(write::Write));
@@ -60,8 +77,6 @@ impl Catalog {
         }
         tools.push(Arc::new(grep::Grep::named(&cfg.search_name)));
         tools.push(Arc::new(glob::Glob));
-        tools.push(Arc::new(web::WebSearch::new(&cfg.web)?));
-        tools.push(Arc::new(web::WebFetch));
         tools.push(Arc::new(memory::Memory));
         tools.push(Arc::new(skill::SkillView));
         tools.push(Arc::new(skill::SkillManage));
@@ -80,7 +95,7 @@ impl Catalog {
             .map(|d| if tools.iter().any(|t| t.name() == d) { d.as_str() } else { canonical(d) }.to_string())
             .collect();
         for d in &disabled {
-            if crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
+            if strict && crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
                 bail!("tools.disabled: unknown tool {d:?}");
             }
         }
@@ -124,6 +139,12 @@ impl Catalog {
 
     pub fn names(&self) -> Vec<String> {
         self.tools().iter().map(|t| t.name().to_string()).collect()
+    }
+
+    /// The groups this catalog has a tool in, MCP servers' only once
+    /// started: what the router may offer (#271).
+    pub fn groups(&self) -> BTreeSet<Group> {
+        self.tools().iter().map(|t| t.group()).collect()
     }
 
     /// Tool definitions for the enabled groups, in a stable order.

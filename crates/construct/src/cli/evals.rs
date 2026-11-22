@@ -18,11 +18,19 @@ pub(super) async fn route(cfg: Config, paths: Paths) -> Result<()> {
     let mcp: std::collections::BTreeMap<String, String> =
         cfg.mcp.iter().map(|(k, v)| (k.clone(), v.description.clone())).collect();
     let http = construct_core::http::build(construct_core::http::builder().tcp_nodelay(true))?;
+    // The groups this build has, so the eval routes as a session would.
+    let groups =
+        tools::Catalog::build_extended(&cfg.tools, None, &tools::Deck::default(), &super::sources::tool_sources())?
+            .groups();
     for v in stdin_lines() {
         let request = v["request"].as_str().unwrap_or("");
         let previous = v["previous"].as_str().unwrap_or("");
-        let r =
-            router::route(&cfg.router, &http, router::Input { request, previous, skills: &skills, mcp: &mcp }).await;
+        let r = router::route(
+            &cfg.router,
+            &http,
+            router::Input { request, previous, skills: &skills, mcp: &mcp, groups: &groups },
+        )
+        .await;
         let out = serde_json::json!({
             "request": request,
             "groups": r.groups.iter().map(tools::Group::label).collect::<Vec<_>>(),

@@ -30,7 +30,6 @@ mod shell_exit;
 mod shell_job;
 pub mod skill;
 mod source;
-pub mod web;
 pub mod write;
 
 use anyhow::Result;

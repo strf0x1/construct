@@ -12,7 +12,6 @@
 "crates/construct-dev/src/style.rs" = 375
 "crates/construct-core/src/agent.rs" = 330
 "crates/construct-core/src/compact/mod.rs" = 303
-"crates/construct-core/src/router.rs" = 304
 "crates/construct-core/src/tools/shell.rs" = 301
 "crates/construct-tui/src/markdown.rs" = 336
 "crates/construct-tui/src/view.rs" = 377
@@ -27,6 +26,11 @@ construct-core = [
     # they add `impl Config` blocks. Cut only the dependency, not the path.
     "config <-> models",
     "config <-> providers",
+]
+construct-tools-web = [
+    # Older than the crate: ddg and search were already two-way inside
+    # core's tools::web, where submodules went uncounted (#271).
+    "ddg <-> search",
 ]
 construct-dev = [
     "arch <-> xtask",

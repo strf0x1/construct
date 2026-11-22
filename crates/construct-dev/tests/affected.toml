@@ -96,7 +96,7 @@ tests = ["acp", "acp_keys", "acp_payloads", "deck", "e2e", "mcp", "snapshots"]
 # Routed tools only a few tests call.
 [[area]]
 name = "web"
-paths = ["crates/construct-core/src/tools/web.rs", "crates/construct-core/src/tools/web/"]
+paths = ["crates/construct-tools-web/"]
 tests = ["deck", "e2e", "snapshots"]
 
 [[area]]

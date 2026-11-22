@@ -20,6 +20,8 @@ default = ["keyring"]
 # drop build (#271) carries no keyring/OpenPGP subtree and reads every
 # credential from the environment (ADR 0051).
 keyring = ["dep:secretspec"]
+# `text::prop`, the shared property-test strategies, for tool crates' tests.
+test-support = ["dep:proptest"]
 
 [build-dependencies]
 toml.workspace = true
@@ -40,10 +42,10 @@ globset = "0.4"
 grep-matcher = "0.1"
 grep-regex = "0.1"
 grep-searcher = "0.1"
-htmd = "0.5"
 ignore = "0.4"
 libc.workspace = true
-reqwest = { workspace = true, features = ["gzip", "query", "form"] }
+proptest = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["gzip"] }
 rusqlite.workspace = true
 rustls.workspace = true
 secretspec = { workspace = true, optional = true }
