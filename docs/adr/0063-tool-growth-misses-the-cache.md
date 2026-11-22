@@ -1,6 +1,6 @@
 # 0063 — A growing tool list misses the prompt cache; `[tools] initial` to measure it
 
-Status: proposed. 2026-11-21.
+Status: accepted. 2026-11-21.
 
 ## Context
 
@@ -49,7 +49,16 @@ misses.
   request small", which matters for local models with small windows and no
   cache, and for tool-choice accuracy. That decision waits for the tier 2
   numbers and becomes its own ADR.
-- Accept this ADR when a tier 2 run confirms the miss on a real provider.
+- A tier 2 run confirmed the miss on a real provider (Evidence). Single-turn
+  tasks rarely show it: the router turns a group on before the first request,
+  so the list only grows on a later turn, on an `enable_tools` call, on the
+  first `memory` call or after a background job. `bench/tasks/cache-grow`
+  does all of that across three turns, to measure it.
+- A second break, not from tools: Anthropic drops an earlier turn's thinking
+  blocks once a new user turn starts, so the first request of the turn after
+  one with reasoning misses too, in both arms. construct sends the same bytes
+  (the mock shows the prefix stable there); it is a provider rule, outside
+  this decision.
 
 ## Evidence
 
@@ -69,4 +78,25 @@ the behaviour this ADR claims for real providers but is not proof of it.
 (`tools_initial_keeps_the_tool_list_and_the_prompt_cache_stable`) pins both
 halves: the request after `enable_tools` gets 0 cached tokens by default,
 and with `initial` the tool list never changes and every later request hits.
+
+Tier 2, `anthropic/claude-haiku-5.5` on OpenRouter, `bench/tasks/cache-grow`
+(three turns: code fix, something to remember, a background job), 5 rounds
+per arm, `bench/results/task-20261121-192153.json`, judged with
+`bench.py compare --a routed --b initial`:
+
+| | routed | `initial = ["memory", "jobs"]` |
+|---|---|---|
+| calls right after the tool list grew | 12, every one 0 cached | none |
+| cached share (median) | 58.3% | 77.6% |
+| drops (median per run) | 3 | 1 (the thinking break above) |
+| first request prompt tokens | 2,094 | 2,599 (+505) |
+| cost per run (median) | $0.00385 | $0.00276 (−28%) |
+| success | 5/5 | 5/5 |
+
+The same model on six single-turn tasks (`task-20261121-182005.json`, 3
+rounds) never grew the list mid-session in either arm: no drops, the same
+success, and `initial = ["web", "memory", "jobs"]` cost 8% more for its
+larger first request. Where nothing is switched on later, sending groups up
+front only costs.
+
 Related: ADR 0005, ADR 0012, issue #187.
