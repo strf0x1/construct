@@ -3,8 +3,8 @@ id: panel-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/panel.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app.rs, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/theme.rs]
-verified_at: 310dde1
-verified_deps: f18814dcb674a5ce
+verified_at: 9965a67
+verified_deps: 3b6523006822d3dd
 ---
 # Motion: permission panel and outcomes
 
