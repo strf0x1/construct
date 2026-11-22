@@ -80,11 +80,12 @@ impl App {
                         b.version += 1;
                     }
                     None => {
-                        let mut b = Block::new(Kind::Assistant, text);
+                        let mut b = Block::new(Kind::Assistant, text.clone());
                         b.status = Status::Running;
                         self.push(b);
                     }
                 }
+                self.motion.wrote(self.blocks.len() - 1, &text);
             }
             Event::ToolPending { name } => {
                 self.close_reasoning();

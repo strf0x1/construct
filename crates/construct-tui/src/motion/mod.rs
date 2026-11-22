@@ -3,18 +3,22 @@
 //! the text trickles in, the header flashes its outcome; a failure shakes) and
 //! a comet rides the rule above the input while a turn runs, colored by what
 //! it is doing. A permission panel draws its own border as it arrives and,
-//! once answered, dissolves into the screen beneath it.
-//! Effects only recolor or blank cells already drawn, never set a
-//! background (construct draws on the terminal's own), and never move
-//! layout. `CONSTRUCT_MOTION=off` draws exactly what construct drew before.
+//! once answered, dissolves into the screen beneath it. A reply being
+//! written dries from bright to ink behind a caret.
+//! Effects recolor or blank cells already drawn and never set a background
+//! (construct draws on the terminal's own); the few that move layout (an
+//! output opening, the panel rising) are row counts in `grow.rs` (ADR 0066).
+//! `CONSTRUCT_MOTION=off` draws exactly what construct drew before.
 
 mod compact;
+mod grow;
+mod ink;
 mod panel;
+mod rule;
 mod shaders;
 pub(crate) mod splash;
 
 use super::theme;
-use super::turn::Phase;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -23,14 +27,27 @@ use tachyonfx::fx;
 use tachyonfx::pattern::SweepPattern;
 use tachyonfx::{Duration, Effect, EffectRenderer, Interpolation};
 
+pub(crate) use grow::rise;
+use ink::Ink;
 use panel::{Panel, Part};
-use shaders::{comet, ghost, gutter_fill, shake};
+pub(crate) use rule::hue;
+use shaders::{gutter_fill, shake};
 
 const WHITE: Color = Color::Rgb(235, 238, 255);
 const FLASH_OK: Color = Color::Rgb(230, 255, 210);
 const FLASH_ERR: Color = Color::Rgb(255, 200, 210);
 /// The `│` of a tool's output gutter (`    │ `), counted from the left edge.
 const GUTTER_X: u16 = 4;
+
+/// Where a block landed in the last transcript drawn: its first row (after
+/// the blank line before it), how many rows, and how wide its widest line
+/// is, so an effect's sweep spans the text rather than the whole row.
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub(crate) struct Place {
+    pub(crate) start: usize,
+    pub(crate) len: usize,
+    pub(crate) width: u16,
+}
 
 /// What an effect is drawn over. Blocks are named by index in `App::blocks`,
 /// and their screen rows are looked up each frame, so an effect follows its
@@ -69,6 +86,16 @@ pub(super) struct Motion {
     rearm: bool,
     /// The ctx gauge easing down after a drop: from, to, since.
     gauge: Option<(u64, u64, Instant)>,
+    /// Tool blocks whose output is opening, and since when.
+    opening: Vec<(usize, Instant)>,
+    /// The permission panel rising since, and an answered one's room
+    /// closing: its height, since.
+    rise: Option<Instant>,
+    sink: Option<(u16, Instant)>,
+    /// The reply being written, drying, and whether the model is writing.
+    ink: Option<Ink>,
+    writing: bool,
+    started: Instant,
 }
 
 /// Off: what `std::mem::take` leaves behind while a frame draws.
@@ -93,6 +120,12 @@ impl Motion {
             tint: theme::DIM,
             rearm: false,
             gauge: None,
+            opening: Vec::new(),
+            rise: None,
+            sink: None,
+            ink: None,
+            writing: false,
+            started: Instant::now(),
         }
     }
 
@@ -118,12 +151,8 @@ impl Motion {
             || !self.panel_fx.is_empty()
             || self.ghost.is_some()
             || self.gauge.is_some_and(|g| g.2.elapsed() < compact::DRAIN)
-    }
-
-    /// The rule's color: the old pulse while a turn runs with motion off, the
-    /// comet's faint track otherwise.
-    pub(super) fn rule_color(&self, busy: bool, phase: f32) -> Color {
-        if busy && !self.on { theme::pulse(phase, theme::FAINT, theme::ACCENT) } else { theme::FAINT }
+            || self.moving()
+            || self.drying()
     }
 
     /// Tool block `i` finished: unfurl its output and flash its outcome.
@@ -132,6 +161,7 @@ impl Motion {
             return;
         }
         self.wake();
+        self.open(i);
         let flash = if ok { FLASH_OK } else { FLASH_ERR };
         self.fx.push((Target::Head(i), fx::fade_from_fg(flash, (700, Interpolation::QuadOut))));
         // coalesce runs its sweep backwards: down_to_up reveals the top row first.
@@ -151,55 +181,28 @@ impl Motion {
         }
     }
 
-    /// The turn's phase this frame (`None` when idle): swap the comet to the
-    /// phase's color, or dock it with one flash when the turn ends.
-    pub(super) fn turn(&mut self, phase: Option<Option<&Phase>>) {
-        if !self.on {
-            return;
-        }
-        match phase {
-            Some(p) => {
-                let (color, period) = hue(p);
-                if self.comet.as_ref().map(|c| c.0) != Some(color) {
-                    self.wake();
-                    self.comet = Some((color, comet(color, period)));
-                }
-            }
-            None => {
-                if self.comet.take().is_some() {
-                    self.dock = Some(fx::fade_from_fg(theme::ACCENT, (900, Interpolation::QuadOut)));
-                }
-            }
-        }
-    }
-
-    /// Draw this frame's effects over the transcript. `rows` holds each
-    /// block's (first row, rows) in the transcript, `top` the first
+    /// Draw this frame's effects over the transcript. `rows` holds where
+    /// each block landed in the transcript (`Place`), `top` the first
     /// transcript row on screen, drawn at screen row `y0`, `h` rows tall.
     /// `splash`: the splash is on screen and `rows` are its parts.
-    pub(super) fn transcript(
-        &mut self,
-        buf: &mut Buffer,
-        rows: &[(usize, usize)],
-        top: usize,
-        y0: u16,
-        h: u16,
-        splash: bool,
-    ) {
+    pub(super) fn transcript(&mut self, buf: &mut Buffer, rows: &[Place], top: usize, y0: u16, h: u16, splash: bool) {
         let dt = self.tick();
         let area = buf.area;
-        let place = |start: usize, len: usize| -> Option<Rect> {
+        // two columns of slack: a shake's shift, the caret after the text
+        let place = |start: usize, len: usize, width: u16| -> Option<Rect> {
             let (lo, hi) = (start.max(top), (start + len).min(top + h as usize));
-            (hi > lo).then(|| Rect::new(area.x, y0 + (lo - top) as u16, area.width, (hi - lo) as u16))
+            let w = width.saturating_add(2).min(area.width);
+            (hi > lo).then(|| Rect::new(area.x, y0 + (lo - top) as u16, w, (hi - lo) as u16))
         };
+        let full = area.width;
         for (target, e) in &mut self.fx {
             let rect = match *target {
-                Target::Splash(k) => rows.get(k).and_then(|r| place(r.0, r.1)).filter(|_| splash),
+                Target::Splash(k) => rows.get(k).and_then(|r| place(r.start, r.len, r.width)).filter(|_| splash),
                 _ if splash => None,
-                Target::Head(i) => rows.get(i).and_then(|r| place(r.0, 1)),
-                Target::Body(i) => rows.get(i).and_then(|r| place(r.0 + 1, r.1.saturating_sub(1))),
-                Target::Block(i) => rows.get(i).and_then(|r| place(r.0, r.1)),
-                Target::Above(i) => rows.get(i).and_then(|r| place(0, r.0)),
+                Target::Head(i) => rows.get(i).and_then(|r| place(r.start, 1, r.width)),
+                Target::Body(i) => rows.get(i).and_then(|r| place(r.start + 1, r.len.saturating_sub(1), r.width)),
+                Target::Block(i) => rows.get(i).and_then(|r| place(r.start, r.len, r.width)),
+                Target::Above(i) => rows.get(i).and_then(|r| place(0, r.start, full)),
             };
             if let Some(r) = rect.map(|r| r.intersection(area)).filter(|r| !r.is_empty()) {
                 buf.render_effect(e, r, dt);
@@ -209,34 +212,9 @@ impl Motion {
             }
         }
         self.fx.retain(|(t, e)| e.running() && (splash || !matches!(t, Target::Splash(_))));
-    }
-
-    /// Draw the comet, or the dock flash, over the rule, and a panel that
-    /// was up last frame as a ghost dissolving over what replaced it. Called
-    /// last in a frame without a panel, so the ghost lies over everything.
-    pub(super) fn rule(&mut self, buf: &mut Buffer, rect: Rect) {
-        let rect = rect.intersection(buf.area);
-        let dt = self.frame;
-        if let Some(p) = self.panel.take() {
-            self.panel_fx.clear();
-            let tint = std::mem::replace(&mut self.tint, theme::DIM);
-            self.rearm = false;
-            self.ghost = Some((p.area, ghost(p.cells, tint, 420)));
-        }
-        if let Some((area, e)) = self.ghost.as_mut() {
-            buf.render_effect(e, area.intersection(buf.area), dt);
-            if e.done() {
-                self.ghost = None;
-            }
-        }
-        if let Some((_, e)) = self.comet.as_mut() {
-            buf.render_effect(e, rect, dt);
-        }
-        if let Some(e) = self.dock.as_mut() {
-            buf.render_effect(e, rect, dt);
-            if e.done() {
-                self.dock = None;
-            }
+        if let Some(i) = self.ink.as_ref().map(|ink| ink.block).filter(|_| !splash) {
+            let rect = rows.get(i).and_then(|r| place(r.start, r.len, r.width)).map(|r| r.intersection(area));
+            self.dry(buf, i, rect);
         }
     }
 
@@ -258,22 +236,10 @@ impl Motion {
     }
 }
 
-/// The comet's color and lap time for a turn's phase; also the activity
-/// line's highlight, so the two always agree.
-pub(super) fn hue(phase: Option<&Phase>) -> (Color, u32) {
-    match phase {
-        Some(Phase::Routing) => (theme::CYAN, 1600),
-        Some(Phase::Waiting) => (theme::ACCENT, 1900),
-        Some(Phase::Thinking) => (theme::ACCENT2, 1900),
-        Some(Phase::Writing) => (theme::ACCENT, 1600),
-        Some(Phase::Tool(_)) => (theme::YELLOW, 1200),
-        None => (theme::DIM, 1900),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::turn::Phase;
 
     fn rule(w: u16) -> Buffer {
         let mut b = Buffer::empty(Rect::new(0, 0, w, 1));
@@ -408,7 +374,7 @@ mod tests {
             let mut b = Buffer::empty(Rect::new(0, 0, 20, 2));
             b.set_string(2, 0, "✗ bash", ratatui::style::Style::new());
             m.last = Instant::now() - std::time::Duration::from_millis(30);
-            m.transcript(&mut b, &[(0, 2)], 0, 0, 2, false);
+            m.transcript(&mut b, &[Place { start: 0, len: 2, width: 20 }], 0, 0, 2, false);
             moved |= b[(2, 0)].symbol() != "✗";
         }
         assert!(moved, "the header shifted at least once");
@@ -418,6 +384,7 @@ mod tests {
     fn unfurl_hides_rows_not_yet_reached_and_finishes() {
         let mut m = Motion::new(true);
         m.tool_done(0, true, false);
+        m.opening.clear(); // the rows opening is grow.rs's to test, on the wall clock
         let mut b = Buffer::empty(Rect::new(0, 0, 20, 4));
         let draw = |b: &mut Buffer| {
             for y in 1..4 {
@@ -426,12 +393,12 @@ mod tests {
         };
         draw(&mut b);
         m.last = Instant::now() - std::time::Duration::from_millis(20);
-        m.transcript(&mut b, &[(0, 4)], 0, 0, 4, false);
+        m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);
         assert_eq!(b[(GUTTER_X, 3)].symbol(), " ", "the last row's gutter is not filled yet");
         for _ in 0..12 {
             draw(&mut b);
             m.last = Instant::now() - std::time::Duration::from_millis(100);
-            m.transcript(&mut b, &[(0, 4)], 0, 0, 4, false);
+            m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);
         }
         assert!(!m.running(), "the unfurl runs out");
         assert_eq!(b[(GUTTER_X, 3)].symbol(), "│");

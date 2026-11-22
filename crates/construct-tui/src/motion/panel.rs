@@ -22,6 +22,13 @@ pub(super) struct Panel {
     sel: Option<u16>,
 }
 
+#[cfg(test)]
+impl Panel {
+    pub(super) fn for_test(area: Rect) -> Self {
+        Self { area, cells: Vec::new(), sel: None }
+    }
+}
+
 /// Which part of the panel a panel effect covers.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(super) enum Part {
@@ -36,6 +43,7 @@ impl Motion {
     pub(crate) fn answered(&mut self, allowed: bool) {
         self.tint = if allowed { theme::GREEN } else { theme::YELLOW };
         self.rearm = true;
+        self.close_room();
     }
 
     /// The permission panel was just drawn over `area`. A new question draws

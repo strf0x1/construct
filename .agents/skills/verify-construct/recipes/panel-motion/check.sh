@@ -19,6 +19,14 @@ if sec settled | strip | grep 'PERMISSION' | grep -Eq '─ +─'; then echo "the
 s=$(first arrive "strip | grep 'PERMISSION' | grep -Eq '─ +─'") || { echo "no snap caught the border drawing itself"; exit 1; }
 echo "arrival caught in $s"
 
+# rise: the panel comes up out of the status line, so an arriving panel
+# takes fewer rows (badge line to status line) than the settled one
+tall() { sec "$1" | strip | awk '/PERMISSION/{p=NR} /openrouter\/free/{s=NR} END{print (p && s) ? s-p : -1}'; }
+full=$(tall settled)
+s=$(first arrive '[ "$(strip | awk "/PERMISSION/{p=NR} /openrouter\\/free/{s=NR} END{print (p && s) ? s-p : 99}")" -lt '"$full"' ]') \
+  || { echo "no snap caught the panel rising: every one was $full rows"; exit 1; }
+echo "rise caught in $s ($(tall "$s") of $full rows)"
+
 # selection: the row moved to is swept white
 s=$(first sel "grep 'Allow for this session' | grep -q 'fg=#ebeeff'") || { echo "no snap caught the selection sweep"; exit 1; }
 echo "selection sweep caught in $s"

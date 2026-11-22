@@ -99,8 +99,8 @@ pub(super) struct App {
     /// Notices from beside the turn, held while a reply streams (see `aside`).
     pub(super) held: Vec<Block>,
     pub(super) cache: HashMap<usize, (u16, u64, bool, Vec<Line<'static>>)>,
-    /// Each block's (first row, rows) in the last transcript drawn, for `motion`.
-    pub(super) rows: Vec<(usize, usize)>,
+    /// Where each block landed in the last transcript drawn, for `motion`.
+    pub(super) rows: Vec<super::motion::Place>,
     pub(super) motion: super::motion::Motion,
     pub(super) input: String,
     pub(super) cursor: usize,

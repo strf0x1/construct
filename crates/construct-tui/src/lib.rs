@@ -13,6 +13,7 @@ mod clip;
 mod commands;
 mod help;
 mod input;
+mod input_line;
 mod jobs;
 mod learning;
 mod listing;

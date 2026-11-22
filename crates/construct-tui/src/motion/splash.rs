@@ -1,5 +1,5 @@
 //! The splash's intro, queued once at startup: the title resolves out of
-//! shaded blocks and glows white once, then the tagline, the session
+//! shaded blocks from its middle outward and a white glow sweeps it once, then the tagline, the session
 //! rows and the key hints fade in after it, each a beat later. The splash
 //! records where its parts landed in `App::rows` (title, tagline, rows,
 //! hints), and these effects are drawn only while the splash is what is on
@@ -7,9 +7,11 @@
 //! change cells after the first frame is drawn, so the first frame waits on
 //! nothing.
 
+#[cfg(test)]
+use super::Place;
 use super::{Motion, Target, WHITE};
 use tachyonfx::fx::{self, EvolveSymbolSet};
-use tachyonfx::pattern::SweepPattern;
+use tachyonfx::pattern::{RadialPattern, SweepPattern};
 use tachyonfx::{CellFilter, Interpolation};
 
 /// The splash's parts, in the order `App::splash` records them.
@@ -22,20 +24,22 @@ impl Motion {
     /// Queue the intro. Only `from_env` calls this, so a bare `Motion::new`
     /// (tests, `take`) starts with nothing moving.
     pub(super) fn splash_intro(&mut self) {
-        // No sweep pattern on the title: it is a dozen cells at the left of a
-        // terminal-wide row, and a sweep across the row is past it in ~100 ms.
-        let resolve =
-            fx::evolve_into(EvolveSymbolSet::Shaded, (900, Interpolation::SineOut)).with_filter(CellFilter::NonEmpty);
-        let glow = fx::fade_from_fg(WHITE, (600, Interpolation::QuadOut));
+        // The title resolves out of shaded blocks from its middle outward,
+        // then a white glow sweeps it once. Its rect ends at the logo's
+        // last column (`Place::width`), so the sweep spends its time on it.
+        let resolve = fx::evolve_into(EvolveSymbolSet::Shaded, (1100, Interpolation::SineOut))
+            .with_pattern(RadialPattern::with_transition((0.5, 0.5), 8.0))
+            .with_filter(CellFilter::NonEmpty);
+        let glow = fx::fade_from_fg(WHITE, (800, Interpolation::QuadOut)).with_pattern(SweepPattern::left_to_right(10));
         let fade = |delay: u32, ms: u32| {
             let reveal = fx::coalesce((ms, Interpolation::QuadOut)).with_pattern(SweepPattern::right_to_left(8));
             fx::prolong_start(delay, reveal)
         };
         self.fx = vec![
-            (Target::Splash(TITLE), fx::sequence(&[resolve, glow])),
-            (Target::Splash(TAGLINE), fade(450, 600)),
-            (Target::Splash(ROWS), fade(700, 600)),
-            (Target::Splash(HINTS), fade(950, 500)),
+            (Target::Splash(TITLE), fx::sequence(&[resolve, fx::sleep(100), glow])),
+            (Target::Splash(TAGLINE), fade(600, 700)),
+            (Target::Splash(ROWS), fade(850, 600)),
+            (Target::Splash(HINTS), fade(1100, 500)),
         ];
     }
 }
@@ -49,7 +53,7 @@ mod tests {
     use std::time::Instant;
 
     /// A splash: title at row 1, tagline 2, rows 4..7, hints 8.
-    fn draw(b: &mut Buffer) -> Vec<(usize, usize)> {
+    fn draw(b: &mut Buffer) -> Vec<Place> {
         *b = Buffer::empty(Rect::new(0, 0, 40, 10));
         b.set_string(2, 1, "◆ construct", Style::new());
         b.set_string(2, 2, "lean · fast", Style::new());
@@ -57,7 +61,7 @@ mod tests {
             b.set_string(2, y, "model    x", Style::new());
         }
         b.set_string(2, 8, "enter send", Style::new());
-        vec![(1, 1), (2, 1), (4, 3), (8, 1)]
+        [(1, 1), (2, 1), (4, 3), (8, 1)].map(|(start, len)| Place { start, len, width: 12 }).to_vec()
     }
 
     fn frame(m: &mut Motion, b: &mut Buffer, ms: u64, splash: bool) {
