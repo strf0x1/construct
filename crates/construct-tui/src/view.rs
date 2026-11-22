@@ -270,11 +270,7 @@ impl App {
         let activity = self.activity(phase);
         let status = self.status(width as usize, phase);
         let input_scroll = (input.len() as u16).saturating_sub(input_h);
-        let rule_color = if self.turn.busy() && !self.motion.on() {
-            theme::pulse(phase, theme::FAINT, theme::ACCENT)
-        } else {
-            theme::FAINT
-        };
+        let rule_color = self.motion.rule_color(self.turn.busy(), phase);
         let mut motion = std::mem::take(&mut self.motion); // the draw closure reads the rest of self
         motion.turn(self.turn.busy().then(|| self.turn.running().map(|r| &r.phase)));
         let mut stdout = std::io::stdout();
@@ -283,9 +279,10 @@ impl App {
             // pad from the top so short transcripts sit right above the input
             let pad = main_h.saturating_sub(visible.len() as u16);
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
-            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad);
+            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, self.blocks.is_empty());
             if let (Some(h), Some(p)) = (panel_h, self.prompts.front()) {
                 prompt::render(f, Rect::new(0, main_h, width, h), p, self.prompts.len() - 1, phase);
+                motion.panel(f.buffer_mut(), Rect::new(0, main_h, width, h));
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + h, width, 1));
                 return;
             }
@@ -295,13 +292,13 @@ impl App {
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),
                 Rect::new(0, low + 1, width, 1),
             );
-            motion.rule(f.buffer_mut(), Rect::new(0, low + 1, width, 1));
             f.render_widget(
                 Paragraph::new(input.clone()).scroll((input_scroll, 0)),
                 Rect::new(0, low + 2, width, input_h),
             );
             f.render_widget(Paragraph::new(palette.clone()), Rect::new(0, low + 2 + input_h, width, palette_h));
             f.render_widget(Paragraph::new(status.clone()), Rect::new(0, low + 2 + input_h + palette_h, width, 1));
+            motion.rule(f.buffer_mut(), Rect::new(0, low + 1, width, 1)); // last: a dissolving panel lies over all
             let cy = cursor.0.saturating_sub(input_scroll).min(input_h - 1);
             f.set_cursor_position(Position::new(cursor.1.min(width - 1), low + 2 + cy));
             self.render_modal(f, Rect::new(0, 0, width, area.height.saturating_sub(1)));

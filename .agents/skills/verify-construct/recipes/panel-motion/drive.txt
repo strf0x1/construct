@@ -1,0 +1,39 @@
+# Motion on (drive.env). A read outside the workspace raises the permission
+# panel: its border draws itself from the bottom middle while its contents
+# fade in. Moving the selection sweeps the new row. Answering leaves a ghost
+# of the panel, washed green, dissolving over the input. Then a shell call
+# fails: its header shakes. Each effect lasts under half a second, so each
+# is snapped several times in a row.
+wait "ask construct" 5000
+type read it
+key enter
+wait "PERMISSION" 8000
+snap --style arrive-1
+image {evidence}/arrive.png
+snap --style arrive-2
+snap --style arrive-3
+# keys are ignored for 450 ms after the prompt appears
+sleep 600
+snap --style settled
+key down
+snap --style sel-1
+snap --style sel-2
+key up
+sleep 400
+key enter
+snap --style ghost-1
+image {evidence}/ghost.png
+snap --style ghost-2
+snap --style ghost-3
+snap --style ghost-4
+wait "✗ bash" 8000
+snap --style fail-1
+image {evidence}/fail.png
+snap --style fail-2
+snap --style fail-3
+snap --style fail-4
+wait "the publish was refused" 8000
+wait "ask construct anything… (/help)" 8000
+sleep 1200
+snap --style idle
+image {evidence}/idle.png

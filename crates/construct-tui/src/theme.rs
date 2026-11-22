@@ -13,6 +13,9 @@ pub const ORANGE: Color = Color::Rgb(255, 158, 100);
 pub const SOFT: Color = Color::Rgb(150, 158, 192); // a number among faint labels
 pub const DIM: Color = Color::Rgb(110, 118, 150);
 pub const FAINT: Color = Color::Rgb(70, 76, 102);
+/// A permission panel's selected choice: the one background construct draws
+/// (`prompt.rs`), and how `motion` finds that row in a drawn frame.
+pub const SELECTED_BG: Color = Color::Rgb(44, 48, 72);
 
 pub fn dim() -> Style {
     Style::new().fg(DIM)

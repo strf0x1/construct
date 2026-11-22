@@ -1,0 +1,17 @@
+{"steps":[
+  {"call":"edit","args":{"path":"router.rs","old_string":"    if mentions_url { vec![Web] } else { vec![] }\n","new_string":"    let mut g = Vec::new();\n    if mentions_url || asks_search { g.push(Web); }\n    g\n"}},
+  {"text":"tidied the router","delay_ms":1500},
+  {"call":"read","args":{"path":"big0.txt"}},
+  {"call":"read","args":{"path":"big1.txt"}},
+  {"call":"read","args":{"path":"big2.txt"}},
+  {"call":"read","args":{"path":"big0.txt"}},
+  {"call":"read","args":{"path":"big1.txt"}},
+  {"call":"read","args":{"path":"big2.txt"}},
+  {"call":"read","args":{"path":"big0.txt"}},
+  {"call":"read","args":{"path":"big1.txt"}},
+  {"call":"read","args":{"path":"big2.txt"}},
+  {"call":"read","args":{"path":"big0.txt"}},
+  {"call":"read","args":{"path":"big1.txt"}},
+  {"call":"read","args":{"path":"big2.txt"}},
+  {"text":"done reading","delay_ms":1500}
+]}

@@ -24,7 +24,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Padding, Paragraph};
 use unicode_width::UnicodeWidthStr;
 
-const SELECTED_BG: Color = Color::Rgb(44, 48, 72);
 const BADGE_FG: Color = Color::Rgb(26, 27, 38);
 const PATHS_SHOWN: usize = 4;
 
@@ -168,7 +167,7 @@ fn body(p: &Prompt, w: usize, mut budget: usize) -> Vec<Line<'static>> {
     for (i, c) in p.choices().into_iter().enumerate() {
         let (text, color) = label(p, c);
         let selected = i == p.selected;
-        let bg = if selected { SELECTED_BG } else { Color::Reset };
+        let bg = if selected { theme::SELECTED_BG } else { Color::Reset };
         let mark = if selected { "❯ " } else { "  " };
         let key = format!("{} ", c.key());
         let used = 2 + 2 + text.width() + key.width();
