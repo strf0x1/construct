@@ -241,6 +241,8 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Models { query, refresh, limit }) => rt.block_on(async {
+            // No key means no request and no OpenRouter rows (#355).
+            llm::overlay::check_default_list(&cfg, &cfg.endpoint().name)?;
             let (ep, how) = (cfg.endpoint(), cfg.discovery(&cfg.endpoint().name));
             let models = llm::catalog::refresh(&llm::Client::new(&ep, None)?, &paths, refresh, how).await?;
             println!("{}", llm::catalog::listing(&models, &query.join(" "), limit));

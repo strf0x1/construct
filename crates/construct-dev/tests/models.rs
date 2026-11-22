@@ -51,6 +51,26 @@ fn other_endpoints_keep_the_default_and_fetch_nothing() {
 }
 
 #[test]
+fn a_keyless_run_fetches_nothing_and_lays_no_cached_list() {
+    let env = env("models-no-key");
+    env.config(OPENROUTER);
+    // With a key, the list is fetched, cached and laid under the catalog.
+    assert_eq!(window(&env, "mock/small"), 32_768);
+    let cache = std::fs::read_dir(env.home.join("models")).unwrap().next().expect("a cached list").unwrap();
+    let before = std::fs::read(cache.path()).unwrap();
+
+    // With no key, the same cache is left untouched but not laid: no request
+    // to OpenRouter and no OpenRouter window in the manifest.
+    env.config(&format!("api_key_secret = \"\"\n{OPENROUTER}"));
+    assert_eq!(window(&env, "mock/small"), 131_072);
+    assert_eq!(std::fs::read(cache.path()).unwrap(), before, "no fetch happened");
+    let out = env.run_with(&[], &["models", "small"]);
+    let t = text(&out);
+    assert!(!t.contains("mock/small"), "no OpenRouter rows without a key: {t}");
+    assert!(t.contains("no key for OpenRouter"), "{t}");
+}
+
+#[test]
 fn models_searches_the_list() {
     let env = env("models-search");
     let out = env.run(&["models", "small"]);
