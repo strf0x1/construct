@@ -127,3 +127,39 @@ fn the_tool_exists_only_with_a_control_url() {
     let catalog = Catalog::build_extended(&off, None, &coordinator, &sources).unwrap();
     assert!(catalog.get(NAME).is_none(), "[tools] disabled reaches a registered tool");
 }
+
+#[test]
+fn permission_previews_and_observed_answers_are_bounded_and_informational() {
+    let task = json!({"id":"w","project":"p","state":"running","permissions":{
+    "cursor":"x:3","pending_count":20,"pending":(0..16).map(|i|json!({
+        "observation_id":format!("x:{i}"),"subject":"Run\nchecks","kind":"execute","truncated":false
+    })).collect::<Vec<_>>(),"resolved":[
+        {"observation_id":"old","verdict":"allowed","source":"response"},
+        {"observation_id":"retired","verdict":"denied","source":"retired"},
+        {"observation_id":"future","verdict":"allow_future","source":"response"}
+    ]}});
+    for op in ["task", "tasks", "wait"] {
+        let body = json!({"operation":op,"wait_ms":0});
+        let response = if op == "tasks" { json!({"tasks":[task]}) } else { json!({"task":task}) };
+        let (text, _) = reply(&body, &response);
+        assert!(text.contains("user permissions pending: 20"), "{text}");
+        assert!(text.contains("execute \"Run checks\"") && text.contains("more questions omitted"), "{text}");
+        assert!(!text.contains("question x:16 pending"));
+        assert!(text.contains("question old: allowed (observed client response)"));
+        assert!(text.contains("question retired: unknown (retired without observed answer)"));
+        assert!(text.contains("question future: unknown (observed client response)"));
+        assert!(text.contains("responses do not confirm delivery or execution"));
+    }
+    let (text, _) = reply(&json!({"operation":"task"}), &json!({"task":{"id":"old","project":"p","state":"running"}}));
+    assert!(!text.contains("permissions"), "missing is unavailable, not an empty view");
+}
+
+#[test]
+fn incomplete_permission_views_are_unavailable() {
+    for view in
+        [json!({}), json!({"pending_count":0}), json!({"cursor":"x","pending_count":0,"pending":[],"resolved":null})]
+    {
+        let (text, _) = reply(&json!({"operation":"task"}), &json!({"task":{"id":"w","permissions":view}}));
+        assert!(!text.contains("permissions pending"), "{text}");
+    }
+}

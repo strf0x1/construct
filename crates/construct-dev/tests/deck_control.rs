@@ -64,7 +64,10 @@ fn summary() -> Value {
         "id": WORKER, "project": "git:abc", "title": "Fix the flaky login test", "state": "running",
         "turn": { "number": 1, "state": "idle", "stopReason": "end_turn" }, "attention": "finished",
         "pending_approvals": 0, "publication": null, "pull_request": null,
-        "created_by": "01JD3C00RD1NAT0R0000000001", "last_message": "The test raced the session cookie."
+        "created_by": "01JD3C00RD1NAT0R0000000001", "last_message": "The test raced the session cookie.",
+        "permissions": { "cursor": "launch:3", "pending_count": 1, "pending": [
+            { "observation_id": "launch:2", "turn": 1, "subject": "Run project tests", "kind": "execute", "truncated": false }
+        ], "resolved": [ { "observation_id": "launch:1", "turn": 1, "verdict": "allowed", "source": "response" } ] }
     })
 }
 
@@ -123,7 +126,7 @@ fn serve(stream: std::net::TcpStream, log: &Mutex<Vec<Seen>>, projects: bool) {
         }
         "prompt" => (
             409,
-            json!({ "error": { "message": "the task's turn is working", "type": "deck_control_busy", "code": "deck_control_busy" }, "retryable": true }),
+            json!({ "error": { "message": "the task's turn is working; pending user permission: Run project tests", "type": "deck_control_busy", "code": "deck_control_busy" }, "retryable": true }),
         ),
         "wait" if body["id"] == INTEGRATION => (200, json!({ "timed_out": false, "task": integration_summary() })),
         "wait" => (200, json!({ "timed_out": false, "task": summary() })),
@@ -205,6 +208,13 @@ fn a_coordinator_creates_prompts_waits_and_stops_a_worker() {
     );
     assert!(results[3].starts_with("1 task:") && results[3].contains("needs you: finished"), "{}", results[3]);
     assert_eq!(results[4], format!("Task {WORKER} is stopped."));
+
+    for result in [&results[2], &results[3]] {
+        assert!(result.contains("Run project tests") && result.contains("execute"), "{result}");
+        assert!(result.contains("question launch:1: allowed (observed client response)"), "{result}");
+        assert!(result.contains("responses do not confirm delivery or execution"), "{result}");
+    }
+    assert!(results[1].contains("pending user permission: Run project tests"));
 
     // The token is in no tool result, model request, journal row or output line.
     for req in &reqs {
@@ -324,5 +334,29 @@ fn without_a_usable_control_url_there_is_no_deck_tool() {
         let out = env.run_with(&extra, &["run", "--no-learn", "go"]);
         assert!(out.status.success(), "{}", text(&out));
         assert!(!tool_names(&env.requests()[0]).contains(&NAME.to_string()), "{name}");
+    }
+}
+
+#[test]
+fn permission_observations_reach_the_model_for_every_summary_operation() {
+    let gateway = Gateway::start();
+    let env = Env::new(
+        "deck-permission-observations",
+        json!({ "steps": [
+            deck(json!({"operation":"task","id":WORKER})),
+            deck(json!({"operation":"tasks"})),
+            deck(json!({"operation":"wait","id":WORKER,"wait_ms":1000})),
+            {"text":"done"}
+        ]}),
+    );
+    let url = gateway.url();
+    let out = env.run_with(&[("DECK_CONTROL_URL", &url)], &["run", "--json", "--no-learn", "go"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let requests = env.requests();
+    let results = tool_results(requests.last().unwrap());
+    assert_eq!(results.len(), 3);
+    for result in results {
+        assert!(result.contains("question launch:2 pending with user: execute \"Run project tests\""), "{result}");
+        assert!(result.contains("question launch:1: allowed (observed client response)"), "{result}");
     }
 }

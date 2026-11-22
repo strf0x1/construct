@@ -181,7 +181,7 @@ async fn every_exchange_round_trips_with_and_without_the_token() {
     let ctx = ctx(&root);
     let m = matrix();
     let exchanges = m["control"]["exchanges"].as_array().unwrap();
-    assert_eq!(exchanges.len(), 55);
+    assert_eq!(exchanges.len(), 58);
     let mut sent = 0;
     for case in exchanges {
         let name = case["case"].as_str().unwrap();
