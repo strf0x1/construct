@@ -3,8 +3,8 @@ id: slash-commands
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/help.rs, crates/construct-tui/src/palette.rs, crates/construct-tui/src/input.rs, crates/construct-tui/src/commands.rs, crates/construct-tui/src/listing.rs, crates/construct-tui/src/boxed.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/activity.rs, crates/construct-core/src/skills.rs, crates/construct-tui/src/lib.rs, crates/construct-tui/src/worker.rs]
-verified_at: 2f65a06
-verified_deps: 3681396d1d6f48fe
+verified_at: 3e01896
+verified_deps: 25703a2fc9de1782
 ---
 # Slash commands
 
@@ -39,7 +39,7 @@ Preconditions:
 
 - **Help.** Drive: `type /help`, `key enter`, `wait "/new"`, `expect "╭─ commands"`, `expect-style "/skills" fg=#7aa2f7 bold`, `expect-style "ctrl+o" fg=#7dcfff bold`, `image {evidence}/help.png`. Expect: a `commands` box and a `keys` box, rows aligned in columns.
 - **Skills.** Drive: `type /skills`, `key enter`, `wait "no skills yet"`. Expect: the empty-library notice.
-- **Model ids.** Recipe `model-palette` (OpenRouter dialect on the mock, session starts on `mock`). Drive: `type /model mock/`, `wait "▸ mock/small"`, `expect "32.8k"`, `image {evidence}/model-palette.png`, `key enter`, `expect "› /model mock/small"`, `key enter`, `wait "model → mock/small"`, `expect "32.8k ctx"`, `type hi`, `key enter`. Expect: one row under the input, the id completed, then the switch. `check.sh` reads the journal and `requests.jsonl`: head row `mock`, a `model` row `mock/small` with window 32768, and the one request sent as `mock/small`. Contract: `model_ids_complete_from_the_cached_list` in `crates/construct-dev/tests/slash.rs`.
+- **Model ids.** Recipe `model-palette` (OpenRouter dialect on the mock, session starts on `mock`). Drive: `type /model mock/`, `wait "▸ mock/small"`, `expect "32.8k"`, `image {evidence}/model-palette.png`, `key enter`, `wait "› /model mock/small"`, `key enter`, `wait "model → mock/small"`, `expect "32.8k ctx"`, `type hi`, `key enter`. Expect: one row under the input, the id completed, then the switch. `check.sh` reads the journal and `requests.jsonl`: head row `mock`, a `model` row `mock/small` with window 32768, and the one request sent as `mock/small`. Contract: `model_ids_complete_from_the_cached_list` in `crates/construct-dev/tests/slash.rs`.
 - **Model.** Drive: `type /model verify-model-x`, `key enter`, `wait "model → verify-model-x"`, `expect-style "model → verify-model-x" fg=#7aa2f7`. Expect: the notice in blue and the status line showing `verify-model-x`.
 - **Unknown.** Drive: `type /nope`, `key enter`, `expect-style "unknown command /nope" fg=#e0af68`, `image {evidence}/slash.png`. Expect: the yellow hint.
 - **Memory, new, quit.** Drive: `type /memory`, `key enter`, `wait "memory is empty"`, `type /new`, `key enter`, `gone "unknown command /nope"`, `type /quit`, `key enter`, `gone "ask construct" 3000`. Expect: the memory notice, a cleared transcript, then construct exits.
@@ -57,3 +57,4 @@ Palette and skill run: `setup.sh` writes the `create-verification` skill to the 
 
 - A skill can't take a built-in's name or alias (`/clear`, `/exit`, `/q`, `/?`); the built-in wins, so pick a skill name for the palette step that no command starts with.
 - Built-ins never reach the model: the first recipe's proof is that `requests.jsonl` is empty, so don't add a step that sends a turn to it.
+- In `model-palette`, the key after `image` is checked with a `wait`, not an `expect`: while `image` renders, the driver stops reading the pty, the splash's shimmer frames (two rows of block letters, each cell re-colored) fill it, and the key lands a few frames late. A real terminal reads promptly.

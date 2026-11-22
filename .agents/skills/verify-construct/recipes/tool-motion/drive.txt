@@ -1,9 +1,11 @@
 # Motion on (drive.env). While the tool runs, a comet rides the rule above the
-# input; when it finishes, its output unfurls: the gutter fills top to bottom
-# with a bright head, then settles. Idle, the rule is plain again. The unfurl
-# lasts ~700 ms, so snap it several times in a row.
+# input; when it finishes, its output opens row by row (pushing the transcript
+# up) while the gutter fills top to bottom with a bright head, then settles.
+# The reply then streams in slowly (serve.args): its newest characters land
+# bright and dry to ink behind a blinking caret. Idle, the rule is plain
+# again. Opening takes ~900 ms, so it is snapped several times in a row.
 wait "ask construct" 5000
-type list three words
+type list eight words
 key enter
 wait "running bash" 8000
 snap --style busy
@@ -14,7 +16,17 @@ image {evidence}/unfurl.png
 snap --style unfurl-2
 snap --style unfurl-3
 snap --style unfurl-4
-wait "listed three words" 10000
+sleep 1100
+snap --style opened
+wait "listed eight" 10000
+snap --style stream-1
+image {evidence}/stream.png
+sleep 120
+snap --style stream-2
+sleep 120
+snap --style stream-3
+sleep 120
+snap --style stream-4
 wait "ask construct anything… (/help)" 10000
 sleep 1500
 snap --style idle

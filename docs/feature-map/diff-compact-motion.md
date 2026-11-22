@@ -3,8 +3,8 @@ id: diff-compact-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/compact.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/status.rs, crates/construct-tui/src/view.rs]
-verified_at: 9965a67
-verified_deps: f275d06fa1dc2490
+verified_at: 3e01896
+verified_deps: 1602084b170e7972
 ---
 # Motion: diff highlighter and compaction
 
@@ -33,7 +33,7 @@ Preconditions:
 
 - Baseline state, motion on. Recipe: `.agents/skills/verify-construct/recipes/diff-compact-motion`; `drive.env` sets `CONSTRUCT_MOTION=on`, `serve.args` gives the mock a 16k window, and `setup.sh` writes `router.rs`, three ~10 KB `big*.txt` files and a config with `context_window = 16384` (the setup of `crates/construct-dev/tests/compaction.rs`). The scripted model edits `router.rs` in turn one, then reads the big files twelve times in turn two.
 
-- **Highlighter.** Drive: `type tidy the router`, `key enter`, `wait "✓ edit"`, `sleep 250`, `snap --style diff-1` … `diff-4`. Expect: the `g.push(Web)` line carries `fg=#ebeeff` in one snap.
+- **Highlighter.** Drive: `type tidy the router`, `key enter`, `wait "✓ edit"`, `sleep 600`, `snap --style diff-1` … `diff-4`. Expect: the `g.push(Web)` line carries `fg=#ebeeff` in one snap.
 - **Compaction.** Drive: `type read the big files`, `key enter`, `wait "compacted history"`, `snap --style compact-1` … `compact-4`. Expect: a quadrant glyph on a `compacted hist…` line in one snap; `idle` has every notice whole.
 - **Second view.** The recipe's `check.sh` reads the journal: an edit `tool_end` (`edited`) and a `compacted` row. Drive: `.agents/skills/verify-construct/scripts/drive.sh .agents/skills/verify-construct/recipes/diff-compact-motion`. Expect: `ok: the diff got its highlighter pass, the compaction notice resolved, edit and compaction in the journal`.
 

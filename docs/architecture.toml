@@ -240,6 +240,9 @@ may_use = ["boxed", "theme"]
 [crates.construct-tui.modules.input]
 may_use = ["app", "ask", "commands", "picker", "theme"]
 
+[crates.construct-tui.modules.input_line]
+may_use = ["app", "text", "theme"]
+
 [crates.construct-tui.modules.jobs]
 may_use = ["app", "theme"]
 
@@ -286,7 +289,7 @@ may_use = []
 may_use = []
 
 [crates.construct-tui.modules.view]
-may_use = ["app", "boxed", "help", "markdown", "prompt", "text", "theme"]
+may_use = ["app", "boxed", "help", "markdown", "motion", "prompt", "theme"]
 
 [crates.construct-tui.modules.motion]
 may_use = ["theme", "turn"]

@@ -8,7 +8,7 @@ wait "ask construct" 5000
 type tidy the router
 key enter
 wait "✓ edit" 8000
-sleep 250
+sleep 600
 snap --style diff-1
 image {evidence}/diff.png
 snap --style diff-2

@@ -2,6 +2,7 @@
 //! frame layout. The activity line is `activity.rs`.
 
 use super::app::{App, Kind, Status};
+use super::motion::{Place, rise};
 use super::{boxed, help, markdown, prompt, theme};
 use anyhow::Result;
 use construct_core::tools::OutputKind;
@@ -175,61 +176,14 @@ impl App {
         let mut lines = Vec::new();
         self.rows.clear();
         for i in 0..self.blocks.len() {
-            let b = self.block_lines(i, width, phase);
+            let mut b = self.block_lines(i, width, phase);
+            self.motion.clip(i, &mut b); // an output still opening
             let gap = usize::from(b.first().is_some_and(|l| l.spans.is_empty())); // the blank line before a block
-            self.rows.push((lines.len() + gap, b.len() - gap));
+            let w = b.iter().map(Line::width).max().unwrap_or(0) as u16;
+            self.rows.push(Place { start: lines.len() + gap, len: b.len() - gap, width: w });
             lines.extend(b);
         }
         lines
-    }
-
-    pub(super) fn input_lines(&self, width: usize) -> (Vec<Line<'static>>, (u16, u16)) {
-        let prompt_w = 2;
-        let avail = width.saturating_sub(prompt_w + 1).max(4);
-        let mut lines = vec![];
-        let mut cur = (0u16, prompt_w as u16);
-        let mut row = 0u16;
-        let mut offset = 0usize;
-        let placeholder = self.input.is_empty();
-        let text = if placeholder {
-            if self.turn.busy() { "queue a message… (esc to interrupt)" } else { "ask construct anything… (/help)" }
-                .to_string()
-        } else {
-            self.input.clone()
-        };
-        for (pi, para) in text.split('\n').enumerate() {
-            let mut chunk = String::new();
-            let mut cw = 0;
-            let mut chunks: Vec<(String, usize)> = vec![];
-            let mut start = offset;
-            for (bi, c) in para.char_indices() {
-                let w = crate::text::cols_after(para.get(..bi).and_then(|p| p.chars().next_back()), c);
-                if cw + w > avail {
-                    chunks.push((std::mem::take(&mut chunk), start));
-                    start = offset + bi;
-                    cw = 0;
-                }
-                chunk.push(c);
-                cw += w;
-            }
-            chunks.push((chunk, start));
-            for (ci, (c, s)) in chunks.iter().enumerate() {
-                let prefix = if pi == 0 && ci == 0 {
-                    Span::styled("› ", Style::new().fg(theme::ACCENT2).add_modifier(Modifier::BOLD))
-                } else {
-                    Span::raw("  ")
-                };
-                let style = if placeholder { theme::faint() } else { Style::default() };
-                lines.push(Line::from(vec![prefix, Span::styled(c.clone(), style)]));
-                if !placeholder && self.cursor >= *s && self.cursor <= s + c.len() {
-                    let before = self.input.get(*s..self.cursor).unwrap_or("");
-                    cur = (row, (prompt_w + crate::text::cols(before)) as u16); // as drawn: a pasted tab is no column
-                }
-                row += 1;
-            }
-            offset += para.len() + 1;
-        }
-        (lines, cur)
     }
 
     pub(super) fn draw(&mut self, term: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
@@ -247,9 +201,13 @@ impl App {
         let palette_h = palette.len() as u16;
         // A question takes the place of the activity line, rule, input and palette.
         let panel_h = self.prompts.front().map(|p| prompt::height(p, width, area.height.saturating_sub(4)));
-        let bottom = match panel_h {
-            Some(h) => h + 1,                // panel + status
-            None => input_h + palette_h + 3, // activity + rule + input + palette + status
+        let risen = panel_h.map(|h| self.motion.panel_rows(h)); // rows it shows while rising
+        let bottom = match risen {
+            Some(h) => h + 1, // panel + status
+            None => {
+                let foot = input_h + palette_h + 3; // activity + rule + input + palette + status
+                foot + self.motion.reserve(foot) // an answered panel's room, closing
+            }
         };
         let main_h = area.height.saturating_sub(bottom);
         let body = if self.blocks.is_empty() {
@@ -278,15 +236,21 @@ impl App {
         term.draw(|f| {
             // pad from the top so short transcripts sit right above the input
             let pad = main_h.saturating_sub(visible.len() as u16);
+            // a rising panel is drawn whole, then cut to its top rows at the foot
+            let panel = panel_h.zip(risen).zip(self.prompts.front());
+            if let Some(((h, shown), p)) = panel {
+                let full = Rect::new(0, area.height.saturating_sub(h + 1), width, h);
+                prompt::render(f, full, p, self.prompts.len() - 1, phase);
+                motion.panel(f.buffer_mut(), full);
+                rise(f.buffer_mut(), full, shown);
+            }
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
             motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, self.blocks.is_empty());
-            if let (Some(h), Some(p)) = (panel_h, self.prompts.front()) {
-                prompt::render(f, Rect::new(0, main_h, width, h), p, self.prompts.len() - 1, phase);
-                motion.panel(f.buffer_mut(), Rect::new(0, main_h, width, h));
-                f.render_widget(Paragraph::new(status.clone()), Rect::new(0, main_h + h, width, 1));
+            if panel.is_some() {
+                f.render_widget(Paragraph::new(status.clone()), Rect::new(0, area.height.saturating_sub(1), width, 1));
                 return;
             }
-            let low = main_h;
+            let low = area.height.saturating_sub(input_h + palette_h + 3);
             f.render_widget(Paragraph::new(activity.clone()), Rect::new(0, low, width, 1));
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled("─".repeat(width as usize), Style::new().fg(rule_color)))),

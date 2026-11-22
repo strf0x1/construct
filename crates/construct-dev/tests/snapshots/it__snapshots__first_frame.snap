@@ -17,9 +17,9 @@ expression: "screen(&env, &d)"
 
 
 
+  ▄▀▀ ▄▀▄ █▄ █ ▄▀▀ ▀█▀ █▀▄ █ █ ▄▀▀ ▀█▀
+  ▀▄▄ ▀▄▀ █ ▀█ ▄██  █  █▀▄ ▀▄▀ ▀▄▄  █
 
-
-  ◆ construct
   lean · fast · learns as it goes
 
   model    openrouter/free
@@ -27,7 +27,7 @@ expression: "screen(&env, &d)"
   router   auto
   session  [SESSION0]
 
-  enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help
+  enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help commands
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 › ask construct anything… (/help)
