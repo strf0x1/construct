@@ -1,0 +1,15 @@
+description = """Three turns in one session that switch tool groups on as they go: plain code work, then \
+something to remember (the router turns `memory` on), then a background job (the `job` tool appears). \
+Built for ADR 0063: run `--arm routed: --arm initial:'initial=["memory","jobs"]'` on a caching provider and \
+compare `prompt_cache.*`; the scorer only checks that the work was done."""
+turns = [
+  "This repo is a tiny Python library. `python3 -m unittest` fails. Find out why and fix the bug in the library (not the tests). Run the tests to confirm.",
+  "Remember for future sessions in this project: the test command is `python3 -m unittest -q`, and mean() must divide by len(values). Then add a docstring example to mean() in stats.py.",
+  "Run the test suite as a background job (`python3 -m unittest -q`), and when it has finished write its final status line (for example `OK`) to results.txt. Then tell me in one sentence what you did this session.",
+]
+timeout_s = 600
+changes = ["stats.py", "results.txt"]
+
+[budget]
+max_requests = 80
+max_prompt_tokens = 1500000

@@ -1,0 +1,943 @@
+{
+ "a": "bench/results/task-20261121-192153.json",
+ "b": "bench/results/task-20261121-192153.json",
+ "comparisons": [
+  {
+   "a": "task-20261121-192153:routed",
+   "b": "task-20261121-192153:initial",
+   "rows": [
+    {
+     "metric": "cache-grow/agent_requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 11.0,
+     "b": 11.0,
+     "delta": 0.0,
+     "a_spread": [
+      11.0,
+      12.0
+     ],
+     "b_spread": [
+      10.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/cache_hit_rate",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.5833250620347394,
+     "b": 0.7758963769476253,
+     "delta": 0.19257131491288582,
+     "a_spread": [
+      0.5831015439190551,
+      0.6400183352291055
+     ],
+     "b_spread": [
+      0.752522503663387,
+      0.7812401883830455
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/cache_write_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 20962.0,
+     "b": 11532.0,
+     "delta": -9430.0,
+     "a_spread": [
+      20654.0,
+      21174.0
+     ],
+     "b_spread": [
+      11118.0,
+      11910.0
+     ],
+     "verdict": "lower"
+    },
+    {
+     "metric": "cache-grow/cached_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 29385.0,
+     "b": 39812.0,
+     "delta": 10427.0,
+     "a_spread": [
+      28930.0,
+      37699.0
+     ],
+     "b_spread": [
+      35383.0,
+      41332.0
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/checks.docstring_example",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/checks.fixed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/checks.results",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/checks.tests_pass",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/completion_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1875.0,
+     "b": 1827.0,
+     "delta": -48.0,
+     "a_spread": [
+      1820.0,
+      2297.0
+     ],
+     "b_spread": [
+      1630.0,
+      1991.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/cost_usd",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0038544,
+     "b": 0.00275853,
+     "delta": -0.00109587,
+     "a_spread": [
+      0.00378405,
+      0.00417524
+     ],
+     "b_spread": [
+      0.00260193,
+      0.00283687
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/edit.applied",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      2.0,
+      2.0
+     ],
+     "b_spread": [
+      2.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2.0,
+     "b": 2.0,
+     "delta": 0.0,
+     "a_spread": [
+      2.0,
+      2.0
+     ],
+     "b_spread": [
+      2.0,
+      2.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.completion_tokens_per_call",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 158.5,
+     "b": 157.5,
+     "delta": -1.0,
+     "a_spread": [
+      129.5,
+      177.83333333333331
+     ],
+     "b_spread": [
+      121.5,
+      186.66666666666669
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.echo_stripped",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.recoveries",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.rejected",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.rereads_after_rejection",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.rewrites",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/edit.unrecovered",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/first_request.bytes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 5174.0,
+     "b": 6637.0,
+     "delta": 1463.0,
+     "a_spread": [
+      5174.0,
+      5174.0
+     ],
+     "b_spread": [
+      6637.0,
+      6637.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "cache-grow/first_request.n_tools",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 7.0,
+     "b": 9.0,
+     "delta": 2.0,
+     "a_spread": [
+      7.0,
+      7.0
+     ],
+     "b_spread": [
+      9.0,
+      9.0
+     ],
+     "verdict": "higher"
+    },
+    {
+     "metric": "cache-grow/first_request.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 2094.0,
+     "b": 2599.0,
+     "delta": 505.0,
+     "a_spread": [
+      2094.0,
+      2094.0
+     ],
+     "b_spread": [
+      2599.0,
+      2599.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "cache-grow/first_request.system_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1618.0,
+     "b": 1619.0,
+     "delta": 1.0,
+     "a_spread": [
+      1618.0,
+      1618.0
+     ],
+     "b_spread": [
+      1619.0,
+      1619.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "cache-grow/first_request.tools_chars",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3170.0,
+     "b": 4632.0,
+     "delta": 1462.0,
+     "a_spread": [
+      3170.0,
+      3170.0
+     ],
+     "b_spread": [
+      4632.0,
+      4632.0
+     ],
+     "verdict": "worse"
+    },
+    {
+     "metric": "cache-grow/invalid",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/learn_wait_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.036888837814331055,
+     "b": 0.03709816932678223,
+     "delta": 0.00020933151245117188,
+     "a_spread": [
+      0.03512096405029297,
+      0.038094282150268555
+     ],
+     "b_spread": [
+      0.03607511520385742,
+      0.03741097450256348
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/over_budget",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/peak_mb",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/prompt_cache.cache_hit_rate",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.5833250620347394,
+     "b": 0.7758963769476253,
+     "delta": 0.19257131491288582,
+     "a_spread": [
+      0.5831015439190551,
+      0.6400183352291055
+     ],
+     "b_spread": [
+      0.752522503663387,
+      0.7812401883830455
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/prompt_cache.cached_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 29385.0,
+     "b": 39812.0,
+     "delta": 10427.0,
+     "a_spread": [
+      28930.0,
+      37699.0
+     ],
+     "b_spread": [
+      35383.0,
+      41332.0
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/prompt_cache.drops",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 3.0,
+     "b": 1.0,
+     "delta": -2.0,
+     "a_spread": [
+      3.0,
+      3.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "cache-grow/prompt_cache.prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 50375.0,
+     "b": 50960.0,
+     "delta": 585.0,
+     "a_spread": [
+      49614.0,
+      58903.0
+     ],
+     "b_spread": [
+      46625.0,
+      53270.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/prompt_tokens",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 50375.0,
+     "b": 50960.0,
+     "delta": 585.0,
+     "a_spread": [
+      49614.0,
+      58903.0
+     ],
+     "b_spread": [
+      46625.0,
+      53270.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/provider_failures",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/reads",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 0.0,
+     "delta": -1.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.8,
+      0.4
+     ],
+     "p": 0.5238095238095237
+    },
+    {
+     "metric": "cache-grow/requests",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 11.0,
+     "b": 11.0,
+     "delta": 0.0,
+     "a_spread": [
+      11.0,
+      12.0
+     ],
+     "b_spread": [
+      10.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/search.adoption",
+     "n_a": 1,
+     "n_b": 2,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive"
+    },
+    {
+     "metric": "cache-grow/search.find",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "a_spread": [
+      1.0,
+      1.0
+     ],
+     "b_spread": [
+      1.0,
+      1.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/search.shell",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      1.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.2,
+      0.4
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "cache-grow/search.tool",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/search.tool_failed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/shell.blocked",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/shell.broad",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/shell.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 6.0,
+     "b": 6.0,
+     "delta": 0.0,
+     "a_spread": [
+      6.0,
+      7.0
+     ],
+     "b_spread": [
+      5.0,
+      6.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/shell.refused",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/shell.stops",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/side_requests_before_first_agent",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/success",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": true,
+     "a": 1.0,
+     "b": 1.0,
+     "delta": 0.0,
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/tool_calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 11.0,
+     "b": 10.0,
+     "delta": -1.0,
+     "a_spread": [
+      10.0,
+      12.0
+     ],
+     "b_spread": [
+      9.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/tool_failures.calls",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 11.0,
+     "b": 10.0,
+     "delta": -1.0,
+     "a_spread": [
+      10.0,
+      12.0
+     ],
+     "b_spread": [
+      9.0,
+      11.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/tool_failures.failed",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/tool_failures.rate",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      0.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "cache-grow/unintended_changes",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 0.0,
+     "b": 0.0,
+     "delta": 0.0,
+     "a_spread": [
+      0.0,
+      1.0
+     ],
+     "b_spread": [
+      0.0,
+      0.0
+     ],
+     "verdict": "inconclusive",
+     "nonzero": [
+      0.2,
+      0.0
+     ],
+     "p": 1.0
+    },
+    {
+     "metric": "cache-grow/wall_s",
+     "n_a": 5,
+     "n_b": 5,
+     "binary": false,
+     "a": 13.475155292777345,
+     "b": 14.062880542129278,
+     "delta": 0.5877252493519336,
+     "a_spread": [
+      12.609282542252913,
+      15.97593329101801
+     ],
+     "b_spread": [
+      13.405367541126907,
+      20.375388375250623
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

@@ -131,6 +131,15 @@ class Cache(unittest.TestCase):
         self.assertIsNone(calls[3]["cache_hit_rate"])
         self.assertEqual(calls[2]["model"], "b")
 
+    def test_a_drop_is_a_prefix_not_reused_not_a_falling_share(self):
+        # Call 2 adds much new text: its share falls, but the prefix was reused.
+        # Calls 3 and 4 both miss; the old share rule saw only the first.
+        events = [head("m", "openai"), self.usage(100, 90), self.usage(400, 95),
+                  self.usage(500, 0), self.usage(600, 0), self.usage(700, 590)]
+        m = journal.cache_metrics(home_with(self, events))
+        self.assertEqual([c["drop"] for c in m["series"][0]["calls"]], [False, False, True, True, False])
+        self.assertEqual(m["series"][0]["first_drop"], 3)
+
     def test_since_excludes_old_usage_but_keeps_session_call_numbers(self):
         home = home_with(self, [head("m", "openai"), self.usage(100, 90), self.usage(100, 10)])
         db = sqlite3.connect(next(home.glob("projects/*/journal.sqlite")))

@@ -461,3 +461,10 @@ MCP bounded-write fix: Tier 1 normal MCP echo, five interleaved rounds per debug
 Issue #236 foundation: sandboxed stats-median smoke through the normal Orca proxy/keyring path passed all five checks, 13 requests, 37,946 prompt / 1,434 output tokens, 32,768 cached (86.35%), $0.001734 provider-reported inline cost. Debug binary, max_tokens=4096, no learning, one repeat; plumbing evidence only, not a SWE-bench quality or speed comparison. Official pinned v5 Docker grader also resolved reference sympy__sympy-20590 and rejected its no-implementation-change control; private raw grading evidence is outside agent workspaces.
 
 - `bench/results/task-20261117-175029.json`: model deepseek/deepseek-v4.1-flash-1017; bench 426329b dirty; orca-smoke 426329b dirty editor=replace router=local
+
+## 2026-11-21 19:23 note
+
+cache-grow (new task, 3 turns that switch memory and jobs on as they go) on haiku-5.5: every call after the tool list grew got 0 cached tokens (12/12); initial=[memory,jobs] lifts cached share 58%->78% and cuts cost/run 28% at the same success. Six single-turn tasks never grew mid-session: no difference but +8% cost for initial. Turn after reasoning misses in both arms (Anthropic strips prior-turn thinking). ADR 0063.
+
+- `bench/results/task-20261121-192153.json`: model anthropic/claude-haiku-5.5; bench aa1f2be dirty; routed aa1f2be editor=replace router=local; initial aa1f2be editor=replace router=local
+- `bench/results/task-20261121-182005.json`: model anthropic/claude-haiku-5.5; bench aa1f2be dirty; routed aa1f2be editor=replace router=local; initial aa1f2be editor=replace router=local

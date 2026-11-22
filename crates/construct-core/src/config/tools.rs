@@ -23,6 +23,12 @@ pub struct ToolsConfig {
     pub search_name: String,
     pub web: WebConfig,
     pub shell: super::ShellConfig,
+    /// Tool groups on from the first request instead of when routed or
+    /// asked for (`web`, `memory`, `history`, `skills`, `developer`, `jobs`, ...).
+    /// Every group switched on later changes the `tools` array, which comes
+    /// first in a provider's cached prefix, so the next request misses the
+    /// cache entirely (#187). Empty by default: the first request stays small.
+    pub initial: Vec<String>,
 }
 
 impl ToolsConfig {
@@ -35,7 +41,13 @@ impl ToolsConfig {
 
 impl Default for ToolsConfig {
     fn default() -> Self {
-        Self { disabled: vec![], search_name: SEARCH_TOOL.into(), web: WebConfig::default(), shell: Default::default() }
+        Self {
+            disabled: vec![],
+            search_name: SEARCH_TOOL.into(),
+            web: WebConfig::default(),
+            shell: Default::default(),
+            initial: vec![],
+        }
     }
 }
 
