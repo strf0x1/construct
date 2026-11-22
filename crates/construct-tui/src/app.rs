@@ -275,6 +275,7 @@ impl App {
     pub(super) fn answer_prompt(&mut self, answer: impl FnOnce(&mut Prompt) -> (String, bool)) {
         let Some(mut p) = self.prompts.pop_front() else { return };
         let (text, allowed) = answer(&mut p);
+        self.motion.answered(allowed);
         self.notice(if allowed { theme::GREEN } else { theme::YELLOW }, format!("⚠ {text}"));
     }
 
