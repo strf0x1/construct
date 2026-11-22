@@ -210,13 +210,13 @@ async fn other_encodings_are_refused_with_the_way_out() {
 
 #[test]
 fn disabled_tools_are_not_in_the_catalog() {
-    let cfg =
-        ToolsConfig { disabled: vec!["write".into(), "web_search".into(), "web_fetch".into()], ..Default::default() };
+    let cfg = ToolsConfig { disabled: vec!["write".into(), "memory".into()], ..Default::default() };
     let c = Catalog::build(&cfg, None).unwrap();
     assert!(c.get("write").is_none());
-    assert_eq!(c.group_of("web_fetch"), None, "a disabled tool can't switch its group on");
+    assert_eq!(c.group_of("memory"), None, "a disabled tool can't switch its group on");
     let offered: Vec<String> = c.offerable(&Default::default()).into_iter().map(|(g, _)| g.label()).collect();
-    assert!(!offered.contains(&"web".to_string()), "an empty group isn't offered: {offered:?}");
+    assert!(!offered.contains(&"memory".to_string()), "an empty group isn't offered: {offered:?}");
+    assert!(!c.groups().contains(&Group::Memory), "nor routed to");
     let bad = ToolsConfig { disabled: vec!["wirte".into()], ..Default::default() };
     assert!(Catalog::build(&bad, None).err().unwrap().to_string().contains("unknown tool \"wirte\""));
 }
@@ -242,17 +242,6 @@ async fn a_call_by_the_old_name_runs_the_shell_tool() {
     let outside = f.root.join("outside").display().to_string();
     let (msg, code) = f.call("shell", json!({ "command": "true", "workdir": outside })).await.unwrap_err();
     assert_eq!(code, "sandbox", "{msg}");
-}
-
-#[test]
-fn the_web_search_backend_is_checked_at_startup() {
-    let toml = |search: &str| -> ToolsConfig { toml::from_str(&format!("[web]\nsearch = \"{search}\"")).unwrap() };
-    for ok in ["auto", "exa", "brave", "tavily", "ddg"] {
-        assert!(Catalog::build(&toml(ok), None).is_ok(), "{ok}");
-    }
-    let err = Catalog::build(&toml("google"), None).err().unwrap().to_string();
-    assert!(err.contains("tools.web.search") && err.contains("\"google\"") && err.contains("tavily"), "{err}");
-    assert_eq!(ToolsConfig::default().web.search, "auto");
 }
 
 #[tokio::test(flavor = "multi_thread")]

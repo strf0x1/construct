@@ -945,6 +945,7 @@ dependencies = [
  "clap",
  "construct-core",
  "construct-deck",
+ "construct-tools-web",
  "construct-tui",
  "reqwest",
  "serde_json",
@@ -964,7 +965,6 @@ dependencies = [
  "grep-matcher",
  "grep-regex",
  "grep-searcher",
- "htmd",
  "ignore",
  "landlock",
  "libc",
@@ -1024,6 +1024,21 @@ dependencies = [
  "tokio",
  "toml",
  "vt100",
+]
+
+[[package]]
+name = "construct-tools-web"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "htmd",
+ "proptest",
+ "reqwest",
+ "serde_json",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

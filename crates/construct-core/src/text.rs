@@ -22,16 +22,16 @@ pub fn truncate(s: &str, max: usize) -> String {
 
 /// Shared property-test setup: text that breaks byte arithmetic, and one
 /// deterministic config so CI replays the same cases every run.
-#[cfg(test)]
-pub(crate) mod prop {
+#[cfg(any(test, feature = "test-support"))]
+pub mod prop {
     use proptest::prelude::*;
-    pub(crate) use proptest::sample::Index;
+    pub use proptest::sample::Index;
     use proptest::test_runner::{Config, RngSeed};
 
     /// 256 cases from a fixed seed, no regression files written. A failure
     /// is pinned as a unit test from the shrunk input instead.
     /// `PROPTEST_CASES` and `PROPTEST_RNG_SEED` still override, to search wider.
-    pub(crate) fn config() -> Config {
+    pub fn config() -> Config {
         let mut c = Config::default();
         if std::env::var_os("PROPTEST_RNG_SEED").is_none() {
             c.rng_seed = RngSeed::Fixed(0x636f_6e73_7472_7563);
@@ -69,7 +69,7 @@ pub(crate) mod prop {
     /// Arbitrary text, weighted towards `NASTY`, ASCII words and `extra`
     /// (a target's own syntax), with now and then a line far wider than any
     /// screen.
-    pub(crate) fn text_with(extra: &'static [&'static str]) -> impl Strategy<Value = String> {
+    pub fn text_with(extra: &'static [&'static str]) -> impl Strategy<Value = String> {
         let extra = if extra.is_empty() { NASTY } else { extra };
         let piece = prop_oneof![
             3 => any::<char>().prop_map(String::from),
@@ -81,7 +81,7 @@ pub(crate) mod prop {
         proptest::collection::vec(piece, 0..48).prop_map(|v| v.concat())
     }
 
-    pub(crate) fn text() -> impl Strategy<Value = String> {
+    pub fn text() -> impl Strategy<Value = String> {
         text_with(&[])
     }
 }

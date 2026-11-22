@@ -8,7 +8,7 @@ verified_deps: 6a21ad7dfa4a0477
 ---
 # Motion: comet and unfurl
 
-While a turn runs, a comet (a bright head with a fading tail) laps the rule above the input, in the color of what the turn is doing: lavender thinking, yellow running a tool, blue waiting or writing, cyan routing. It is the activity line's highlight color, so the two agree. When the turn ends the comet docks with one soft flash and the rule is plain again. When a tool finishes, its header flashes its outcome (pale green ✓, pale red ✗) and its output unfurls: the `│` gutter fills top to bottom with a bright head while the text trickles in from the top. `CONSTRUCT_MOTION=off` turns all of it off and draws exactly the old screen (ADR 0064).
+While a turn runs, a comet (a bright head with a fading tail) laps the rule above the input, in the color of what the turn is doing: lavender thinking, yellow running a tool, blue waiting or writing, cyan routing. It is the activity line's highlight color, so the two agree. When the turn ends the comet docks with one soft flash and the rule is plain again. When a tool finishes, its header flashes its outcome (pale green ✓, pale red ✗) and its output unfurls: the `│` gutter fills top to bottom with a bright head while the text trickles in from the top. `CONSTRUCT_MOTION=off` turns all of it off and draws exactly the old screen (ADR 0065).
 
 ## Sub-features
 

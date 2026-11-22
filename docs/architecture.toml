@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core", "construct-deck", "construct-tui"]
+may_use_crates = ["construct-core", "construct-deck", "construct-tools-web", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -127,7 +127,7 @@ may_use = ["clock", "guard", "home"]
 may_use = []
 
 [crates.construct-core.modules.tools]
-may_use = ["clock", "config", "event", "http", "jobs", "journal", "mcp", "memory", "permission", "sandbox", "secrets", "skills", "text"]
+may_use = ["clock", "config", "event", "http", "jobs", "journal", "mcp", "memory", "permission", "sandbox", "skills", "text"]
 
 [crates.construct-core.modules.trace]
 may_use = ["config"]
@@ -150,6 +150,28 @@ may_use = []
 
 [crates.construct-deck.modules.source]
 may_use = ["boundary", "control", "developer"]
+
+[crates.construct-tools-web]
+may_use_crates = ["construct-core"]
+used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271): the binary's `web` feature registers it as a `ToolSource`; the engine never names it, so a build without the feature has none of it" }
+
+[crates.construct-tools-web.modules.ddg]
+may_use = ["filter", "search"]
+
+[crates.construct-tools-web.modules.filter]
+may_use = []
+
+[crates.construct-tools-web.modules.http]
+may_use = []
+
+[crates.construct-tools-web.modules.lib]
+may_use = []
+
+[crates.construct-tools-web.modules.search]
+may_use = ["ddg", "filter", "http", "select"]
+
+[crates.construct-tools-web.modules.select]
+may_use = []
 
 [crates.construct-tui]
 may_use_crates = ["construct-core"]

@@ -18,6 +18,8 @@ construct-core = { path = "crates/construct-core" }
 construct-tui = { path = "crates/construct-tui" }
 # Deck-only tools, above the engine; the construct binary wires them in (#314).
 construct-deck = { path = "crates/construct-deck" }
+# The web tools, above the engine; the binary's `web` feature wires them in (#271).
+construct-tools-web = { path = "crates/construct-tools-web" }
 anyhow = "1"
 # Both the engine and the TUI name async trait impls.
 async-trait = "0.1"

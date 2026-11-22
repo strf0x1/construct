@@ -1,7 +1,11 @@
-//! web_fetch and web_search. Fetch turns HTML into markdown in-process.
-//! Search (`search.rs`) uses Exa, Brave or Tavily when a key resolves,
-//! otherwise DuckDuckGo's HTML endpoint (`ddg.rs`), so it works with no setup
-//! at all. `http.rs` is the one place a search API's failures become prose.
+//! The web tools, `web_search` and `web_fetch`, as a crate above the engine
+//! (#271): the binary registers `Web` as a `ToolSource` when its `web`
+//! feature is on, so a build without it carries none of this code or `htmd`.
+//!
+//! Fetch turns HTML into markdown in-process. Search (`search.rs`) uses Exa,
+//! Brave or Tavily when a key resolves, otherwise DuckDuckGo's HTML endpoint
+//! (`ddg.rs`), so it works with no setup at all. `http.rs` is the one place a
+//! search API's failures become prose.
 
 mod ddg;
 mod filter;
@@ -11,12 +15,24 @@ mod select;
 
 pub use select::{Backend, Choice};
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
-use crate::config::WebConfig;
+use construct_core::config::{ToolsConfig, WebConfig};
+use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
 use std::time::Duration;
 
 const FETCH_MAX_BYTES: usize = 5 * 1024 * 1024;
+
+/// What the composition root registers: both web tools, search first, as
+/// they were pushed inside core. Fails at startup on a search backend
+/// nothing implements.
+pub struct Web;
+
+impl ToolSource for Web {
+    fn tools(&self, cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(WebSearch::new(&cfg.web)?), Arc::new(WebFetch)])
+    }
+}
 
 pub struct WebSearch {
     choice: Choice,
@@ -128,7 +144,7 @@ async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
     } else {
         body.to_string()
     };
-    let text = super::cap_output(ctx, "web", &text);
+    let text = construct_core::tools::cap_output(ctx, "web", &text);
     if !status.is_success() {
         return Err(format!("HTTP {status}\n{text}"));
     }

@@ -4,14 +4,20 @@
 //! Jev (TypeSafe's System One model) answers this as one request of typed
 //! questions: a noul per optional group, a noul per MCP server, and a choice
 //! over the skill library. Without a TypeSafe key, or when Jev is slow or
-//! down, a local lexical router answers instead.
+//! down, a local lexical router answers instead (`local.rs`).
+//!
+//! Only groups the session's catalog has are asked about or returned: a
+//! build without a tool crate never routes to its empty group (#271).
 
 use crate::config::RouterConfig;
 use crate::skills::Skill;
 use crate::tools::Group;
+use local::local;
 use serde_json::{Map, Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
+
+mod local;
 
 #[derive(Debug, Clone, Default)]
 pub struct Route {
@@ -29,6 +35,16 @@ pub struct Input<'a> {
     pub previous: &'a str,
     pub skills: &'a [Skill],
     pub mcp: &'a BTreeMap<String, String>,
+    /// The built-in groups this session's catalog has (`Catalog::groups`).
+    pub groups: &'a BTreeSet<Group>,
+}
+
+impl Input<'_> {
+    /// A group this session could switch on: one its catalog has, or an MCP
+    /// server's, whose tools join the catalog when it starts.
+    fn offers(&self, g: &Group) -> bool {
+        matches!(g, Group::Mcp(_)) || self.groups.contains(g)
+    }
 }
 
 pub async fn route(cfg: &RouterConfig, http: &reqwest::Client, input: Input<'_>) -> Route {
@@ -54,6 +70,7 @@ pub async fn route(cfg: &RouterConfig, http: &reqwest::Client, input: Input<'_>)
             _ => local(cfg, &input),
         },
     };
+    route.groups.retain(|g| input.offers(g));
     route.ms = started.elapsed().as_millis() as u64;
     route
 }
@@ -100,10 +117,17 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     let mut questions = Map::new();
     let noul = |instructions: String| json!({ "type": "noul", "instructions": instructions });
     let needs = |what: &str| noul(format!("Does `request` explicitly require {what}? {NO_UNLESS}"));
-    questions.insert("web".into(), needs(Q_WEB));
-    questions.insert("history".into(), needs(Q_HISTORY));
-    questions.insert("memory".into(), noul(Q_MEMORY.into()));
-    questions.insert("skill_write".into(), noul(Q_SKILL_WRITE.into()));
+    let builtin = [
+        ("web", Group::Web, needs(Q_WEB)),
+        ("history", Group::History, needs(Q_HISTORY)),
+        ("memory", Group::Memory, noul(Q_MEMORY.into())),
+        ("skill_write", Group::SkillWrite, noul(Q_SKILL_WRITE.into())),
+    ];
+    let mut asked: Vec<(String, Group)> = vec![];
+    for (k, g, q) in builtin.into_iter().filter(|(_, g, _)| input.offers(g)) {
+        questions.insert(k.into(), q);
+        asked.push((k.into(), g));
+    }
     for (name, desc) in input.mcp {
         questions
             .insert(format!("mcp:{name}"), needs(&format!("the {name} tools: {}", crate::text::truncate(desc, 300))));
@@ -138,12 +162,6 @@ async fn jev(cfg: &RouterConfig, http: &reqwest::Client, key: &str, input: &Inpu
     let t = cfg.threshold;
     let mut groups = Vec::new();
     let mut note = Vec::new();
-    let mut asked: Vec<(String, Group)> = vec![
-        ("web".into(), Group::Web),
-        ("history".into(), Group::History),
-        ("memory".into(), Group::Memory),
-        ("skill_write".into(), Group::SkillWrite),
-    ];
     asked.extend(input.mcp.keys().map(|n| (format!("mcp:{n}"), Group::Mcp(n.clone()))));
     for (k, g) in asked {
         note.push(format!("{k}={:.2}", p(&k)));
@@ -205,131 +223,4 @@ pub(crate) fn overlap(request: &str, doc: &str) -> f32 {
     let total: f32 = d.iter().map(|w| w.len() as f32).sum();
     let hit: f32 = d.iter().filter(|w| r.contains(*w)).map(|w| w.len() as f32).sum();
     hit / total
-}
-
-fn any(text: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|n| text.contains(n))
-}
-
-fn local(cfg: &RouterConfig, input: &Input<'_>) -> Route {
-    let _ = cfg;
-    let t = input.request.to_lowercase();
-    let mut groups = Vec::new();
-    if any(
-        &t,
-        &[
-            "http://",
-            "https://",
-            "www.",
-            "search the web",
-            "web search",
-            "google",
-            "look up",
-            "lookup",
-            "online",
-            "internet",
-            "website",
-            "docs for",
-            "documentation",
-            "latest version",
-            "release notes",
-            "news",
-            "research",
-        ],
-    ) {
-        groups.push(Group::Web);
-    }
-    if any(
-        &t,
-        &[
-            "remember",
-            "forget",
-            "i prefer",
-            "i like",
-            "i hate",
-            "i don't like",
-            "always ",
-            "never ",
-            "call me",
-            "my name",
-            "from now on",
-            "stop doing",
-            "don't ever",
-        ],
-    ) {
-        groups.push(Group::Memory);
-    }
-    if any(
-        &t,
-        &[
-            "last time",
-            "previous session",
-            "past session",
-            "earlier session",
-            "we did",
-            "yesterday",
-            "last week",
-            "before, we",
-            "remember when",
-            "other session",
-            "you said",
-        ],
-    ) {
-        groups.push(Group::History);
-    }
-    if t.contains("skill") && any(&t, &["save", "write", "create", "update", "make", "delete", "add"]) {
-        groups.push(Group::SkillWrite);
-    }
-    for (name, desc) in input.mcp {
-        if t.contains(&name.to_lowercase()) || overlap(input.request, desc) >= 0.34 {
-            groups.push(Group::Mcp(name.clone()));
-        }
-    }
-    let mut ranked: Vec<(String, f32)> = input
-        .skills
-        .iter()
-        .map(|s| {
-            let named = t.contains(&s.name) || t.contains(&s.name.replace('-', " "));
-            (s.name.clone(), if named { 1.0 } else { overlap(input.request, &skill_text(s)) })
-        })
-        .filter(|(_, p)| *p >= 0.25)
-        .collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-    ranked.truncate(3);
-    if !ranked.is_empty() || groups.contains(&Group::SkillWrite) {
-        groups.push(Group::Skills);
-    }
-    Route { groups, skills: ranked, source: "local".into(), ms: 0, note: String::new() }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn local_routes_obvious_cases() {
-        let cfg = RouterConfig::default();
-        let skills = vec![Skill {
-            name: "rust-release".into(),
-            description: "Cut a release of a Rust crate: bump version, changelog, tag, publish".into(),
-            dir: Default::default(),
-        }];
-        let mcp = BTreeMap::new();
-        let r = local(
-            &cfg,
-            &Input {
-                request: "publish a new release of this crate with a changelog",
-                previous: "",
-                skills: &skills,
-                mcp: &mcp,
-            },
-        );
-        assert_eq!(r.skills.first().map(|s| s.0.as_str()), Some("rust-release"));
-        let r =
-            local(&cfg, &Input { request: "what's in https://example.com", previous: "", skills: &skills, mcp: &mcp });
-        assert!(r.groups.contains(&Group::Web));
-        assert!(r.skills.is_empty());
-        let r = local(&cfg, &Input { request: "remember that I prefer tabs", previous: "", skills: &[], mcp: &mcp });
-        assert!(r.groups.contains(&Group::Memory));
-    }
 }

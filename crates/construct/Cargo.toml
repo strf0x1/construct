@@ -19,15 +19,23 @@ test = false
 workspace = true
 
 [features]
-default = ["keyring"]
-# Forwarded to the engine: --no-default-features builds the env-only
-# drop binary (ADR 0051). The TUI never forces the keyring on.
+default = ["full"]
+# Bundles (#271). `full` is every release build. `lean` is the small drop
+# build: `--no-default-features --features lean`. Add single features on top
+# (`--features lean,keyring`) to measure one at a time.
+full = ["keyring", "web"]
+lean = ["web"]
+# Forwarded to the engine: off is env-only secrets (ADR 0051). The TUI
+# never forces the keyring on.
 keyring = ["construct-core/keyring"]
+# web_search and web_fetch (construct-tools-web).
+web = ["dep:construct-tools-web"]
 
 [dependencies]
 construct-core = { workspace = true, default-features = false }
 construct-tui.workspace = true
 construct-deck.workspace = true
+construct-tools-web = { workspace = true, optional = true }
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true

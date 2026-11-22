@@ -158,7 +158,7 @@ fn learner(
         sb.mode = "read-only".into();
     }
     let policy = crate::sandbox::Policy::new(&sb, &cwd, paths);
-    Ok((Ctx::new(cwd, paths.clone(), memory, rx, None, policy), Catalog::build(&cfg.tools, None)?))
+    Ok((Ctx::new(cwd, paths.clone(), memory, rx, None, policy), Catalog::build_without_sources(&cfg.tools)?))
 }
 
 async fn run_loop(

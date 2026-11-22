@@ -82,7 +82,7 @@ fn detail(body: &str) -> String {
             _ => None,
         })
         .unwrap_or_else(|| body.trim().to_string());
-    if text.is_empty() { String::new() } else { format!(": {}", crate::text::truncate(&text, 300)) }
+    if text.is_empty() { String::new() } else { format!(": {}", construct_core::text::truncate(&text, 300)) }
 }
 
 #[cfg(test)]
@@ -140,7 +140,7 @@ mod tests {
     /// The engine installs its TLS provider lazily (#271); tests build clients
     /// without the binary's startup, so `http::builder()` asks for it here.
     fn client() -> reqwest::Client {
-        crate::http::build(crate::http::builder()).expect("http client")
+        construct_core::http::build(construct_core::http::builder()).expect("http client")
     }
 
     #[tokio::test]

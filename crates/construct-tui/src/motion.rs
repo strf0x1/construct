@@ -1,5 +1,5 @@
 //! Motion: short effects drawn over a finished frame with tachyonfx (ADR
-//! 0064). A finished tool's output unfurls (the gutter fills top to bottom,
+//! 0065). A finished tool's output unfurls (the gutter fills top to bottom,
 //! the text trickles in, the header flashes its outcome) and a comet rides
 //! the rule above the input while a turn runs, colored by what it is doing.
 //! Effects only recolor or blank cells already drawn, never set a

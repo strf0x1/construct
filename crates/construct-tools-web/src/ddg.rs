@@ -6,7 +6,7 @@ use super::{
     filter::Filter,
     search::{Answer, Hit},
 };
-use crate::tools::Ctx;
+use construct_core::tools::Ctx;
 use std::time::Duration;
 
 pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
@@ -113,7 +113,7 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::text::prop;
+    use construct_core::text::prop;
     use proptest::prelude::*;
 
     const PAGE: &[&str] = &[

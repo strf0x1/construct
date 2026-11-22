@@ -264,7 +264,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Some(Cmd::Manifest) => {
-            let catalog = tools::Catalog::build(&cfg.tools, None)?;
+            let catalog = tools::Catalog::build_extended(&cfg.tools, None, &tools::Deck::default(), &tool_sources())?;
             let m = manifest::Manifest::new(&cfg, catalog.names()).with_binary_hash();
             println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
