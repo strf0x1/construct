@@ -9,7 +9,9 @@ gone "/models"
 gone "search models…"
 image {evidence}/model-palette.png
 key enter
-expect "› /model mock/small"
+# a wait, not an expect: while `image` renders, the driver stops reading and
+# the splash's frames back up in the pty, so the key can land a few frames late
+wait "› /model mock/small" 1000
 gone "32.8k"
 key enter
 wait "model → mock/small" 2000
