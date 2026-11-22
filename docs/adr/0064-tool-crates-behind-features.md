@@ -88,6 +88,11 @@ parser it brings. `full` grew by 16 KB, probably from the router's group
 filter and the crate boundary changing what gets inlined; that is within
 this change, not attributed further.
 
+With `history` and `jobs` moved out as well: `full` 8,310,288 (15 tools,
++96), `lean` 6,456,096 (12 tools), bare 5,942,496 (10 tools). Together they
+cost 16,752 bytes: `rusqlite` stays for the journal, so only their own
+code goes.
+
 An earlier experiment that also removed memory, skill, history, job and
 Deck's tools measured 5,692,256 B against 6,472,656 B for the env-only build
 with every tool, so that ceiling is about 0.78 MB.
