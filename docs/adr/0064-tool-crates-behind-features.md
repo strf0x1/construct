@@ -115,6 +115,14 @@ With `history` and `jobs` moved out as well: `full` 8,310,288 (15 tools,
 cost 16,752 bytes: `rusqlite` stays for the journal, so only their own
 code goes.
 
+With `memory` and `skills` moved out too, against main at b802994 (which
+also gained the TUI's motion, ADR 0065): `full` 8,377,088 (15 tools,
++16,576), `lean` 6,506,400 (12 tools, +64), bare 5,976,016 (7
+tools: core's six and Deck's `developer`; −16,704 against main's bare). The
+two tools' own code is about 17 KB; `full` grew by about as much, from the
+optional names in the denials and prompt and the crate boundaries, as it
+did when web moved.
+
 An earlier experiment that also removed memory, skill, history, job and
 Deck's tools measured 5,692,256 B against 6,472,656 B for the env-only build
 with every tool, so that ceiling is about 0.78 MB.
