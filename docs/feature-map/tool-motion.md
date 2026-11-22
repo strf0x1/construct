@@ -3,8 +3,8 @@ id: tool-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/lib.rs]
-verified_at: 97f158c
-verified_deps: d5850c9b2d7963fe
+verified_at: 310dde1
+verified_deps: adb9f82412682f8b
 ---
 # Motion: comet and unfurl
 
