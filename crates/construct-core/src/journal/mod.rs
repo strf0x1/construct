@@ -142,6 +142,40 @@ impl Journal {
         self.conn
             .prepare_cached("INSERT INTO events (session_id, type, v, at_ms, payload) VALUES (?1, ?2, ?3, ?4, ?5)")?
             .execute(params![session, ty, PAYLOAD_V, now_ms() as i64, v.to_string()])?;
+        self.sync_dir_once()?;
+        Ok(())
+    }
+
+    /// Append events that are sent together in one transaction, so they cost
+    /// one fsync instead of one each (ADR 0034, #248). Seq order and the
+    /// row-before-send barrier are unchanged: every row is durable before the
+    /// first event goes out.
+    pub fn append_batch(&self, session: &str, events: &[Event]) -> Result<()> {
+        let rows: Vec<(String, String)> = events
+            .iter()
+            .filter(|ev| ev.durable())
+            .map(|ev| {
+                let v = serde_json::to_value(ev)?;
+                let ty = v["event"].as_str().unwrap_or_default().to_string();
+                Ok((ty, v.to_string()))
+            })
+            .collect::<Result<_>>()?;
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        let mut insert =
+            tx.prepare_cached("INSERT INTO events (session_id, type, v, at_ms, payload) VALUES (?1, ?2, ?3, ?4, ?5)")?;
+        for (ty, payload) in rows {
+            insert.execute(params![session, ty, PAYLOAD_V, now_ms() as i64, payload])?;
+        }
+        drop(insert);
+        tx.commit()?;
+        self.sync_dir_once()?;
+        Ok(())
+    }
+
+    fn sync_dir_once(&self) -> Result<()> {
         if !self.dir_synced.load(Ordering::Relaxed) {
             // SQLite fsyncs the WAL file, never the directory entry that makes
             // it findable. Without this, a VMM death drops the entry even

@@ -1,0 +1,120 @@
+{
+ "a": "/Users/brandon/.hermes/cache/scratch/guest-compare-input.json",
+ "b": "/Users/brandon/.hermes/cache/scratch/guest-compare-input.json",
+ "comparisons": [
+  {
+   "a": "guest-compare-input:before",
+   "b": "guest-compare-input:after",
+   "rows": [
+    {
+     "metric": "n1.commits",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 14.0,
+     "b": 14.0,
+     "delta": 0.0,
+     "a_spread": [
+      14.0,
+      14.0
+     ],
+     "b_spread": [
+      14.0,
+      14.0
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "n1.turn_ms",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 180.98,
+     "b": 181.8,
+     "delta": 0.8200000000000216,
+     "a_spread": [
+      158.67,
+      201.61
+     ],
+     "b_spread": [
+      142.87,
+      197.49
+     ],
+     "verdict": "same"
+    },
+    {
+     "metric": "n16.commits",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 59.0,
+     "b": 44.0,
+     "delta": -15.0,
+     "a_spread": [
+      59.0,
+      59.0
+     ],
+     "b_spread": [
+      44.0,
+      44.0
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "n16.turn_ms",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 783.62,
+     "b": 591.7,
+     "delta": -191.91999999999996,
+     "a_spread": [
+      718.2,
+      827.68
+     ],
+     "b_spread": [
+      553.45,
+      654.31
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "n4.commits",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 23.0,
+     "b": 20.0,
+     "delta": -3.0,
+     "a_spread": [
+      23.0,
+      23.0
+     ],
+     "b_spread": [
+      20.0,
+      20.0
+     ],
+     "verdict": "better"
+    },
+    {
+     "metric": "n4.turn_ms",
+     "n_a": 15,
+     "n_b": 15,
+     "binary": false,
+     "a": 298.19,
+     "b": 262.16,
+     "delta": -36.02999999999997,
+     "a_spread": [
+      280.35,
+      318.42
+     ],
+     "b_spread": [
+      231.66,
+      279.69
+     ],
+     "verdict": "same"
+    }
+   ]
+  }
+ ]
+}

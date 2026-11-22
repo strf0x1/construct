@@ -33,6 +33,23 @@ fn rows_project_back_to_the_conversation_and_fts_indexes_messages() {
 }
 
 #[test]
+fn batch_append_commits_a_group_in_seq_order() {
+    let f = tmp("batch");
+    let db = Journal::open(&f).unwrap();
+    let msgs = [Message::user("question"), Message::tool("call_1", "one"), Message::tool("call_2", "two")];
+    let events: Vec<Event> = msgs.iter().cloned().map(Event::for_message).collect();
+    db.append_batch("s", &events).unwrap();
+    let all = db.since("s", 0).unwrap();
+    assert_eq!(all.len(), 3);
+    assert!(all.windows(2).all(|w| w[0].seq + 1 == w[1].seq));
+    assert_eq!(project(all.iter().map(|e| &e.event)).unwrap(), msgs);
+    let hits = |q: &str| -> i64 {
+        db.conn.query_row("SELECT count(*) FROM events_fts WHERE events_fts MATCH ?1", [q], |r| r.get(0)).unwrap()
+    };
+    assert_eq!((hits("question"), hits("one"), hits("two")), (1, 1, 1));
+}
+
+#[test]
 fn readers_skip_unknown_types_and_fields() {
     let f = tmp("unknown");
     let db = Journal::open(&f).unwrap();

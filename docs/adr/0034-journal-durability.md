@@ -51,13 +51,66 @@ Directories are synced too:
   before the row is sent. Later commits reuse the existing files, so this is
   not a per-event cost.
 
-No batching transaction is introduced: batching would amortise the fsyncs but
-also delay every event's row until a turn boundary, weakening the same
-promise. The cost is measured below and is one fsync per durable event (eight
-per scripted turn).
+Batching is confined to events that are sent together (see the amendment
+below): the whole group is committed before any of its events is sent, so the
+row-before-send promise still holds. Events that become durable at different
+times keep their own fsync. The measured cost before the amendment was one
+fsync per durable event (eight per scripted turn).
 
 Readers use the same `Journal::open`, so a read-only session also sets FULL on
 its own connection; it writes nothing, so this costs nothing.
+
+## Amendment (2026-11-21, #248): group commit for events sent together
+
+Parallel tool calls finish as a group: their `tool_result` rows are all ready
+after `join_all`, and they are sent together. They used to be N autocommit
+inserts, each with its own WAL fsync. `Writer::emit_batch` now commits such a
+group in one SQLite transaction and sends none of its events until that
+transaction returns. `Journal::append_batch` is the only new journal
+operation; every event that is not part of a ready-together group still uses
+`append`.
+
+Invariants kept:
+
+- one seq per event, assigned in emission order;
+- no event sent before its row is durable (ADR 0008);
+- the group's rows are committed under the writer lock and its events are sent
+  in seq order from the same lock;
+- a crash after any row still restores without re-running a tool (ADR 0029);
+  the #250 sweep covers every cut.
+
+Scope is deliberately narrow. `tool_start` is committed when a call starts
+and `tool_end` when it finishes, so those stay individual commits; only the
+`tool_result` rows pushed after all calls finish are grouped. Holding rows
+until a turn boundary, as considered in the original decision, stays rejected:
+it would delay unrelated events behind the slowest one.
+
+Measurements (`bench/group_commit.py`, scripted model, 3 turns × 5 reps) before
+the amendment:
+
+| N parallel calls | rows = fsyncs/turn | local p50 | guest p50 | WAL FULL commit, guest |
+|---|---|---|---|---|
+| 1 | 14 | 5.73 ms | 180.98 ms | 11.61 ms |
+| 4 | 23 | 8.44 ms | 298.19 ms | 11.54 ms |
+| 16 | 59 | 20.64 ms | 783.62 ms | 11.33 ms |
+
+N of those rows per turn are `tool_result`. Grouping them removes N−1 guest
+fsyncs: ~35 ms (12 %) at N=4 and ~170 ms (22 %) at N=16. The local saving is
+~0.2 ms and ~1.2 ms. The guest number is the one that decides, because a
+guest disk forwards flushes and local APFS does not cost the same.
+
+After the amendment (same command; WAL commit frames counted, so grouped rows
+are one fsync; 15 samples per cell):
+
+| N | guest commits/turn before → after | guest p50 before → after |
+|---|---|---|
+| 1 | 14 → 14 | 181 → 182 ms |
+| 4 | 23 → 20 | 298 → 262 ms |
+| 16 | 59 → 44 | 784 → 592 ms |
+
+`bench.py compare` (tier 1) calls `n16.turn_ms` and `n4`/`n16` commit counts
+`better`, `n1.turn_ms` and `n4.turn_ms` `same` under its spread rule, and
+nothing `worse`. The N=1 turn has no group to commit, as expected.
 
 ## Consequences
 
@@ -74,14 +127,12 @@ its own connection; it writes nothing, so this costs nothing.
   pages are written, only the number of flushes rises.
 - WAL checkpoints still happen automatically (1000 pages); the WAL file is
   read back normally after a crash.
-- A process that emits many durable events per turn (many parallel tool
-  results) pays that many fsyncs. If that becomes a visible cost, the options
-  are a single transaction per batch of events that are sent together, or an
-  async commit with an explicit flush before send — both reopen the ordering
-  promise, so they need a new ADR.
+- A process that emits many durable events per turn pays one fsync each,
+  except the `tool_result` rows of one turn, which share a single transaction
+  (amendment above). Other events still become durable as they are emitted.
 - Revisit if: the journal moves to storage with slow `fsync` (network or
   emulated disks) and turn latency is dominated by it, or the event rate makes
-  per-row flushes unreasonable.
+  per-row flushes unreasonable for rows that are not sent together.
 
 ## Evidence
 

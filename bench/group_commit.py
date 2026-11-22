@@ -7,9 +7,10 @@ One `construct acp` process sends scripted turns into one session against
 only journal rows are the ones that turn needs.
 
 For each N the bench reports prompt round trip (p50/p95), journal rows added
-per turn, and fsyncs per turn. ADR 0034 makes each durable row one WAL fsync,
-so rows == fsyncs by construction; with `--strace` on Linux the two
-syscalls are counted directly instead and the source is recorded in the JSON.
+per turn, and WAL commit frames per turn (one fsync each under
+synchronous=FULL). Counting commit frames in the `-wal` file measures grouped
+rows as one commit; with `--strace` on Linux the fsync syscalls are counted
+directly instead.
 
     python3 bench/group_commit.py [--n 1 4 16] [--turns 3] [--reps 5]
         [--label local] [--strace] [--json out.json]
@@ -26,6 +27,7 @@ import os
 import shutil
 import sqlite3
 import statistics
+import struct
 import subprocess
 import sys
 import tempfile
@@ -126,6 +128,25 @@ def counts(home: Path, sid: str) -> dict:
     return out
 
 
+def wal_commits(journal: Path) -> int:
+    """Commit frames in a SQLite -wal file: one WAL fsync per frame."""
+    wal = Path(f"{journal}-wal")
+    if not wal.exists():
+        return 0
+    data = wal.read_bytes()
+    if len(data) < 32:
+        return 0
+    page = struct.unpack(">I", data[8:12])[0] or 65536
+    commits, off = 0, 32
+    while off + 24 <= len(data):
+        # A non-zero "database size after commit" marks a transaction's last
+        # frame (SQLite WAL format).
+        if struct.unpack(">I", data[off + 4:off + 8])[0]:
+            commits += 1
+        off += 24 + page
+    return commits
+
+
 def fsync_cost_ms(directory: Path, count: int = 200) -> float:
     """Wall time of one WAL FULL commit (one fsync), as ADR 0034 pays it."""
     db = sqlite3.connect(directory / "fsync.sqlite")
@@ -160,7 +181,7 @@ def run(n: int, turns: int, reps: int, label: str, strace: bool) -> dict:
         (work / "data.txt").write_text("".join(f"line {i}: ordinary content\n" for i in range(60)))
         (home / "config.toml").write_text(
             f"context_window = {WINDOW}\n[router]\nmode = 'local'\n[learn]\nenabled = false\n")
-        samples, fsync_samples, rows_per_turn, tools_per_turn, by_type = [], [], [], [], {}
+        samples, fsync_samples, rows_per_turn, tools_per_turn, commits_per_turn, by_type = [], [], [], [], [], {}
         # The mock server's script counter is global to the process: a fresh
         # server per rep keeps every rep's turns on the same scripted steps.
         for rep in range(reps):
@@ -170,14 +191,19 @@ def run(n: int, turns: int, reps: int, label: str, strace: bool) -> dict:
                 acp = Acp(env_for(home, port), work, trace)
                 acp.call("initialize", {"protocolVersion": 1})
                 sid = acp.call("session/new", {"cwd": str(work), "mcpServers": []})["sessionId"]
+                journal = next(iter((home / "projects").glob("*/journal.sqlite")), None)
                 timings = []
                 for i in range(turns):
                     before = counts(home, sid)
+                    commits_before = wal_commits(journal) if journal else 0
                     start = time.monotonic()
                     acp.call("session/prompt", {"sessionId": sid, "prompt": [
                         {"type": "text", "text": f"turn {i}: read the file"}]})
                     timings.append((time.monotonic() - start) * 1000)
                     after = counts(home, sid)
+                    commits_after = wal_commits(journal) if journal else 0
+                    if commits_after >= commits_before:
+                        commits_per_turn.append(commits_after - commits_before)
                     rows_per_turn.append(sum(after.values()) - sum(before.values()))
                     tools_per_turn.append(after.get("tool_end", 0) - before.get("tool_end", 0))
                     for ty in set(before) | set(after):
@@ -195,6 +221,7 @@ def run(n: int, turns: int, reps: int, label: str, strace: bool) -> dict:
         sync_ms = statistics.median([fsync_cost_ms(directory) for _ in range(3)])
         timing = summarize(samples)
         median_rows = round(statistics.median(rows_per_turn), 2) if rows_per_turn else 0
+        median_commits = round(statistics.median(commits_per_turn), 2) if commits_per_turn else median_rows
         median_tools = round(statistics.median(tools_per_turn), 2) if tools_per_turn else 0
         if median_tools != n:
             raise SystemExit(f"script misaligned: expected {n} tool_end rows per turn, "
@@ -202,15 +229,17 @@ def run(n: int, turns: int, reps: int, label: str, strace: bool) -> dict:
         return {
             "label": label, "parallel_calls": n, "turns": turns, "reps": reps,
             "rows_per_turn": median_rows,
+            "commits_per_turn": median_commits,
             "tools_per_turn": median_tools,
             "rows_by_type": by_type,
-            # ADR 0034: one WAL fsync per durable row. strace replaces the
-            # derivation with a direct count when it is available.
-            "fsyncs_per_turn": round(statistics.median(fsync_samples), 2) if fsync_samples else median_rows,
-            "fsync_source": "strace" if fsync_samples else "adr0034-row-count",
+            # synchronous=FULL: one WAL fsync per SQLite commit. strace counts
+            # the syscalls directly on Linux; otherwise WAL commit frames are
+            # counted from the -wal file.
+            "fsyncs_per_turn": round(statistics.median(fsync_samples), 2) if fsync_samples else median_commits,
+            "fsync_source": "strace" if fsync_samples else "wal-commit-frames",
             "journal_bytes": size,
             "fsync_ms": round(sync_ms, 4),
-            "fsync_share_pct": round(100 * median_rows * sync_ms / timing["p50"], 1) if timing["p50"] else None,
+            "fsync_share_pct": round(100 * median_commits * sync_ms / timing["p50"], 1) if timing["p50"] else None,
             "turn_ms": timing,
             "samples_ms": [round(x, 2) for x in samples],
         }
@@ -231,10 +260,10 @@ def main() -> int:
         if not binary.exists():
             raise SystemExit(f"missing {binary}: cargo build --release -p construct && cargo build -p construct-dev")
     if a.strace and not shutil.which("strace"):
-        print("strace not found; fsyncs fall back to the ADR 0034 row count", file=sys.stderr)
+        print("strace not found; fsyncs fall back to SQLite commit counting", file=sys.stderr)
     rows = [run(n, a.turns, a.reps, a.label, a.strace) for n in a.n]
     cols = ["label", "parallel_calls", "tools_per_turn", "turns", "reps", "p50_ms", "p95_ms",
-            "rows_per_turn", "fsyncs_per_turn", "fsync_ms", "fsync_share_pct", "journal_bytes"]
+            "rows_per_turn", "commits_per_turn", "fsyncs_per_turn", "fsync_ms", "fsync_share_pct", "journal_bytes"]
     print("  ".join(cols))
     for r in rows:
         r["p50_ms"], r["p95_ms"] = r["turn_ms"]["p50"], r["turn_ms"]["p95"]
