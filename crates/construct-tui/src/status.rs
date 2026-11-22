@@ -89,7 +89,8 @@ impl App {
     pub(super) fn status(&self, width: usize, phase: f32) -> Line<'static> {
         let router = self.cfg.on_router();
         let compact = width < super::status::COMPACT_BELOW;
-        let mut must = super::status::counters(&self.totals, self.context_pct, router, compact);
+        let mut must =
+            super::status::counters(&self.totals, self.motion.gauge_shown(self.context_pct), router, compact);
         if self.scroll > 0 {
             must.push(Span::styled(format!(" · scrolled {}", self.scroll), Style::new().fg(theme::CYAN)));
         }

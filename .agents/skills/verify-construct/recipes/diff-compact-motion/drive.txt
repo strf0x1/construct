@@ -1,0 +1,31 @@
+# Motion on (drive.env). Turn one: an edit's diff gets a white highlighter
+# pass left to right once it has trickled in. Turn two: a dozen big reads fill
+# the 16k window and construct compacts: a lavender wash over the transcript
+# above the `◇ compacted history` notice clears from the top down into it, and
+# the notice resolves out of block glyphs. Each lasts about a second, so each
+# is snapped several times in a row.
+wait "ask construct" 5000
+type tidy the router
+key enter
+wait "✓ edit" 8000
+sleep 250
+snap --style diff-1
+image {evidence}/diff.png
+snap --style diff-2
+snap --style diff-3
+snap --style diff-4
+wait "tidied the router" 8000
+wait "ask construct anything… (/help)" 8000
+type read the big files
+key enter
+wait "compacted history" 20000
+snap --style compact-1
+image {evidence}/compact.png
+snap --style compact-2
+snap --style compact-3
+snap --style compact-4
+wait "done reading" 20000
+wait "ask construct anything… (/help)" 10000
+sleep 1500
+snap --style idle
+image {evidence}/idle.png

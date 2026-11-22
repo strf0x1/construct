@@ -8,6 +8,7 @@
 //! background (construct draws on the terminal's own), and never move
 //! layout. `CONSTRUCT_MOTION=off` draws exactly what construct drew before.
 
+mod compact;
 mod panel;
 mod shaders;
 
@@ -37,6 +38,10 @@ const GUTTER_X: u16 = 4;
 enum Target {
     Head(usize),
     Body(usize),
+    /// The whole block.
+    Block(usize),
+    /// Every transcript row above the block.
+    Above(usize),
 }
 
 pub(super) struct Motion {
@@ -59,6 +64,8 @@ pub(super) struct Motion {
     tint: Color,
     /// The next panel drawn is a new question (the last one was answered).
     rearm: bool,
+    /// The ctx gauge easing down after a drop: from, to, since.
+    gauge: Option<(u64, u64, Instant)>,
 }
 
 /// Off: what `std::mem::take` leaves behind while a frame draws.
@@ -82,6 +89,7 @@ impl Motion {
             ghost: None,
             tint: theme::DIM,
             rearm: false,
+            gauge: None,
         }
     }
 
@@ -98,6 +106,7 @@ impl Motion {
             || self.dock.is_some()
             || !self.panel_fx.is_empty()
             || self.ghost.is_some()
+            || self.gauge.is_some_and(|g| g.2.elapsed() < compact::DRAIN)
     }
 
     /// The rule's color: the old pulse while a turn runs with motion off, the
@@ -107,7 +116,7 @@ impl Motion {
     }
 
     /// Tool block `i` finished: unfurl its output and flash its outcome.
-    pub(super) fn tool_done(&mut self, i: usize, ok: bool) {
+    pub(super) fn tool_done(&mut self, i: usize, ok: bool, diff: bool) {
         if !self.on {
             return;
         }
@@ -118,6 +127,12 @@ impl Motion {
         let trickle = fx::coalesce((700, Interpolation::QuadOut)).with_pattern(SweepPattern::down_to_up(3));
         self.fx.push((Target::Body(i), trickle));
         self.fx.push((Target::Body(i), gutter_fill(450, if ok { theme::ACCENT } else { theme::RED })));
+        if ok && diff {
+            // a highlighter pass over the diff once it has trickled in
+            let pass =
+                fx::fade_from_fg(WHITE, (1100, Interpolation::SineOut)).with_pattern(SweepPattern::left_to_right(14));
+            self.fx.push((Target::Body(i), fx::delay(250, pass)));
+        }
         if !ok {
             self.fx.push((Target::Head(i), shake(380)));
             let glitch = fx::hsl_shift_fg([40.0, 0.0, 25.0], (500, Interpolation::QuadOut)).reversed();
@@ -161,6 +176,8 @@ impl Motion {
             let rect = match *target {
                 Target::Head(i) => rows.get(i).and_then(|r| place(r.0, 1)),
                 Target::Body(i) => rows.get(i).and_then(|r| place(r.0 + 1, r.1.saturating_sub(1))),
+                Target::Block(i) => rows.get(i).and_then(|r| place(r.0, r.1)),
+                Target::Above(i) => rows.get(i).and_then(|r| place(0, r.0)),
             };
             if let Some(r) = rect.map(|r| r.intersection(area)).filter(|r| !r.is_empty()) {
                 buf.render_effect(e, r, dt);
@@ -247,7 +264,7 @@ mod tests {
     #[test]
     fn off_adds_nothing() {
         let mut m = Motion::new(false);
-        m.tool_done(0, true);
+        m.tool_done(0, true, false);
         m.turn(Some(Some(&Phase::Thinking)));
         assert!(!m.running());
     }
@@ -363,7 +380,7 @@ mod tests {
     #[test]
     fn a_failure_shakes_its_header() {
         let mut m = Motion::new(true);
-        m.tool_done(0, false);
+        m.tool_done(0, false, false);
         let mut moved = false;
         for _ in 0..10 {
             let mut b = Buffer::empty(Rect::new(0, 0, 20, 2));
@@ -378,7 +395,7 @@ mod tests {
     #[test]
     fn unfurl_hides_rows_not_yet_reached_and_finishes() {
         let mut m = Motion::new(true);
-        m.tool_done(0, true);
+        m.tool_done(0, true, false);
         let mut b = Buffer::empty(Rect::new(0, 0, 20, 4));
         let draw = |b: &mut Buffer| {
             for y in 1..4 {
