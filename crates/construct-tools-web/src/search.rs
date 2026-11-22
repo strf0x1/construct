@@ -13,8 +13,9 @@ use super::{
     http::{ApiError, send_json},
     select::{Backend, Choice},
 };
-use crate::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
-use crate::tools::Ctx;
+use construct_core::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
+use construct_core::text::truncate;
+use construct_core::tools::Ctx;
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -50,7 +51,7 @@ pub(super) async fn run(ctx: &Ctx, a: &Value, choice: Choice) -> Result<String, 
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
     let n = a.get("limit").and_then(Value::as_u64).unwrap_or(8).clamp(1, 20) as usize;
     let f = Filter::from_args(a);
-    let plan = choice.plan(crate::secrets::optional)?;
+    let plan = choice.plan(construct_core::secrets::optional)?;
     let answer = first_answer(&plan, |backend, key| call(ctx, backend, key, q, n, &f)).await?;
     Ok(render(&answer))
 }
@@ -99,7 +100,7 @@ fn render(a: &Answer) -> String {
     for (i, h) in a.hits.iter().enumerate() {
         let max = if i < TOP_RESULTS { TOP_CHARS } else { REST_CHARS };
         let date = h.date.as_deref().map(|d| format!("  ({d})")).unwrap_or_default();
-        out.push(format!("{}. {}\n   {}{date}\n   {}", i + 1, h.title, h.url, crate::text::truncate(&h.snippet, max)));
+        out.push(format!("{}. {}\n   {}{date}\n   {}", i + 1, h.title, h.url, truncate(&h.snippet, max)));
     }
     out.join("\n")
 }
@@ -290,18 +291,18 @@ mod tests {
     }
 
     proptest::proptest! {
-        #![proptest_config(crate::text::prop::config())]
+        #![proptest_config(construct_core::text::prop::config())]
 
         /// A date from a backend is either cut to its day or kept as sent.
         #[test]
-        fn a_date_is_its_day_or_itself(s in crate::text::prop::text_with(&["2026-10-21", "T14:03:00Z", "-", "0", "3 days ago"])) {
+        fn a_date_is_its_day_or_itself(s in construct_core::text::prop::text_with(&["2026-10-21", "T14:03:00Z", "-", "0", "3 days ago"])) {
             if let Some(d) = day(&s) {
                 proptest::prop_assert!(d == s.trim() || (d.len() == 10 && s.trim().starts_with(&d)), "{d:?} from {s:?}");
             }
         }
 
         #[test]
-        fn rendering_any_hits_never_panics(texts in proptest::collection::vec(crate::text::prop::text(), 0..8)) {
+        fn rendering_any_hits_never_panics(texts in proptest::collection::vec(construct_core::text::prop::text(), 0..8)) {
             let hits = texts.chunks(2).map(|t| hit(&t[0], t.get(1).map(String::as_str))).collect();
             render(&answer(hits));
         }

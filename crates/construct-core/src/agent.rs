@@ -158,7 +158,7 @@ impl Agent {
         router::route(
             &self.cfg.router,
             &self.ctx.http,
-            router::Input { request: text, previous, skills: &skills, mcp: &mcp },
+            router::Input { request: text, previous, skills: &skills, mcp: &mcp, groups: &self.catalog.groups() },
         )
         .await
     }

@@ -4,7 +4,7 @@
 //! so a query never goes to the keyless scrape because a keyed vendor was
 //! down. A named backend is the only one tried.
 
-use crate::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
+use construct_core::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Backend {
@@ -78,7 +78,7 @@ impl Choice {
                 let secret = b.secret().unwrap_or_default();
                 match key(secret) {
                     Some(k) => Ok(vec![(b, Some(k))]),
-                    None if crate::secrets::managed() => Err(format!(
+                    None if construct_core::secrets::managed() => Err(format!(
                         "web_search is set to {} but {secret} is not set; this Deck task's credentials are host-owned",
                         b.name()
                     )),
