@@ -153,12 +153,6 @@ impl Journal {
         }
         Ok(())
     }
-
-    /// Drop every row of `session` after `seq`: rewind is truncate and
-    /// re-project, never re-deriving what happened.
-    pub fn rewind(&self, session: &str, seq: i64) -> Result<usize> {
-        Ok(self.conn.execute("DELETE FROM events WHERE session_id = ?1 AND seq > ?2", params![session, seq])?)
-    }
 }
 
 /// fsync a directory, so an entry just added to it (a project directory, the

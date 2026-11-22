@@ -49,10 +49,12 @@ landed and what it cost.
   e2e test pins exactly that.
 - **Readers**: `since(session, seq)`, `last_seq`, `latest(cwd)` and
   `project()`, which turns message-bearing events back into `Vec<Message>`
-  and nothing else. Rewind is `rewind(session, seq)` (delete after seq) then
-  re-project. `run -c` resumes the newest session whose head names this
-  directory, within this project's journal (clones and worktrees share the
-  file, but "continue" stays per directory, as the flag's help says). The
+  and nothing else. The table is append-only: there is no delete or rewrite
+  API, so a fork must be a new session that references the shared history
+  rather than truncating an existing one (ADR 0029, #247). `run -c`
+  resumes the newest session whose head names this directory, within this
+  project's journal (clones and worktrees share the file, but "continue"
+  stays per directory, as the flag's help says). The
   learn debounce is "last seq unchanged for N ms"; learning reads
   `since(session, reviewed_seq)` (state key `reviewed_seq`, a seq, replacing
   the message count `reviewed`).
