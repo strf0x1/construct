@@ -5,8 +5,8 @@
 use construct_core::config::{MemoryConfig, Paths, SandboxConfig, ToolsConfig};
 use construct_core::memory::Store;
 use construct_core::sandbox::Policy;
-use construct_core::tools::Catalog;
-use construct_core::tools::Ctx;
+use construct_core::tools::{Catalog, Ctx, Deck, ToolSources};
+use construct_tools_skills::Skills;
 use serde_json::json;
 
 const SKILL: &str = "---\nname: crate-release\ndescription: Releasing a Rust crate\n---\n\n1. Run \u{201C}cargo package\u{201D}\n2. Tag it\n";
@@ -22,7 +22,8 @@ async fn patch(old: &str, new: &str) -> (Result<String, String>, String) {
     let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
     let (_tx, rx) = tokio::sync::watch::channel(false);
     let ctx = Ctx::new(work, paths.clone(), memory, rx, None, sandbox);
-    let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
+    let sources = ToolSources::default().with(Skills);
+    let catalog = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
     let call = |args: serde_json::Value| {
         let (catalog, ctx) = (&catalog, &ctx);
         async move { catalog.call(ctx, "skill_manage", &args.to_string()).await }

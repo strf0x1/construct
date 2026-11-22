@@ -38,7 +38,7 @@ impl Agent {
     /// Preserve the exact submitted slash line separately from skill injection.
     /// False when no turn ran: the skill was gone, which is only an `Error`.
     pub async fn invoke_as(&mut self, skill: &str, text: &str, original: &str, tx: &Events) -> Result<bool> {
-        match crate::tools::skill::load(&self.ctx, skill, None) {
+        match self.ctx.load_skill(skill, None) {
             Ok(body) => {
                 let invoked = Some((skill, body, original.to_string()));
                 self.run_turn(Some(UserTurn { text, invoked, key: None }), tx).await.map(|()| true)
@@ -100,7 +100,9 @@ impl Agent {
             self.journal.emit(Event::Invoke { skill: name.to_string(), scope: scope.to_string() }, tx);
             content = crate::prompt::invoked_skill(name, &body, text);
         }
-        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills()) {
+        if let Some(r) =
+            crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills(), self.ctx.perms.tools().skill_view)
+        {
             content.push_str("\n\n");
             content.push_str(&r);
         }

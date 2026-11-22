@@ -1,26 +1,38 @@
 //! skill (load a procedure) and skill_manage (write the library). Both work
 //! on the global library and, inside a repo, its project kit.
+//!
+//! An optional tool crate (#271, ADR 0064): the binary registers `Skills` as
+//! a `ToolSource` when its `skills` feature is on. The library itself, the
+//! loader a user's `/<skill>` shares (`Ctx::load_skill`) and the wire names
+//! (`skills::VIEW_TOOL`, `MANAGE_TOOL`) stay in core, which the learning
+//! pass and the prompt need either way.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, def, obj};
-use crate::skills::Library;
+use construct_core::config::ToolsConfig;
+use construct_core::permission::PolicyTools;
+use construct_core::skills::{MANAGE_TOOL, VIEW_TOOL};
+use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
 
-/// `global: ~/.construct/skills/x`, for results the model reads back.
-fn locate(ctx: &Ctx, lib: &Library, name: &str) -> String {
-    let scope = if std::ptr::eq(lib, &ctx.skills) { "global" } else { "project" };
-    let path = lib.path_of(name).join("SKILL.md").display().to_string();
-    let home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
-    let path = match home.as_deref().and_then(|h| path.strip_prefix(h)) {
-        Some(rest) => format!("~{rest}"),
-        None => path,
-    };
-    format!("{scope}: {path}")
+/// What the composition root registers: both skill tools, in the order they
+/// had inside core, named for the sandbox's denials and the prompt.
+pub struct Skills;
+
+impl ToolSource for Skills {
+    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(SkillView), Arc::new(SkillManage)])
+    }
+
+    fn policy_tools(&self, tools: &mut PolicyTools) {
+        tools.skill_view = Some(SkillView::NAME);
+        tools.skill_manage = Some(SkillManage::NAME);
+    }
 }
 
 pub struct SkillView;
 
 impl SkillView {
-    pub const NAME: &str = "skill";
+    pub const NAME: &str = VIEW_TOOL;
 }
 
 #[async_trait::async_trait]
@@ -61,24 +73,14 @@ impl Tool for SkillView {
                 format!("name is required; {} with action=list shows the available skills", SkillManage::NAME).into()
             );
         };
-        Ok(Output::plain(load(ctx, n, a["file"].as_str())?))
+        Ok(Output::plain(ctx.load_skill(n, a["file"].as_str())?))
     }
-}
-
-/// A skill as the model reads it: where it lives, then its SKILL.md and
-/// linked files (or the one `file`). The `skill` tool and a user's
-/// `/<skill>` both load through here, so the model sees the same text.
-pub fn load(ctx: &Ctx, name: &str, file: Option<&str>) -> Result<String, String> {
-    let lib = ctx.skill_lib(name).unwrap_or(&ctx.skills);
-    let body = lib.view(name, file)?;
-    let head = if file.is_none() { format!("[{}]\n", locate(ctx, lib, name)) } else { String::new() };
-    Ok(format!("{head}{body}"))
 }
 
 pub struct SkillManage;
 
 impl SkillManage {
-    pub const NAME: &str = "skill_manage";
+    pub const NAME: &str = MANAGE_TOOL;
 }
 
 #[async_trait::async_trait]
@@ -144,7 +146,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
                 .map(|p| {
                     p.list()
                         .iter()
-                        .map(|k| format!("- {} ({}): {}", k.name, locate(ctx, p, &k.name), k.description))
+                        .map(|k| format!("- {} ({}): {}", k.name, ctx.locate_skill(p, &k.name), k.description))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -152,7 +154,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
                 ctx.skills
                     .list()
                     .iter()
-                    .map(|k| format!("- {} ({}): {}", k.name, locate(ctx, &ctx.skills, &k.name), k.description)),
+                    .map(|k| format!("- {} ({}): {}", k.name, ctx.locate_skill(&ctx.skills, &k.name), k.description)),
             );
             if lines.is_empty() {
                 return Ok("the skill library is empty".into());
@@ -165,7 +167,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
             let old = s("old_string").ok_or("old_string is required")?;
             let new = s("new_string").ok_or("new_string is required")?;
             lib.patch(name()?, s("file"), new, |text| {
-                super::edit::replace::replace_once(text, old, new, false).map_err(|e| e.message)
+                construct_core::tools::edit::replace::replace_once(text, old, new, false).map_err(|e| e.message)
             })
         }
         "write_file" => lib.write_file(name()?, s("file").ok_or("file is required")?, s("content").unwrap_or("")),
@@ -175,7 +177,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
     }
     .map(|msg| match (s("action"), s("name")) {
         (Some("create" | "edit" | "patch" | "write_file" | "remove_file"), Some(n)) => {
-            format!("{msg} ({})", locate(ctx, lib, n))
+            format!("{msg} ({})", ctx.locate_skill(lib, n))
         }
         _ => msg,
     })

@@ -7,10 +7,13 @@ use super::{Kind, Outcome, digest, learner, run_loop};
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
 use crate::memory::Store;
-use crate::tools::Group;
+use crate::tools::{Group, ToolSources};
 use anyhow::Result;
 use std::fmt::Write as _;
 use std::sync::Arc;
+
+/// A review in a build without the memory and skill tools (#271).
+const NO_TOOLS: &str = "Nothing learned: this build has no memory or skill tools.";
 
 /// Run one review over `messages`. Returns what changed.
 ///
@@ -18,12 +21,26 @@ use std::sync::Arc;
 /// session taught goes into the observation ledger first, and a new skill is
 /// only written when the same problem class has come up in another session
 /// too. A skill that was loaded and turned out wrong can be patched at once.
-pub async fn review(cfg: &Config, paths: &Paths, session: &str, messages: &[Message], kind: Kind) -> Result<Outcome> {
+///
+/// `sources` are the binary's tool sources: the memory and skill tools the
+/// review writes with come from them. A build without either has nothing to
+/// write with, and the review ends before any model call.
+pub async fn review(
+    cfg: &Config,
+    paths: &Paths,
+    session: &str,
+    messages: &[Message],
+    kind: Kind,
+    sources: &ToolSources,
+) -> Result<Outcome> {
     let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let memory = Store::new(paths, &cfg.memory);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let (ctx, catalog) = learner(cfg, paths, memory, rx)?;
+    let (ctx, catalog) = learner(cfg, paths, memory, rx, sources)?;
+    if !catalog.groups().iter().any(|g| matches!(g, Group::Memory | Group::SkillWrite)) {
+        return Ok(Outcome { summary: NO_TOOLS.into(), actions: vec![] });
+    }
     let ctx = Arc::new(ctx);
     let wants_memory = matches!(kind, Kind::Memory | Kind::Both);
     let mut ledger_note = Vec::new();

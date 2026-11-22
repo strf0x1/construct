@@ -947,6 +947,8 @@ dependencies = [
  "construct-deck",
  "construct-tools-history",
  "construct-tools-jobs",
+ "construct-tools-memory",
+ "construct-tools-skills",
  "construct-tools-web",
  "construct-tui",
  "reqwest",
@@ -962,6 +964,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "construct-core",
  "futures",
  "globset",
  "grep-matcher",
@@ -1048,6 +1051,29 @@ dependencies = [
  "async-trait",
  "construct-core",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "construct-tools-memory"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "construct-tools-skills"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

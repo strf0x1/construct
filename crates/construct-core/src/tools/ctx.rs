@@ -6,9 +6,7 @@
 //! for process globals. That is what makes the catalog and the tools testable
 //! without a terminal or a model.
 
-use super::memory::Memory;
 use super::shell::Shell;
-use super::skill::{SkillManage, SkillView};
 use crate::config::Paths;
 use crate::skills::Library;
 use std::collections::HashSet;
@@ -16,22 +14,21 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
 
-/// The session's permissions, naming core's tools and whatever `sources`
-/// add in the denials that point the model elsewhere.
+/// The names the engine's own prose (sandbox denials, the system prompt)
+/// may use: core's shell, and whatever tools `sources` add.
+pub fn policy_tools(sources: &super::ToolSources) -> crate::permission::PolicyTools {
+    let mut tools = crate::permission::PolicyTools { shell: Shell::NAME, ..Default::default() };
+    sources.policy_tools(&mut tools);
+    tools
+}
+
+/// The session's permissions, naming those tools in its denials.
 fn perms(
     paths: &Paths,
     sandbox: &crate::sandbox::Policy,
     sources: &super::ToolSources,
 ) -> Arc<crate::permission::Perms> {
-    let mut tools = crate::permission::PolicyTools {
-        shell: Shell::NAME,
-        skill_view: SkillView::NAME,
-        skill_manage: SkillManage::NAME,
-        memory: Memory::NAME,
-        journal_query: None,
-    };
-    sources.policy_tools(&mut tools);
-    Arc::new(crate::permission::Perms::new(paths, sandbox.clone()).with_tools(tools))
+    Arc::new(crate::permission::Perms::new(paths, sandbox.clone()).with_tools(policy_tools(sources)))
 }
 
 pub struct Ctx {
@@ -135,6 +132,26 @@ impl Ctx {
     /// The library that holds `name`, kit first.
     pub fn skill_lib(&self, name: &str) -> Option<&Library> {
         self.skill_libs().into_iter().find(|l| l.get(name).is_some())
+    }
+    /// A skill as the model reads it: where it lives, then its SKILL.md and
+    /// linked files (or the one `file`). The `skill` tool and a user's
+    /// `/<skill>` both load through here, so the model sees the same text.
+    pub fn load_skill(&self, name: &str, file: Option<&str>) -> Result<String, String> {
+        let lib = self.skill_lib(name).unwrap_or(&self.skills);
+        let body = lib.view(name, file)?;
+        let head = if file.is_none() { format!("[{}]\n", self.locate_skill(lib, name)) } else { String::new() };
+        Ok(format!("{head}{body}"))
+    }
+    /// `global: ~/.construct/skills/x`, for results the model reads back.
+    pub fn locate_skill(&self, lib: &Library, name: &str) -> String {
+        let scope = if std::ptr::eq(lib, &self.skills) { "global" } else { "project" };
+        let path = lib.path_of(name).join("SKILL.md").display().to_string();
+        let home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
+        let path = match home.as_deref().and_then(|h| path.strip_prefix(h)) {
+            Some(rest) => format!("~{rest}"),
+            None => path,
+        };
+        format!("{scope}: {path}")
     }
     /// Every skill the model or the user can reach, read from disk now.
     pub fn all_skills(&self) -> Vec<crate::skills::Skill> {

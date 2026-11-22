@@ -54,6 +54,11 @@ jobs:
       # Bare: no optional feature at all, so a `cfg` around a tool source
       # cannot rot (#271, ADR 0064). Then the lean drop build, smoked below.
       - run: cargo clippy -p construct --no-default-features -- -D warnings
+      - run: cargo build -p construct --no-default-features
+      - name: the bare build has only core's tools
+        run: |
+          if target/debug/construct manifest | grep -qE '"(memory|skill|skill_manage|web_search|journal_query|job)"'; then exit 1; fi
+          target/debug/construct manifest | grep -q '"glob"'
       - run: cargo build -p construct --no-default-features --features lean
       - name: the lean build has its web tools
         run: |

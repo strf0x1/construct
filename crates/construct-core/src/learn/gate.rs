@@ -5,7 +5,6 @@ use super::ledger::{Observation, ledger};
 use super::{Kind, log_line_quiet};
 use crate::config::{Config, Paths};
 use crate::llm::Message;
-use crate::tools::skill::SkillView;
 use serde_json::{Value, json};
 
 /// The verdict of the cheap check that runs before an LLM review.
@@ -53,7 +52,7 @@ pub(super) fn skills_loaded(messages: &[Message]) -> Vec<String> {
     messages
         .iter()
         .flat_map(|m| &m.tool_calls)
-        .filter(|c| c.function.name == SkillView::NAME)
+        .filter(|c| c.function.name == crate::skills::VIEW_TOOL)
         .filter_map(|c| serde_json::from_str::<Value>(&c.function.arguments).ok()?["name"].as_str().map(String::from))
         .collect()
 }

@@ -10,6 +10,10 @@ use std::path::PathBuf;
 
 pub const DELIM: &str = "\n§\n";
 
+/// The memory tool's wire name (`construct-tools-memory`), here for the same
+/// reason as `skills::VIEW_TOOL`: the learning pass names it (ADR 0064).
+pub const TOOL: &str = "memory";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Target {

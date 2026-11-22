@@ -14,6 +14,13 @@ mod format;
 use format::normalize;
 pub use format::{frontmatter, valid_name};
 
+/// The wire names of the two skill tools (`construct-tools-skills`). They
+/// live beside the library because core speaks about them without having
+/// them: the learning pass's prompts, and the gate that counts loaded skills
+/// (ADR 0064). The tools take their `NAME` from here.
+pub const VIEW_TOOL: &str = "skill";
+pub const MANAGE_TOOL: &str = "skill_manage";
+
 #[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,

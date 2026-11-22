@@ -43,12 +43,17 @@ impl Perms {
         if in_construct_home(&real) {
             let t = &self.tools;
             let names: Vec<&str> =
-                [t.skill_view, t.skill_manage, t.memory].into_iter().chain(t.journal_query).collect();
-            let (last, rest) = names.split_last().unwrap_or((&"", &[]));
-            return Err(format!(
-                "{msg} That is construct's own home: use the {} and {last} tools for what lives there.",
-                rest.join(", ")
-            ));
+                [t.skill_view, t.skill_manage, t.memory, t.journal_query].into_iter().flatten().collect();
+            return Err(match names.split_last() {
+                Some((last, rest)) if !rest.is_empty() => format!(
+                    "{msg} That is construct's own home: use the {} and {last} tools for what lives there.",
+                    rest.join(", ")
+                ),
+                Some((only, _)) => {
+                    format!("{msg} That is construct's own home: use the {only} tool for what lives there.")
+                }
+                None => format!("{msg} That is construct's own home, which no tool in this build reaches."),
+            });
         }
         if protected(&real) {
             return Err(format!("{msg} That place is protected; only a path typed into config.toml opens it."));

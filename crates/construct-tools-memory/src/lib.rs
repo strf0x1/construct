@@ -1,14 +1,36 @@
 //! memory: durable, capped notes on the user, the machine and the current
 //! repo, injected into future sessions.
+//!
+//! An optional tool crate (#271, ADR 0064): the binary registers
+//! `MemoryTools` as a `ToolSource` when its `memory` feature is on. The store
+//! (`memory::Store`), what it puts in the prompt and the wire name
+//! (`memory::TOOL`) stay in core.
 
-use super::{Ctx, Display, Group, Output, Tool, ToolError, def, obj};
-use crate::memory::{self, Target};
+use construct_core::config::ToolsConfig;
+use construct_core::memory::{self, Target};
+use construct_core::permission::PolicyTools;
+use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolSource, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
+
+/// What the composition root registers: the one `memory` tool, named for
+/// the sandbox's denials.
+pub struct MemoryTools;
+
+impl ToolSource for MemoryTools {
+    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(Memory)])
+    }
+
+    fn policy_tools(&self, tools: &mut PolicyTools) {
+        tools.memory = Some(Memory::NAME);
+    }
+}
 
 pub struct Memory;
 
 impl Memory {
-    pub const NAME: &str = "memory";
+    pub const NAME: &str = memory::TOOL;
 }
 
 #[async_trait::async_trait]

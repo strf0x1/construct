@@ -28,3 +28,10 @@ fn the_denials_name_journal_query_only_with_the_source() {
     ToolSources::default().with(History).policy_tools(&mut tools);
     assert_eq!(tools.journal_query, Some("journal_query"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_tools_keep_the_tool_contract() {
+    let sources = ToolSources::default().with(History);
+    let c = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
+    construct_core::tools::contract::holds(&c, "history-contract").await;
+}

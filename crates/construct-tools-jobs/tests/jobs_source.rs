@@ -14,3 +14,10 @@ fn the_job_tool_joins_the_jobs_group() {
     assert_eq!(names, ["job"]);
     assert!(!Catalog::build(&ToolsConfig::default(), None).unwrap().groups().contains(&Group::Jobs), "core has none");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_tools_keep_the_tool_contract() {
+    let sources = ToolSources::default().with(Jobs);
+    let c = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
+    construct_core::tools::contract::holds(&c, "jobs-contract").await;
+}

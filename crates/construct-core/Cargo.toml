@@ -67,4 +67,6 @@ landlock = "0.4"
 webpki-root-certs = "1"
 
 [dev-dependencies]
+# Its own `test-support` (tools::contract) for the contract tests in tests/.
+construct-core = { workspace = true, default-features = false, features = ["test-support"] }
 proptest.workspace = true

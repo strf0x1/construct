@@ -125,11 +125,17 @@ impl Agent {
                 (w, crate::context::build(&cfg.context.strategy, vec![])?)
             }
         };
+        let named = crate::tools::policy_tools(sources);
         let system = crate::prompt::build(
             &cwd,
             &memory,
             &cfg.learn.strategy,
-            crate::prompt::ToolNames { shell: crate::tools::shell::Shell::NAME, grep: crate::tools::grep::Grep::NAME },
+            crate::prompt::ToolNames {
+                shell: named.shell,
+                grep: crate::tools::grep::Grep::NAME,
+                skill_view: named.skill_view,
+                skill_manage: named.skill_manage,
+            },
             cfg.tools.search_tool(),
             &cfg.sandbox,
         );
