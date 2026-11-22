@@ -19,7 +19,7 @@ env:
   # Pinned so a tag always rebuilds with the same compiler. RUSTUP_TOOLCHAIN
   # overrides rust-toolchain.toml (which tracks stable for day-to-day work).
   # Bump it on purpose, in its own commit.
-  RUSTUP_TOOLCHAIN: "1.97.0"
+  RUSTUP_TOOLCHAIN: "1.99.1"
 
 jobs:
   check:
