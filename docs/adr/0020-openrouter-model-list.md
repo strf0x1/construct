@@ -16,6 +16,7 @@ of that is for being multi-provider.
 
 1. **`llm::catalog` fetches `{base_url}/models`** with no key (the list is
    public), a 10 s timeout, and parses the fields it needs (`parse` is pure).
+   Amended below: the fetch also needs the default endpoint's key to resolve.
 2. **The list becomes `Config::discovered`, never `Config::models`.** Entries
    are built from it (`label`, `tags` reasoning/vision, `context_window`,
    `pricing`) and `Config::lookup` consults the user's catalog first, then the
@@ -58,3 +59,18 @@ lists the catalog (`Config::models`, then `Config::discovered`) with the
 picker's matching and `Row::of` for each window, and enter completes
 `/model <id>`. It reads nothing from disk and fetches nothing; the list is
 whatever `overlay` laid under the catalog. Bare `/model ` still opens the picker.
+
+## Amendment (2026-11-22, #355): OpenRouter's list needs a key
+
+Decision 1's "no key" is reversed as a permission, not as a header: the
+default OpenRouter list is fetched and laid only when the default endpoint's
+key resolves (its declared secret, or `OPENROUTER_API_KEY` through the
+endpoint's fallback). The `/models` request remains unauthenticated; no
+credential is sent to a public list.
+
+With no key, startup and `construct models` make no request to OpenRouter,
+and a cache left by an earlier, keyed run is not laid under the catalog, so
+neither the `/model` picker nor `/models` shows its rows. The cache file is
+left alone: setting the key restores the old behaviour on the next run. A
+named provider's discovery is unchanged — it decides for itself whether to
+send its key.

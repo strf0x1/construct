@@ -48,15 +48,18 @@ pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>)
             let _ = cmd.send(Cmd::Model(arg.to_string()));
         }
         "models" => {
-            let models = Paths::resolve().map(|p| cached(&p, &app.cfg.endpoint().base_url)).unwrap_or_default();
-            if models.is_empty() {
-                let none =
-                    "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`";
-                app.notice(theme::DIM, none);
+            if let Err(e) = construct_core::llm::overlay::check_default_list(&app.cfg, &app.cfg.endpoint().name) {
+                app.notice(theme::DIM, e.to_string());
             } else {
-                match super::listing::models(&models, arg) {
-                    Ok(block) => app.push(block),
-                    Err(none) => app.notice(theme::DIM, none),
+                let models = Paths::resolve().map(|p| cached(&p, &app.cfg.endpoint().base_url)).unwrap_or_default();
+                if models.is_empty() {
+                    let none = "no model list cached yet: construct fetches OpenRouter's at startup, or run `construct models`";
+                    app.notice(theme::DIM, none);
+                } else {
+                    match super::listing::models(&models, arg) {
+                        Ok(block) => app.push(block),
+                        Err(none) => app.notice(theme::DIM, none),
+                    }
                 }
             }
         }

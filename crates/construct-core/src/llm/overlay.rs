@@ -4,13 +4,17 @@
 //! The design choice: the lists only ever supply what the user's own config
 //! lacks (ADR 0020, 0027), and only the cache is read on the UI path, so a
 //! model switch is a lookup and a dead server costs nothing but its window.
+//! OpenRouter's list is the one exception: it needs the default endpoint's
+//! key to resolve, so a keyless machine is never sent there and never shown
+//! another run's rows (#355).
 
 use super::Client;
 use super::catalog::{self, ModelInfo, cached, refresh};
 use crate::config::{Config, Dialect, Paths};
-use crate::endpoint::Endpoint;
+use crate::endpoint::{self, Endpoint};
 use crate::models::{ModelEntry, Pricing};
 use crate::providers::{DEFAULT, Discover};
+use anyhow::bail;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -18,13 +22,54 @@ use tokio::sync::mpsc;
 /// delaying for a catalog.
 const STARTUP_WAIT: Duration = Duration::from_secs(3);
 
+/// The default endpoint as an OpenRouter endpoint, when it speaks that
+/// dialect. Named providers are not OpenRouter presets.
+fn default_openrouter(cfg: &Config) -> Option<Endpoint> {
+    let ep = Endpoint::declared(cfg);
+    (super::Provider::of(&ep).dialect == Dialect::OpenRouter).then_some(ep)
+}
+
+/// Whether OpenRouter's list is available: the default endpoint speaks its
+/// dialect and its key resolves. With no key, nothing is fetched and no
+/// cached list is laid under the catalog (#355, ADR 0020 amendment). The key
+/// is a gate, not a credential sent on the public `/models` request.
+pub fn default_list_enabled(cfg: &Config) -> bool {
+    default_openrouter(cfg).is_some_and(|ep| ep.key().is_some())
+}
+
+/// Whether the default OpenRouter list is blocked by a missing key. Other
+/// dialects are untouched, including a loopback endpoint's own discovery.
+pub fn default_list_blocked(cfg: &Config) -> bool {
+    default_openrouter(cfg).is_some_and(|ep| ep.key().is_none())
+}
+
+/// The CLI's `models` command: refuse a keyless OpenRouter list before any
+/// request or cache read. A selected named provider is not the default.
+pub fn check_default_list(cfg: &Config, selected: &str) -> anyhow::Result<()> {
+    if selected == endpoint::DEFAULT && default_list_blocked(cfg) {
+        bail!("no key for OpenRouter: set {} to list its models", default_list_secret(cfg));
+    }
+    Ok(())
+}
+
+/// How to name the missing key in a message: the declared secret, or the
+/// OpenRouter fallback when no other secret was declared.
+pub fn default_list_secret(cfg: &Config) -> String {
+    let secret = &cfg.api_key_secret;
+    if secret.is_empty() || secret == "OPENROUTER_API_KEY" {
+        "OPENROUTER_API_KEY".to_string()
+    } else {
+        format!("{secret} or OPENROUTER_API_KEY")
+    }
+}
+
 /// The providers whose lists are laid under the catalog, and how each is
-/// fetched: `default` only when it is OpenRouter (ADR 0020, unchanged), and
-/// every named provider whose `discover` is not `off`.
+/// fetched: `default` only when it is OpenRouter with a resolving key
+/// (#355, ADR 0020 amendment), and every named provider whose `discover` is
+/// not `off`.
 fn targets(cfg: &Config) -> Vec<(String, Discover)> {
-    let default = Endpoint::declared(cfg);
     let mut out = vec![];
-    if super::Provider::of(&default).dialect == Dialect::OpenRouter {
+    if default_list_enabled(cfg) {
         out.push((DEFAULT.to_string(), Discover::Openai));
     }
     out.extend(cfg.providers.iter().filter(|(_, p)| p.discover != Discover::Off).map(|(n, p)| (n.clone(), p.discover)));
@@ -82,10 +127,10 @@ pub fn lay_lists(cfg: &mut Config, paths: &Paths) {
 /// Refresh the lists, then [`overlay`]. Startup waits briefly for the
 /// selected model's provider only; the other named providers (each one the
 /// user declared) refresh in the background and are laid under the catalog
-/// at the next start. `default` is asked only while selected, as before
-/// providers: nobody who moved off OpenRouter is sent there. For startup,
-/// before an agent is built. `landed` hears of each fetch as it ends, so a
-/// UI can lay a late list in ([`lay_lists`]).
+/// `default` is asked only while selected and only with a resolving key
+/// ([#355]); nobody who moved off OpenRouter, or who has no key for it, is
+/// sent there. For startup, before an agent is built. `landed` hears of each
+/// fetch as it ends, so a UI can lay a late list in ([`lay_lists`]).
 pub async fn prepare(cfg: &mut Config, paths: &Paths, landed: Option<mpsc::UnboundedSender<()>>) {
     let selected = cfg.endpoint().name;
     let mut wait = None;
@@ -94,7 +139,8 @@ pub async fn prepare(cfg: &mut Config, paths: &Paths, landed: Option<mpsc::Unbou
             continue;
         }
         let Some((ep, _)) = cfg.provider(&name) else { continue };
-        // OpenRouter's list is public; a named provider's may want its key.
+        // OpenRouter's list is public: the key only gates the fetch, so it
+        // is still not sent. A named provider's may want its key.
         let key = if name == DEFAULT { None } else { ep.key() };
         let Ok(client) = Client::new(&ep, key) else { continue };
         let (paths, landed) = (paths.clone(), landed.clone());
@@ -115,8 +161,15 @@ pub async fn prepare(cfg: &mut Config, paths: &Paths, landed: Option<mpsc::Unbou
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::write_atomic;
+    use crate::config::{ProviderConfig, write_atomic};
     use crate::llm::catalog::{Cached, parse, store, tests::sample};
+
+    /// A resolvable key for the tests that exercise OpenRouter's list.
+    fn test_key() -> &'static str {
+        static INIT: std::sync::Once = std::sync::Once::new();
+        INIT.call_once(|| unsafe { std::env::set_var("CONSTRUCT_TEST_355_KEY", "x") });
+        "CONSTRUCT_TEST_355_KEY"
+    }
 
     #[test]
     fn overlay_lays_the_list_under_the_users_catalog() {
@@ -125,6 +178,7 @@ mod tests {
         let paths = Paths { home: dir.clone() };
         let cfg_for = |toml: &str| {
             let mut c: Config = toml::from_str(toml).unwrap();
+            c.api_key_secret = test_key().into();
             c.select_model(&c.model.clone()).unwrap();
             c
         };
@@ -161,6 +215,36 @@ mod tests {
         write_atomic(&paths.models_cache(&local.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
         overlay(&mut local, &paths);
         assert!(local.discovered.is_empty(), "only OpenRouter states windows");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_keyless_default_openrouter_lists_nothing() {
+        let dir = std::env::temp_dir().join(format!("construct-catalog-no-key-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let paths = Paths { home: dir.clone() };
+        let cache = Cached { fetched_at: 0, models: parse(&sample()), failed: None };
+        let cfg_for = |secret: &str| Config {
+            api_key_secret: secret.into(),
+            provider: ProviderConfig { dialect: Dialect::OpenRouter, ..ProviderConfig::default() },
+            ..Config::default()
+        };
+        // An empty secret is keyless even if this developer has a key set.
+        let mut keyless = cfg_for("");
+        write_atomic(&paths.models_cache(&keyless.base_url), &serde_json::to_vec(&cache).unwrap()).unwrap();
+        assert!(!default_list_enabled(&keyless));
+        assert!(targets(&keyless).is_empty());
+        overlay(&mut keyless, &paths);
+        assert!(keyless.discovered.is_empty(), "a stale list is not laid without a key");
+
+        // The same cache is laid as soon as the endpoint's key resolves.
+        // Test-only env mutation; the name is unique to this test.
+        unsafe { std::env::set_var("CONSTRUCT_TEST_355_KEY", "x") };
+        let mut keyed = cfg_for("CONSTRUCT_TEST_355_KEY");
+        assert!(default_list_enabled(&keyed));
+        assert_eq!(targets(&keyed).len(), 1);
+        overlay(&mut keyed, &paths);
+        assert!(!keyed.discovered.is_empty(), "the keyed path is unchanged");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
