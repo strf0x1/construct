@@ -688,6 +688,52 @@ fn sandbox_lets_mise_take_its_lock_but_not_touch_its_toolchain() {
     assert!(!mise.join("shims/python").exists());
 }
 
+/// mbx reads its global config on every invocation and exits when it can't
+/// (#372). The config file and the bin shims behind `~/.local/bin` links are
+/// granted read-only; neither its lock nor a sibling under `~/.config` is in reach.
+#[test]
+fn sandbox_lets_mbx_read_its_config_but_not_write_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let env = Env::new(
+        "mbx-config",
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": "cat \"$HOME/.config/mbx/config.toml\" \"$HOME/.config/mise/config.toml\" >/dev/null && echo CONFIG-OK" } },
+            { "call": "shell", "args": { "command": "\"$HOME/.local/bin/cargo-shim\" && echo SHIM-OK" } },
+            { "call": "shell", "args": { "command": "echo evil > \"$HOME/.config/mbx/config.toml\" && echo CONFIG-WRITTEN" } },
+            { "call": "shell", "args": { "command": "cat \"$HOME/.config/secret\" 2>/dev/null && echo SIBLING-READ" } },
+            { "text": "done" }
+        ] }),
+    );
+    let home = env.dir.join("fakehome");
+    let mbx = home.join(".config/mbx");
+    std::fs::create_dir_all(&mbx).unwrap();
+    let config = mbx.join("config.toml");
+    std::fs::write(&config, "scheduler = \"local\"\n").unwrap();
+    std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o600)).unwrap();
+    std::fs::write(mbx.join(".config.toml.lock"), "").unwrap();
+    std::fs::write(home.join(".config/secret"), "SECRET-VALUE\n").unwrap();
+    let mise = home.join(".config/mise/config.toml");
+    std::fs::create_dir_all(mise.parent().unwrap()).unwrap();
+    std::fs::write(&mise, "[settings]\n").unwrap();
+    let shim_dir = home.join(".local/share/mbx/bin");
+    std::fs::create_dir_all(&shim_dir).unwrap();
+    let shim = shim_dir.join("cargo-shim");
+    std::fs::write(&shim, "#!/bin/sh\necho SHIM-RAN\n").unwrap();
+    std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let link = home.join(".local/bin/cargo-shim");
+    std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&shim, &link).unwrap();
+    let out = env.run_with(&[("HOME", &home.display().to_string())], &["run", "--no-learn", "run the tests"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let results = tool_results(&env);
+    assert_eq!(results.len(), 4, "{results:#?}");
+    assert!(results[0].contains("CONFIG-OK"), "{}", results[0]);
+    assert!(results[1].contains("SHIM-OK"), "{}", results[1]);
+    assert!(!results[2].contains("CONFIG-WRITTEN"), "{}", results[2]);
+    assert_eq!(std::fs::read_to_string(&config).unwrap(), "scheduler = \"local\"\n");
+    assert!(!results[3].contains("SIBLING-READ"), "{}", results[3]);
+}
+
 /// Whether a `sleep 300` started by a test command is still running.
 fn sleep_alive(work: &std::path::Path, pidfile: &str) -> bool {
     let pid = std::fs::read_to_string(work.join(pidfile)).unwrap_or_else(|_| panic!("{pidfile} not written"));

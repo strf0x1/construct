@@ -1,13 +1,17 @@
-//! What a sandboxed shell gets under `$HOME`: toolchains and caches read-only,
-//! the state they write writable, and the single lock files a toolchain opens
-//! in place. Nothing else under `$HOME` is in reach.
+//! What a sandboxed shell gets under `$HOME`: toolchains, caches and a few
+//! config files read-only, the state they write writable, and the single lock
+//! files a toolchain opens in place. Nothing else under `$HOME` is in reach.
 
 use std::path::{Path, PathBuf};
 
-/// Toolchains and caches under `$HOME`. Read-only unless listed in `WRITE`.
+/// Toolchains, caches and config files under `$HOME`. Read-only unless listed in `WRITE`.
+/// `~/.local/bin/cargo` points into `.local/share/mbx/bin`, so that target is
+/// granted too: Landlock checks the resolved path of a link.
 pub(super) const READ: &[&str] = &[
     ".local/share/mise",
     ".config/mise",
+    ".local/share/mbx/bin",
+    ".config/mbx/config.toml",
     ".local/bin",
     ".rustup",
     ".gitconfig",
@@ -28,7 +32,9 @@ pub(super) const WRITE: &[&str] =
 /// mise takes this lock beside its command-wrappers farm on every shim run and
 /// fails the command when it can't create it (#279). Only the lock is
 /// writable: the farm holds symlinks the user's own shell runs outside the
-/// sandbox, and `installs/` holds the toolchain binaries.
+/// sandbox, and `installs/` holds the toolchain binaries. mbx's sibling
+/// `.config.toml.lock` is only taken when editing settings, not on a build,
+/// so a plain `cargo` never needs it (#372).
 const LOCKS: &[&str] = &[".local/share/mise/command-wrappers/bin.lock"];
 
 /// The readable (and executable) roots under `home`.
