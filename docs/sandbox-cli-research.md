@@ -6,7 +6,7 @@ Research date: 2026-10-31. This note records current behavior and recommendation
 
 `crates/construct/src/sandbox/mod.rs` permits executing programs in system and toolchain paths. Ordinary commands do not need command-name exceptions. Their filesystem access remains confined. On Linux the backend is Landlock; on macOS it is Seatbelt.
 
-`Policy::new` creates `$CONSTRUCT_HOME/tmp/<pid>`, grants it write access, and `Policy::spawn` sets `TMPDIR` to it. Literal `/tmp` is outside this grant. `[sandbox] allow_read` and `allow_write` add explicit roots; roots must exist when the policy is built because nonexistent paths are filtered during canonicalization.
+`Policy::new` creates `$CONSTRUCT_HOME/tmp/<pid>` and grants it write access. `Policy::spawn` sets `TMPDIR` to a short symlink in `/tmp` that points at that dir (#374): Unix socket paths cap at about 108 bytes, so a deep `CONSTRUCT_HOME` otherwise leaves tools like mbx no room for their sockets. Only the alias is in the shared temp dir — the files stay in the protected home and on disk, so privacy and the memory ceiling are unchanged, and literal `/tmp` remains outside the grant. `[sandbox] allow_read` and `allow_write` add explicit roots; roots must exist when the policy is built because nonexistent paths are filtered during canonicalization.
 
 `tools/shell.rs` identifies named outside paths before execution and infers denied paths from failed command output afterwards. `permission/perms.rs::shell` asks for access and reruns with widened roots. This grants paths, not host credentials. `scrub_env` removes credential variables, including `GH_TOKEN` and `GITHUB_TOKEN`, and removes `SSH_AUTH_SOCK` even with sandbox mode off.
 
