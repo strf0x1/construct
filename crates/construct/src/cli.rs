@@ -1,6 +1,8 @@
 //! The command line: clap types and the subcommand bodies. `main.rs` only
 //! handles the sandbox helper and calls [`run`].
 
+#[cfg(feature = "hub")]
+mod build;
 mod config_view;
 mod evals;
 mod features;
@@ -13,6 +15,7 @@ mod peer;
 mod providers;
 mod resume;
 mod sources;
+mod stamped;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -113,9 +116,13 @@ enum Cmd {
     #[cfg(feature = "hub")]
     Hub(hub::HubArgs),
     /// Join a hub as a peer and follow it (`construct hub invite` prints the
-    /// command).
+    /// command). A stamped binary does this when run with no arguments.
     #[cfg(feature = "peer")]
     Peer(peer::PeerArgs),
+    /// Stamp a drop-and-run peer binary for this home's hub: where to dial,
+    /// its key, and settings (`llm = "hub"` by default); never a secret.
+    #[cfg(feature = "hub")]
+    Build(build::BuildArgs),
 }
 
 #[derive(Subcommand)]
@@ -154,7 +161,8 @@ pub fn run() -> Result<()> {
         cfg.select_model(m).context("--model")?;
     }
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(4).build()?;
-    match cli.cmd {
+    let cmd = stamped::command(cli.cmd)?;
+    match cmd {
         None => {
             let resume = resolve_resume(
                 &cli.resume,
@@ -282,5 +290,7 @@ pub fn run() -> Result<()> {
         Some(Cmd::Hub(args)) => rt.block_on(hub::run(cfg, &paths, args)),
         #[cfg(feature = "peer")]
         Some(Cmd::Peer(args)) => rt.block_on(peer::run(cfg, paths, tool_sources(), args)),
+        #[cfg(feature = "hub")]
+        Some(Cmd::Build(args)) => rt.block_on(build::run(&paths, args)),
     }
 }

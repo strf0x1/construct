@@ -131,14 +131,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             println!("hub: stopping");
         }
         HubCmd::Invite { id, expires, url, json } => {
-            let reply =
-                match ask(&files, &Request::Invite { id: id.clone(), ttl_secs: expires, url: url.clone() }).await? {
-                    Some(resp) => match resp.invite {
-                        Some(i) => i,
-                        None => bail!("hub: {}", resp.error.unwrap_or_else(|| "no invite in the reply".into())),
-                    },
-                    None => offline::invite(&files, &id, expires, url.unwrap_or_else(|| format!("ws://{listen}")))?,
-                };
+            let reply = invite(&files, &id, expires, url, format!("ws://{listen}")).await?;
             print_invite(&reply, expires, json)?;
         }
         HubCmd::Pending => {
@@ -211,6 +204,25 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
         }
     }
     Ok(())
+}
+
+/// Expect `id` and mint its token: through the running hub, or straight into
+/// the registry when none runs (dialing `url`, else `offline_url`).
+/// `construct build --invite` shares it.
+pub(super) async fn invite(
+    files: &Files,
+    id: &str,
+    ttl: u64,
+    url: Option<String>,
+    offline_url: String,
+) -> Result<InviteReply> {
+    match ask(files, &Request::Invite { id: id.to_string(), ttl_secs: ttl, url: url.clone() }).await? {
+        Some(resp) => match resp.invite {
+            Some(i) => Ok(i),
+            None => bail!("hub: {}", resp.error.unwrap_or_else(|| "no invite in the reply".into())),
+        },
+        None => offline::invite(files, id, ttl, url.unwrap_or(offline_url)),
+    }
 }
 
 fn print_invite(reply: &InviteReply, ttl: u64, json: bool) -> Result<()> {

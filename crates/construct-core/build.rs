@@ -57,6 +57,10 @@ fn main() {
     let dirty =
         git(&["status", "--porcelain", "--", ".", "../construct", "../construct-tui"]).is_some_and(|s| !s.is_empty());
     println!("cargo:rustc-env=CONSTRUCT_GIT_SHA={sha}");
+    // The target this binary runs on, so `construct build` knows when it can
+    // stamp itself instead of fetching a release (#363).
+    let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".into());
+    println!("cargo:rustc-env=CONSTRUCT_BUILD_TARGET={target}");
     println!("cargo:rustc-env=CONSTRUCT_GIT_DIRTY={dirty}");
     // Rerun when the sources change (dirty flag) or HEAD moves (sha).
     println!("cargo:rerun-if-changed=src");

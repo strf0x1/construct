@@ -1,7 +1,8 @@
 //! The baked config layer (#271): a config.toml compiled into the binary so a
 //! dropped construct runs pre-configured with zero setup. `CONSTRUCT_BAKE_CONFIG`
 //! at build time embeds the file (build.rs); this module lays the on-disk config
-//! over it. Precedence is baked < file < env < flags, and every key remembers
+//! over it. A stamped binary (#363, `stamp.rs`) adds its own layer between the
+//! two. Precedence is baked < stamped < file < env < flags, and every key remembers
 //! which layer set it — `construct config` prints that provenance, because
 //! invisible config in a dropped tool is a debugging nightmare. Policy bakes
 //! (endpoint, model, sandbox, tools); secrets never do — keys resolve through
@@ -15,28 +16,31 @@ use std::path::Path;
 /// The baked layer; empty in an ordinary build (build.rs writes the file).
 const BAKED: &str = include_str!(concat!(env!("OUT_DIR"), "/baked-config.toml"));
 
-/// Which layer set a key: `"baked"`, `"file"` or `"env"`.
+/// Which layer set a key: `"baked"`, `"stamped"`, `"file"` or `"env"`.
 pub type Sources = BTreeMap<String, &'static str>;
 
 /// Read the file layer (a missing file is the zero-config case) and merge it
-/// over the baked one, recording where each leaf key came from.
-pub fn load(path: &Path) -> Result<Config> {
+/// over the stamped and baked ones, recording where each leaf key came from.
+pub fn load(path: &Path, stamped: Option<&toml::Table>) -> Result<Config> {
     let file = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
     };
-    parse_layers(BAKED, &file).with_context(|| format!("baked config + {}", path.display()))
+    let stamped = stamped.cloned().unwrap_or_default();
+    parse_layers(BAKED, stamped, &file).with_context(|| format!("baked and stamped config + {}", path.display()))
 }
 
-/// Merge two TOML layers and deserialize the result. Split out from `load` so
+/// Merge the TOML layers and deserialize the result. Split out from `load` so
 /// the precedence rules are testable without a build-time bake or a filesystem.
-fn parse_layers(baked: &str, file: &str) -> Result<Config> {
+fn parse_layers(baked: &str, stamped: toml::Table, file: &str) -> Result<Config> {
     let mut base: toml::Table = toml::from_str(baked).context("parsing the baked layer")?;
     let over: toml::Table = toml::from_str(file).context("parsing the file layer")?;
     let mut provenance = leaf_sources(&base, "", "baked");
+    provenance.extend(leaf_sources(&stamped, "", "stamped"));
     provenance.extend(leaf_sources(&over, "", "file"));
-    let pinned = base.contains_key("context_window") || over.contains_key("context_window");
+    let pinned = [&base, &stamped, &over].iter().any(|t| t.contains_key("context_window"));
+    merge(&mut base, stamped);
     merge(&mut base, over);
     let mut cfg: Config = toml::Value::Table(base).try_into().context("in the merged config")?;
     cfg.window_pinned = pinned;
@@ -100,9 +104,32 @@ fn leaf_sources(table: &toml::Table, prefix: &str, source: &'static str) -> Sour
 mod tests {
     use super::*;
 
+    fn parse_two(baked: &str, file: &str) -> Result<Config> {
+        parse_layers(baked, toml::Table::new(), file)
+    }
+
+    #[test]
+    fn the_stamped_layer_sits_between_baked_and_file() {
+        let stamped: toml::Table =
+            toml::from_str("model = \"stamped-model\"\nllm = \"hub\"\n[sandbox]\nmode = \"read-only\"\n").unwrap();
+        let cfg = parse_layers(
+            "model = \"baked\"\nbase_url = \"https://baked.invalid/v1\"\n",
+            stamped,
+            "[sandbox]\nmode = \"off\"\n",
+        )
+        .unwrap();
+        assert_eq!(cfg.model, "stamped-model");
+        assert_eq!(cfg.llm, crate::config::Llm::Hub);
+        assert_eq!(cfg.sandbox.mode, "off");
+        assert_eq!(cfg.provenance["model"], "stamped");
+        assert_eq!(cfg.provenance["llm"], "stamped");
+        assert_eq!(cfg.provenance["base_url"], "baked");
+        assert_eq!(cfg.provenance["sandbox.mode"], "file");
+    }
+
     #[test]
     fn file_overrides_baked_key_by_key_and_tables_merge() {
-        let cfg = parse_layers(
+        let cfg = parse_two(
             "model = \"baked-model\"\nbase_url = \"https://baked.invalid/v1\"\n[sandbox]\nmode = \"workspace\"\n",
             "model = \"file-model\"\n[sandbox]\nallow_read = [\"/tmp\"]\n",
         )
@@ -118,32 +145,32 @@ mod tests {
 
     #[test]
     fn an_empty_bake_is_an_ordinary_build() {
-        let cfg = parse_layers("", "model = \"m\"\n").unwrap();
+        let cfg = parse_two("", "model = \"m\"\n").unwrap();
         assert_eq!(cfg.model, "m");
         assert_eq!(cfg.provenance["model"], "file");
-        let empty = parse_layers("", "").unwrap();
+        let empty = parse_two("", "").unwrap();
         assert_eq!(empty.model, Config::default().model);
         assert!(empty.provenance.is_empty());
     }
 
     #[test]
     fn a_baked_window_pins_like_a_file_one() {
-        assert!(parse_layers("context_window = 8000\n", "").unwrap().window_pinned);
-        assert!(parse_layers("", "context_window = 8000\n").unwrap().window_pinned);
-        assert!(!parse_layers("model = \"m\"\n", "").unwrap().window_pinned);
+        assert!(parse_two("context_window = 8000\n", "").unwrap().window_pinned);
+        assert!(parse_two("", "context_window = 8000\n").unwrap().window_pinned);
+        assert!(!parse_two("model = \"m\"\n", "").unwrap().window_pinned);
     }
 
     #[test]
     fn arrays_replace_whole_not_append() {
-        let cfg = parse_layers("[tools]\ndisabled = [\"web\", \"mcp\"]\n", "[tools]\ndisabled = [\"web\"]\n").unwrap();
+        let cfg = parse_two("[tools]\ndisabled = [\"web\", \"mcp\"]\n", "[tools]\ndisabled = [\"web\"]\n").unwrap();
         assert_eq!(cfg.tools.disabled, vec!["web".to_string()]);
     }
 
     #[test]
     fn a_bad_layer_names_itself() {
-        let err = parse_layers("model = ", "").unwrap_err();
+        let err = parse_two("model = ", "").unwrap_err();
         assert!(format!("{err:#}").contains("baked layer"), "{err:#}");
-        let err = parse_layers("", "model = ").unwrap_err();
+        let err = parse_two("", "model = ").unwrap_err();
         assert!(format!("{err:#}").contains("file layer"), "{err:#}");
     }
 }

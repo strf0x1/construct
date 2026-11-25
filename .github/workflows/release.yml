@@ -3,7 +3,8 @@ name: release
 # Push a version tag to build a draft GitHub Release:
 #
 #   check  ->  build (Linux x86-64 glibc + static musl, macOS arm64 and
-#              x86-64, Linux arm64 static musl)  ->  smoke  ->  draft release
+#              x86-64, Linux arm64 static musl; plus a raw `bare` peer
+#              binary per static musl target, #363)  ->  smoke  ->  draft release
 #
 # Nothing is public until you review the draft and press Publish. The steps
 # are in docs/releasing.md.
@@ -99,12 +100,28 @@ jobs:
           # shasum is on every runner; sha256sum is not on macOS.
           (cd dist && shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256")
           cat "dist/$name.tar.gz.sha256"
+      # The stampable peer (#363, ADR 0073): core tools and the peer dialer,
+      # published raw (no archive) so `construct build --target` can fetch,
+      # checksum and stamp it without a tar or gzip reader. Static musl only:
+      # it is for machines without a compiler or a libc to speak of.
+      - name: Build and package the bare peer
+        if: contains(env.TARGET, '-musl')
+        run: |
+          cargo zigbuild --release --locked -p construct --target "$TARGET" \
+            --no-default-features --features peer
+          file "target/$TARGET/release/construct" | grep -q 'statically linked'
+          name="construct-$TARGET-bare"
+          cp "target/$TARGET/release/construct" "dist/$name"
+          (cd dist && shasum -a 256 "$name" > "$name.sha256")
+          cat "dist/$name.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ env.TARGET }}
           path: |
             dist/*.tar.gz
             dist/*.tar.gz.sha256
+            dist/*-bare
+            dist/*-bare.sha256
           if-no-files-found: error
 
   # The build machine has every library a developer has. These images have
@@ -153,6 +170,13 @@ jobs:
           tar -xzf "construct-${{ matrix.target }}.tar.gz"
           docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --version
           docker run --rm -v "$PWD/construct-${{ matrix.target }}:/c" "${{ matrix.image }}" /c/construct --help > /dev/null
+      - name: The bare peer runs without a libc and can be stamped
+        working-directory: dist
+        run: |
+          sha256sum -c "construct-${{ matrix.target }}-bare.sha256"
+          chmod +x "construct-${{ matrix.target }}-bare"
+          docker run --rm -v "$PWD:/d" "${{ matrix.image }}" /d/construct-${{ matrix.target }}-bare --version
+          docker run --rm -v "$PWD:/d" "${{ matrix.image }}" /d/construct-${{ matrix.target }}-bare peer --help > /dev/null
       # --version proves nothing about TLS. busybox has no certificate store
       # at all, so this is the scratch/rescue case: static builds must fetch
       # over HTTPS with no bundle mounted (baked roots, #293), and the platform

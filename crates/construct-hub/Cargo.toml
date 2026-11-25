@@ -26,6 +26,8 @@ serde.workspace = true
 serde_json.workspace = true
 # Only an invite's hash is stored (#361).
 sha2.workspace = true
+# `construct build` (#363) writes the stamp's TOML config layer.
+toml.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
 
 [dev-dependencies]

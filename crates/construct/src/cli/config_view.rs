@@ -1,6 +1,6 @@
 //! Print the effective config and MCP sandbox policies for `construct config`.
 
-use construct_core::config::{Config, Paths};
+use construct_core::config::{Config, Paths, stamp};
 use construct_core::{sandbox, secrets};
 use std::path::Path;
 
@@ -8,6 +8,16 @@ pub(super) fn show(cfg: &Config, paths: &Paths, cwd: &Path) -> anyhow::Result<()
     println!("# {}\n{}", paths.config().display(), toml::to_string_pretty(cfg)?);
     for (key, source) in &cfg.provenance {
         println!("# {key} = {source}");
+    }
+    if let Some(s) = stamp::current()? {
+        let p = &s.peer;
+        println!("\n# stamped peer {}: dials {}, hub key {}", p.id, p.url, p.hub_key);
+        if let Some(preset) = &p.sandbox {
+            println!("#   sandbox preset {preset}");
+        }
+        if let Some(cwd) = &p.cwd {
+            println!("#   works in {cwd}");
+        }
     }
     print!("{}", mcp_policies(cfg, paths, cwd));
     Ok(())
