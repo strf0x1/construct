@@ -1417,6 +1417,28 @@ fn sandbox_lets_tools_read_spilled_output_and_names_the_scratch_dir() {
     assert!(!std::path::Path::new("/tmp/construct-e2e-scratch").exists());
 }
 
+#[test]
+fn sandbox_tmp_alias_fits_unix_socket_paths_with_a_deep_home() {
+    let name = "deep-tmp-sandbox";
+    let env = Env::new(
+        name,
+        json!({ "steps": [
+            { "call": "shell", "args": { "command": r##"python3 -c 'import os,socket; p=os.path.join(os.environ["TMPDIR"], "s"*40); s=socket.socket(socket.AF_UNIX); s.bind(p); print("SOCKET-OK", len(p))'"## } },
+            { "text": "done" }
+        ] }),
+    );
+    let home = env.dir.join("home").join("deep").join("a".repeat(40)).join("b".repeat(40)).join("c".repeat(40));
+    assert!(home.display().to_string().len() + 50 > 108, "the fixture must need a short alias");
+    let out = env.run_with(&[("CONSTRUCT_HOME", home.to_str().unwrap())], &["run", "--no-learn", "bind a socket"]);
+    assert!(out.status.success(), "{}", text(&out));
+    let r = tool_results(&env);
+    assert_eq!(r.len(), 1, "{r:#?}");
+    let line =
+        r[0].lines().find(|l| l.starts_with("SOCKET-OK ")).unwrap_or_else(|| panic!("no socket bound: {}", r[0]));
+    let len: usize = line.split_whitespace().nth(1).unwrap().parse().unwrap();
+    assert!(len < 108, "{len}");
+}
+
 // ------------------------------------------------------------------ history
 
 /// One `journal_query` per SQL, then "done"; returns each call's result.

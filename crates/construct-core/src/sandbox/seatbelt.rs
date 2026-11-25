@@ -87,6 +87,11 @@ pub(super) fn profile(policy: &Policy) -> String {
     for r in read.iter().filter(|p| p.exists()) {
         ancestors.extend(r.ancestors().skip(1).map(Path::to_path_buf));
     }
+    // The short TMPDIR alias may live under /private/tmp; its leading
+    // directories need stat() during path resolution too.
+    if !policy.tmp.as_os_str().is_empty() {
+        ancestors.extend(policy.tmp.ancestors().skip(1).map(Path::to_path_buf));
+    }
     ancestors.sort();
     ancestors.dedup();
     let lits = ancestors.iter().filter_map(|p| q(p)).map(|s| format!("(literal {s})")).collect::<Vec<_>>().join(" ");
@@ -111,6 +116,13 @@ pub(super) fn profile(policy: &Policy) -> String {
     let w = subpaths(&policy.write);
     if !w.is_empty() {
         out.push_str(&format!("(allow file-write* file-ioctl {w})\n"));
+    }
+    // Seatbelt filters the alias path, not its canonicalized target; without
+    // this rule writes through TMPDIR fail with EPERM (#374).
+    if !policy.tmp.as_os_str().is_empty()
+        && let Some(alias) = q(&policy.tmp)
+    {
+        out.push_str(&format!("(allow file-read* file-write* file-ioctl (literal {alias}) (subpath {alias}))\n"));
     }
     if !policy.no_network {
         out.push_str("(allow network*)\n");
@@ -149,5 +161,11 @@ mod tests {
     #[test]
     fn a_path_with_quotes_stays_inside_its_literal() {
         assert_eq!(q(Path::new("/a\"b\\c")).unwrap(), "\"/a\\\"b\\\\c\"");
+    }
+
+    #[test]
+    fn the_short_tmp_alias_is_writable() {
+        let p = profile(&Policy { tmp: "/tmp/construct-42".into(), ..policy() });
+        assert!(p.contains("(literal \"/tmp/construct-42\") (subpath \"/tmp/construct-42\")"), "{p}");
     }
 }

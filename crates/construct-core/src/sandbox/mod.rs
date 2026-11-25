@@ -42,6 +42,7 @@ mod supervise;
 #[cfg(target_os = "macos")]
 #[path = "supervise_macos.rs"]
 mod supervise;
+mod tmp;
 pub use env::{is_secret_name, scrub_env};
 pub use stop::{GRACE, StopOnDrop};
 
@@ -118,8 +119,12 @@ impl Policy {
         let off = cfg.mode == "off";
         let home = std::env::var_os("HOME").map(PathBuf::from);
         let expand = expand_home;
-        let tmp = paths.home.join("tmp").join(std::process::id().to_string());
-        let _ = std::fs::create_dir_all(&tmp);
+        let scratch = paths.home.join("tmp").join(std::process::id().to_string());
+        let _ = std::fs::create_dir_all(&scratch);
+        let target = scratch.canonicalize().unwrap_or(scratch.clone());
+        // The files stay under the home; shells get the short alias so that a
+        // deep home cannot push socket paths past sun_path.
+        let tmp = tmp::short(&target).unwrap_or(scratch);
         // Made now: a root that doesn't exist yet is dropped below, and the
         // first capped output of a fresh home would spill where no tool can read.
         let _ = std::fs::create_dir_all(paths.spill_dir());
