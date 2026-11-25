@@ -945,6 +945,7 @@ dependencies = [
  "clap",
  "construct-core",
  "construct-deck",
+ "construct-hub",
  "construct-peer",
  "construct-tools-history",
  "construct-tools-jobs",
@@ -1017,6 +1018,7 @@ dependencies = [
  "clap",
  "construct-core",
  "construct-deck",
+ "construct-peer",
  "futures",
  "insta",
  "jsonschema",
@@ -1032,6 +1034,18 @@ dependencies = [
  "tokio",
  "toml",
  "vt100",
+]
+
+[[package]]
+name = "construct-hub"
+version = "0.5.2"
+dependencies = [
+ "anyhow",
+ "construct-core",
+ "construct-peer",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

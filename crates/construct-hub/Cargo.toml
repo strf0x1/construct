@@ -1,0 +1,28 @@
+[package]
+name = "construct-hub"
+description = "construct hub: the host process peers dial home to (controller key, peer registry, control socket)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+construct-core = { workspace = true, default-features = false }
+# The listening side only: a hub never dials.
+construct-peer = { workspace = true, default-features = false, features = ["accept"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
+
+[dev-dependencies]
+construct-peer = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

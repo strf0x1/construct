@@ -42,6 +42,8 @@ vt100 = "0.18"
 [dev-dependencies]
 # The deck tool's name, for the e2e that drives it through the shipped binary.
 construct-deck.workspace = true
+# The hub e2e dials the real binary as a peer would (#360).
+construct-peer.workspace = true
 # Offline payload conformance only; never linked into either shipped binary.
 jsonschema = { version = "0.60.2", default-features = false }
 rusqlite.workspace = true
