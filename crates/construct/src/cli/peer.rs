@@ -1,15 +1,26 @@
-//! `construct peer` behind the `peer` feature (#361): join a hub and follow
-//! it. The peer's key lives in `$CONSTRUCT_HOME/peer.key` (`0600`, created on
-//! first run, reused after); a join token comes from `--join` or
-//! `CONSTRUCT_JOIN` and rides inside the encrypted channel. The wire logic is
-//! `construct_peer::join`; this prints what the hub said and, when the hub
-//! revokes the key, deletes it. Remote sessions arrive with #362; stamping
-//! (#363) bakes `--url`, `--hub-key` and `--id` into the binary.
+//! `construct peer` behind the `peer` feature (#361, #362): join a hub, then
+//! run this machine's agent for it. The peer's key lives in
+//! `$CONSTRUCT_HOME/peer.key` (`0600`, created on first run, reused after); a
+//! join token comes from `--join` or `CONSTRUCT_JOIN` and rides inside the
+//! encrypted channel. The wire logic is `construct_peer::join`; the agent is
+//! `construct acp`'s server (`acp::server::serve`) on the link's `acp`
+//! channel. Stamping (#363) bakes `--url`, `--hub-key` and `--id` in.
+//!
+//! The design choice: once joined, a lost link is a detach, not an exit. The
+//! agent keeps its sessions, running turns and unanswered questions while the
+//! peer redials with backoff, and the hub reattaches with `session/load`
+//! (ADR 0071). Only a revocation, a refusal, or SIGTERM/SIGINT stops it, and
+//! only then are turns cancelled.
 
 use anyhow::{Context, Result, bail};
-use construct_core::config::Paths;
+use construct_core::acp::server::{self, Input};
+use construct_core::config::{Config, Paths};
+use construct_core::tools::ToolSources;
 use construct_peer::join::{self, Event, Outcome};
-use construct_peer::{Hello, PublicKey, keyfile};
+use construct_peer::{Backoff, Hello, PublicKey, WireError, keyfile};
+use std::path::PathBuf;
+use std::time::Duration;
+use tokio::sync::mpsc;
 
 #[derive(clap::Args)]
 pub(super) struct PeerArgs {
@@ -25,26 +36,44 @@ pub(super) struct PeerArgs {
     /// A join token from `construct hub invite` (or `CONSTRUCT_JOIN`).
     #[arg(long)]
     join: Option<String>,
+    /// The directory the agent works in (default: where this was started).
+    #[arg(long)]
+    cwd: Option<PathBuf>,
 }
 
-pub(super) async fn run(paths: &Paths, args: PeerArgs) -> Result<()> {
+pub(super) async fn run(cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
     let hub = PublicKey::from_hex(&args.hub_key).context("--hub-key is not a 64-character hex key")?;
     let path = paths.home.join("peer.key");
     let key = keyfile::load_or_create(&path).context("peer key")?;
+    let cwd = match args.cwd {
+        Some(c) => c.canonicalize().with_context(|| format!("--cwd {}", c.display()))?,
+        None => std::env::current_dir()?,
+    };
     let token = args.join.or_else(|| std::env::var("CONSTRUCT_JOIN").ok()).filter(|t| !t.is_empty());
-    let mut hello = Hello::new(&args.id);
+    let mut hello = Hello::new(&args.id).with_cwd(cwd.display().to_string());
     if let Some(t) = token {
         hello = hello.with_join_token(t);
     }
     let id = args.id;
-    let outcome = join::run(&args.url, &key, hub, &hello, |event| match event {
-        Event::Waiting { code } => {
-            eprintln!("peer: waiting for approval at the hub; code {code} (it must match what the hub shows)");
+
+    let (to_agent, input) = mpsc::unbounded_channel();
+    let (out, mut to_hub) = mpsc::unbounded_channel();
+    let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
+    let links = follow(&args.url, &key, hub, &mut hello, &id, &to_agent, &mut to_hub);
+    let outcome = tokio::select! {
+        o = links => Some(o),
+        () = stop_signal() => None,
+    };
+    // Closing the agent's input cancels its turns and lets them drain.
+    drop(to_agent);
+    let _ = agent.await;
+    let outcome = match outcome {
+        None => {
+            eprintln!("peer: stopping");
+            return Ok(());
         }
-        Event::Joined => eprintln!("peer: joined the hub as {id}"),
-    })
-    .await
-    .with_context(|| format!("joining the hub at {}", args.url))?;
+        Some(o) => o.with_context(|| format!("joining the hub at {}", args.url))?,
+    };
     match outcome {
         Outcome::Closed(reason) => {
             eprintln!("peer: the hub closed the link{}", reason.map(|r| format!(": {r}")).unwrap_or_default());
@@ -60,6 +89,69 @@ pub(super) async fn run(paths: &Paths, args: PeerArgs) -> Result<()> {
                 reason.map(|r| format!(" ({r})")).unwrap_or_default(),
                 path.display()
             )
+        }
+    }
+}
+
+/// Follow the hub, redialing after a lost link once this peer has joined,
+/// until an outcome that ends the peer.
+async fn follow(
+    url: &str,
+    key: &construct_peer::Keypair,
+    hub: PublicKey,
+    hello: &mut Hello,
+    id: &str,
+    to_agent: &mpsc::UnboundedSender<Input>,
+    to_hub: &mut mpsc::UnboundedReceiver<String>,
+) -> Result<Outcome, WireError> {
+    let mut backoff = Backoff::new(Duration::from_millis(250), Duration::from_secs(15));
+    let mut joined = false;
+    loop {
+        let mut joined_now = false;
+        let got = join::run(url, key, hub, hello, to_hub, |event| match event {
+            Event::Waiting { code } => {
+                eprintln!("peer: waiting for approval at the hub; code {code} (it must match what the hub shows)");
+            }
+            Event::Joined => {
+                joined_now = true;
+                eprintln!("peer: joined the hub as {id}");
+            }
+            Event::Acp(line) => {
+                let _ = to_agent.send(Input::Line(line));
+            }
+        })
+        .await;
+        if joined_now {
+            joined = true;
+            backoff.reset();
+            // The token is single use and now spent.
+            hello.join_token = None;
+        }
+        match got {
+            Ok(Outcome::Lost(why)) if joined => eprintln!("peer: lost the hub ({why}); reconnecting"),
+            Ok(Outcome::Closed(why)) if joined => {
+                eprintln!("peer: the hub closed the link ({}); reconnecting", why.as_deref().unwrap_or("no reason"));
+            }
+            Err(e) if joined => eprintln!("peer: cannot reach the hub ({e}); retrying"),
+            other => return other,
+        }
+        // The hub's attachment is over; the agent keeps working for the next.
+        let _ = to_agent.send(Input::Detached);
+        tokio::time::sleep(backoff.next_delay()).await;
+    }
+}
+
+/// SIGTERM or SIGINT: the explicit ways to stop a joined peer.
+async fn stop_signal() {
+    match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+        Ok(mut term) => {
+            tokio::select! {
+                _ = term.recv() => {}
+                _ = tokio::signal::ctrl_c() => {}
+            }
+        }
+        Err(_) => {
+            let _ = tokio::signal::ctrl_c().await;
         }
     }
 }

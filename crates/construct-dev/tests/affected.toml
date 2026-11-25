@@ -64,7 +64,7 @@ tests = ["acp_payloads"]
 [[area]]
 name = "acp"
 paths = ["crates/construct-core/src/acp/", "crates/construct-dev/src/acp_fake.rs"]
-tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "deck", "deck_control", "deck_github", "developer", "permission"]
+tests = ["acp", "acp_keys", "acp_live", "acp_payloads", "deck", "deck_control", "deck_github", "developer", "peer_acp", "permission"]
 
 # Deck-only tools: the boundary trio, the coordinator's `deck` tool and the
 # `developer` tool. Snapshots pin every tool schema the model is sent.
@@ -109,12 +109,12 @@ tests = ["e2e", "snapshots"]
 [[area]]
 name = "peer-wire"
 paths = ["crates/construct-peer/"]
-tests = ["hub", "join"]
+tests = ["hub", "join", "peer_acp"]
 
 # `construct hub` (#360) and joining it (#361): the host process, `construct
 # peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
 paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/peer.rs"]
-tests = ["hub", "join"]
+tests = ["hub", "join", "peer_acp"]
 

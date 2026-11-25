@@ -1,12 +1,15 @@
-//! What the running hub's tasks share (#360, #361): the registry, live links
-//! by peer id, and the pairing window, behind one mutex.
+//! What the running hub's tasks share (#360, #361, #362): the registry, live
+//! links by peer id, the pairing window, and each peer's ACP session, behind
+//! one mutex.
 //!
 //! The design choice: a link's task owns its socket, and everyone else
-//! reaches it only through `Conn::tx` with a `Verdict`, so the control socket
-//! and the peer tasks never contend for a stream.
+//! reaches it only through `Conn::tx` with a `ToLink`, so the control socket
+//! and the peer tasks never contend for a stream. Every ACP line the hub
+//! sends goes the same way, so lines leave in the order they were made.
 
 use crate::files::Files;
 use crate::registry::{Peer, Registry, State};
+use crate::remote::Remote;
 use crate::status::{PeerStatus, Status};
 use construct_peer::PublicKey;
 use std::collections::HashMap;
@@ -24,14 +27,16 @@ pub(crate) struct Shared {
     pub(crate) online: HashMap<String, Conn>,
     pub(crate) next_conn: u64,
     pub(crate) pairing_until: Option<u64>,
+    /// Each pinned peer's ACP session, made on first use from its row.
+    pub(crate) remotes: HashMap<String, Remote>,
 }
 
 /// One live link.
 pub(crate) struct Conn {
     pub(crate) id: u64,
     pub(crate) remote: String,
-    /// Tells the link's task what a human decided.
-    pub(crate) tx: mpsc::UnboundedSender<Verdict>,
+    /// Tells the link's task what a human decided, or what to send.
+    pub(crate) tx: mpsc::UnboundedSender<ToLink>,
     /// Set while the join waits for approval.
     pub(crate) waiting: Option<Waiting>,
 }
@@ -42,12 +47,14 @@ pub(crate) struct Waiting {
     pub(crate) code: String,
 }
 
-/// A decision made over the control socket, for a link's task to carry out.
+/// What a link's task is told to do: carry out a decision made over the
+/// control socket, or send a line to the peer's agent.
 #[derive(Debug)]
-pub(crate) enum Verdict {
+pub(crate) enum ToLink {
     Approved,
     Denied(String),
     Revoked(String),
+    Acp(String),
 }
 
 pub(crate) type Hub = Arc<Mutex<Shared>>;
@@ -68,6 +75,12 @@ pub(crate) async fn stopped(rx: &mut watch::Receiver<bool>) {
 
 pub(crate) fn now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+/// Request ids a new `Remote` starts after: the clock in ms, so a restarted
+/// hub never reuses an id an earlier one sent the same peer.
+fn first_id() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
 }
 
 impl Shared {
@@ -106,6 +119,31 @@ impl Shared {
             pairing_until: self.pairing_until.filter(|&u| u > now()),
             peers,
         }
+    }
+
+    /// Step pinned peer `id`'s session with `f`, keep its persistent part in
+    /// the registry (saved when it changed), and send the lines `f` made down
+    /// the live link, if there is one.
+    pub(crate) fn drive(
+        &mut self,
+        id: &str,
+        f: impl FnOnce(&mut Remote) -> Result<Vec<String>, String>,
+    ) -> Result<(), String> {
+        let Some(row) = self.registry.get_mut(id).filter(|p| p.state == State::Pinned) else {
+            return Err(format!("no pinned peer {id}"));
+        };
+        let remote = self.remotes.entry(id.to_string()).or_insert_with(|| Remote::new(Some(row), first_id()));
+        let lines = f(remote)?;
+        let changed = remote.sync(row);
+        if let Some(conn) = self.online.get(id) {
+            for line in lines {
+                let _ = conn.tx.send(ToLink::Acp(line));
+            }
+        }
+        if changed {
+            self.save();
+        }
+        Ok(())
     }
 
     pub(crate) fn save(&self) {

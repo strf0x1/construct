@@ -5,12 +5,15 @@
 //! leaves no row, no log line and no pending join. Then admission decides,
 //! and the hub says so on the wire exactly once: `JoinAck` (pinned),
 //! `Pending` (held for a human; a `JoinAck` or `Revoke` follows when one
-//! decides over the control socket), or `Close` with the reason. The design
-//! choice: a decision reaches the link through its own channel, so the
-//! control socket never touches a socket it does not own.
+//! decides over the control socket), or `Close` with the reason. Only a link
+//! that got `JoinAck { accepted: true }` carries ACP (#362): the hub attaches
+//! to the peer's agent then, and detaches when the link ends, which cancels
+//! nothing on the peer. The design choice: a decision or an ACP line reaches
+//! the link through its own channel, so the control socket never touches a
+//! socket it does not own.
 
 use crate::admit::{Admission, Offer};
-use crate::state::{Conn, Hub, Verdict, Waiting, lock, now, stopped};
+use crate::state::{Conn, Hub, ToLink, Waiting, lock, now, stopped};
 use construct_peer::{
     Channel, Control, DEFAULT_HANDSHAKE_TIMEOUT, Envelope, FrameStream, KeepAlive, KeepAliveState, Keypair,
     PINNED_MAX_ENVELOPE, PeerLink, accept_ws, handshake_responder, recv_with_keepalive,
@@ -40,6 +43,7 @@ pub(crate) async fn run(
     };
     let remote = addr.to_string();
     let id = hello.peer_id.clone();
+    let cwd = hello.cwd.clone();
     let key = link.remote_static();
     let code = link.handshake_hash().sas_code();
     let (tx, rx) = mpsc::unbounded_channel();
@@ -70,6 +74,7 @@ pub(crate) async fn run(
             link.set_max_envelope_bytes(PINNED_MAX_ENVELOPE);
             if send(&mut link, &Control::JoinAck { accepted: true, reason: None }).await {
                 eprintln!("construct hub: {id} connected from {remote} (pinned)");
+                attach(&hub, &id, cwd.clone());
             }
         }
         Admission::Pending { slot } => {
@@ -81,11 +86,16 @@ pub(crate) async fn run(
         }
     }
 
-    follow(&mut link, &id, rx, stop).await;
+    follow(&mut link, &hub, &id, cwd, rx, stop).await;
 
     let mut s = lock(&hub);
+    // A newer link for this id may already have attached; leave it be.
     if s.online.get(&id).is_some_and(|c| c.id == conn) {
         s.online.remove(&id);
+        let _ = s.drive(&id, |r| {
+            r.detach();
+            Ok(vec![])
+        });
     }
     s.registry.seen(&id, now());
     s.save();
@@ -93,11 +103,19 @@ pub(crate) async fn run(
     eprintln!("construct hub: {id} disconnected");
 }
 
-/// Keep the link alive and carry out what a human decides, until it ends.
+/// Attach to pinned peer `id`'s agent: `initialize`, then its session.
+fn attach(hub: &Hub, id: &str, cwd: Option<String>) {
+    let _ = lock(hub).drive(id, |r| Ok(r.attach(cwd)));
+}
+
+/// Keep the link alive, relay ACP both ways and carry out what a human
+/// decides, until it ends.
 async fn follow<S: FrameStream>(
     link: &mut PeerLink<S>,
+    hub: &Hub,
     id: &str,
-    mut rx: mpsc::UnboundedReceiver<Verdict>,
+    cwd: Option<String>,
+    mut rx: mpsc::UnboundedReceiver<ToLink>,
     mut stop: watch::Receiver<bool>,
 ) {
     let mut ka = KeepAliveState::new();
@@ -109,23 +127,34 @@ async fn follow<S: FrameStream>(
                         return;
                     }
                 }
-                // ACP and LLM channels arrive with #362 and #371.
+                Ok(env) if env.channel == Channel::Acp => {
+                    let line = String::from_utf8_lossy(&env.bytes);
+                    // Refused (no-op) for a join still waiting for a human.
+                    let _ = lock(hub).drive(id, |r| Ok(r.receive(&line)));
+                }
+                // The LLM channel arrives with #371.
                 Ok(_) => {}
                 Err(_) => return,
             },
-            verdict = rx.recv() => match verdict {
-                Some(Verdict::Approved) => {
+            order = rx.recv() => match order {
+                Some(ToLink::Acp(line)) => {
+                    if link.send(&Envelope::new(Channel::Acp, line.into_bytes())).await.is_err() {
+                        return;
+                    }
+                }
+                Some(ToLink::Approved) => {
                     link.set_max_envelope_bytes(PINNED_MAX_ENVELOPE);
                     send(link, &Control::JoinAck { accepted: true, reason: None }).await;
                     eprintln!("construct hub: {id} approved and pinned");
+                    attach(hub, id, cwd.clone());
                 }
-                Some(Verdict::Denied(reason)) => {
+                Some(ToLink::Denied(reason)) => {
                     send(link, &Control::JoinAck { accepted: false, reason: Some(reason) }).await;
                     let _ = link.close(None).await;
                     eprintln!("construct hub: {id} denied");
                     return;
                 }
-                Some(Verdict::Revoked(reason)) => {
+                Some(ToLink::Revoked(reason)) => {
                     send(link, &Control::Revoke { reason: Some(reason.clone()) }).await;
                     let _ = link.close(Some(reason)).await;
                     eprintln!("construct hub: {id} revoked");

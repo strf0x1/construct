@@ -50,6 +50,8 @@ mod models;
 mod notes;
 #[path = "optchat.rs"]
 mod optchat;
+#[path = "peer_acp.rs"]
+mod peer_acp;
 #[path = "permission.rs"]
 mod permission;
 #[path = "providers.rs"]

@@ -1,6 +1,7 @@
-//! `construct hub` behind the `hub` feature (#360, #361): run the hub, print
-//! its public key, show its status, invite, approve, deny or revoke peers,
-//! open a pairing window, or stop it. The logic lives in `construct-hub`;
+//! `construct hub` behind the `hub` feature (#360, #361, #362): run the hub,
+//! print its public key, show its status, invite, approve, deny or revoke
+//! peers, open a pairing window, drive a peer's session (prompt, cancel,
+//! session, answer), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
 use anyhow::{Result, bail};
@@ -9,6 +10,7 @@ use construct_hub::control::{self, Request, Response};
 use construct_hub::invite::{DEFAULT_TTL_SECS, InviteReply, parse_span};
 use construct_hub::registry::State;
 use construct_hub::server::DEFAULT_LISTEN;
+use construct_hub::view::SessionView;
 use construct_hub::{Files, Options, Status, offline};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -59,6 +61,34 @@ enum HubCmd {
     /// Revoke a peer: its key is refused from now on, and a connected peer
     /// deletes its key and stops.
     Revoke { id: String },
+    /// Send a prompt to a peer's session; it runs on the peer even if this
+    /// command, the link or the hub goes away.
+    Prompt {
+        id: String,
+        #[arg(required = true)]
+        text: Vec<String>,
+        /// Wait for the turn to end and print the session.
+        #[arg(long)]
+        wait: bool,
+    },
+    /// Cancel the turn running on a peer.
+    Cancel { id: String },
+    /// Show a peer's session: its turn, transcript and open questions.
+    Session {
+        id: String,
+        /// Print JSON instead of lines.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Answer a peer's permission question with an option it offers
+    /// (`once`, `session`, `always`, `deny`, …).
+    Answer {
+        id: String,
+        option: String,
+        /// Which open question (1-based), when more than one is open.
+        #[arg(long)]
+        question: Option<usize>,
+    },
     /// Let peers the hub does not expect wait for approval for a while.
     Pair {
         /// How long the window stays open (`90s`, `10m`, `1h`).
@@ -138,6 +168,35 @@ pub(super) async fn run(paths: &Paths, args: HubArgs) -> Result<()> {
             }
             println!("hub: {id} revoked");
         }
+        HubCmd::Prompt { id, text, wait } => {
+            let view = session(&files, Request::Prompt { id: id.clone(), text: text.join(" ") }).await?;
+            if !wait {
+                println!("hub: sent to {id}; `construct hub session {id}` follows it");
+                return Ok(());
+            }
+            let mut view = view;
+            while view.prompt.is_some() && view.error.is_none() {
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                view = session(&files, Request::Session { id: id.clone() }).await?;
+            }
+            print!("{}", view.render());
+        }
+        HubCmd::Cancel { id } => {
+            session(&files, Request::Cancel { id: id.clone() }).await?;
+            println!("hub: cancel sent to {id}");
+        }
+        HubCmd::Session { id, json } => {
+            let view = session(&files, Request::Session { id }).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&view)?);
+            } else {
+                print!("{}", view.render());
+            }
+        }
+        HubCmd::Answer { id, option, question } => {
+            session(&files, Request::Answer { id: id.clone(), option: option.clone(), question }).await?;
+            println!("hub: answered {id} with {option}");
+        }
         HubCmd::Pair { span, close } => {
             let secs = if close { 0 } else { span };
             expect_ok(ask(&files, &Request::Pair { secs }).await?)?;
@@ -177,6 +236,16 @@ async fn status(files: &Files) -> Result<Status> {
             None => bail!("hub: {}", resp.error.unwrap_or_else(|| "no status in the reply".into())),
         },
         None => Status::offline(files),
+    }
+}
+
+/// A session request to the running hub; sessions need one.
+async fn session(files: &Files, req: Request) -> Result<SessionView> {
+    let resp = ask(files, &req).await?;
+    expect_ok(resp.clone())?;
+    match resp.and_then(|r| r.session) {
+        Some(v) => Ok(*v),
+        None => bail!("hub: no session in the reply"),
     }
 }
 

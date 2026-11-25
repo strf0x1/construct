@@ -1,14 +1,16 @@
-//! What the running hub does for each control-socket request (#360, #361).
+//! What the running hub does for each control-socket request (#360, #361,
+//! #362).
 //!
 //! Each operation changes the registry under the hub's one lock, saves it,
-//! and hands any effect on a live link (approve, deny, revoke) to that link's
-//! task as a `Verdict`. The design choice: approval exists only here, never
+//! and hands any effect on a live link (approve, deny, revoke, an ACP line
+//! for the peer's agent) to that link's task as a `ToLink`. The design choice: approval exists only here, never
 //! offline, because the SAS code a human compares lives only in an open link.
 
 use crate::admit::Live;
 use crate::control::{Request, Response};
 use crate::invite::{self, InviteReply};
-use crate::state::{Shared, Verdict, now};
+use crate::remote::Remote;
+use crate::state::{Shared, ToLink, now};
 use anyhow::{Context, Result, bail};
 use tokio::sync::watch;
 
@@ -28,11 +30,26 @@ impl Shared {
             Request::Approve { id } => Response::of(self.approve(&id)),
             Request::Deny { id } => Response::of(self.deny(&id)),
             Request::Revoke { id } => Response::of(self.revoke(&id)),
+            Request::Prompt { id, text } => self.acp(&id, |r| {
+                let key = construct_peer::random_token(16).map_err(|e| e.to_string())?;
+                r.prompt(text, key)
+            }),
+            Request::Cancel { id } => self.acp(&id, |r| r.cancel()),
+            Request::Answer { id, option, question } => self.acp(&id, |r| r.answer(&option, question)),
+            Request::Session { id } => self.acp(&id, |_| Ok(vec![])),
             Request::Pair { secs } => {
                 self.pairing_until = (secs > 0).then(|| now().saturating_add(secs));
                 eprintln!("construct hub: pairing window {}", if secs > 0 { "open" } else { "closed" });
                 Response::status(self.status())
             }
+        }
+    }
+
+    /// Step `id`'s session with `f` and answer with its view.
+    fn acp(&mut self, id: &str, f: impl FnOnce(&mut Remote) -> Result<Vec<String>, String>) -> Response {
+        match self.drive(id, f) {
+            Ok(()) => self.remotes.get(id).map_or_else(Response::ok, |r| Response::session(r.view(id))),
+            Err(e) => Response::error(e),
         }
     }
 
@@ -59,7 +76,7 @@ impl Shared {
         let conn =
             self.online.get_mut(id).filter(|c| c.waiting.is_some()).context(format!("no join is waiting for {id}"))?;
         let waiting = conn.waiting.take().context("checked above")?;
-        let _ = conn.tx.send(Verdict::Approved);
+        let _ = conn.tx.send(ToLink::Approved);
         self.registry.pin(id, waiting.key, now());
         self.save();
         Ok(())
@@ -69,7 +86,7 @@ impl Shared {
         let conn =
             self.online.get_mut(id).filter(|c| c.waiting.is_some()).context(format!("no join is waiting for {id}"))?;
         conn.waiting = None;
-        let _ = conn.tx.send(Verdict::Denied("denied at the hub".into()));
+        let _ = conn.tx.send(ToLink::Denied("denied at the hub".into()));
         Ok(())
     }
 
@@ -79,10 +96,11 @@ impl Shared {
             bail!("no peer {id}");
         }
         self.registry.revoke(id, offered)?;
+        self.remotes.remove(id);
         self.save();
         if let Some(conn) = self.online.get_mut(id) {
             conn.waiting = None;
-            let _ = conn.tx.send(Verdict::Revoked("revoked at the hub".into()));
+            let _ = conn.tx.send(ToLink::Revoked("revoked at the hub".into()));
         }
         Ok(())
     }

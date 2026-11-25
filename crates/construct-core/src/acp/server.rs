@@ -1,13 +1,17 @@
-//! `construct acp`: construct as an ACP agent on stdin and stdout.
+//! `construct acp`: construct as an ACP agent, on stdin and stdout or on any
+//! line transport (a peer's `acp` channel, #362).
 //!
 //! The design choice: one reader loop owns the sessions and never blocks on a
 //! turn. A `session/prompt` runs as its own task so `session/cancel` (and
-//! stdin closing) can interrupt it; every line out goes through one writer
-//! thread, so a turn's updates always precede its response.
+//! the input closing) can interrupt it; every line out goes through one
+//! channel, so a turn's updates always precede its response.
 //!
-//! The protocol owns stdout: the writer keeps a private duplicate of fd 1 and
-//! fd 1 itself is pointed at stderr, so a `println!` or a dependency's log line
-//! becomes a diagnostic instead of a frame a strict client cannot parse (#162).
+//! A transport that can drop and come back (a peer's WebSocket) says so with
+//! [`Input::Detached`]: the attachment ends as a new `initialize` would end
+//! it, and sessions, running turns and unanswered questions stay until a
+//! client attaches again (ADR 0071). Only the input closing shuts down.
+//!
+//! On stdio (`stdio.rs`) the protocol owns stdout (ADR 0035).
 //!
 //! Disk sessions outlive the process: `session/load` and `session/resume` build
 //! the agent through the same `Agent::new(..., Some(id))` path `--resume`
@@ -35,30 +39,31 @@ use anyhow::Result;
 use rpc::Incoming;
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::io::Write;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinSet;
 
 type Out = mpsc::UnboundedSender<String>;
 
-pub async fn run(cfg: Config, paths: Paths, sources: ToolSources) -> Result<()> {
-    let (out, mut lines_out) = mpsc::unbounded_channel::<String>();
-    // Only this loop writes protocol frames; diagnostic writes go to stderr
-    // because `claim_stdout` points fd 1 there (ADR 0035).
-    let protocol = super::claim_stdout();
-    let writer = std::thread::spawn(move || {
-        let mut w: Box<dyn Write> = match protocol {
-            Some(fd) => Box::new(std::fs::File::from(fd)),
-            None => Box::new(std::io::stdout()),
-        };
-        while let Some(l) = lines_out.blocking_recv() {
-            if w.write_all(l.as_bytes()).and_then(|_| w.flush()).is_err() {
-                break;
-            }
-        }
-    });
+/// What reaches the server from its transport.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Input {
+    /// One JSON-RPC line from the client.
+    Line(String),
+    /// The transport dropped. The attachment ends; nothing is cancelled.
+    Detached,
+}
+
+/// The ACP agent over any line transport: requests arrive on `input`, every
+/// frame leaves on `out`. Returns once `input` closes (or `out`'s reader is
+/// gone) and every turn has drained.
+pub async fn serve(
+    cfg: Config,
+    paths: Paths,
+    sources: ToolSources,
+    mut input: mpsc::UnboundedReceiver<Input>,
+    out: Out,
+) -> Result<()> {
     let (commands, mut pending) = mpsc::unbounded_channel();
     let mut srv = Server {
         cfg,
@@ -74,29 +79,13 @@ pub async fn run(cfg: Config, paths: Paths, sources: ToolSources) -> Result<()> 
         closing: false,
     };
     let mut turns = JoinSet::new();
-    let mut input = BufReader::new(tokio::io::stdin()).lines();
     loop {
         tokio::select! {
-            line = input.next_line() => {
-                let Some(line) = line? else { break };
-                match rpc::parse(&line) {
-                    Some(Incoming::Request { id, method, params }) => srv.request(id, &method, params, &mut turns),
-                    Some(Incoming::Response { id, result }) => {
-                        if let Some(sid) = srv.questions.answer(&id, result) { srv.waiting_changed(&sid); }
-                    }
-                    Some(Incoming::Notification { method, params }) if method == "session/cancel" => {
-                        if let Some(s) = params["sessionId"].as_str().and_then(|id| srv.sessions.get(id)) {
-                            s.cancel.send_replace(true);
-                        }
-                    }
-                    Some(Incoming::Notification { method, params })
-                        if matches!(method.as_str(), map::BOUNDARY_METHOD | map::LEGACY_BOUNDARY_METHOD) =>
-                    {
-                        srv.boundary_notice(params);
-                    }
-                    _ => {}
-                }
-            }
+            got = input.recv() => match got {
+                Some(Input::Line(line)) => srv.line(&line, &mut turns),
+                Some(Input::Detached) => srv.detach(),
+                None => break,
+            },
             Some(command) = pending.recv() => srv.command(command, &mut turns),
             Some(_) = turns.join_next(), if !turns.is_empty() => {}
             _ = srv.out.closed() => break,
@@ -125,8 +114,6 @@ pub async fn run(cfg: Config, paths: Paths, sources: ToolSources) -> Result<()> 
             }
         }
     }
-    drop(srv);
-    let _ = writer.join();
     Ok(())
 }
 
@@ -147,6 +134,36 @@ pub(super) struct Server {
 }
 
 impl Server {
+    fn line(&mut self, line: &str, turns: &mut JoinSet<()>) {
+        match rpc::parse(line) {
+            Some(Incoming::Request { id, method, params }) => self.request(id, &method, params, turns),
+            Some(Incoming::Response { id, result }) => {
+                if let Some(sid) = self.questions.answer(&id, result) {
+                    self.waiting_changed(&sid);
+                }
+            }
+            Some(Incoming::Notification { method, params }) if method == "session/cancel" => {
+                if let Some(s) = params["sessionId"].as_str().and_then(|id| self.sessions.get(id)) {
+                    s.cancel.send_replace(true);
+                }
+            }
+            Some(Incoming::Notification { method, params })
+                if matches!(method.as_str(), map::BOUNDARY_METHOD | map::LEGACY_BOUNDARY_METHOD) =>
+            {
+                self.boundary_notice(params);
+            }
+            _ => {}
+        }
+    }
+
+    /// The client is gone but may come back: end its attachment exactly as a
+    /// new `initialize` would (no output for it, its question ids retired),
+    /// and keep every session, turn and question for the next one.
+    fn detach(&mut self) {
+        self.attachment += 1;
+        self.questions.retire();
+    }
+
     pub(super) fn reply(&self, id: &Value, r: Result<Value, (i64, String)>) {
         let _ = self.out.send(match r {
             Ok(v) => rpc::ok(id, v),
@@ -157,8 +174,7 @@ impl Server {
     fn request(&mut self, id: Value, method: &str, params: Value, turns: &mut JoinSet<()>) {
         match method {
             "initialize" => {
-                self.attachment += 1;
-                self.questions.retire();
+                self.detach();
                 self.wire = map::Wire::for_client(&params["clientCapabilities"]["_meta"]);
                 let caps = self.capabilities();
                 let result = json!({
