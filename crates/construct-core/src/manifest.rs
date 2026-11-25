@@ -18,6 +18,11 @@ pub struct Manifest {
     /// to do on every session start, and the git sha already names the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary_sha256: Option<String>,
+    /// Only from `construct manifest`: the binary's Cargo features (`full`,
+    /// `lean`, `hub`, `peer`, ...), so a result or a size check can tell a
+    /// build that links the hub from one that does not (ADR 0064, 0069).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
     /// Hash of the effective config (file plus environment overrides).
     pub config_sha256: String,
     pub tools: Vec<String>,
@@ -71,6 +76,7 @@ impl Manifest {
             git_sha: env!("CONSTRUCT_GIT_SHA").into(),
             git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
             binary_sha256: None,
+            features: Vec::new(),
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools: vec![],
             editor: String::new(),
@@ -96,6 +102,7 @@ impl Manifest {
             git_sha: env!("CONSTRUCT_GIT_SHA").into(),
             git_dirty: env!("CONSTRUCT_GIT_DIRTY") == "true",
             binary_sha256: None,
+            features: Vec::new(),
             config_sha256: sha256(&serde_json::to_vec(cfg).unwrap_or_default()),
             tools,
             editor: "replace".into(),
@@ -113,6 +120,12 @@ impl Manifest {
             memory_max: cfg.sandbox.memory_max.clone(),
             memory_max_bytes: cfg.sandbox.memory_max_bytes().ok().flatten(),
         }
+    }
+
+    /// Name the binary's Cargo features.
+    pub fn with_features(mut self, features: &[&str]) -> Self {
+        self.features = features.iter().map(|f| (*f).to_string()).collect();
+        self
     }
 
     /// Add the running binary's hash.

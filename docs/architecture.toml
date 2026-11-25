@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core", "construct-deck", "construct-peer", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-skills", "construct-tools-web", "construct-tui"]
+may_use_crates = ["construct-core", "construct-deck", "construct-hub", "construct-peer", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-skills", "construct-tools-web", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -150,6 +150,37 @@ may_use = []
 
 [crates.construct-deck.modules.source]
 may_use = ["boundary", "control", "developer"]
+
+[crates.construct-hub]
+may_use_crates = ["construct-core", "construct-peer"]
+used_only_by = { crates = ["construct"], reason = "the host-only hub (#360): the binary's `hub` feature wires it in; a peer build, the engine and the TUI never name it (ADR 0069)" }
+must_not_use_crates = [
+  { crate = "construct-tui", reason = "the hub runs headless and keeps running with no TUI; TUIs attach over its control socket (#360)" },
+]
+
+[crates.construct-hub.modules.control]
+may_use = ["status"]
+
+[crates.construct-hub.modules.files]
+may_use = []
+
+[crates.construct-hub.modules.key]
+may_use = []
+
+[crates.construct-hub.modules.lib]
+may_use = []
+
+[crates.construct-hub.modules.lock]
+may_use = []
+
+[crates.construct-hub.modules.registry]
+may_use = []
+
+[crates.construct-hub.modules.server]
+may_use = ["control", "files", "key", "lock", "registry", "status"]
+
+[crates.construct-hub.modules.status]
+may_use = ["files", "key", "registry"]
 
 [crates.construct-peer]
 may_use_crates = ["construct-core"]

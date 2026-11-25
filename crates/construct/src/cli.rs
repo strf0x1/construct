@@ -3,7 +3,10 @@
 
 mod config_view;
 mod evals;
+mod features;
 mod headless;
+#[cfg(feature = "hub")]
+mod hub;
 mod learning;
 #[cfg(feature = "peer")]
 mod peer;
@@ -105,6 +108,9 @@ enum Cmd {
     /// Serve construct as an Agent Client Protocol agent on stdin and stdout
     /// (for editors and other harnesses).
     Acp,
+    /// Run the hub peers dial home to, or inspect it (`key`, `status`, `stop`).
+    #[cfg(feature = "hub")]
+    Hub(hub::HubArgs),
     /// Dial a hub endpoint over the peer wire protocol (hidden until #361/#362).
     #[cfg(feature = "peer")]
     #[command(hide = true)]
@@ -267,10 +273,12 @@ pub fn run() -> Result<()> {
         Some(Cmd::Config) => config_view::show(&cfg, &paths, &std::env::current_dir()?),
         Some(Cmd::Manifest) => {
             let catalog = tools::Catalog::build_extended(&cfg.tools, None, &tools::Deck::default(), &tool_sources())?;
-            let m = manifest::Manifest::new(&cfg, catalog.names()).with_binary_hash();
+            let m = manifest::Manifest::new(&cfg, catalog.names()).with_features(features::FEATURES).with_binary_hash();
             println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
         }
+        #[cfg(feature = "hub")]
+        Some(Cmd::Hub(args)) => rt.block_on(hub::run(&paths, args)),
         #[cfg(feature = "peer")]
         Some(Cmd::PeerDial(args)) => rt.block_on(peer::dial(args)),
     }

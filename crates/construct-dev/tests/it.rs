@@ -36,6 +36,8 @@ mod deck_github;
 mod developer;
 #[path = "e2e.rs"]
 mod e2e;
+#[path = "hub.rs"]
+mod hub;
 #[path = "jobs.rs"]
 mod jobs;
 #[path = "mcp.rs"]

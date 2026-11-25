@@ -87,6 +87,15 @@ impl Keypair {
         Self { private, public }
     }
 
+    /// Rebuild a keypair from its private half alone, deriving the public key
+    /// (X25519 base-point multiplication with clamping), so a key file only
+    /// has to hold the 32 private bytes.
+    #[must_use]
+    pub fn from_private(private: [u8; KEY_LEN]) -> Self {
+        let public = curve25519_dalek::montgomery::MontgomeryPoint::mul_base_clamped(private).to_bytes();
+        Self { private, public: PublicKey(public) }
+    }
+
     #[must_use]
     pub const fn public(&self) -> PublicKey {
         self.public
@@ -204,6 +213,13 @@ mod tests {
         assert_eq!(PublicKey::from_hex(&hex).unwrap(), kp.public());
         let dbg = format!("{kp:?}");
         assert!(dbg.contains("[redacted]"), "{dbg}");
+    }
+
+    #[test]
+    fn from_private_derives_the_generated_public_key() {
+        let kp = Keypair::generate().unwrap();
+        let again = Keypair::from_private(*kp.private_bytes());
+        assert_eq!(again.public(), kp.public());
     }
 
     #[test]

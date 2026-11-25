@@ -23,7 +23,7 @@ default = ["full"]
 # Bundles (#271). `full` is every release build. `lean` is the small drop
 # build: `--no-default-features --features lean`. Add single features on top
 # (`--features lean,keyring`) to measure one at a time.
-full = ["keyring", "web", "memory", "skills", "history", "jobs", "deck"]
+full = ["keyring", "web", "memory", "skills", "history", "jobs", "deck", "hub"]
 lean = ["web", "memory", "skills"]
 # Forwarded to the engine: off is env-only secrets (ADR 0051). The TUI
 # never forces the keyring on.
@@ -48,6 +48,10 @@ deck = ["dep:construct-deck"]
 # Peer dialer wire protocol (construct-peer, #368): included in stamped peer
 # builds, independent of `hub` (#360).
 peer = ["dep:construct-peer"]
+# `construct hub` (construct-hub, #360): the host process peers dial home to.
+# A host build only: a dropped peer never links the listener, the registry or
+# the control socket, so `lean` and bare leave it out (ADR 0069).
+hub = ["dep:construct-hub"]
 
 [dependencies]
 construct-core = { workspace = true, default-features = false }
@@ -59,6 +63,7 @@ construct-tools-jobs = { workspace = true, optional = true }
 construct-tools-memory = { workspace = true, optional = true }
 construct-tools-skills = { workspace = true, optional = true }
 construct-peer = { workspace = true, default-features = false, features = ["dial"], optional = true }
+construct-hub = { workspace = true, optional = true }
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true
