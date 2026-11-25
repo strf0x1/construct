@@ -165,7 +165,7 @@ may_use = ["invite", "registry"]
 may_use = ["admit", "state"]
 
 [crates.construct-hub.modules.control]
-may_use = ["invite", "status"]
+may_use = ["invite", "status", "view"]
 
 [crates.construct-hub.modules.files]
 may_use = []
@@ -183,19 +183,26 @@ may_use = []
 may_use = ["files", "invite", "lock", "registry"]
 
 [crates.construct-hub.modules.ops]
-may_use = ["admit", "control", "invite", "state"]
+may_use = ["admit", "control", "invite", "remote", "state"]
 
 [crates.construct-hub.modules.registry]
 may_use = []
+
+# The ACP client for one peer (#362): pure, no socket or lock (ADR 0071).
+[crates.construct-hub.modules.remote]
+may_use = ["registry", "view"]
 
 [crates.construct-hub.modules.server]
 may_use = ["conn", "control", "files", "lock", "registry", "state", "status"]
 
 [crates.construct-hub.modules.state]
-may_use = ["files", "registry", "status"]
+may_use = ["files", "registry", "remote", "status"]
 
 [crates.construct-hub.modules.status]
 may_use = ["files", "registry"]
+
+[crates.construct-hub.modules.view]
+may_use = []
 
 [crates.construct-peer]
 may_use_crates = ["construct-core"]

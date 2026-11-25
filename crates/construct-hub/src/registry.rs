@@ -2,8 +2,8 @@
 //!
 //! One row per peer id: its name, the X25519 key it is pinned to, a state,
 //! when it was last seen, an open invite (the token's SHA-256, never the
-//! token) with its wrong-token strikes, and the ACP session and turn it last
-//! reported (filled by #362). The design choice: only three states are ever
+//! token) with its wrong-token strikes, and the ACP session, turn and
+//! unanswered prompt the hub holds for it (#362, `remote.rs`). The design choice: only three states are ever
 //! written — `expected` (a slot an invite or `construct build` made),
 //! `pinned` and `revoked`. A join waiting for a human is `pending` only while
 //! its link is open (the SAS code exists only there), so a dead connection
@@ -79,6 +79,17 @@ pub struct Peer {
     /// The last turn number observed in that session (#362).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub turn: Option<u64>,
+    /// The prompt sent to that session and not yet answered (#362): resent
+    /// with the same key after any reconnect or hub restart, so it runs once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<Prompt>,
+}
+
+/// A prompt and the idempotency key it travels with (ADR 0045).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Prompt {
+    pub key: String,
+    pub text: String,
 }
 
 const fn is_zero(n: &u32) -> bool {
@@ -98,6 +109,7 @@ impl Peer {
             strikes: 0,
             session: None,
             turn: None,
+            prompt: None,
         }
     }
 }

@@ -3,8 +3,8 @@
 //! Envelopes are multiplexed by a single-byte `Channel` tag (`acp`, `control`,
 //! `llm`) and chunked (`chunk.rs`) across Noise's 65,535-byte transport frame
 //! limit. Keep this vocabulary strictly outside the ACP contract: `acp`
-//! carries opaque JSON-RPC bytes, while `control` carries peer lifecycle
-//! messages (`Hello`, ping/pong, close, and join/revoke placeholders for #361).
+//! carries opaque JSON-RPC lines (one per envelope, #362), while `control`
+//! carries peer lifecycle messages (`Hello`, ping/pong, close, join, revoke).
 
 use crate::error::WireError;
 use serde::{Deserialize, Serialize};
@@ -138,17 +138,27 @@ pub struct Hello {
     /// Optional single-use invite token (`construct hub invite`, #361).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join_token: Option<String>,
+    /// The directory the peer's agent works in (#362): the hub names it in
+    /// every `session/new` and `session/load`, so the peer owns its `cwd`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
 }
 
 impl Hello {
     #[must_use]
     pub fn new(peer_id: impl Into<String>) -> Self {
-        Self { version: PROTOCOL_VERSION, peer_id: peer_id.into(), join_token: None }
+        Self { version: PROTOCOL_VERSION, peer_id: peer_id.into(), join_token: None, cwd: None }
     }
 
     #[must_use]
     pub fn with_join_token(mut self, token: impl Into<String>) -> Self {
         self.join_token = Some(token.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_cwd(mut self, cwd: impl Into<String>) -> Self {
+        self.cwd = Some(cwd.into());
         self
     }
 }
@@ -159,7 +169,7 @@ mod tests {
 
     #[test]
     fn control_hello_round_trip() {
-        let msg = Control::Hello(Hello::new("old-pc").with_join_token("tok-123"));
+        let msg = Control::Hello(Hello::new("old-pc").with_join_token("tok-123").with_cwd("/srv/work"));
         let env = Envelope::control(&msg).unwrap();
         assert_eq!(env.decode_control().unwrap(), msg);
     }

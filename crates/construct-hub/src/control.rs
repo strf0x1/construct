@@ -10,6 +10,7 @@
 
 use crate::invite::InviteReply;
 use crate::status::Status;
+use crate::view::SessionView;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs::PermissionsExt;
@@ -44,6 +45,21 @@ pub enum Request {
     Revoke { id: String },
     /// Let unknown ids wait for approval for `secs` (0 closes the window).
     Pair { secs: u64 },
+    /// Send `text` to pinned peer `id`'s session (#362); answered at once,
+    /// while the turn runs. Sent when the peer attaches if it is away.
+    Prompt { id: String, text: String },
+    /// Cancel the turn running on `id`.
+    Cancel { id: String },
+    /// `id`'s session as the hub holds it: turn, transcript, questions.
+    Session { id: String },
+    /// Answer `id`'s open permission question `question` (1-based; may be
+    /// left out when only one is open) with option `option`.
+    Answer {
+        id: String,
+        option: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        question: Option<usize>,
+    },
 }
 
 /// The answer to one request.
@@ -55,23 +71,30 @@ pub struct Response {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite: Option<InviteReply>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<Box<SessionView>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
 impl Response {
     #[must_use]
     pub fn ok() -> Self {
-        Self { ok: true, status: None, invite: None, error: None }
+        Self { ok: true, status: None, invite: None, session: None, error: None }
     }
 
     #[must_use]
     pub fn status(s: Status) -> Self {
-        Self { ok: true, status: Some(Box::new(s)), invite: None, error: None }
+        Self { status: Some(Box::new(s)), ..Self::ok() }
+    }
+
+    #[must_use]
+    pub fn session(v: SessionView) -> Self {
+        Self { session: Some(Box::new(v)), ..Self::ok() }
     }
 
     #[must_use]
     pub fn invite(i: InviteReply) -> Self {
-        Self { ok: true, status: None, invite: Some(i), error: None }
+        Self { invite: Some(i), ..Self::ok() }
     }
 
     /// `ok` for `Ok(())`, the error's text otherwise.
@@ -82,7 +105,7 @@ impl Response {
 
     #[must_use]
     pub fn error(e: impl Into<String>) -> Self {
-        Self { ok: false, status: None, invite: None, error: Some(e.into()) }
+        Self { ok: false, error: Some(e.into()), ..Self::ok() }
     }
 }
 

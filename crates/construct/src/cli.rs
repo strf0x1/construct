@@ -183,7 +183,7 @@ pub fn run() -> Result<()> {
                 tool_sources(),
             ))
         }
-        Some(Cmd::Acp) => rt.block_on(acp::server::run(cfg, paths, tool_sources())),
+        Some(Cmd::Acp) => rt.block_on(acp::stdio::run(cfg, paths, tool_sources())),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {
@@ -281,6 +281,6 @@ pub fn run() -> Result<()> {
         #[cfg(feature = "hub")]
         Some(Cmd::Hub(args)) => rt.block_on(hub::run(&paths, args)),
         #[cfg(feature = "peer")]
-        Some(Cmd::Peer(args)) => rt.block_on(peer::run(&paths, args)),
+        Some(Cmd::Peer(args)) => rt.block_on(peer::run(cfg, paths, tool_sources(), args)),
     }
 }
