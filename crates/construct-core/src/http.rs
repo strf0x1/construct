@@ -26,7 +26,9 @@
 //! add the construct UA for the sites that already send it.
 
 use anyhow::{Context, Result, anyhow};
+use rustls_pki_types::{CertificateDer, pem::PemObject};
 use std::path::Path;
+use std::sync::Arc;
 
 /// The UA the engine-facing clients send; the workspace shares one version.
 const USER_AGENT: &str = concat!("construct/", env!("CARGO_PKG_VERSION"));
@@ -96,20 +98,58 @@ pub fn build(builder: reqwest::ClientBuilder) -> Result<reqwest::Client> {
     builder.build().map_err(trust_error)
 }
 
+/// Build a `rustls::ClientConfig` with the same ring crypto provider and trust
+/// roots as `builder()`/`build()` (#293, #368): platform store merged with
+/// `CONSTRUCT_CA_FILE` and (on static musl) Mozilla's roots. Used by non-HTTP
+/// TLS clients such as the peer WebSocket transport.
+pub fn tls_client_config() -> Result<Arc<rustls::ClientConfig>> {
+    ensure_crypto();
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let mut extra: Vec<CertificateDer<'static>> = Vec::new();
+    #[cfg(target_env = "musl")]
+    extra.extend(webpki_root_certs::TLS_SERVER_ROOT_CERTS.iter().map(|c| CertificateDer::from(c.as_ref().to_vec())));
+    if let Some(path) = std::env::var_os("CONSTRUCT_CA_FILE") {
+        extra.extend(ca_cert_ders(Path::new(&path))?);
+    }
+    let verifier = if extra.is_empty() {
+        rustls_platform_verifier::Verifier::new(Arc::clone(&provider))
+    } else {
+        rustls_platform_verifier::Verifier::new_with_extra_roots(extra, Arc::clone(&provider))
+    }
+    .map_err(|e| if has_empty_store(&e) { anyhow!("{NO_ROOTS}") } else { anyhow::Error::new(e) })?;
+    let cfg = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .context("rustls protocol versions")?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(verifier))
+        .with_no_client_auth();
+    Ok(Arc::new(cfg))
+}
+
 /// Read a CA bundle: every PEM block, or one DER certificate. Errors name the
 /// file, so a typo in `CONSTRUCT_CA_FILE` is not a TLS mystery.
 fn ca_certs(path: &Path) -> Result<Vec<reqwest::Certificate>> {
+    ca_cert_ders(path)?
+        .into_iter()
+        .map(|der| {
+            reqwest::Certificate::from_der(der.as_ref())
+                .with_context(|| format!("CONSTRUCT_CA_FILE={}: contains an invalid DER certificate", path.display()))
+        })
+        .collect()
+}
+
+/// Read a CA bundle as DER certificates: every PEM block, or one DER
+/// certificate. Errors name the file, so a typo in `CONSTRUCT_CA_FILE` is not
+/// a TLS mystery.
+fn ca_cert_ders(path: &Path) -> Result<Vec<CertificateDer<'static>>> {
     let bytes = std::fs::read(path)
         .with_context(|| format!("CONSTRUCT_CA_FILE={}: could not read the file", path.display()))?;
-    if let Ok(certs) = reqwest::Certificate::from_pem_bundle(&bytes)
-        && !certs.is_empty()
-    {
-        return Ok(certs);
+    let pem: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(&bytes).flatten().collect();
+    if !pem.is_empty() {
+        return Ok(pem);
     }
-    if bytes.first() == Some(&0x30)
-        && let Ok(cert) = reqwest::Certificate::from_der(&bytes)
-    {
-        return Ok(vec![cert]);
+    if bytes.first() == Some(&0x30) {
+        return Ok(vec![CertificateDer::from(bytes)]);
     }
     Err(anyhow!("CONSTRUCT_CA_FILE={}: contains no PEM certificates (and is not a DER certificate)", path.display()))
 }

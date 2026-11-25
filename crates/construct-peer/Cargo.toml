@@ -1,0 +1,52 @@
+[package]
+name = "construct-peer"
+description = "Wire protocol for construct-to-construct peers: Noise IK, chunked envelopes, WebSocket transport, keep-alive"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+# One test binary, tests/it.rs (the docs gate checks every sibling file is
+# listed there).
+autotests = false
+
+[lib]
+doctest = false
+
+[[test]]
+name = "it"
+path = "tests/it.rs"
+
+[lints]
+workspace = true
+
+[features]
+# Both sides are enabled by default for library tests and consumers that talk
+# both roles; the binary enables `dial` (peer builds) and `accept` (hub builds)
+# independently so a bare peer never compiles hub listener code.
+default = ["dial", "accept"]
+dial = ["tokio-tungstenite/connect"]
+accept = []
+
+[dependencies]
+construct-core = { workspace = true, default-features = false }
+curve25519-dalek = { version = "4", default-features = false }
+futures.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# ring handles AEAD (ChaChaPoly), SHA-256, and OS CSPRNG via snow's
+# RingResolver; curve25519-dalek supplies static X25519 DH (ring's agreement
+# API is ephemeral-only) without pulling in snow's default-resolver cipher/hash
+# crates (aes-gcm, blake2, chacha20poly1305, getrandom 0.3).
+snow = { version = "0.10", default-features = false, features = ["ring-resolver"] }
+tokio = { workspace = true, features = ["io-util", "net", "sync", "time"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["handshake", "__rustls-tls"] }
+
+[dev-dependencies]
+rcgen.workspace = true
+rustls-pki-types.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }

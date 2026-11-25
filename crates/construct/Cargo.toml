@@ -45,6 +45,9 @@ skills = ["dep:construct-tools-skills"]
 # coordinator's `deck`, and the boundary client a Deck guest talks through.
 # Only a process Deck runs needs it, so `lean` leaves it out.
 deck = ["dep:construct-deck"]
+# Peer dialer wire protocol (construct-peer, #368): included in stamped peer
+# builds, independent of `hub` (#360).
+peer = ["dep:construct-peer"]
 
 [dependencies]
 construct-core = { workspace = true, default-features = false }
@@ -55,6 +58,7 @@ construct-tools-history = { workspace = true, optional = true }
 construct-tools-jobs = { workspace = true, optional = true }
 construct-tools-memory = { workspace = true, optional = true }
 construct-tools-skills = { workspace = true, optional = true }
+construct-peer = { workspace = true, default-features = false, features = ["dial"], optional = true }
 anyhow.workspace = true
 clap.workspace = true
 reqwest.workspace = true

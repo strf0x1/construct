@@ -104,3 +104,10 @@ name = "history-tools"
 paths = ["crates/construct-tools-history/"]
 tests = ["e2e", "snapshots"]
 
+# Peer wire protocol crate: its own contract tests run in construct-peer's gate;
+# e2e coverage begins when `construct hub` (#360) lands.
+[[area]]
+name = "peer-wire"
+paths = ["crates/construct-peer/"]
+tests = []
+
