@@ -12,6 +12,9 @@ use crate::config::Config;
 use crate::endpoint::Endpoint;
 use anyhow::Result;
 
+/// The endpoint name of a peer's hub gateway, in errors and `/model`.
+pub const HUB: &str = "hub";
+
 /// Which layer set the selected model's window (`Config::window_source`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WindowSource {
@@ -152,8 +155,20 @@ impl Config {
     }
 
     /// Where `selector`'s requests go: its provider's endpoint (the declared
-    /// one for `default`), moved by its catalog entry if that names one.
+    /// one for `default`), moved by its catalog entry if that names one. A
+    /// peer with `llm = "hub"` sends every request to its gateway instead,
+    /// with the gateway's token and no key of its own (#371).
     pub fn endpoint_for(&self, selector: &str) -> Endpoint {
+        if let Some(g) = &self.llm_gateway {
+            let headers = [("Authorization".to_string(), format!("Bearer {}", g.token))].into();
+            // The deadlines stay this config's; the dialect is the hub's to apply.
+            let provider = crate::config::ProviderConfig {
+                first_byte_timeout: self.provider.first_byte_timeout,
+                idle_timeout: self.provider.idle_timeout,
+                ..Default::default()
+            };
+            return Endpoint::named(HUB, &g.base_url, "", headers, provider);
+        }
         let named = self.resolve(selector).ok().and_then(|r| r.provider);
         let base = match named.as_ref().and_then(|p| self.providers.get(p).map(|d| (p, d))) {
             Some((name, p)) => p.endpoint(name),

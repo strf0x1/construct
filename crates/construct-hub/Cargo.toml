@@ -19,6 +19,9 @@ anyhow.workspace = true
 construct-core = { workspace = true, default-features = false }
 # The listening side only: a hub never dials.
 construct-peer = { workspace = true, default-features = false, features = ["accept"] }
+# The model proxy (#371) streams the provider's response back to the peer.
+futures.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # Only an invite's hash is stored (#361).

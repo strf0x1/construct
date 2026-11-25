@@ -1,6 +1,6 @@
 //! What the running hub's tasks share (#360, #361, #362): the registry, live
-//! links by peer id, the pairing window, and each peer's ACP session, behind
-//! one mutex.
+//! links by peer id, the pairing window, each peer's ACP session, and the
+//! model proxy with what each peer's calls used (#371), behind one mutex.
 //!
 //! The design choice: a link's task owns its socket, and everyone else
 //! reaches it only through `Conn::tx` with a `ToLink`, so the control socket
@@ -8,6 +8,7 @@
 //! sends goes the same way, so lines leave in the order they were made.
 
 use crate::files::Files;
+use crate::proxy::{LlmUsage, Upstream};
 use crate::registry::{Peer, Registry, State};
 use crate::remote::Remote;
 use crate::status::{PeerStatus, Status};
@@ -29,6 +30,10 @@ pub(crate) struct Shared {
     pub(crate) pairing_until: Option<u64>,
     /// Each pinned peer's ACP session, made on first use from its row.
     pub(crate) remotes: HashMap<String, Remote>,
+    /// Where proxied model calls go (`proxy.rs`).
+    pub(crate) upstream: Arc<Upstream>,
+    /// What each peer's proxied calls used since the hub started.
+    pub(crate) usage: HashMap<String, LlmUsage>,
 }
 
 /// One live link.
@@ -98,6 +103,7 @@ impl Shared {
                 online: conn.is_some(),
                 remote: conn.map(|c| c.remote.clone()),
                 code: waiting.map(|w| w.code.clone()),
+                llm: self.usage.get(&p.id).cloned(),
             }
         };
         let mut peers: Vec<PeerStatus> = self.registry.peers.iter().map(row).collect();
@@ -144,6 +150,11 @@ impl Shared {
             self.save();
         }
         Ok(())
+    }
+
+    /// Whether `id` may make model calls: only while its key is pinned.
+    pub(crate) fn pinned(&self, id: &str) -> bool {
+        self.registry.get(id).is_some_and(|p| p.state == State::Pinned)
     }
 
     pub(crate) fn save(&self) {

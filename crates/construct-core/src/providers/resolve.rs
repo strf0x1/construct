@@ -48,8 +48,12 @@ impl Config {
         }
     }
 
-    /// The id `selector` is sent as: the selector itself if it doesn't resolve.
+    /// The id `selector` is sent as: the selector itself if it doesn't
+    /// resolve, or through a hub gateway, where the hub resolves it (#371).
     pub fn wire_id(&self, selector: &str) -> String {
+        if self.llm_gateway.is_some() {
+            return selector.to_string();
+        }
         self.resolve(selector).map_or_else(|_| selector.to_string(), |r| r.id)
     }
 
