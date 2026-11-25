@@ -109,12 +109,12 @@ tests = ["e2e", "snapshots"]
 [[area]]
 name = "peer-wire"
 paths = ["crates/construct-peer/"]
-tests = ["hub", "join", "peer_acp"]
+tests = ["hub", "join", "peer_acp", "peer_llm"]
 
 # `construct hub` (#360) and joining it (#361): the host process, `construct
 # peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
 paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/peer.rs"]
-tests = ["hub", "join", "peer_acp"]
+tests = ["hub", "join", "peer_acp", "peer_llm"]
 

@@ -279,7 +279,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         #[cfg(feature = "hub")]
-        Some(Cmd::Hub(args)) => rt.block_on(hub::run(&paths, args)),
+        Some(Cmd::Hub(args)) => rt.block_on(hub::run(cfg, &paths, args)),
         #[cfg(feature = "peer")]
         Some(Cmd::Peer(args)) => rt.block_on(peer::run(cfg, paths, tool_sources(), args)),
     }

@@ -4,7 +4,10 @@
 //! join token comes from `--join` or `CONSTRUCT_JOIN` and rides inside the
 //! encrypted channel. The wire logic is `construct_peer::join`; the agent is
 //! `construct acp`'s server (`acp::server::serve`) on the link's `acp`
-//! channel. Stamping (#363) bakes `--url`, `--hub-key` and `--id` in.
+//! channel. Stamping (#363) bakes `--url`, `--hub-key` and `--id` in. With
+//! `llm = "hub"` (#371) the agent's model calls go to a loopback gateway
+//! (`construct_peer::gateway`) that relays them to the hub, so the peer
+//! holds no API key.
 //!
 //! The design choice: once joined, a lost link is a detach, not an exit. The
 //! agent keeps its sessions, running turns and unanswered questions while the
@@ -14,9 +17,10 @@
 
 use anyhow::{Context, Result, bail};
 use construct_core::acp::server::{self, Input};
-use construct_core::config::{Config, Paths};
+use construct_core::config::{Config, Llm, LlmGateway, Paths};
 use construct_core::tools::ToolSources;
-use construct_peer::join::{self, Event, Outcome};
+use construct_peer::gateway::{self, Relay};
+use construct_peer::join::{self, Event, Outbox, Outcome};
 use construct_peer::{Backoff, Hello, PublicKey, WireError, keyfile};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -41,7 +45,7 @@ pub(super) struct PeerArgs {
     cwd: Option<PathBuf>,
 }
 
-pub(super) async fn run(cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
+pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
     let hub = PublicKey::from_hex(&args.hub_key).context("--hub-key is not a 64-character hex key")?;
     let path = paths.home.join("peer.key");
     let key = keyfile::load_or_create(&path).context("peer key")?;
@@ -56,10 +60,18 @@ pub(super) async fn run(cfg: Config, paths: Paths, sources: ToolSources, args: P
     }
     let id = args.id;
 
+    let (llm_out, llm) = mpsc::unbounded_channel();
+    let relay = Relay::new(llm_out);
+    if cfg.llm == Llm::Hub {
+        let gw = gateway::start(relay.clone()).await.context("start the model gateway")?;
+        cfg.llm_gateway = Some(LlmGateway { base_url: gw.base_url, token: gw.token });
+        eprintln!("peer: model calls go through the hub (llm = \"hub\")");
+    }
     let (to_agent, input) = mpsc::unbounded_channel();
-    let (out, mut to_hub) = mpsc::unbounded_channel();
+    let (out, acp) = mpsc::unbounded_channel();
     let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
-    let links = follow(&args.url, &key, hub, &mut hello, &id, &to_agent, &mut to_hub);
+    let mut outbox = Outbox { acp, llm };
+    let links = follow(&args.url, &key, hub, &mut hello, &id, &to_agent, &relay, &mut outbox);
     let outcome = tokio::select! {
         o = links => Some(o),
         () = stop_signal() => None,
@@ -95,6 +107,7 @@ pub(super) async fn run(cfg: Config, paths: Paths, sources: ToolSources, args: P
 
 /// Follow the hub, redialing after a lost link once this peer has joined,
 /// until an outcome that ends the peer.
+#[expect(clippy::too_many_arguments, reason = "one call site; each is a distinct piece of the peer's state")]
 async fn follow(
     url: &str,
     key: &construct_peer::Keypair,
@@ -102,25 +115,30 @@ async fn follow(
     hello: &mut Hello,
     id: &str,
     to_agent: &mpsc::UnboundedSender<Input>,
-    to_hub: &mut mpsc::UnboundedReceiver<String>,
+    relay: &Relay,
+    outbox: &mut Outbox,
 ) -> Result<Outcome, WireError> {
     let mut backoff = Backoff::new(Duration::from_millis(250), Duration::from_secs(15));
     let mut joined = false;
     loop {
         let mut joined_now = false;
-        let got = join::run(url, key, hub, hello, to_hub, |event| match event {
+        let got = join::run(url, key, hub, hello, outbox, |event| match event {
             Event::Waiting { code } => {
                 eprintln!("peer: waiting for approval at the hub; code {code} (it must match what the hub shows)");
             }
             Event::Joined => {
                 joined_now = true;
+                relay.linked();
                 eprintln!("peer: joined the hub as {id}");
             }
             Event::Acp(line) => {
                 let _ = to_agent.send(Input::Line(line));
             }
+            Event::Llm(frame) => relay.deliver(frame),
         })
         .await;
+        // Model calls in flight on that link are cut; new ones wait for the next.
+        relay.unlinked();
         if joined_now {
             joined = true;
             backoff.reset();

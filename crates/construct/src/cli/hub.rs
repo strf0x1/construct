@@ -5,7 +5,7 @@
 //! this only maps arguments onto it and prints the answers.
 
 use anyhow::{Result, bail};
-use construct_core::config::Paths;
+use construct_core::config::{Config, Paths};
 use construct_hub::control::{self, Request, Response};
 use construct_hub::invite::{DEFAULT_TTL_SECS, InviteReply, parse_span};
 use construct_hub::registry::State;
@@ -102,14 +102,14 @@ enum HubCmd {
 
 const NO_HUB: &str = "no hub is running for this home; start it with `construct hub`";
 
-pub(super) async fn run(paths: &Paths, args: HubArgs) -> Result<()> {
+pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()> {
     let files = Files::new(&paths.home);
     let listen = args
         .listen
         .or_else(|| std::env::var("CONSTRUCT_HUB_LISTEN").ok().filter(|s| !s.is_empty()))
         .unwrap_or_else(|| DEFAULT_LISTEN.into());
     let Some(cmd) = args.cmd else {
-        return construct_hub::serve(Options { home: paths.home.clone(), listen }, |s| {
+        return construct_hub::serve(Options { home: paths.home.clone(), listen, cfg }, |s| {
             eprintln!("construct hub: peers dial {}", s.listen.as_deref().unwrap_or("?"));
             eprintln!("construct hub: key {}", s.key.as_deref().unwrap_or("?"));
             eprintln!("construct hub: control socket {}", s.socket);

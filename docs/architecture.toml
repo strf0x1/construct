@@ -162,7 +162,7 @@ must_not_use_crates = [
 may_use = ["invite", "registry"]
 
 [crates.construct-hub.modules.conn]
-may_use = ["admit", "state"]
+may_use = ["admit", "proxy", "state"]
 
 [crates.construct-hub.modules.control]
 may_use = ["invite", "status", "view"]
@@ -185,6 +185,10 @@ may_use = ["files", "invite", "lock", "registry"]
 [crates.construct-hub.modules.ops]
 may_use = ["admit", "control", "invite", "remote", "state"]
 
+# The model proxy for `llm = "hub"` peers (#371): the credential boundary.
+[crates.construct-hub.modules.proxy]
+may_use = []
+
 [crates.construct-hub.modules.registry]
 may_use = []
 
@@ -193,13 +197,13 @@ may_use = []
 may_use = ["registry", "view"]
 
 [crates.construct-hub.modules.server]
-may_use = ["conn", "control", "files", "lock", "registry", "state", "status"]
+may_use = ["conn", "control", "files", "lock", "proxy", "registry", "state", "status"]
 
 [crates.construct-hub.modules.state]
-may_use = ["files", "registry", "remote", "status"]
+may_use = ["files", "proxy", "registry", "remote", "status"]
 
 [crates.construct-hub.modules.status]
-may_use = ["files", "registry"]
+may_use = ["files", "proxy", "registry"]
 
 [crates.construct-hub.modules.view]
 may_use = []
@@ -225,8 +229,12 @@ may_use = []
 [crates.construct-peer.modules.frame]
 may_use = ["envelope", "error"]
 
+# The peer's loopback model endpoint for `llm = "hub"` (#371).
+[crates.construct-peer.modules.gateway]
+may_use = ["envelope", "keys", "llm"]
+
 [crates.construct-peer.modules.join]
-may_use = ["envelope", "error", "keepalive", "keys", "noise", "ws"]
+may_use = ["envelope", "error", "keepalive", "keys", "llm", "noise", "ws"]
 
 [crates.construct-peer.modules.keepalive]
 may_use = ["envelope", "error", "frame", "noise"]
@@ -239,6 +247,9 @@ may_use = ["crypto", "error"]
 
 [crates.construct-peer.modules.lib]
 may_use = []
+
+[crates.construct-peer.modules.llm]
+may_use = ["envelope", "error"]
 
 [crates.construct-peer.modules.noise]
 may_use = ["chunk", "crypto", "envelope", "error", "frame", "keys"]

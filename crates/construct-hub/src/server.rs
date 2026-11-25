@@ -15,10 +15,12 @@ use crate::conn;
 use crate::control::{self, Request};
 use crate::files::Files;
 use crate::lock;
+use crate::proxy::Upstream;
 use crate::registry::Registry;
 use crate::state::{Hub, Shared, lock as hub_lock, stopped};
 use crate::status::Status;
 use anyhow::{Context, Result};
+use construct_core::config::Config;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -40,6 +42,9 @@ pub struct Options {
     pub home: PathBuf,
     /// `host:port` to accept peer WebSocket connections on (`:0` picks a port).
     pub listen: String,
+    /// The host's config: where `llm = "hub"` peers' model calls go, and
+    /// with which key (#371).
+    pub cfg: Config,
 }
 
 /// Run a hub until it is stopped. `ready` is called once everything is bound,
@@ -53,6 +58,7 @@ pub async fn serve(opts: Options, ready: impl FnOnce(&Status)) -> Result<()> {
     let tcp = TcpListener::bind(&opts.listen).await.with_context(|| format!("listen on {}", opts.listen))?;
     let listen = format!("ws://{}", tcp.local_addr()?);
     let ctl = control::bind(&socket)?;
+    let upstream = Arc::new(Upstream::new(opts.cfg)?);
 
     let hub: Hub = Arc::new(Mutex::new(Shared {
         files,
@@ -63,6 +69,8 @@ pub async fn serve(opts: Options, ready: impl FnOnce(&Status)) -> Result<()> {
         next_conn: 1,
         pairing_until: None,
         remotes: HashMap::new(),
+        upstream,
+        usage: HashMap::new(),
     }));
     let (stop_tx, stop_rx) = watch::channel(false);
 

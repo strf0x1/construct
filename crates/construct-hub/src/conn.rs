@@ -8,15 +8,18 @@
 //! decides over the control socket), or `Close` with the reason. Only a link
 //! that got `JoinAck { accepted: true }` carries ACP (#362): the hub attaches
 //! to the peer's agent then, and detaches when the link ends, which cancels
-//! nothing on the peer. The design choice: a decision or an ACP line reaches
+//! nothing on the peer. The same link carries the peer's model calls on the
+//! `llm` channel (#371, `proxy.rs`), served only while the peer is pinned
+//! and aborted when the link ends. The design choice: a decision or an ACP line reaches
 //! the link through its own channel, so the control socket never touches a
 //! socket it does not own.
 
 use crate::admit::{Admission, Offer};
+use crate::proxy::Calls;
 use crate::state::{Conn, Hub, ToLink, Waiting, lock, now, stopped};
 use construct_peer::{
     Channel, Control, DEFAULT_HANDSHAKE_TIMEOUT, Envelope, FrameStream, KeepAlive, KeepAliveState, Keypair,
-    PINNED_MAX_ENVELOPE, PeerLink, accept_ws, handshake_responder, recv_with_keepalive,
+    PINNED_MAX_ENVELOPE, PeerLink, accept_ws, handshake_responder, llm, recv_with_keepalive,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -119,6 +122,8 @@ async fn follow<S: FrameStream>(
     mut stop: watch::Receiver<bool>,
 ) {
     let mut ka = KeepAliveState::new();
+    // Dropped when this returns: every model call still running is aborted.
+    let mut calls = Calls::new(lock(hub).upstream.clone());
     loop {
         tokio::select! {
             got = recv_with_keepalive(link, KeepAlive::default(), &mut ka) => match got {
@@ -132,10 +137,30 @@ async fn follow<S: FrameStream>(
                     // Refused (no-op) for a join still waiting for a human.
                     let _ = lock(hub).drive(id, |r| Ok(r.receive(&line)));
                 }
-                // The LLM channel arrives with #371.
-                Ok(_) => {}
+                Ok(env) => match llm::Frame::decode(&env) {
+                    Ok(llm::Frame { msg: llm::Msg::Request { id: call }, bytes }) => {
+                        // Checked on every call: a revoked or waiting peer gets nothing.
+                        let pinned = {
+                            let s = lock(hub);
+                            s.pinned(id) && s.online.get(id).is_some_and(|c| c.waiting.is_none())
+                        };
+                        calls.request(call, bytes, pinned);
+                    }
+                    Ok(llm::Frame { msg: llm::Msg::Cancel { id: call }, .. }) => calls.cancel(call),
+                    // Hub-to-peer frames from a peer, or garbage: ignored.
+                    Ok(_) | Err(_) => {}
+                },
                 Err(_) => return,
             },
+            out = calls.next() => {
+                if let Some(usage) = out.usage {
+                    lock(hub).usage.entry(id.to_string()).or_default().add(usage.as_ref());
+                }
+                let Ok(env) = out.frame.encode() else { continue };
+                if link.send(&env).await.is_err() {
+                    return;
+                }
+            }
             order = rx.recv() => match order {
                 Some(ToLink::Acp(line)) => {
                     if link.send(&Envelope::new(Channel::Acp, line.into_bytes())).await.is_err() {

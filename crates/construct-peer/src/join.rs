@@ -13,6 +13,7 @@ use crate::envelope::{Channel, Control, Envelope, Hello, PINNED_MAX_ENVELOPE};
 use crate::error::WireError;
 use crate::keepalive::{KeepAlive, KeepAliveState, recv_with_keepalive};
 use crate::keys::{Keypair, PublicKey};
+use crate::llm::Frame;
 use crate::noise::{DEFAULT_HANDSHAKE_TIMEOUT, handshake_initiator};
 use crate::ws::connect_ws;
 use tokio::sync::mpsc;
@@ -26,6 +27,16 @@ pub enum Event {
     Joined,
     /// One ACP line from the hub, for the local agent (only once joined).
     Acp(String),
+    /// A model response frame from the hub, for the gateway (only once joined).
+    Llm(Frame),
+}
+
+/// What the peer sends the hub once joined: its agent's ACP lines and the
+/// gateway's model calls. Anything queued while no link was joined was for
+/// an earlier link and is dropped when the next one joins.
+pub struct Outbox {
+    pub acp: mpsc::UnboundedReceiver<String>,
+    pub llm: mpsc::UnboundedReceiver<Frame>,
 }
 
 /// How the link ended.
@@ -45,16 +56,16 @@ pub enum Outcome {
 }
 
 /// Dial `url`, authenticate as `key` to the hub holding `hub`, send `hello`,
-/// and follow the hub until the link ends. Once joined, each line on `acp`
-/// goes to the hub on the `acp` channel; lines queued before then were for an
-/// earlier link and are dropped. A handshake that fails (wrong hub key, a
+/// and follow the hub until the link ends. Once joined, each line on
+/// `out.acp` goes to the hub on the `acp` channel and each frame on `out.llm`
+/// on the `llm` channel; what was queued before then is dropped. A handshake that fails (wrong hub key, a
 /// revoked key the hub answers with silence) is an `Err`.
 pub async fn run(
     url: &str,
     key: &Keypair,
     hub: PublicKey,
     hello: &Hello,
-    acp: &mut mpsc::UnboundedReceiver<String>,
+    out: &mut Outbox,
     mut on: impl FnMut(Event),
 ) -> Result<Outcome, WireError> {
     let dial = async {
@@ -69,8 +80,14 @@ pub async fn run(
     loop {
         let got = tokio::select! {
             got = recv_with_keepalive(&mut link, KeepAlive::default(), &mut ka) => got,
-            Some(line) = acp.recv(), if joined => {
+            Some(line) = out.acp.recv(), if joined => {
                 if let Err(e) = link.send(&Envelope::new(Channel::Acp, line.into_bytes())).await {
+                    return Ok(Outcome::Lost(e.to_string()));
+                }
+                continue;
+            }
+            Some(frame) = out.llm.recv(), if joined => {
+                if let Err(e) = link.send(&frame.encode()?).await {
                     return Ok(Outcome::Lost(e.to_string()));
                 }
                 continue;
@@ -87,14 +104,19 @@ pub async fn run(
                 on(Event::Acp(String::from_utf8_lossy(&env.bytes).into_owned()));
                 continue;
             }
-            // Nothing but control before the hub accepts; LLM arrives with #371.
+            Channel::Llm if joined => {
+                on(Event::Llm(Frame::decode(&env)?));
+                continue;
+            }
+            // Nothing but control before the hub accepts.
             Channel::Acp | Channel::Llm => continue,
         }
         match env.decode_control()? {
             Control::Pending => on(Event::Waiting { code: link.handshake_hash().sas_code() }),
             Control::JoinAck { accepted: true, .. } => {
                 joined = true;
-                while acp.try_recv().is_ok() {}
+                while out.acp.try_recv().is_ok() {}
+                while out.llm.try_recv().is_ok() {}
                 on(Event::Joined);
             }
             Control::JoinAck { accepted: false, reason } => {

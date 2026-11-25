@@ -10,7 +10,8 @@
 //! `construct hub status` can read the file without coordination when no hub
 //! runs. Linked only behind the binary's `hub` feature (in `full`, not `lean`
 //! or bare, ADR 0064, 0069). Joining, approval and revocation are ADR 0070;
-//! driving a peer's agent over ACP, across reconnects, is ADR 0071.
+//! driving a peer's agent over ACP, across reconnects, is ADR 0071; proxying
+//! a peer's model calls with the host's keys (`llm = "hub"`) is ADR 0072.
 
 pub mod admit;
 mod conn;
@@ -20,6 +21,7 @@ pub mod invite;
 pub mod lock;
 pub mod offline;
 mod ops;
+pub mod proxy;
 pub mod registry;
 mod remote;
 pub mod server;

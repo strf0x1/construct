@@ -17,7 +17,9 @@
 //!
 //! On top, the join flow's two shared pieces (#361): `keyfile` (a `0600`
 //! static key on disk, for the hub and the peer alike) and, with `dial`,
-//! `join` (the peer following the hub's verdict).
+//! `join` (the peer following the hub's verdict). For hub-proxied model
+//! calls (#371): `llm` (the channel's frames, both sides) and, with `dial`,
+//! `gateway` (the peer's loopback endpoint the engine is pointed at).
 
 pub mod chunk;
 pub mod crypto;
@@ -25,10 +27,13 @@ pub mod envelope;
 pub mod error;
 pub mod frame;
 #[cfg(feature = "dial")]
+pub mod gateway;
+#[cfg(feature = "dial")]
 pub mod join;
 pub mod keepalive;
 pub mod keyfile;
 pub mod keys;
+pub mod llm;
 pub mod noise;
 pub mod ws;
 

@@ -5,13 +5,14 @@
 //! every peer offline), so the command always works, with or without a TUI.
 
 use crate::files::Files;
+use crate::proxy::LlmUsage;
 use crate::registry::{Peer, Registry};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
 
 /// The hub and its peers.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Status {
     pub running: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -30,7 +31,7 @@ pub struct Status {
 }
 
 /// One registry row plus its live connection.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PeerStatus {
     #[serde(flatten)]
     pub peer: Peer,
@@ -41,6 +42,9 @@ pub struct PeerStatus {
     /// The SAS code of a join waiting for approval; the peer shows the same.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
+    /// What the peer's hub-proxied model calls used since the hub started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub llm: Option<LlmUsage>,
 }
 
 impl Status {
@@ -58,7 +62,7 @@ impl Status {
             peers: registry
                 .peers
                 .into_iter()
-                .map(|peer| PeerStatus { peer, online: false, remote: None, code: None })
+                .map(|peer| PeerStatus { peer, online: false, remote: None, code: None, llm: None })
                 .collect(),
         })
     }
@@ -91,7 +95,14 @@ impl Status {
             let key =
                 p.peer.key.as_deref().and_then(|k| k.get(..16)).map(|k| format!("  key {k}…")).unwrap_or_default();
             let code = p.code.as_deref().map(|c| format!("  code {c}")).unwrap_or_default();
-            let _ = writeln!(out, "  {}  {}  {link}  {seen}{key}{code}", p.peer.id, p.peer.state.label());
+            let llm = p
+                .llm
+                .as_ref()
+                .map(|u| {
+                    format!("  llm {} calls, {} in / {} out tokens", u.requests, u.prompt_tokens, u.completion_tokens)
+                })
+                .unwrap_or_default();
+            let _ = writeln!(out, "  {}  {}  {link}  {seen}{key}{code}{llm}", p.peer.id, p.peer.state.label());
         }
         out
     }
@@ -127,7 +138,7 @@ mod tests {
             key: Some("cd".repeat(32)),
             socket: "/h/hub.sock".into(),
             pairing_until: Some(400),
-            peers: vec![PeerStatus { peer, online: true, remote: None, code: Some("K7M-4QP".into()) }],
+            peers: vec![PeerStatus { peer, online: true, remote: None, code: Some("K7M-4QP".into()), llm: None }],
         };
         let text = s.render(220);
         assert!(text.contains("hub: running (pid 42), peers dial ws://127.0.0.1:9443"), "{text}");

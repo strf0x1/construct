@@ -219,6 +219,19 @@ impl Env {
         }
     }
 
+    /// Like `journal`, for a construct whose home is `home` (a peer with its
+    /// own home, say) working in this env's work dir.
+    pub fn journal_of(&self, home: &Path) -> Vec<Row> {
+        let path =
+            construct_core::journal::path(&construct_core::config::Paths { home: home.to_path_buf() }, &self.work);
+        match path.exists().then(|| read_rows(&path)) {
+            None => vec![],
+            Some(Ok(rows)) => rows,
+            Some(Err(e)) if journal_not_ready(&e) => vec![],
+            Some(Err(e)) => panic!("reading {}: {e}", path.display()),
+        }
+    }
+
     /// Session ids in the work dir's journal, in the order they started.
     pub fn sessions(&self) -> Vec<String> {
         self.journal().into_iter().filter(|r| r.ty == "head").map(|r| r.session).collect()

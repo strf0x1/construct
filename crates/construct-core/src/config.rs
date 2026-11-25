@@ -12,10 +12,12 @@ pub mod context;
 pub mod deck;
 mod jobs;
 pub mod learn;
+mod llm;
 mod mcp;
 mod sandbox;
 mod tools;
 pub use jobs::{JobsConfig, ShellConfig};
+pub use llm::{Llm, LlmGateway};
 pub use sandbox::SandboxConfig;
 pub use tools::{SEARCH_TOOL, ToolsConfig, WebConfig};
 pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
@@ -28,6 +30,12 @@ pub struct Config {
     pub model: String,
     /// Name of the secret holding the endpoint key (resolved through secretspec).
     pub api_key_secret: String,
+    /// Where a peer's model calls go: `local` or `hub` (`config/llm.rs`).
+    #[serde(default, skip_serializing_if = "Llm::is_local")]
+    pub llm: Llm,
+    /// The hub gateway `construct peer` runs for `llm = "hub"`; never in a file.
+    #[serde(skip)]
+    pub llm_gateway: Option<LlmGateway>,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
     /// Tool-call rounds per user turn before the agent must stop.
@@ -147,6 +155,8 @@ impl Default for Config {
             tools: ToolsConfig::default(),
             deck: None,
             github_gateway: None,
+            llm: Llm::Local,
+            llm_gateway: None,
             jobs: Default::default(),
             mcp: BTreeMap::new(),
             headers: BTreeMap::new(),
