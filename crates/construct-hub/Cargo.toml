@@ -21,6 +21,8 @@ construct-core = { workspace = true, default-features = false }
 construct-peer = { workspace = true, default-features = false, features = ["accept"] }
 serde.workspace = true
 serde_json.workspace = true
+# Only an invite's hash is stored (#361).
+sha2.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
 
 [dev-dependencies]

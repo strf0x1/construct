@@ -60,6 +60,15 @@ impl fmt::Display for PublicKey {
     }
 }
 
+/// A random single-use secret of `bytes` bytes from the OS CSPRNG (ring), as
+/// lowercase hex: a join token (#361).
+pub fn random_token(bytes: usize) -> Result<String, WireError> {
+    use ring::rand::SecureRandom as _;
+    let mut buf = vec![0u8; bytes];
+    ring::rand::SystemRandom::new().fill(&mut buf).map_err(|_| WireError::Crypto("OS random source failed".into()))?;
+    Ok(buf.iter().map(|b| format!("{b:02x}")).collect())
+}
+
 /// An X25519 static keypair (32-byte private + 32-byte public).
 ///
 /// The private key is redacted from `Debug` and zeroed on `Drop` so accidental
@@ -220,6 +229,14 @@ mod tests {
         let kp = Keypair::generate().unwrap();
         let again = Keypair::from_private(*kp.private_bytes());
         assert_eq!(again.public(), kp.public());
+    }
+
+    #[test]
+    fn random_tokens_are_hex_and_differ() {
+        let (a, b) = (random_token(16).unwrap(), random_token(16).unwrap());
+        assert_eq!(a.len(), 32);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
     }
 
     #[test]

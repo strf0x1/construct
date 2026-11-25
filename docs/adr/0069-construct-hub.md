@@ -1,6 +1,8 @@
 # 0069 — construct hub: one host process per home, a registry it alone writes, a 0600 control socket
 
 Status: accepted. 2026-11-25. Part of #273, #360. Builds on ADR 0021, 0064, 0068.
+Admission rules and the `pending` state amended by ADR 0070 (#361): unknown
+ids now need an `expected` slot or a pairing window, and `pending` is live-only.
 
 ## Context
 

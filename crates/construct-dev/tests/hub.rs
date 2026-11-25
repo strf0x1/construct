@@ -10,7 +10,7 @@ use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-fn command(env: &Env, args: &[&str]) -> Command {
+pub(crate) fn command(env: &Env, args: &[&str]) -> Command {
     let mut c = Command::new(construct());
     c.args(args).current_dir(&env.work);
     for (k, v) in env.env() {
@@ -23,23 +23,23 @@ fn command(env: &Env, args: &[&str]) -> Command {
     c
 }
 
-fn spawn_hub(env: &Env) -> Child {
+pub(crate) fn spawn_hub(env: &Env) -> Child {
     let log = std::fs::File::create(env.dir.join("hub.stderr")).unwrap();
     command(env, &["hub", "--listen", "127.0.0.1:0"]).stdout(Stdio::null()).stderr(log).spawn().unwrap()
 }
 
-fn status(env: &Env) -> Value {
+pub(crate) fn status(env: &Env) -> Value {
     let out = command(env, &["hub", "status", "--json"]).output().unwrap();
     assert!(out.status.success(), "hub status failed: {}", text(&out));
     serde_json::from_slice(&out.stdout).unwrap()
 }
 
-fn peer<'a>(s: &'a Value, id: &str) -> Option<&'a Value> {
+pub(crate) fn peer<'a>(s: &'a Value, id: &str) -> Option<&'a Value> {
     s["peers"].as_array().unwrap().iter().find(|p| p["id"] == id)
 }
 
 /// Poll `hub status` until `ok` holds, or fail with the last status and log.
-fn wait_status(env: &Env, what: &str, ok: impl Fn(&Value) -> bool) -> Value {
+pub(crate) fn wait_status(env: &Env, what: &str, ok: impl Fn(&Value) -> bool) -> Value {
     let deadline = Instant::now() + Duration::from_millis(budget(10_000));
     loop {
         let s = status(env);
@@ -54,7 +54,7 @@ fn wait_status(env: &Env, what: &str, ok: impl Fn(&Value) -> bool) -> Value {
     }
 }
 
-async fn dial(url: &str, hub: PublicKey, key: &Keypair, id: &str) -> PeerLink<impl FrameStream + use<>> {
+pub(crate) async fn dial(url: &str, hub: PublicKey, key: &Keypair, id: &str) -> PeerLink<impl FrameStream + use<>> {
     let ws = connect_ws(url).await.unwrap();
     construct_peer::handshake_initiator(ws, key, hub, &Hello::new(id), PINNED_MAX_ENVELOPE).await.unwrap()
 }
@@ -101,8 +101,10 @@ fn hub_admits_peers_reports_them_and_runs_once_per_home() {
     let hub_key = PublicKey::from_hex(&key_hex).unwrap();
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
 
-    // An unknown peer completes Noise IK + Hello and waits as pending; the
-    // pinned one is online at once.
+    // Inside a pairing window an unknown peer completes Noise IK + Hello and
+    // waits as pending, with a code; the pinned one is online at once.
+    let pair = command(&env, &["hub", "pair", "--for", "1m"]).output().unwrap();
+    assert!(pair.status.success(), "{}", text(&pair));
     let old_pc = Keypair::generate().unwrap();
     let _old = rt.block_on(dial(&url, hub_key, &old_pc, "old-pc"));
     let _pi = rt.block_on(dial(&url, hub_key, &desk_pi, "desk-pi"));
@@ -113,6 +115,7 @@ fn hub_admits_peers_reports_them_and_runs_once_per_home() {
     let old = peer(&s, "old-pc").unwrap();
     assert_eq!(old["state"], "pending");
     assert_eq!(old["key"], old_pc.public().to_hex().as_str());
+    assert_eq!(old["code"].as_str().map(str::len), Some(7), "{old}");
     assert_eq!(peer(&s, "desk-pi").unwrap()["state"], "pinned");
 
     // Someone else claiming desk-pi's id with their own key is closed, not trusted.
@@ -144,15 +147,17 @@ fn hub_admits_peers_reports_them_and_runs_once_per_home() {
     assert!(code.success(), "hub exit {code:?}");
     assert!(!sock.exists(), "socket left behind");
 
-    // With no hub, status still answers from the files.
+    // With no hub, status still answers from the files. A join that waited
+    // for a human is gone with its link: pending is never written.
     let s = status(&env);
     assert_eq!(s["running"], false);
-    let old = peer(&s, "old-pc").unwrap();
-    assert_eq!((old["state"].as_str(), old["online"].as_bool()), (Some("pending"), Some(false)));
-    assert!(old["last_seen"].as_u64().is_some());
+    assert!(peer(&s, "old-pc").is_none(), "{s:#}");
+    let pi = peer(&s, "desk-pi").unwrap();
+    assert_eq!((pi["state"].as_str(), pi["online"].as_bool()), (Some("pinned"), Some(false)));
+    assert!(pi["last_seen"].as_u64().is_some());
     let lines = command(&env, &["hub", "status"]).output().unwrap();
     let lines = String::from_utf8_lossy(&lines.stdout).to_string();
-    assert!(lines.contains("hub: not running") && lines.contains("old-pc  pending  offline"), "{lines}");
+    assert!(lines.contains("hub: not running") && lines.contains("desk-pi  pinned  offline"), "{lines}");
 
     // And a new hub may start on the same home with the same key.
     let mut again = spawn_hub(&env);
@@ -175,4 +180,19 @@ fn hub_status_and_key_work_with_no_hub() {
     assert_eq!(status(&env)["key"], hex.as_str());
     let stop = command(&env, &["hub", "stop"]).output().unwrap();
     assert!(!stop.status.success() && text(&stop).contains("no hub is running"), "{}", text(&stop));
+
+    // Invites and revocations work before a hub ever ran (the command takes
+    // the hub's lock for a moment); approving needs the live link.
+    let inv = command(&env, &["hub", "invite", "old-pc"]).output().unwrap();
+    let out = String::from_utf8_lossy(&inv.stdout).to_string();
+    assert!(
+        inv.status.success() && out.contains("CONSTRUCT_JOIN=") && out.contains("--url ws://127.0.0.1:9443"),
+        "{out}"
+    );
+    assert_eq!(peer(&status(&env), "old-pc").unwrap()["state"], "expected");
+    let rev = command(&env, &["hub", "revoke", "old-pc"]).output().unwrap();
+    assert!(rev.status.success(), "{}", text(&rev));
+    assert_eq!(peer(&status(&env), "old-pc").unwrap()["state"], "revoked");
+    let approve = command(&env, &["hub", "approve", "old-pc"]).output().unwrap();
+    assert!(!approve.status.success() && text(&approve).contains("no hub is running"), "{}", text(&approve));
 }

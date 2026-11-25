@@ -40,6 +40,8 @@ mod e2e;
 mod hub;
 #[path = "jobs.rs"]
 mod jobs;
+#[path = "join.rs"]
+mod join;
 #[path = "mcp.rs"]
 mod mcp;
 #[path = "models.rs"]

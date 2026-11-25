@@ -105,15 +105,16 @@ paths = ["crates/construct-tools-history/"]
 tests = ["e2e", "snapshots"]
 
 # Peer wire protocol crate: its own contract tests run in construct-peer's
-# gate; the hub e2e dials the real hub with it.
+# gate; the hub and join e2e dial the real hub with it.
 [[area]]
 name = "peer-wire"
 paths = ["crates/construct-peer/"]
-tests = ["hub"]
+tests = ["hub", "join"]
 
-# `construct hub` (#360): the host process, its CLI and its control socket.
+# `construct hub` (#360) and joining it (#361): the host process, `construct
+# peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
-paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs"]
-tests = ["hub"]
+paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/peer.rs"]
+tests = ["hub", "join"]
 
