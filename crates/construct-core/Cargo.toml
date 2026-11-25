@@ -48,6 +48,8 @@ proptest = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["gzip"] }
 rusqlite.workspace = true
 rustls.workspace = true
+rustls-pki-types.workspace = true
+rustls-platform-verifier.workspace = true
 secretspec = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true

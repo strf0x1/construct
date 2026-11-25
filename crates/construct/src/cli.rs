@@ -1,9 +1,12 @@
 //! The command line: clap types and the subcommand bodies. `main.rs` only
 //! handles the sandbox helper and calls [`run`].
 
+mod config_view;
 mod evals;
 mod headless;
 mod learning;
+#[cfg(feature = "peer")]
+mod peer;
 mod providers;
 mod resume;
 mod sources;
@@ -11,7 +14,7 @@ mod sources;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
-use construct_core::{acp, home, journal, llm, manifest, memory, sandbox, secrets, skills, tools};
+use construct_core::{acp, home, journal, llm, manifest, memory, secrets, skills, tools};
 use resume::resolve_resume;
 use sources::tool_sources;
 use std::io::{IsTerminal, Read, Write};
@@ -102,6 +105,10 @@ enum Cmd {
     /// Serve construct as an Agent Client Protocol agent on stdin and stdout
     /// (for editors and other harnesses).
     Acp,
+    /// Dial a hub endpoint over the peer wire protocol (hidden until #361/#362).
+    #[cfg(feature = "peer")]
+    #[command(hide = true)]
+    PeerDial(peer::DialArgs),
 }
 
 #[derive(Subcommand)]
@@ -257,44 +264,14 @@ pub fn run() -> Result<()> {
         }
         Some(Cmd::Route) => rt.block_on(evals::route(cfg, paths)),
         Some(Cmd::Gate) => rt.block_on(evals::gate(cfg)),
-        Some(Cmd::Config) => {
-            println!("# {}\n{}", paths.config().display(), toml::to_string_pretty(&cfg)?);
-            for (key, source) in &cfg.provenance {
-                println!("# {key} = {source}");
-            }
-            print!("{}", mcp_policies(&cfg, &paths, &std::env::current_dir()?));
-            Ok(())
-        }
+        Some(Cmd::Config) => config_view::show(&cfg, &paths, &std::env::current_dir()?),
         Some(Cmd::Manifest) => {
             let catalog = tools::Catalog::build_extended(&cfg.tools, None, &tools::Deck::default(), &tool_sources())?;
             let m = manifest::Manifest::new(&cfg, catalog.names()).with_binary_hash();
             println!("{}", serde_json::to_string_pretty(&m)?);
             Ok(())
         }
+        #[cfg(feature = "peer")]
+        Some(Cmd::PeerDial(args)) => rt.block_on(peer::dial(args)),
     }
-}
-
-/// Each MCP server's effective sandbox, as comments under the config.
-fn mcp_policies(cfg: &Config, paths: &Paths, cwd: &std::path::Path) -> String {
-    let mut out = String::new();
-    for (name, server) in &cfg.mcp {
-        let p = sandbox::Policy::for_mcp(&cfg.sandbox, server, cwd, paths);
-        // Building a policy makes its private temp dir; nothing runs here.
-        let _ = std::fs::remove_dir(&p.tmp);
-        let list = |v: &[std::path::PathBuf]| v.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ");
-        let secrets: Vec<String> = server
-            .secrets
-            .iter()
-            .map(|s| format!("{s} ({})", if secrets::optional(s).is_some() { "set" } else { "not set" }))
-            .collect();
-        out.push_str(&format!(
-            "\n# mcp.{name} runs sandboxed{}\n#   read: {}\n#   write: {}\n#   plus system paths and toolchains, read-only\n#   network: {}\n#   secrets: {}\n",
-            if p.off { " (mode = \"off\": no filesystem boundary)" } else { "" },
-            list(&p.read),
-            list(&p.write),
-            if p.no_network { "denied" } else { "allowed" },
-            if secrets.is_empty() { "none".into() } else { secrets.join(", ") },
-        ));
-    }
-    out
 }

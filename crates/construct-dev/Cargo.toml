@@ -49,5 +49,5 @@ insta = { version = "1.49.0", features = ["json"] }
 # The trust tests run a local TLS server and generate their own CA/leaf;
 # the shipped crates do not link any of this.
 rustls.workspace = true
-rcgen = "0.13"
-time = { version = "0.3", default-features = false, features = ["std"] }
+rcgen.workspace = true
+time.workspace = true
