@@ -11,12 +11,22 @@ the draft, and the installer only ever sees published releases.
 | Platforms | Linux x86-64 glibc (`x86_64-unknown-linux-gnu`), built on Ubuntu 22.04, so it needs glibc 2.35 or newer; **static musl** for Linux x86-64 and arm64 (`x86_64/aarch64-unknown-linux-musl`, cross-built with zig), which run on any Linux kernel with no libc at all — rescue media, busybox initramfs, distros below the glibc floor; macOS Apple silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`), both built on a `macos-15` runner |
 | Compiler | Pinned by `RUSTUP_TOOLCHAIN` in the workflow, with the committed `Cargo.lock` (`--locked`) |
 | Archive | `construct-<target>.tar.gz`: the binary, `LICENSE`, `README.md`, `VERSION`, `THIRD-PARTY-LICENSES.txt` |
-| Checksums | `<archive>.sha256` per archive, and `SHA256SUMS` for all of them |
+| Bare peer | `construct-<target>-bare` for the two static musl targets: a raw binary (no archive) built `--no-default-features --features peer`, the source `construct build --target <triple>` fetches and stamps (#363, ADR 0073) |
+| Checksums | `<archive>.sha256` per archive and `construct-<target>-bare.sha256` per bare binary, and `SHA256SUMS` for all of them |
 
 Archive names carry no version, so
 `https://github.com/strf0x1/construct/releases/latest/download/construct-x86_64-unknown-linux-gnu.tar.gz`
 always points at the newest published build, and
 `.../releases/download/vX.Y.Z/...` at a specific one.
+
+`construct build` fetches the bare binary of its own version
+(`.../releases/download/v<version>/construct-<target>-bare`, overridable with
+`CONSTRUCT_RELEASE_URL`), checks it against the published `.sha256`, and caches
+it under `$CONSTRUCT_HOME/cache/release/<version>/`. A version with no
+published bare binary cannot be stamped for another target; `--from <path>`
+stamps any local binary instead. On macOS the appended stamp breaks
+`codesign --strict` (the binary still runs); no notarized stamped build is
+offered (ADR 0073).
 
 Windows is not offered: the tool sandbox is Landlock on Linux and Seatbelt on
 macOS (ADR 0028), and there is nothing for Windows. Linux ARM64 ships as a

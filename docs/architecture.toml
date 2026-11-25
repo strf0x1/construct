@@ -161,6 +161,10 @@ must_not_use_crates = [
 [crates.construct-hub.modules.admit]
 may_use = ["invite", "registry"]
 
+# `construct build` (#363): stamp a peer binary, fetch a release (ADR 0073).
+[crates.construct-hub.modules.build]
+may_use = ["registry"]
+
 [crates.construct-hub.modules.conn]
 may_use = ["admit", "proxy", "state"]
 

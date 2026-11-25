@@ -4,7 +4,8 @@
 //! join token comes from `--join` or `CONSTRUCT_JOIN` and rides inside the
 //! encrypted channel. The wire logic is `construct_peer::join`; the agent is
 //! `construct acp`'s server (`acp::server::serve`) on the link's `acp`
-//! channel. Stamping (#363) bakes `--url`, `--hub-key` and `--id` in. With
+//! channel. A stamped binary (#363) supplies `--url`, `--hub-key`, `--id`
+//! and `--cwd` when they are not given, and runs this with no arguments. With
 //! `llm = "hub"` (#371) the agent's model calls go to a loopback gateway
 //! (`construct_peer::gateway`) that relays them to the hub, so the peer
 //! holds no API key.
@@ -17,7 +18,7 @@
 
 use anyhow::{Context, Result, bail};
 use construct_core::acp::server::{self, Input};
-use construct_core::config::{Config, Llm, LlmGateway, Paths};
+use construct_core::config::{Config, Llm, LlmGateway, Paths, stamp};
 use construct_core::tools::ToolSources;
 use construct_peer::gateway::{self, Relay};
 use construct_peer::join::{self, Event, Outbox, Outcome};
@@ -26,39 +27,49 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Default)]
 pub(super) struct PeerArgs {
-    /// The hub's URL (`ws://host:port` or `wss://…`).
+    /// The hub's URL (`ws://host:port` or `wss://…`; default: the stamped one).
     #[arg(long)]
-    url: String,
-    /// The hub's public key (`construct hub key` prints it).
+    url: Option<String>,
+    /// The hub's public key (`construct hub key` prints it; default: the
+    /// stamped one).
     #[arg(long)]
-    hub_key: String,
-    /// This peer's id at the hub.
+    hub_key: Option<String>,
+    /// This peer's id at the hub (default: the stamped one).
     #[arg(long)]
-    id: String,
+    id: Option<String>,
     /// A join token from `construct hub invite` (or `CONSTRUCT_JOIN`).
     #[arg(long)]
     join: Option<String>,
-    /// The directory the agent works in (default: where this was started).
+    /// The directory the agent works in (default: the stamped one, else
+    /// where this was started).
     #[arg(long)]
     cwd: Option<PathBuf>,
 }
 
+/// A flag, else the stamped value, else an error naming the flag.
+fn flag_or_stamp(flag: Option<String>, stamped: Option<&String>, name: &str) -> Result<String> {
+    flag.or_else(|| stamped.cloned()).with_context(|| format!("--{name} is required (this binary is not stamped)"))
+}
+
 pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
-    let hub = PublicKey::from_hex(&args.hub_key).context("--hub-key is not a 64-character hex key")?;
+    let stamped = stamp::current()?.map(|s| &s.peer);
+    let url = flag_or_stamp(args.url, stamped.map(|p| &p.url), "url")?;
+    let hub_key = flag_or_stamp(args.hub_key, stamped.map(|p| &p.hub_key), "hub-key")?;
+    let id = flag_or_stamp(args.id, stamped.map(|p| &p.id), "id")?;
+    let hub = PublicKey::from_hex(&hub_key).context("--hub-key is not a 64-character hex key")?;
     let path = paths.home.join("peer.key");
     let key = keyfile::load_or_create(&path).context("peer key")?;
-    let cwd = match args.cwd {
+    let cwd = match args.cwd.or_else(|| stamped.and_then(|p| p.cwd.as_ref()).map(PathBuf::from)) {
         Some(c) => c.canonicalize().with_context(|| format!("--cwd {}", c.display()))?,
         None => std::env::current_dir()?,
     };
     let token = args.join.or_else(|| std::env::var("CONSTRUCT_JOIN").ok()).filter(|t| !t.is_empty());
-    let mut hello = Hello::new(&args.id).with_cwd(cwd.display().to_string());
+    let mut hello = Hello::new(&id).with_cwd(cwd.display().to_string());
     if let Some(t) = token {
         hello = hello.with_join_token(t);
     }
-    let id = args.id;
 
     let (llm_out, llm) = mpsc::unbounded_channel();
     let relay = Relay::new(llm_out);
@@ -71,7 +82,7 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     let (out, acp) = mpsc::unbounded_channel();
     let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
     let mut outbox = Outbox { acp, llm };
-    let links = follow(&args.url, &key, hub, &mut hello, &id, &to_agent, &relay, &mut outbox);
+    let links = follow(&url, &key, hub, &mut hello, &id, &to_agent, &relay, &mut outbox);
     let outcome = tokio::select! {
         o = links => Some(o),
         () = stop_signal() => None,
@@ -84,7 +95,7 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
             eprintln!("peer: stopping");
             return Ok(());
         }
-        Some(o) => o.with_context(|| format!("joining the hub at {}", args.url))?,
+        Some(o) => o.with_context(|| format!("joining the hub at {url}"))?,
     };
     match outcome {
         Outcome::Closed(reason) => {

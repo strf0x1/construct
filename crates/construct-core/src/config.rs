@@ -15,6 +15,7 @@ pub mod learn;
 mod llm;
 mod mcp;
 mod sandbox;
+pub mod stamp;
 mod tools;
 pub use jobs::{JobsConfig, ShellConfig};
 pub use llm::{Llm, LlmGateway};
@@ -81,7 +82,7 @@ pub struct Config {
     /// Never written back, and `models` wins an id in both.
     #[serde(skip)]
     pub discovered: BTreeMap<String, crate::models::ModelEntry>,
-    /// Which layer set each key (baked/file/env), for `construct config`.
+    /// Which layer set each key (baked/stamped/file/env), for `construct config`.
     #[serde(skip)]
     pub provenance: baked::Sources,
 }
@@ -191,8 +192,10 @@ impl Default for RouterConfig {
 impl Config {
     pub fn load(paths: &Paths) -> Result<Self> {
         let path = paths.config();
-        // The baked layer sits under the file; env overrides sit over both.
-        let mut cfg = baked::load(&path)?;
+        // The baked and stamped layers sit under the file; env overrides sit
+        // over all three. A broken stamp is an error here, before anything runs.
+        let stamped = stamp::current()?;
+        let mut cfg = baked::load(&path, stamped.map(|s| &s.config))?;
         baked::apply_env(&mut cfg);
         cfg.context.apply_env();
         cfg.apply_deck_env();

@@ -116,5 +116,12 @@ tests = ["hub", "join", "peer_acp", "peer_llm"]
 [[area]]
 name = "hub"
 paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/peer.rs"]
-tests = ["hub", "join", "peer_acp", "peer_llm"]
+tests = ["hub", "join", "peer_acp", "peer_llm", "stamp"]
+
+# Stamped peer binaries (#363): the trailer and its config layer, and
+# `construct build`.
+[[area]]
+name = "stamp"
+paths = ["crates/construct-core/src/config/stamp.rs", "crates/construct-core/src/config/baked.rs", "crates/construct/src/cli/build.rs"]
+tests = ["e2e", "stamp"]
 

@@ -72,6 +72,8 @@ mod slash;
 mod snapshots;
 #[path = "special_files.rs"]
 mod special_files;
+#[path = "stamp.rs"]
+mod stamp;
 #[path = "stream.rs"]
 mod stream;
 #[path = "tls.rs"]
