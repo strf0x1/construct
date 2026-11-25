@@ -94,8 +94,11 @@ impl Envelope {
 ///
 /// `Hello` is mandatory as the first transport message from the initiator
 /// after Noise IK message 2 so the responder gets 1-RTT confirmation of the
-/// initiator's ephemeral key before exposing the peer to upper layers.
-/// `Join` / `JoinAck` / `Revoke` are wire placeholders settled in #361.
+/// initiator's ephemeral key before exposing the peer to upper layers. The
+/// join flow (#361, ADR 0070) answers it with exactly one verdict: `JoinAck
+/// { accepted: true }` (pinned, now or before), `Pending` (shown at the hub
+/// with the handshake's SAS code; a `JoinAck` follows), or a `Close` with the
+/// reason. A join token rides in `Hello`, inside the encrypted channel.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Control {
@@ -110,15 +113,17 @@ pub enum Control {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
-    /// Placeholder for #361: explicit join token submission.
-    Join { token: String },
-    /// Placeholder for #361: hub's join disposition.
+    /// The hub holds this join for a human: the peer shows its SAS code
+    /// (`HandshakeHash::sas_code`) and waits for a `JoinAck`.
+    Pending,
+    /// The hub's verdict: accepted means this key is pinned for the peer id;
+    /// refused is followed by a `Close`.
     JoinAck {
         accepted: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
-    /// Placeholder for #361: hub revokes this peer's pinned key.
+    /// The hub revoked this peer's key: the peer deletes it and stops.
     Revoke {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,

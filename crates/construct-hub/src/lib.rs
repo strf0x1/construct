@@ -9,14 +9,19 @@
 //! registry, and one hub per home is enforced by an OS file lock, so
 //! `construct hub status` can read the file without coordination when no hub
 //! runs. Linked only behind the binary's `hub` feature (in `full`, not `lean`
-//! or bare, ADR 0064, 0069).
+//! or bare, ADR 0064, 0069). Joining, approval and revocation are ADR 0070.
 
+pub mod admit;
+mod conn;
 pub mod control;
 pub mod files;
-pub mod key;
+pub mod invite;
 pub mod lock;
+pub mod offline;
+mod ops;
 pub mod registry;
 pub mod server;
+mod state;
 pub mod status;
 
 pub use files::Files;

@@ -108,13 +108,14 @@ enum Cmd {
     /// Serve construct as an Agent Client Protocol agent on stdin and stdout
     /// (for editors and other harnesses).
     Acp,
-    /// Run the hub peers dial home to, or inspect it (`key`, `status`, `stop`).
+    /// Run the hub peers dial home to, or manage it (`invite`, `approve`,
+    /// `revoke`, `status`, …).
     #[cfg(feature = "hub")]
     Hub(hub::HubArgs),
-    /// Dial a hub endpoint over the peer wire protocol (hidden until #361/#362).
+    /// Join a hub as a peer and follow it (`construct hub invite` prints the
+    /// command).
     #[cfg(feature = "peer")]
-    #[command(hide = true)]
-    PeerDial(peer::DialArgs),
+    Peer(peer::PeerArgs),
 }
 
 #[derive(Subcommand)]
@@ -280,6 +281,6 @@ pub fn run() -> Result<()> {
         #[cfg(feature = "hub")]
         Some(Cmd::Hub(args)) => rt.block_on(hub::run(&paths, args)),
         #[cfg(feature = "peer")]
-        Some(Cmd::PeerDial(args)) => rt.block_on(peer::dial(args)),
+        Some(Cmd::Peer(args)) => rt.block_on(peer::run(&paths, args)),
     }
 }

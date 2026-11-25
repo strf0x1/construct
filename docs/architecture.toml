@@ -158,14 +158,20 @@ must_not_use_crates = [
   { crate = "construct-tui", reason = "the hub runs headless and keeps running with no TUI; TUIs attach over its control socket (#360)" },
 ]
 
+[crates.construct-hub.modules.admit]
+may_use = ["invite", "registry"]
+
+[crates.construct-hub.modules.conn]
+may_use = ["admit", "state"]
+
 [crates.construct-hub.modules.control]
-may_use = ["status"]
+may_use = ["invite", "status"]
 
 [crates.construct-hub.modules.files]
 may_use = []
 
-[crates.construct-hub.modules.key]
-may_use = []
+[crates.construct-hub.modules.invite]
+may_use = ["registry"]
 
 [crates.construct-hub.modules.lib]
 may_use = []
@@ -173,14 +179,23 @@ may_use = []
 [crates.construct-hub.modules.lock]
 may_use = []
 
+[crates.construct-hub.modules.offline]
+may_use = ["files", "invite", "lock", "registry"]
+
+[crates.construct-hub.modules.ops]
+may_use = ["admit", "control", "invite", "state"]
+
 [crates.construct-hub.modules.registry]
 may_use = []
 
 [crates.construct-hub.modules.server]
-may_use = ["control", "files", "key", "lock", "registry", "status"]
+may_use = ["conn", "control", "files", "lock", "registry", "state", "status"]
+
+[crates.construct-hub.modules.state]
+may_use = ["files", "registry", "status"]
 
 [crates.construct-hub.modules.status]
-may_use = ["files", "key", "registry"]
+may_use = ["files", "registry"]
 
 [crates.construct-peer]
 may_use_crates = ["construct-core"]
@@ -203,8 +218,14 @@ may_use = []
 [crates.construct-peer.modules.frame]
 may_use = ["envelope", "error"]
 
+[crates.construct-peer.modules.join]
+may_use = ["envelope", "error", "keepalive", "keys", "noise", "ws"]
+
 [crates.construct-peer.modules.keepalive]
 may_use = ["envelope", "error", "frame", "noise"]
+
+[crates.construct-peer.modules.keyfile]
+may_use = ["keys"]
 
 [crates.construct-peer.modules.keys]
 may_use = ["crypto", "error"]

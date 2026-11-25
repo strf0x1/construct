@@ -14,13 +14,20 @@
 //!    Noise's 65,535-byte frame limit with strict pre-pin (4 KiB) and post-pin
 //!    (16 MiB) reassembly caps, application-level `Ping`/`Pong` keep-alive, and
 //!    jittered reconnect backoff.
+//!
+//! On top, the join flow's two shared pieces (#361): `keyfile` (a `0600`
+//! static key on disk, for the hub and the peer alike) and, with `dial`,
+//! `join` (the peer following the hub's verdict).
 
 pub mod chunk;
 pub mod crypto;
 pub mod envelope;
 pub mod error;
 pub mod frame;
+#[cfg(feature = "dial")]
+pub mod join;
 pub mod keepalive;
+pub mod keyfile;
 pub mod keys;
 pub mod noise;
 pub mod ws;
@@ -33,7 +40,7 @@ pub use envelope::{
 pub use error::WireError;
 pub use frame::{FrameStream, LengthPrefixed};
 pub use keepalive::{Backoff, KeepAlive, KeepAliveState, connect_with_backoff, recv_with_keepalive};
-pub use keys::{HASH_LEN, HandshakeHash, KEY_LEN, Keypair, PublicKey};
+pub use keys::{HASH_LEN, HandshakeHash, KEY_LEN, Keypair, PublicKey, random_token};
 pub use noise::{DEFAULT_HANDSHAKE_TIMEOUT, KeyDecision, PeerLink, handshake_initiator, handshake_responder};
 pub use ws::WsFrames;
 #[cfg(feature = "accept")]

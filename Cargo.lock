@@ -1045,6 +1045,7 @@ dependencies = [
  "construct-peer",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "tokio",
 ]
 
@@ -1056,6 +1057,7 @@ dependencies = [
  "curve25519-dalek",
  "futures",
  "rcgen",
+ "ring",
  "rustls",
  "rustls-pki-types",
  "serde",

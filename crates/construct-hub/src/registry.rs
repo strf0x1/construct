@@ -1,28 +1,22 @@
-//! The peer registry, `$CONSTRUCT_HOME/hub/peers.json` (#360).
+//! The peer registry, `$CONSTRUCT_HOME/hub/peers.json` (#360, #361).
 //!
-//! One row per peer id: its name, the X25519 key it is pinned to (or the key
-//! it offered while pending), a state, when it was last seen, and the ACP
-//! session and turn it last reported (filled by #362; resume uses ACP
-//! `liveAttach`, never a journal cursor). The design choice: admission is a
-//! pure function of the registry and what the wire proved (peer id from the
-//! encrypted `Hello`, key from Noise IK), so every trust rule is unit-tested
-//! here and the server only applies the verdict. A key is never trusted
-//! because of the id it claims: a known id arriving with another key is
-//! refused, and nothing here ever promotes a peer to `pinned` (that is the
-//! join flow, #361).
+//! One row per peer id: its name, the X25519 key it is pinned to, a state,
+//! when it was last seen, an open invite (the token's SHA-256, never the
+//! token) with its wrong-token strikes, and the ACP session and turn it last
+//! reported (filled by #362). The design choice: only three states are ever
+//! written — `expected` (a slot an invite or `construct build` made),
+//! `pinned` and `revoked`. A join waiting for a human is `pending` only while
+//! its link is open (the SAS code exists only there), so a dead connection
+//! leaves no row to approve and no slot to clog. The transitions here and
+//! admission (`admit.rs`) are pure, so every trust rule is unit-tested.
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use construct_peer::{KeyDecision, PINNED_MAX_ENVELOPE, PRE_PIN_MAX_ENVELOPE, PublicKey};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 /// Version of the file format.
 pub const VERSION: u32 = 1;
-
-/// Most `pending` rows kept at once. An unknown key that completes the
-/// handshake (it must hold the hub's public key to get that far) evicts the
-/// oldest pending row that is not connected, or is refused when every one is.
-pub const MAX_PENDING: usize = 8;
 
 /// Longest peer id accepted from a `Hello`.
 pub const MAX_ID_LEN: usize = 64;
@@ -31,13 +25,13 @@ pub const MAX_ID_LEN: usize = 64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
-    /// A slot `construct build` registered; no key seen yet (#363).
+    /// A slot an invite (or `construct build`, #363) made; no key yet.
     Expected,
-    /// Completed the handshake with a key nobody approved yet (#361).
+    /// Waiting for a human with its link open. Never written to the file.
     Pending,
-    /// Approved: only this key may speak for this id.
+    /// Only this key may speak for this id.
     Pinned,
-    /// Refused for good; its key is refused under any id.
+    /// Refused for good: the id, and its key under any id.
     Revoked,
 }
 
@@ -53,18 +47,32 @@ impl State {
     }
 }
 
+/// An open single-use join token for an `expected` slot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Invite {
+    /// Hex SHA-256 of the token.
+    pub hash: String,
+    /// Unix seconds after which the token is refused.
+    pub expires: u64,
+}
+
 /// One peer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Peer {
     pub id: String,
     pub name: String,
     pub state: State,
-    /// Hex X25519 public key: pinned, or offered while pending.
+    /// Hex X25519 public key: pinned or revoked (or offered, while pending).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     /// Unix seconds of the last authenticated message or disconnect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_seen: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite: Option<Invite>,
+    /// Wrong join tokens offered for this slot since its last invite.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub strikes: u32,
     /// The ACP session this peer last ran (#362).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
@@ -73,13 +81,25 @@ pub struct Peer {
     pub turn: Option<u64>,
 }
 
-/// What admitting a confirmed connection decided.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Admission {
-    /// Keep the link open; the peer is in this state.
-    Admitted(State),
-    /// Close the link with this reason.
-    Refused(String),
+const fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
+impl Peer {
+    #[must_use]
+    pub fn new(id: &str, state: State) -> Self {
+        Self {
+            id: id.into(),
+            name: id.into(),
+            state,
+            key: None,
+            last_seen: None,
+            invite: None,
+            strikes: 0,
+            session: None,
+            turn: None,
+        }
+    }
 }
 
 /// The whole registry file.
@@ -97,13 +117,19 @@ impl Default for Registry {
 }
 
 impl Registry {
-    /// Read the registry; a missing file is an empty registry.
+    /// Read the registry; a missing file is an empty registry. A `pending`
+    /// row (an older hub wrote them) goes back to an empty `expected` slot.
     pub fn load(path: &Path) -> Result<Self> {
-        match std::fs::read(path) {
-            Ok(bytes) => serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display())),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
+        let mut r: Self = match std::fs::read(path) {
+            Ok(bytes) => serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display()))?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
+            Err(e) => return Err(e).with_context(|| format!("read {}", path.display())),
+        };
+        for p in r.peers.iter_mut().filter(|p| p.state == State::Pending) {
+            p.state = State::Expected;
+            p.key = None;
         }
+        Ok(r)
     }
 
     /// Write the registry atomically.
@@ -118,89 +144,93 @@ impl Registry {
         self.peers.iter().find(|p| p.id == id)
     }
 
+    pub(crate) fn get_mut(&mut self, id: &str) -> Option<&mut Peer> {
+        self.peers.iter_mut().find(|p| p.id == id)
+    }
+
+    pub(crate) fn has_key(&self, state: State, hex: &str) -> bool {
+        self.peers.iter().any(|p| p.state == state && p.key.as_deref() == Some(hex))
+    }
+
     /// The verdict on a static key right after Noise IK message 1, before the
     /// peer id is known: a revoked key gets no message 2; a pinned key gets
     /// the large envelope cap; anything else stays at the pre-pin cap.
     #[must_use]
     pub fn key_decision(&self, key: PublicKey) -> KeyDecision {
         let hex = key.to_hex();
-        let with_key = |state| self.peers.iter().any(|p| p.state == state && p.key.as_deref() == Some(hex.as_str()));
-        if with_key(State::Revoked) {
+        if self.has_key(State::Revoked, &hex) {
             KeyDecision::Reject("revoked".into())
-        } else if with_key(State::Pinned) {
+        } else if self.has_key(State::Pinned, &hex) {
             KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE }
         } else {
             KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE }
         }
     }
 
-    /// Admit a connection whose `Hello` (claiming `id`) arrived over a Noise
-    /// session authenticated with `key`. `connected` says whether a peer id
-    /// currently has a live link, so eviction never drops a connected peer.
-    pub fn admit(&mut self, id: &str, key: PublicKey, now: u64, connected: &dyn Fn(&str) -> bool) -> Admission {
-        if let Err(why) = check_id(id) {
-            return Admission::Refused(why);
-        }
-        let hex = key.to_hex();
-        if self.peers.iter().any(|p| p.state == State::Revoked && p.key.as_deref() == Some(hex.as_str())) {
-            return Admission::Refused("revoked".into());
-        }
-        if let Some(peer) = self.peers.iter_mut().find(|p| p.id == id) {
-            let same_key = peer.key.as_deref() == Some(hex.as_str());
-            return match peer.state {
-                State::Revoked => Admission::Refused("revoked".into()),
-                State::Pinned | State::Pending if !same_key => {
-                    Admission::Refused(format!("peer {id} is known with another key; it is never trusted"))
-                }
-                State::Pinned | State::Pending => {
-                    peer.last_seen = Some(now);
-                    Admission::Admitted(peer.state)
-                }
-                State::Expected => {
-                    peer.state = State::Pending;
-                    peer.key = Some(hex);
-                    peer.last_seen = Some(now);
-                    Admission::Admitted(State::Pending)
-                }
-            };
-        }
-        let pending: Vec<usize> =
-            self.peers.iter().enumerate().filter(|(_, p)| p.state == State::Pending).map(|(i, _)| i).collect();
-        if pending.len() >= MAX_PENDING {
-            let oldest = pending
-                .into_iter()
-                .filter(|&i| !connected(&self.peers[i].id))
-                .min_by_key(|&i| self.peers[i].last_seen.unwrap_or(0));
-            match oldest {
-                Some(i) => {
-                    self.peers.remove(i);
-                }
-                None => return Admission::Refused("too many peers waiting for approval".into()),
+    /// Open (or replace) the invite for `id`: a new or revoked id becomes an
+    /// `expected` slot; strikes start over. A pinned peer needs no invite.
+    pub fn invite(&mut self, id: &str, invite: Invite) -> Result<()> {
+        check_id(id).map_err(anyhow::Error::msg)?;
+        let row = match self.get_mut(id) {
+            Some(p) if p.state == State::Pinned => {
+                bail!("{id} is already pinned; `construct hub revoke {id}` first to join it with a new key")
             }
+            Some(p) => p,
+            None => {
+                self.peers.push(Peer::new(id, State::Expected));
+                self.peers.last_mut().context("pushed a row")?
+            }
+        };
+        row.state = State::Expected;
+        row.key = None;
+        row.invite = Some(invite);
+        row.strikes = 0;
+        Ok(())
+    }
+
+    /// Pin `key` for `id` (a valid token, or a human's approval).
+    pub fn pin(&mut self, id: &str, key: PublicKey, now: u64) {
+        if self.get(id).is_none() {
+            self.peers.push(Peer::new(id, State::Pinned));
         }
-        self.peers.push(Peer {
-            id: id.into(),
-            name: id.into(),
-            state: State::Pending,
-            key: Some(hex),
-            last_seen: Some(now),
-            session: None,
-            turn: None,
-        });
-        Admission::Admitted(State::Pending)
+        if let Some(row) = self.get_mut(id) {
+            row.state = State::Pinned;
+            row.key = Some(key.to_hex());
+            row.invite = None;
+            row.strikes = 0;
+            row.last_seen = Some(now);
+        }
+    }
+
+    /// Revoke `id`: its row (made if only a live pending join knew it) keeps
+    /// the key it had, or `offered`, so that key is refused before message 2.
+    pub fn revoke(&mut self, id: &str, offered: Option<PublicKey>) -> Result<()> {
+        if self.get(id).is_none() {
+            if offered.is_none() {
+                bail!("no peer {id}");
+            }
+            self.peers.push(Peer::new(id, State::Revoked));
+        }
+        let row = self.get_mut(id).context("row exists")?;
+        row.state = State::Revoked;
+        if let Some(k) = offered {
+            row.key = Some(k.to_hex());
+        }
+        row.invite = None;
+        Ok(())
     }
 
     /// Record that `id` was seen at `now` (on disconnect).
     pub fn seen(&mut self, id: &str, now: u64) {
-        if let Some(p) = self.peers.iter_mut().find(|p| p.id == id) {
+        if let Some(p) = self.get_mut(id) {
             p.last_seen = Some(now);
         }
     }
 }
 
-/// A peer id is short, printable and unambiguous: it comes from an
-/// unauthenticated-until-approved `Hello` and ends up in a TUI tile.
-fn check_id(id: &str) -> Result<(), String> {
+/// A peer id is short, printable and unambiguous: it comes from a `Hello`
+/// and ends up in a TUI tile and a shell command.
+pub fn check_id(id: &str) -> Result<(), String> {
     let ok_char = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
     if id.is_empty() || id.len() > MAX_ID_LEN {
         return Err(format!("peer id must be 1 to {MAX_ID_LEN} characters"));
@@ -220,103 +250,53 @@ mod tests {
         Keypair::generate().unwrap().public()
     }
 
-    fn nobody(_: &str) -> bool {
-        false
-    }
-
-    fn pinned(id: &str, k: PublicKey) -> Peer {
-        Peer {
-            id: id.into(),
-            name: id.into(),
-            state: State::Pinned,
-            key: Some(k.to_hex()),
-            last_seen: None,
-            session: None,
-            turn: None,
-        }
+    fn invite() -> Invite {
+        Invite { hash: "ab".into(), expires: 100 }
     }
 
     #[test]
-    fn an_unknown_peer_waits_as_pending_at_the_small_cap() {
+    fn invite_makes_a_slot_and_refuses_a_pinned_peer() {
         let mut r = Registry::default();
-        let k = key();
-        assert_eq!(r.key_decision(k), KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE });
-        assert_eq!(r.admit("old-pc", k, 10, &nobody), Admission::Admitted(State::Pending));
+        r.invite("old-pc", invite()).unwrap();
         let p = r.get("old-pc").unwrap();
-        assert_eq!((p.state, p.key.clone(), p.last_seen), (State::Pending, Some(k.to_hex()), Some(10)));
-        // Reconnecting with the same key stays pending, never pinned.
-        assert_eq!(r.admit("old-pc", k, 20, &nobody), Admission::Admitted(State::Pending));
+        assert_eq!((p.state, p.invite.is_some()), (State::Expected, true));
+        r.pin("old-pc", key(), 5);
+        let p = r.get("old-pc").unwrap();
+        assert_eq!((p.state, p.invite.is_none(), p.last_seen), (State::Pinned, true, Some(5)));
+        assert!(r.invite("old-pc", invite()).unwrap_err().to_string().contains("already pinned"));
+        assert!(r.invite("bad id", invite()).is_err());
     }
 
     #[test]
-    fn a_pinned_peer_comes_back_online_and_another_key_is_refused() {
+    fn revoke_keeps_the_key_refused_and_a_new_invite_reopens_the_id() {
         let k = key();
-        let mut r = Registry { version: VERSION, peers: vec![pinned("pi", k)] };
-        assert_eq!(r.key_decision(k), KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE });
-        assert_eq!(r.admit("pi", k, 5, &nobody), Admission::Admitted(State::Pinned));
-        let other = key();
-        assert!(matches!(r.admit("pi", other, 6, &nobody), Admission::Refused(why) if why.contains("another key")));
-        assert_eq!(r.get("pi").unwrap().key, Some(k.to_hex()), "the pinned key is untouched");
-    }
-
-    #[test]
-    fn a_pending_id_is_not_taken_over_by_another_key() {
         let mut r = Registry::default();
-        r.admit("box", key(), 1, &nobody);
-        assert!(matches!(r.admit("box", key(), 2, &nobody), Admission::Refused(_)));
-    }
-
-    #[test]
-    fn an_expected_slot_records_the_offered_key_as_pending() {
-        let mut r = Registry {
-            version: VERSION,
-            peers: vec![Peer { state: State::Expected, key: None, ..pinned("old-pc", key()) }],
-        };
-        let k = key();
-        assert_eq!(r.admit("old-pc", k, 3, &nobody), Admission::Admitted(State::Pending));
-        assert_eq!(r.get("old-pc").unwrap().key, Some(k.to_hex()));
-    }
-
-    #[test]
-    fn a_revoked_key_is_refused_under_any_id() {
-        let k = key();
-        let mut r = Registry { version: VERSION, peers: vec![Peer { state: State::Revoked, ..pinned("gone", k) }] };
+        r.pin("pi", k, 1);
+        r.revoke("pi", None).unwrap();
         assert_eq!(r.key_decision(k), KeyDecision::Reject("revoked".into()));
-        assert_eq!(r.admit("fresh-name", k, 1, &nobody), Admission::Refused("revoked".into()));
+        // A pending join only the live link knew becomes a revoked row.
+        let stranger = key();
+        r.revoke("walk-up", Some(stranger)).unwrap();
+        assert_eq!(r.key_decision(stranger), KeyDecision::Reject("revoked".into()));
+        assert!(r.revoke("nobody", None).is_err());
+        r.invite("pi", invite()).unwrap();
+        let p = r.get("pi").unwrap();
+        assert_eq!((p.state, p.key.clone()), (State::Expected, None));
     }
 
     #[test]
-    fn bad_ids_are_refused() {
-        let mut r = Registry::default();
-        for id in ["", "-x", "has space", "ünï", &"a".repeat(MAX_ID_LEN + 1)] {
-            assert!(matches!(r.admit(id, key(), 1, &nobody), Admission::Refused(_)), "{id:?}");
-        }
-        assert!(r.peers.is_empty());
-    }
-
-    #[test]
-    fn pending_rows_are_capped_by_evicting_the_oldest_disconnected() {
-        let mut r = Registry::default();
-        for i in 0..MAX_PENDING {
-            r.admit(&format!("p{i}"), key(), i as u64, &nobody);
-        }
-        // p0 is connected, so p1 (the oldest disconnected) goes.
-        let connected = |id: &str| id == "p0";
-        assert_eq!(r.admit("new", key(), 100, &connected), Admission::Admitted(State::Pending));
-        assert!(r.get("p0").is_some() && r.get("p1").is_none() && r.get("new").is_some());
-        // Everyone connected: refused.
-        let all = |_: &str| true;
-        assert!(matches!(r.admit("one-more", key(), 101, &all), Admission::Refused(_)));
-    }
-
-    #[test]
-    fn round_trips_through_the_file() {
+    fn round_trips_and_drops_old_pending_rows() {
         let d = std::env::temp_dir().join(format!("construct-hub-reg-{}", std::process::id()));
         let path = d.join("hub/peers.json");
         let mut r = Registry::default();
-        r.admit("old-pc", key(), 7, &nobody);
+        r.pin("old-pc", key(), 7);
+        r.invite("slot", invite()).unwrap();
         r.save(&path).unwrap();
         assert_eq!(Registry::load(&path).unwrap(), r);
+        let old = Peer { key: Some("cd".into()), ..Peer::new("was-pending", State::Pending) };
+        Registry { version: VERSION, peers: vec![old] }.save(&path).unwrap();
+        let p = Registry::load(&path).unwrap().peers.remove(0);
+        assert_eq!((p.state, p.key), (State::Expected, None));
         assert_eq!(Registry::load(&d.join("missing.json")).unwrap(), Registry::default());
         let _ = std::fs::remove_dir_all(&d);
     }

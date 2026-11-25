@@ -8,6 +8,7 @@
 //! other users from reaching the path at all. (Narrowing the umask instead
 //! would be process-wide and race the hub's other threads.)
 
+use crate::invite::InviteReply;
 use crate::status::Status;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,22 @@ pub enum Request {
     Status,
     /// Close every peer link and exit.
     Stop,
+    /// Open an `expected` slot for `id` with a fresh single-use join token.
+    Invite {
+        id: String,
+        ttl_secs: u64,
+        /// The URL to print in the command (default: the hub's own).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        url: Option<String>,
+    },
+    /// Pin the key of the join waiting under `id`.
+    Approve { id: String },
+    /// Turn away the join waiting under `id`.
+    Deny { id: String },
+    /// Revoke `id`: its key is refused from now on and a live link is told.
+    Revoke { id: String },
+    /// Let unknown ids wait for approval for `secs` (0 closes the window).
+    Pair { secs: u64 },
 }
 
 /// The answer to one request.
@@ -36,23 +53,36 @@ pub struct Response {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Box<Status>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite: Option<InviteReply>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
 impl Response {
     #[must_use]
     pub fn ok() -> Self {
-        Self { ok: true, status: None, error: None }
+        Self { ok: true, status: None, invite: None, error: None }
     }
 
     #[must_use]
     pub fn status(s: Status) -> Self {
-        Self { ok: true, status: Some(Box::new(s)), error: None }
+        Self { ok: true, status: Some(Box::new(s)), invite: None, error: None }
+    }
+
+    #[must_use]
+    pub fn invite(i: InviteReply) -> Self {
+        Self { ok: true, status: None, invite: Some(i), error: None }
+    }
+
+    /// `ok` for `Ok(())`, the error's text otherwise.
+    #[must_use]
+    pub fn of(r: anyhow::Result<()>) -> Self {
+        r.map_or_else(|e| Self::error(format!("{e:#}")), |()| Self::ok())
     }
 
     #[must_use]
     pub fn error(e: impl Into<String>) -> Self {
-        Self { ok: false, status: None, error: Some(e.into()) }
+        Self { ok: false, status: None, invite: None, error: Some(e.into()) }
     }
 }
 

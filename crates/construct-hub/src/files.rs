@@ -4,6 +4,8 @@
 //! socket's path must fit `sockaddr_un` (104 bytes on macOS, 108 on Linux), so
 //! a very deep home is refused with a clear error rather than a bind failure.
 
+use anyhow::{Context, Result};
+use construct_peer::{Keypair, keyfile};
 use std::path::{Path, PathBuf};
 
 /// The longest socket path every supported platform accepts (macOS's
@@ -27,6 +29,16 @@ impl Files {
     #[must_use]
     pub fn key(&self) -> PathBuf {
         self.home.join("hub.key")
+    }
+
+    /// The controller's keypair, created on first use.
+    pub fn keypair(&self) -> Result<Keypair> {
+        keyfile::load_or_create(&self.key()).context("hub key")
+    }
+
+    /// The controller's public key (hex), if a key exists yet.
+    pub fn public_key(&self) -> Result<Option<String>> {
+        Ok(keyfile::load(&self.key()).context("hub key")?.map(|k| k.public().to_hex()))
     }
 
     /// The `0600` unix socket TUIs and CLI commands attach to.
