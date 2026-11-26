@@ -145,7 +145,7 @@ enum SecretsCmd {
 
 /// Parse the command line and run the subcommand.
 pub fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(stamped::argv());
     if cli.resume == Some(None)
         && (cli.cmd.is_some() || !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal())
     {

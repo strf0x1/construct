@@ -276,26 +276,30 @@ fn a_revoked_peer_deletes_its_key_and_cannot_come_back() {
     let old_key = p.keypair();
 
     hub_cmd(&env, &["hub", "revoke", "old-pc"]);
-    assert!(!exits(&mut child).success(), "a revoked peer stops");
+    assert_eq!(exits(&mut child).code(), Some(77), "a revoked peer stops with the no-restart code (#367)");
     assert!(p.wait_log("revoked").contains("deleted"));
     assert!(!p.key_file().exists(), "the peer deleted its key");
     assert_eq!(peer(&status(&env), "old-pc").unwrap()["state"], "revoked");
 
     // Run again, it makes a new key: a known id with a new key is refused.
     assert!(p.refused(&env, &s, "old-pc", None).contains("was revoked"));
-    // The old key gets no answer at all, under any id.
+    // The old key, under any id, is told it is revoked and nothing else, so
+    // a peer that was offline when it happened stops for good (#367).
     let url = s["listen"].as_str().unwrap().to_string();
     let hub_key = PublicKey::from_hex(s["key"].as_str().unwrap()).unwrap();
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-    let retry = rt.block_on(async {
+    let told = rt.block_on(async {
         let ws = connect_ws(&url).await.unwrap();
         let hello = Hello::new("new-name");
-        tokio::time::timeout(
-            Duration::from_secs(5),
-            construct_peer::handshake_initiator(ws, &old_key, hub_key, &hello, PINNED_MAX_ENVELOPE),
-        )
-        .await
+        let mut link =
+            construct_peer::handshake_initiator(ws, &old_key, hub_key, &hello, PINNED_MAX_ENVELOPE).await.unwrap();
+        let first = tokio::time::timeout(Duration::from_secs(5), link.recv()).await.unwrap().unwrap();
+        let then = tokio::time::timeout(Duration::from_secs(5), link.recv()).await.unwrap();
+        let closed = then.map_or(true, |e| matches!(e.decode_control(), Ok(Control::Close { .. })));
+        (first.decode_control().unwrap(), closed)
     });
-    assert!(!matches!(retry, Ok(Ok(_))), "the revoked key completed a handshake");
+    assert!(matches!(told.0, Control::Revoke { .. }), "{told:?}");
+    assert!(told.1, "the link closes after the revoke");
+    assert!(peer(&status(&env), "new-name").is_none(), "no row for the new name");
     stop(&env, hub);
 }

@@ -266,6 +266,10 @@ may_use = ["envelope", "error"]
 [crates.construct-peer.modules.noise]
 may_use = ["chunk", "crypto", "envelope", "error", "frame", "keys"]
 
+# Staying up across reboots and crashes (#367): the systemd unit.
+[crates.construct-peer.modules.service]
+may_use = []
+
 [crates.construct-peer.modules.ws]
 may_use = ["envelope", "error", "frame"]
 

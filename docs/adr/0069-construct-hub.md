@@ -3,6 +3,8 @@
 Status: accepted. 2026-11-25. Part of #273, #360. Builds on ADR 0021, 0064, 0068.
 Admission rules and the `pending` state amended by ADR 0070 (#361): unknown
 ids now need an `expected` slot or a pairing window, and `pending` is live-only.
+A revoked key's handshake amended by ADR 0076 (#367): it completes the
+handshake and is told `Revoke`, instead of getting no message 2.
 
 ## Context
 

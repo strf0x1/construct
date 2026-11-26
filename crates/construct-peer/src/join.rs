@@ -58,8 +58,9 @@ pub enum Outcome {
 /// Dial `url`, authenticate as `key` to the hub holding `hub`, send `hello`,
 /// and follow the hub until the link ends. Once joined, each line on
 /// `out.acp` goes to the hub on the `acp` channel and each frame on `out.llm`
-/// on the `llm` channel; what was queued before then is dropped. A handshake that fails (wrong hub key, a
-/// revoked key the hub answers with silence) is an `Err`.
+/// on the `llm` channel; what was queued before then is dropped. A
+/// handshake that fails (wrong hub key, a hub that is not there) is an `Err`;
+/// a revoked key completes it and is told `Revoke` (#367).
 pub async fn run(
     url: &str,
     key: &Keypair,
@@ -95,8 +96,9 @@ pub async fn run(
         };
         let env = match got {
             Ok(env) => env,
-            Err(e) if joined => return Ok(Outcome::Lost(e.to_string())),
-            Err(e) => return Ok(Outcome::Refused(format!("the hub dropped the link: {e}"))),
+            // Before a verdict too: a hub that turns a peer away says so with
+            // `Close`, so a dropped transport is only ever lost (#367).
+            Err(e) => return Ok(Outcome::Lost(e.to_string())),
         };
         match env.channel {
             Channel::Control => {}

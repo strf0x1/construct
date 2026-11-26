@@ -15,6 +15,11 @@
 //! peer redials with backoff, and the hub reattaches with `session/load`
 //! (ADR 0071). Only a revocation, a refusal, or SIGTERM/SIGINT stops it, and
 //! only then are turns cancelled.
+//!
+//! Staying up (#367, ADR 0076): `--install` writes a systemd unit that runs
+//! this with `--require-key` and restarts it after any exit but
+//! `service::EXIT_NO_RESTART`, the code for an end restarting cannot fix:
+//! revoked, refused, denied, or no key to rejoin with.
 
 use anyhow::{Context, Result, bail};
 use construct_core::acp::server::{self, Input};
@@ -22,10 +27,13 @@ use construct_core::config::{Config, Llm, LlmGateway, Paths, stamp};
 use construct_core::tools::ToolSources;
 use construct_peer::gateway::{self, Relay};
 use construct_peer::join::{self, Event, Outbox, Outcome};
-use construct_peer::{Backoff, Hello, PublicKey, WireError, keyfile};
+use construct_peer::{Backoff, Hello, PublicKey, WireError, keyfile, service};
+use install::{Target, install, uninstall};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::mpsc;
+
+mod install;
 
 #[derive(clap::Args, Default)]
 pub(super) struct PeerArgs {
@@ -46,6 +54,33 @@ pub(super) struct PeerArgs {
     /// where this was started).
     #[arg(long)]
     cwd: Option<PathBuf>,
+    /// Keep this joined peer running: copy the binary out of its workspace
+    /// and write a systemd unit that starts it at boot and restarts it after
+    /// a crash (Linux).
+    #[arg(long, conflicts_with_all = ["uninstall", "join"])]
+    install: bool,
+    /// Stop and remove the unit `--install` wrote.
+    #[arg(long)]
+    uninstall: bool,
+    /// With --install or --uninstall: a system unit (run as root, binary in
+    /// /usr/local/bin) instead of a user unit.
+    #[arg(long)]
+    system: bool,
+    /// With --install: copy this environment variable into a 0600 file the
+    /// unit reads (API keys for `llm = "local"`); repeatable.
+    #[arg(long = "env", value_name = "NAME", requires = "install")]
+    env: Vec<String>,
+    /// Never create a key: without `peer.key` this peer needs a new join and
+    /// exits with the code that stops a restart. The installed unit runs so.
+    #[arg(long)]
+    require_key: bool,
+}
+
+/// End the peer for good: print why and exit with the code that tells the
+/// installed unit not to restart it.
+fn gone(why: &str) -> ! {
+    eprintln!("construct: {why}");
+    std::process::exit(service::EXIT_NO_RESTART)
 }
 
 /// A flag, else the stamped value, else an error naming the flag.
@@ -55,15 +90,33 @@ fn flag_or_stamp(flag: Option<String>, stamped: Option<&String>, name: &str) -> 
 
 pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
     let stamped = stamp::current()?.map(|s| &s.peer);
-    let url = flag_or_stamp(args.url, stamped.map(|p| &p.url), "url")?;
-    let hub_key = flag_or_stamp(args.hub_key, stamped.map(|p| &p.hub_key), "hub-key")?;
-    let id = flag_or_stamp(args.id, stamped.map(|p| &p.id), "id")?;
+    let id = flag_or_stamp(args.id.clone(), stamped.map(|p| &p.id), "id")?;
+    if args.uninstall {
+        return uninstall(&id, args.system);
+    }
+    let url = flag_or_stamp(args.url.clone(), stamped.map(|p| &p.url), "url")?;
+    let hub_key = flag_or_stamp(args.hub_key.clone(), stamped.map(|p| &p.hub_key), "hub-key")?;
     let hub = PublicKey::from_hex(&hub_key).context("--hub-key is not a 64-character hex key")?;
     let path = paths.home.join("peer.key");
-    let key = keyfile::load_or_create(&path).context("peer key")?;
-    let cwd = match args.cwd.or_else(|| stamped.and_then(|p| p.cwd.as_ref()).map(PathBuf::from)) {
+    let cwd = match args.cwd.clone().or_else(|| stamped.and_then(|p| p.cwd.as_ref()).map(PathBuf::from)) {
         Some(c) => c.canonicalize().with_context(|| format!("--cwd {}", c.display()))?,
         None => std::env::current_dir()?,
+    };
+    if args.install {
+        let target = Target { id: &id, url: &url, hub_key: &hub_key, cwd: &cwd };
+        return install(&cfg, &paths, &target, &args);
+    }
+    let key = if args.require_key {
+        match keyfile::load(&path).context("peer key")? {
+            Some(k) => k,
+            None => gone(&format!(
+                "no peer key at {}: {id} needs a new join (at the hub: `construct hub revoke {id}` if it is \
+                 still pinned, then `construct hub invite {id}`)",
+                path.display()
+            )),
+        }
+    } else {
+        keyfile::load_or_create(&path).context("peer key")?
     };
     let token = args.join.or_else(|| std::env::var("CONSTRUCT_JOIN").ok()).filter(|t| !t.is_empty());
     let mut hello = Hello::new(&id).with_cwd(cwd.display().to_string());
@@ -82,7 +135,9 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     let (out, acp) = mpsc::unbounded_channel();
     let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
     let mut outbox = Outbox { acp, llm };
-    let links = follow(&url, &key, hub, &mut hello, &id, &to_agent, &relay, &mut outbox);
+    // An installed peer was joined before, so a hub it cannot reach yet
+    // (booting, the network not up) is retried, not an exit.
+    let links = follow(&url, &key, hub, &mut hello, &id, args.require_key, &to_agent, &relay, &mut outbox);
     let outcome = tokio::select! {
         o = links => Some(o),
         () = stop_signal() => None,
@@ -103,15 +158,15 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
             Ok(())
         }
         Outcome::Lost(why) => bail!("lost the hub: {why}"),
-        Outcome::Refused(why) => bail!("the hub refused {id}: {why}"),
-        Outcome::Denied(why) => bail!("the hub denied {id}: {why}"),
+        Outcome::Refused(why) => gone(&format!("the hub refused {id}: {why}")),
+        Outcome::Denied(why) => gone(&format!("the hub denied {id}: {why}")),
         Outcome::Revoked(reason) => {
             keyfile::delete(&path).with_context(|| format!("delete {}", path.display()))?;
-            bail!(
+            gone(&format!(
                 "the hub revoked {id}{}; deleted {}",
                 reason.map(|r| format!(" ({r})")).unwrap_or_default(),
                 path.display()
-            )
+            ))
         }
     }
 }
@@ -125,12 +180,13 @@ async fn follow(
     hub: PublicKey,
     hello: &mut Hello,
     id: &str,
+    joined_before: bool,
     to_agent: &mpsc::UnboundedSender<Input>,
     relay: &Relay,
     outbox: &mut Outbox,
 ) -> Result<Outcome, WireError> {
     let mut backoff = Backoff::new(Duration::from_millis(250), Duration::from_secs(15));
-    let mut joined = false;
+    let mut joined = joined_before;
     loop {
         let mut joined_now = false;
         let got = join::run(url, key, hub, hello, outbox, |event| match event {

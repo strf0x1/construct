@@ -165,14 +165,14 @@ impl Registry {
     }
 
     /// The verdict on a static key right after Noise IK message 1, before the
-    /// peer id is known: a revoked key gets no message 2; a pinned key gets
-    /// the large envelope cap; anything else stays at the pre-pin cap.
+    /// peer id is known: a pinned key gets the large envelope cap; anything
+    /// else, a revoked key included, stays at the pre-pin cap. A revoked key
+    /// completes the handshake only to be told so after its `Hello` (#367,
+    /// ADR 0076): admission answers it with `Revoke` and nothing else.
     #[must_use]
     pub fn key_decision(&self, key: PublicKey) -> KeyDecision {
         let hex = key.to_hex();
-        if self.has_key(State::Revoked, &hex) {
-            KeyDecision::Reject("revoked".into())
-        } else if self.has_key(State::Pinned, &hex) {
+        if self.has_key(State::Pinned, &hex) {
             KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE }
         } else {
             KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE }
@@ -285,11 +285,12 @@ mod tests {
         let mut r = Registry::default();
         r.pin("pi", k, 1);
         r.revoke("pi", None).unwrap();
-        assert_eq!(r.key_decision(k), KeyDecision::Reject("revoked".into()));
+        let small = KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE };
+        assert_eq!(r.key_decision(k), small, "handshakes at the pre-pin cap, to be told it is revoked");
         // A pending join only the live link knew becomes a revoked row.
         let stranger = key();
         r.revoke("walk-up", Some(stranger)).unwrap();
-        assert_eq!(r.key_decision(stranger), KeyDecision::Reject("revoked".into()));
+        assert!(r.has_key(State::Revoked, &stranger.to_hex()));
         assert!(r.revoke("nobody", None).is_err());
         r.invite("pi", invite()).unwrap();
         let p = r.get("pi").unwrap();
