@@ -2,6 +2,8 @@
 
 Status: accepted. 2026-11-25. Part of #273, #361. Builds on ADR 0068, 0069;
 amends 0069's admission rules and registry states.
+Revocation of a peer that is offline amended by ADR 0076 (#367): its key
+completes the handshake and gets `Revoke`, and the peer exits 77.
 
 ## Context
 

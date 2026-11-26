@@ -8,7 +8,10 @@
 //! provider's status and bytes back unchanged. Nothing the hub resolved goes
 //! to the peer but the response itself. Calls belong to one link: when the
 //! link ends (a revocation, a drop, shutdown) its `Calls` is dropped and
-//! every call in flight is aborted with it.
+//! every call in flight is aborted with it. A call the peer cancels stops
+//! upstream but still ends normally, so what it used is counted: the engine
+//! hangs up as soon as it reads `[DONE]`, often before the upstream body has
+//! quite ended.
 
 use construct_core::config::Config;
 use construct_core::llm::{Provider, Usage};
@@ -19,8 +22,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
-use tokio::task::{AbortHandle, JoinSet};
+use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinSet;
 
 /// Model calls one peer may have in flight; more are answered 429.
 pub(crate) const MAX_INFLIGHT: usize = 4;
@@ -73,7 +76,8 @@ pub(crate) struct Out {
 pub(crate) struct Calls {
     up: Arc<Upstream>,
     tasks: JoinSet<()>,
-    live: HashMap<u64, AbortHandle>,
+    /// Each live call's cancel switch.
+    live: HashMap<u64, oneshot::Sender<()>>,
     tx: mpsc::UnboundedSender<Out>,
     rx: mpsc::UnboundedReceiver<Out>,
 }
@@ -96,17 +100,18 @@ impl Calls {
             return refuse(&self.tx, id, 429, Some(1), why);
         }
         let (up, tx) = (self.up.clone(), self.tx.clone());
-        let handle = self.tasks.spawn(async move {
-            let (error, usage) = call(&up, id, body, &tx).await;
+        let (stop, cancelled) = oneshot::channel();
+        self.tasks.spawn(async move {
+            let (error, usage) = call(&up, id, body, &tx, cancelled).await;
             let _ = tx.send(Out { frame: Frame::bare(Msg::End { id, error }), usage: Some(usage) });
         });
-        self.live.insert(id, handle);
+        self.live.insert(id, stop);
     }
 
-    /// The peer gave up on `id`: stop it upstream.
+    /// The peer gave up on `id`: stop it upstream (its usage is still counted).
     pub(crate) fn cancel(&mut self, id: u64) {
-        if let Some(h) = self.live.remove(&id) {
-            h.abort();
+        if let Some(stop) = self.live.remove(&id) {
+            let _ = stop.send(());
         }
     }
 
@@ -141,7 +146,9 @@ async fn call(
     id: u64,
     body: Vec<u8>,
     tx: &mpsc::UnboundedSender<Out>,
+    mut cancelled: oneshot::Receiver<()>,
 ) -> (Option<String>, Option<Usage>) {
+    const CANCELLED: &str = "cancelled by the peer";
     let send = |frame| {
         let _ = tx.send(Out { frame, usage: None });
     };
@@ -173,7 +180,11 @@ async fn call(
     for (k, v) in &ep.headers {
         rb = rb.header(k, v);
     }
-    let resp = match rb.send().await {
+    let sent = tokio::select! {
+        r = rb.send() => r,
+        _ = &mut cancelled => return (Some(CANCELLED.into()), None),
+    };
+    let resp = match sent {
         Ok(r) => r,
         Err(e) => {
             refuse(tx, id, 502, None, format!("hub: {}model request failed: {e}", ep.error_prefix()));
@@ -186,7 +197,15 @@ async fn call(
     send(Frame::bare(Msg::Head { id, status, retry_after }));
     let mut scan = UsageScan::default();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
+    loop {
+        let chunk = tokio::select! {
+            c = stream.next() => match c {
+                Some(c) => c,
+                None => break,
+            },
+            // Dropping the stream hangs up on the provider.
+            _ = &mut cancelled => return (Some(CANCELLED.into()), scan.usage),
+        };
         match chunk {
             Ok(bytes) => {
                 scan.push(&bytes);

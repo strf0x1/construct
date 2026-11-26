@@ -5,7 +5,8 @@
 //! leaves no row, no log line and no pending join. Then admission decides,
 //! and the hub says so on the wire exactly once: `JoinAck` (pinned),
 //! `Pending` (held for a human; a `JoinAck` or `Revoke` follows when one
-//! decides over the control socket), or `Close` with the reason. Only a link
+//! decides over the control socket), `Revoke` (this key was revoked while
+//! the peer was away, #367), or `Close` with the reason. Only a link
 //! that got `JoinAck { accepted: true }` carries ACP (#362): the hub attaches
 //! to the peer's agent then, and detaches when the link ends, which cancels
 //! nothing on the peer. The same link carries the peer's model calls on the
@@ -42,7 +43,7 @@ pub(crate) async fn run(
     };
     let (link, hello) = match tokio::time::timeout(DEFAULT_HANDSHAKE_TIMEOUT, handshake).await {
         Ok(Ok(done)) => done,
-        // Scanners, wrong or revoked keys, replays and slow handshakes leave no trace.
+        // Scanners, wrong keys, replays and slow handshakes leave no trace.
         Ok(Err(_)) | Err(_) => return,
     };
     let remote = addr.to_string();
@@ -62,7 +63,7 @@ pub(crate) async fn run(
         let until = now().saturating_add(APPROVAL_TTL_SECS);
         let waiting =
             matches!(admission, Admission::Pending { .. }).then(|| Waiting { key, code: code.clone(), until });
-        if !matches!(admission, Admission::Refused(_)) {
+        if !matches!(admission, Admission::Refused(_) | Admission::Revoked) {
             s.online.insert(id.clone(), Conn { id: conn, remote: remote.clone(), tx, waiting });
         }
         // A pin, a strike or a burnt slot all change the file.
@@ -74,6 +75,12 @@ pub(crate) async fn run(
         Admission::Refused(why) => {
             eprintln!("construct hub: refused {id} from {remote}: {why}");
             let _ = link.close(Some(why)).await;
+            return;
+        }
+        Admission::Revoked => {
+            eprintln!("construct hub: told {id} from {remote} its key is revoked");
+            send(&mut link, &Control::Revoke { reason: Some("revoked at the hub".into()) }).await;
+            let _ = link.close(None).await;
             return;
         }
         Admission::Pinned => {

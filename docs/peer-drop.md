@@ -57,8 +57,37 @@ ssh nas 'CONSTRUCT_JOIN=… ./construct-nas'
 
 The stamped binary with no arguments is `construct peer`. It pins the hub's
 key, the hub pins its key, and the token is spent. From then on it rejoins
-without one. Keep it running with `nohup`, `tmux` or a service unit
-(`--install` is #367).
+without one.
+
+**4. Keep it running across reboots and crashes** (Linux, systemd; #367):
+
+```sh
+ssh nas './construct-nas --install'          # a user unit; add --system for a root one
+```
+
+`--install` works on a peer that has joined. It copies the binary to
+`~/.local/bin` (`/usr/local/bin` with `--system`), outside the peer's
+workspace, so its own tools cannot overwrite it, and writes
+`construct-peer-nas.service` with `Restart=always`. A user unit starts at
+boot only with lingering, which `--install` turns on (`loginctl
+enable-linger`). The unit holds no secret: with `llm = "hub"` there is
+none on the box. A peer with `llm = "local"` passes `--env OPENAI_API_KEY`
+(repeatable) to copy keys into a `0600` `peer.env` the unit reads.
+
+The unit runs the peer with `--require-key` and restarts it after any exit
+but 77 (`RestartPreventExitStatus=77`). The peer exits 77 only when
+restarting cannot help: the hub revoked it (it deletes `peer.key` first,
+even when the revocation happened while it was down), refused or denied it,
+or `peer.key` is gone (it needs a new join and never makes a key on its
+own). A hub that is down at boot is redialled until it comes up. A crash
+mid-turn is never re-run: the hub reattaches, resends its prompt, and gets
+`cancelled`. `./construct-nas --uninstall` stops and removes the unit; the
+binary, the key and the home stay.
+
+```sh
+ssh nas 'systemctl --user status construct-peer-nas'
+ssh nas 'journalctl --user -u construct-peer-nas'
+```
 
 Then, on the hub machine:
 

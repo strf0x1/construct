@@ -70,12 +70,12 @@ pub(crate) fn wait_log(env: &Env, what: &str, times: usize) {
     }
 }
 
-fn session(env: &Env) -> Value {
+pub(crate) fn session(env: &Env) -> Value {
     serde_json::from_str(&ok(env, &["hub", "session", "old-pc", "--json"])).unwrap()
 }
 
 /// Poll the hub's view of the session until `done` holds.
-fn wait_session(env: &Env, what: &str, done: impl Fn(&Value) -> bool) -> Value {
+pub(crate) fn wait_session(env: &Env, what: &str, done: impl Fn(&Value) -> bool) -> Value {
     let deadline = Instant::now() + Duration::from_millis(budget(20_000));
     loop {
         let out = command(env, &["hub", "session", "old-pc", "--json"]).output().unwrap();
@@ -100,7 +100,7 @@ fn wait_file(path: &std::path::Path) {
     }
 }
 
-fn rows(env: &Env, ty: &str) -> Vec<Value> {
+pub(crate) fn rows(env: &Env, ty: &str) -> Vec<Value> {
     env.journal().into_iter().filter(|r| r.ty == ty).map(|r| r.payload).collect()
 }
 

@@ -19,7 +19,9 @@
 //! static key on disk, for the hub and the peer alike) and, with `dial`,
 //! `join` (the peer following the hub's verdict). For hub-proxied model
 //! calls (#371): `llm` (the channel's frames, both sides) and, with `dial`,
-//! `gateway` (the peer's loopback endpoint the engine is pointed at).
+//! `gateway` (the peer's loopback endpoint the engine is pointed at). For
+//! staying up (#367): `service` (the systemd unit `--install` writes, and
+//! the exit code that tells it not to restart).
 
 pub mod chunk;
 pub mod crypto;
@@ -35,6 +37,7 @@ pub mod keyfile;
 pub mod keys;
 pub mod llm;
 pub mod noise;
+pub mod service;
 pub mod ws;
 
 pub use crypto::{NOISE_PATTERN, NOISE_PROLOGUE};

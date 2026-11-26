@@ -135,9 +135,11 @@ fn a_peer_without_a_key_runs_a_tool_turn_through_the_hub_and_revoking_it_ends_it
     assert!(env.auth_seen().iter().all(|a| a == "Bearer test…"), "the hub's key went: {:?}", env.auth_seen());
     assert!(reqs[1]["messages"].as_array().unwrap().iter().any(|m| m["role"] == "tool"), "{:#}", reqs[1]);
 
-    // The hub counted them against the peer.
-    let status: Value = serde_json::from_str(&ok(&env, &["hub", "status", "--json"])).unwrap();
-    let row = status["peers"].as_array().unwrap().iter().find(|p| p["id"] == "old-pc").unwrap();
+    // The hub counted them against the peer. A call is counted when the
+    // upstream body ends, which can land just after the peer's turn ended.
+    let old_pc = |s: &Value| s["peers"].as_array().and_then(|p| p.iter().find(|p| p["id"] == "old-pc")).cloned();
+    let status = wait_status(&env, "both calls counted", |s| old_pc(s).is_some_and(|r| r["llm"]["requests"] == 2));
+    let row = old_pc(&status).unwrap();
     assert_eq!(row["llm"]["requests"], 2, "{row:#}");
 
     // Revoked: the link is closed, the peer deletes its key and stops, and

@@ -54,6 +54,8 @@ mod optchat;
 mod peer_acp;
 #[path = "peer_llm.rs"]
 mod peer_llm;
+#[path = "peer_restart.rs"]
+mod peer_restart;
 #[path = "peer_tool.rs"]
 mod peer_tool;
 #[path = "peer_tui.rs"]

@@ -65,6 +65,18 @@ fn a_stamped_binary_shows_its_stamped_settings_with_no_config_file() {
     // Arguments mean the usual commands, not a dial.
     let v = run(&env, &bin, "fresh", &["--version"]);
     assert!(v.status.success() && text(&v).contains("construct"), "{}", text(&v));
+
+    // ...except `construct peer`'s own flags (#367): `--require-key` with no
+    // key needs a new join (exit 77, the code the installed unit does not
+    // restart) and makes no key; `--install` refuses an unjoined peer.
+    let keyless = run(&env, &bin, "fresh", &["--require-key"]);
+    assert_eq!(keyless.status.code(), Some(77), "{}", text(&keyless));
+    assert!(text(&keyless).contains("old-pc needs a new join"), "{}", text(&keyless));
+    assert!(!env.dir.join("fresh/peer.key").exists());
+    let install = run(&env, &bin, "fresh", &["--install"]);
+    let said = text(&install);
+    assert!(!install.status.success(), "{said}");
+    assert!(said.contains("has not joined yet") || said.contains("needs Linux"), "{said}");
 }
 
 #[test]

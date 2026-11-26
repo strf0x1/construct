@@ -54,6 +54,10 @@ pub enum Admission {
     Pending { slot: bool },
     /// Close the link with this reason.
     Refused(String),
+    /// This very key was revoked: tell it so (`Control::Revoke`), so a peer
+    /// that was offline when it happened deletes its key and stops for good
+    /// instead of redialing forever (#367).
+    Revoked,
 }
 
 impl Registry {
@@ -66,7 +70,7 @@ impl Registry {
         }
         let hex = key.to_hex();
         if self.has_key(State::Revoked, &hex) {
-            return Admission::Refused("revoked".into());
+            return Admission::Revoked;
         }
         let Some(row) = self.get_mut(id) else {
             return match (token, live.pairing) {
@@ -213,7 +217,12 @@ mod tests {
         assert_eq!(r.get("pi").unwrap().key, Some(k.to_hex()), "the pinned key is untouched");
         r.revoke("pi", None).unwrap();
         assert!(refused(&r.admit(offer("pi", key(), None), Live::default()), "was revoked"));
-        assert_eq!(r.admit(offer("fresh-name", k, None), Live::default()), Admission::Refused("revoked".into()));
+        assert_eq!(r.admit(offer("fresh-name", k, None), Live::default()), Admission::Revoked);
+        assert_eq!(
+            r.admit(offer("pi", k, None), Live::default()),
+            Admission::Revoked,
+            "the revoked key itself is told"
+        );
     }
 
     #[test]
