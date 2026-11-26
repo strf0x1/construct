@@ -209,6 +209,10 @@ may_use = ["files", "proxy", "registry", "remote", "status"]
 [crates.construct-hub.modules.status]
 may_use = ["files", "proxy", "registry"]
 
+# This node's Tailscale address for `--listen tailscale` / `build --tailscale` (#364).
+[crates.construct-hub.modules.tailnet]
+may_use = []
+
 [crates.construct-hub.modules.view]
 may_use = []
 

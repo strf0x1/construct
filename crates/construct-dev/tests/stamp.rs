@@ -163,3 +163,80 @@ fn readonly_host_reads_the_host_and_blocks_writes() {
     assert!(wrote.starts_with("Error"), "a write outside the sandbox is refused headless: {wrote}");
     assert!(!env.work.join("x.txt").exists());
 }
+
+/// A fake `tailscale` CLI on `PATH` that prints `status` as given; the
+/// returned value is the `PATH` to run with.
+fn fake_tailscale(env: &Env, status: &str) -> String {
+    let bin = env.dir.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let json = env.dir.join("tailscale-status.json");
+    std::fs::write(&json, status).unwrap();
+    let cli = bin.join("tailscale");
+    std::fs::write(&cli, format!("#!/bin/sh\ncat '{}'\n", json.display())).unwrap();
+    std::fs::set_permissions(&cli, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default())
+}
+
+/// Tailscale on loopback: the fake node's tailnet IP is 127.0.0.1, so the
+/// whole `--listen tailscale` / `build --tailscale` lane runs in CI (#364).
+#[test]
+fn the_tailscale_lane_listens_stamps_and_joins_on_the_tailnet_ip() {
+    let env = Env::new("stamp-ts", json!({"steps": []}));
+    let path = fake_tailscale(
+        &env,
+        r#"{"BackendState":"Running","Self":{"DNSName":"hub-box.tail1234.ts.net.","TailscaleIPs":["127.0.0.1"]},
+            "CurrentTailnet":{"MagicDNSEnabled":true}}"#,
+    );
+    let log = std::fs::File::create(env.dir.join("hub.stderr")).unwrap();
+    let mut hub = command(&env, &["hub", "--listen", "tailscale:0"])
+        .env("PATH", &path)
+        .stdout(Stdio::null())
+        .stderr(log)
+        .spawn()
+        .unwrap();
+    let s = wait_status(&env, "the hub to run", |s| s["running"] == true);
+    let url = s["listen"].as_str().unwrap().to_string();
+    assert!(url.starts_with("ws://127.0.0.1:") && !url.ends_with(":0"), "listens on the tailnet IP: {url}");
+
+    // --tailscale takes the tailnet IP and the running hub's port.
+    let out = env.dir.join("construct-old-pc");
+    let (from, o) = (construct().display().to_string(), out.display().to_string());
+    let got = command(&env, &["build", "--from", &from, "--name", "old-pc", "--out", &o, "--tailscale", "--invite"])
+        .env("PATH", &path)
+        .output()
+        .unwrap();
+    assert!(got.status.success(), "build failed: {}", text(&got));
+    let printed = text(&got);
+    assert!(printed.contains(&format!("dials {url}")), "{printed}");
+    assert!(printed.contains("hub-box.tail1234.ts.net (127.0.0.1)"), "names the node: {printed}");
+    let line = printed.lines().find(|l| l.contains("CONSTRUCT_JOIN=")).unwrap_or_else(|| panic!("{printed}"));
+    let token = line.trim().strip_prefix("CONSTRUCT_JOIN=").unwrap().strip_suffix(" ./construct-old-pc").unwrap();
+
+    let mut child = stamped(&env, &out, "peer-home", &[])
+        .env("CONSTRUCT_JOIN", token)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let row = wait_status(&env, "old-pc online", |s| peer(s, "old-pc").is_some_and(|p| p["online"] == true));
+    assert_eq!(peer(&row, "old-pc").unwrap()["state"], "pinned");
+    child.kill().unwrap();
+    let _ = child.wait();
+    let _ = command(&env, &["hub", "stop"]).output();
+    let _ = hub.wait();
+}
+
+#[test]
+fn tailscale_logged_out_says_what_to_do() {
+    let env = Env::new("stamp-ts-down", json!({"steps": []}));
+    let path = fake_tailscale(&env, r#"{"BackendState":"NeedsLogin","Self":null}"#);
+    let (from, o) = (construct().display().to_string(), env.dir.join("x").display().to_string());
+    let got = command(&env, &["build", "--from", &from, "--name", "x", "--out", &o, "--tailscale"])
+        .env("PATH", &path)
+        .output()
+        .unwrap();
+    assert!(!got.status.success());
+    assert!(text(&got).contains("tailscale up"), "{}", text(&got));
+    let hub = command(&env, &["hub", "--listen", "tailscale"]).env("PATH", &path).output().unwrap();
+    assert!(!hub.status.success() && text(&hub).contains("NeedsLogin"), "{}", text(&hub));
+}

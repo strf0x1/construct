@@ -26,6 +26,12 @@ looks arbitrary: it may have been measured.
 How to score a model on Rust work in this repo: the `rust-replay-*` bench
 tasks, the convention lint, and the rubric for the blind judge pass.
 
+## peer-drop.md
+
+Putting a peer on another machine: the hub on a tailnet or LAN address,
+`construct build --tailscale --invite`, copying the binary over, and a
+Cloudflare Tunnel or Tailscale Funnel for a box outside your network.
+
 ## How a proposal becomes an ADR
 
 When a proposal (or a step of one) lands, the decision it made gets an ADR in

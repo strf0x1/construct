@@ -7,7 +7,8 @@
 //! replaces what is kept and the rendering never has to merge two views.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
+use std::collections::VecDeque;
 use std::fmt::Write as _;
 
 /// One peer's session, for the control socket and the CLI.
@@ -63,6 +64,34 @@ pub(crate) fn question(params: &Value) -> Question {
 enum Part {
     Said { user: bool, text: String },
     Tool { id: String, title: String, status: String },
+}
+
+/// Keep one transcript update; the oldest drops past `cap`.
+pub(crate) fn keep(updates: &mut VecDeque<Value>, update: Value, cap: usize) {
+    if updates.len() == cap {
+        updates.pop_front();
+    }
+    updates.push_back(update);
+}
+
+/// Show a prompt the hub sent: ACP agents do not echo a live prompt back,
+/// only a `session/load` replays it, so a resend after one may find it
+/// already shown as the latest user message.
+pub(crate) fn show_prompt(updates: &mut VecDeque<Value>, text: &str, cap: usize) {
+    let (mut last, mut open) = (String::new(), false);
+    for u in updates.iter() {
+        if u["sessionUpdate"] == "user_message_chunk" {
+            if !open {
+                last.clear();
+            }
+            last.push_str(u["content"]["text"].as_str().unwrap_or_default());
+        }
+        open = u["sessionUpdate"] == "user_message_chunk";
+    }
+    if last != text {
+        let said = json!({ "sessionUpdate": "user_message_chunk", "content": { "type": "text", "text": text } });
+        keep(updates, said, cap);
+    }
 }
 
 /// The transcript as text: user turns as `> …`, the agent's words as they

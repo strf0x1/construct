@@ -9,6 +9,8 @@ use construct_core::config::stamp::BUILD_TARGET;
 use construct_hub::Files;
 use construct_hub::build::{self, Preset, Spec};
 use construct_hub::invite::parse_span;
+use construct_hub::server::DEFAULT_PORT;
+use construct_hub::tailnet;
 use std::path::PathBuf;
 
 #[derive(clap::Args)]
@@ -17,8 +19,12 @@ pub(super) struct BuildArgs {
     #[arg(long)]
     name: String,
     /// The URL the peer dials (`ws://host:port` or `wss://…`).
-    #[arg(long)]
-    url: String,
+    #[arg(long, required_unless_present = "tailscale")]
+    url: Option<String>,
+    /// Dial this machine's tailnet IP (`tailscale status`) on the running
+    /// hub's port, else 9443, instead of giving `--url`.
+    #[arg(long, conflicts_with = "url")]
+    tailscale: bool,
     /// The target triple (default: this machine's). Another target's binary
     /// comes from the published release for this version.
     #[arg(long)]
@@ -59,6 +65,10 @@ pub(super) struct BuildArgs {
 
 pub(super) async fn run(paths: &Paths, args: BuildArgs) -> Result<()> {
     let files = Files::new(&paths.home);
+    let url = match args.url {
+        Some(u) => u,
+        None => tailnet_url(&files).await?,
+    };
     let hub_key = match args.hub_key {
         Some(k) => k,
         None => files.keypair()?.public().to_hex(),
@@ -71,7 +81,7 @@ pub(super) async fn run(paths: &Paths, args: BuildArgs) -> Result<()> {
         None => toml::Table::new(),
     };
     let stamp =
-        Spec { url: args.url.clone(), hub_key, id: args.name.clone(), cwd: args.cwd, sandbox: args.sandbox, settings }
+        Spec { url: url.clone(), hub_key, id: args.name.clone(), cwd: args.cwd, sandbox: args.sandbox, settings }
             .stamp()?;
 
     let target = args.target.as_deref().unwrap_or(BUILD_TARGET);
@@ -91,7 +101,7 @@ pub(super) async fn run(paths: &Paths, args: BuildArgs) -> Result<()> {
     build::write(&bytes, &stamp, &out)?;
 
     println!("stamped {} ({what}) as peer {}", out.display(), args.name);
-    println!("  dials {}", args.url);
+    println!("  dials {url}");
     println!("  hub key {}", stamp.peer.hub_key);
     if let Some(llm) = stamp.config.get("llm") {
         println!("  llm = {llm}");
@@ -105,11 +115,26 @@ pub(super) async fn run(paths: &Paths, args: BuildArgs) -> Result<()> {
         );
     }
     if args.invite {
-        let reply =
-            super::hub::invite(&files, &args.name, args.expires, Some(args.url.clone()), args.url.clone()).await?;
+        let reply = super::hub::invite(&files, &args.name, args.expires, Some(url.clone()), url.clone()).await?;
         let file = out.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
         println!("\ninvite for {}: single use. Copy the binary over, then on the target run:\n", reply.id);
         println!("  CONSTRUCT_JOIN={} ./{file}\n", reply.token);
     }
     Ok(())
+}
+
+/// `--tailscale`: this node's tailnet IP on the running hub's port (else the
+/// default), with a warning when that hub only listens on loopback.
+async fn tailnet_url(files: &Files) -> Result<String> {
+    let node = tailnet::detect()?;
+    let listen = super::hub::status(files).await?.listen;
+    let port =
+        listen.as_deref().and_then(|l| l.rsplit(':').next()).and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
+    if listen.as_deref().is_some_and(|l| l.contains("127.0.0.1") || l.contains("localhost")) {
+        eprintln!("warning: the running hub listens on loopback; restart it with `construct hub --listen tailscale`");
+    }
+    if let Some(name) = &node.name {
+        eprintln!("tailnet: this machine is {name} ({})", node.ip);
+    }
+    Ok(node.url(port))
 }
