@@ -170,6 +170,7 @@ impl Catalog {
                 Group::Developer,
                 "approved host-authenticated GitHub issues, git commits, pushes and pull requests; git status and staging in a linked worktree",
             ),
+            (Group::Peers, "send work to peer constructs on other machines and check on it"),
             (Group::Memory, "durable memory of the user and machine"),
             (Group::History, "search past sessions"),
             (Group::Skills, "load saved procedures"),

@@ -951,6 +951,7 @@ dependencies = [
  "construct-tools-history",
  "construct-tools-jobs",
  "construct-tools-memory",
+ "construct-tools-peers",
  "construct-tools-skills",
  "construct-tools-web",
  "construct-tui",
@@ -1098,6 +1099,17 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-memory"
+version = "0.6.0-rc.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "construct-core",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "construct-tools-peers"
 version = "0.6.0-rc.1"
 dependencies = [
  "anyhow",

@@ -85,7 +85,7 @@ paths = [
   "crates/construct-tools-jobs/",
   "crates/construct-core/src/tools/shell_job.rs",
 ]
-tests = ["crash_sweep", "e2e", "jobs", "recovery", "sessions", "snapshots"]
+tests = ["crash_sweep", "e2e", "jobs", "peer_tool", "recovery", "sessions", "snapshots"]
 
 # MCP servers and their tools. ACP sessions name MCP servers too.
 [[area]]
@@ -109,14 +109,21 @@ tests = ["e2e", "snapshots"]
 [[area]]
 name = "peer-wire"
 paths = ["crates/construct-peer/"]
-tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tui"]
+tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tool", "peer_tui"]
 
 # `construct hub` (#360) and joining it (#361): the host process, `construct
 # peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
 paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/hub/tui.rs", "crates/construct/src/cli/peer.rs"]
-tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tui", "stamp"]
+tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tool", "peer_tui", "stamp"]
+
+# The coordinator's `peer` tool (#366): the tool crate, its `Hub` over the
+# control socket, and the binary's tool registration.
+[[area]]
+name = "peer-tool"
+paths = ["crates/construct-tools-peers/", "crates/construct/src/cli/hub/tool.rs", "crates/construct/src/cli/sources.rs"]
+tests = ["e2e", "peer_tool", "snapshots"]
 
 # Stamped peer binaries (#363): the trailer and its config layer, and
 # `construct build`.

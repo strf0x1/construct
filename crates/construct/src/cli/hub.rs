@@ -4,6 +4,7 @@
 //! session, answer), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
+pub(super) mod tool;
 pub(super) mod tui;
 
 use anyhow::{Result, bail};

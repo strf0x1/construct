@@ -1,8 +1,8 @@
 //! The hub's control socket: newline-delimited JSON over a `0600` unix socket
 //! inside `$CONSTRUCT_HOME` (#360).
 //!
-//! Any number of clients (TUIs, `construct hub status`, later `construct
-//! build` and the `peer` tool) attach at once; each line is one request and
+//! Any number of clients (TUIs, `construct hub status`, `construct build`
+//! and the coordinator's `peer` tool) attach at once; each line is one request and
 //! gets one response line. The socket is made `0600` right after bind; the
 //! moment between is covered by the home's `0700` (ADR 0021), which keeps
 //! other users from reaching the path at all. (Narrowing the umask instead

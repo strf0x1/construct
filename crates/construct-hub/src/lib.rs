@@ -13,7 +13,8 @@
 //! driving a peer's agent over ACP, across reconnects, is ADR 0071; proxying
 //! a peer's model calls with the host's keys (`llm = "hub"`) is ADR 0072;
 //! stamping a drop-and-run peer binary (`construct build`, `build.rs`) is ADR 0073;
-//! what a TUI shows and answers through the control socket is ADR 0074.
+//! what a TUI shows and answers through the control socket is ADR 0074;
+//! what the coordinator's `peer` tool may do through it is ADR 0075.
 
 pub mod admit;
 pub mod build;

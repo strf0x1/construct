@@ -84,6 +84,6 @@ pub async fn missing_arguments_are_refused(catalog: &Catalog, ctx: &Ctx, groups:
 /// The groups a tool can be in, for a check over a whole catalog.
 pub fn all_groups() -> Vec<Group> {
     let mut g = vec![Group::Core, Group::Web, Group::Memory, Group::Skills, Group::SkillWrite, Group::History];
-    g.extend([Group::Jobs, Group::Developer, Group::Boundary, Group::Coordinator]);
+    g.extend([Group::Jobs, Group::Developer, Group::Peers, Group::Boundary, Group::Coordinator]);
     g
 }
