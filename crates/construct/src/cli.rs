@@ -22,7 +22,7 @@ use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
 use construct_core::{acp, home, journal, llm, manifest, memory, secrets, skills, tools};
 use resume::resolve_resume;
-use sources::tool_sources;
+use sources::{peer_hub, tool_sources};
 use std::io::{IsTerminal, Read, Write};
 
 #[derive(Parser)]
@@ -170,7 +170,8 @@ pub fn run() -> Result<()> {
                 &paths,
                 std::io::stdin().is_terminal() && std::io::stdout().is_terminal(),
             )?;
-            rt.block_on(construct_tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model, tool_sources()))
+            let (sources, hub) = (tool_sources(), peer_hub(&paths));
+            rt.block_on(construct_tui::run(cfg, paths, resume, cli.resume == Some(None), cli.model, sources, hub))
         }
         Some(Cmd::Run { prompt, json, no_learn }) => {
             let resume = resolve_resume(&cli.resume, cli.cont, &paths, false)?;

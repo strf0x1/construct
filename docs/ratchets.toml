@@ -14,7 +14,6 @@
 "crates/construct-core/src/compact/mod.rs" = 303
 "crates/construct-core/src/tools/shell.rs" = 301
 "crates/construct-tui/src/markdown.rs" = 336
-"crates/construct-tui/src/view.rs" = 310
 
 # Module pairs that use each other both ways, per crate (`a <-> b`),
 # found by the same scan as `construct-dev code-graph`. A new pair fails the
@@ -51,4 +50,4 @@ construct-tui = [
 # Intended (ADR 0057, 0060): config resolution.
 construct-core = ["config, endpoint, models, providers"]
 construct-dev = ["arch, feature_map, xtask"]
-construct-tui = ["app, ask, palette, picker, prompt, sessions, view"]
+construct-tui = ["app, ask, sessions"]

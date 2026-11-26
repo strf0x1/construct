@@ -59,6 +59,10 @@ pub enum Request {
         option: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         question: Option<usize>,
+        /// The question's title as the asker saw it: refused if the open
+        /// question at that place is another one by now (#365).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
     },
 }
 

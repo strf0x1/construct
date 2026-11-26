@@ -16,11 +16,11 @@ use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
 /// A loopback port nothing listens on, so a restarted hub can take it again.
-fn free_port() -> u16 {
+pub(crate) fn free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
 }
 
-fn hub_on(env: &Env, port: u16) -> Child {
+pub(crate) fn hub_on(env: &Env, port: u16) -> Child {
     let log = std::fs::OpenOptions::new().create(true).append(true).open(env.dir.join("hub.stderr")).unwrap();
     let child = command(env, &["hub", "--listen", &format!("127.0.0.1:{port}")])
         .stdout(Stdio::null())
@@ -31,7 +31,7 @@ fn hub_on(env: &Env, port: u16) -> Child {
     child
 }
 
-fn ok(env: &Env, args: &[&str]) -> String {
+pub(crate) fn ok(env: &Env, args: &[&str]) -> String {
     let out = command(env, args).output().unwrap();
     assert!(out.status.success(), "{args:?} failed: {}", text(&out));
     String::from_utf8_lossy(&out.stdout).to_string()
@@ -53,12 +53,12 @@ fn join(env: &Env) -> Child {
     child
 }
 
-fn peer_log(env: &Env) -> std::path::PathBuf {
+pub(crate) fn peer_log(env: &Env) -> std::path::PathBuf {
     env.dir.join("peer.stderr")
 }
 
 /// Wait until the peer printed `what` at least `times` times.
-fn wait_log(env: &Env, what: &str, times: usize) {
+pub(crate) fn wait_log(env: &Env, what: &str, times: usize) {
     let deadline = Instant::now() + Duration::from_millis(budget(15_000));
     loop {
         let log = std::fs::read_to_string(peer_log(env)).unwrap_or_default();

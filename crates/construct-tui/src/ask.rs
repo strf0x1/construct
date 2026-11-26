@@ -10,12 +10,10 @@ use super::app::App;
 use construct_core::permission::{Ask, Decision, Request, Verdict};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::cell::Cell;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::{mpsc, oneshot};
 
-/// Keys are ignored for this long after a prompt appears, so the Enter or `y`
-/// someone was in the middle of typing can't answer it.
-const GRACE: Duration = Duration::from_millis(450);
+use super::theme::GRACE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Choice {

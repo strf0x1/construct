@@ -12,7 +12,8 @@
 //! or bare, ADR 0064, 0069). Joining, approval and revocation are ADR 0070;
 //! driving a peer's agent over ACP, across reconnects, is ADR 0071; proxying
 //! a peer's model calls with the host's keys (`llm = "hub"`) is ADR 0072;
-//! stamping a drop-and-run peer binary (`construct build`, `build.rs`) is ADR 0073.
+//! stamping a drop-and-run peer binary (`construct build`, `build.rs`) is ADR 0073;
+//! what a TUI shows and answers through the control socket is ADR 0074.
 
 pub mod admit;
 pub mod build;
@@ -24,6 +25,7 @@ pub mod lock;
 pub mod offline;
 mod ops;
 pub mod proxy;
+mod questions;
 pub mod registry;
 mod remote;
 pub mod server;

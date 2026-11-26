@@ -4,8 +4,8 @@
 //! rather than hand-padded lines: the table scrolls itself to the selection.
 
 use super::{Group, Picker, Row};
+use crate::text::fit;
 use crate::theme;
-use crate::view::fit;
 use construct_core::models::{Pricing, short_tokens};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};

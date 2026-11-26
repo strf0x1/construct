@@ -12,6 +12,7 @@
 //! before the `initialize` response is read: it belongs to an attachment that
 //! ended. No custom resume protocol and no journal cursor (ADR 0071).
 
+use crate::questions::Questions;
 use crate::registry::{Peer, Prompt};
 use crate::view::{self, SessionView};
 use construct_core::acp::{map, rpc};
@@ -49,8 +50,8 @@ pub(crate) struct Remote {
     /// How the last prompt ended (`end_turn`, `cancelled`, `error: …`).
     last: Option<String>,
     updates: VecDeque<Value>,
-    /// Open permission questions: the peer's wire id and its params.
-    questions: Vec<(Value, Value)>,
+    /// Open permission questions, waiting for a human.
+    questions: Questions,
 }
 
 impl Remote {
@@ -68,7 +69,7 @@ impl Remote {
             state: None,
             last: None,
             updates: VecDeque::new(),
-            questions: vec![],
+            questions: Questions::default(),
         }
     }
 
@@ -121,7 +122,7 @@ impl Remote {
             Incoming::Response { id, result } => self.response(id.as_u64(), result, &mut out),
             Incoming::Request { id, method, params } => {
                 if method == "session/request_permission" && self.ours(&params) {
-                    self.questions.push((id, params));
+                    self.questions.push(id, params);
                 } else {
                     out.push(rpc::err(&id, rpc::METHOD_NOT_FOUND, &format!("the hub does not answer {method}")));
                 }
@@ -158,22 +159,24 @@ impl Remote {
     }
 
     /// Answer open question `n` (1-based; may be omitted when only one is
-    /// open) with `option`, one of the ids the peer offered.
-    pub(crate) fn answer(&mut self, option: &str, n: Option<usize>) -> Result<Vec<String>, String> {
-        let at = match (n, self.questions.len()) {
-            (_, 0) => return Err("no question is open".into()),
-            (None, 1) => 0,
-            (None, k) => return Err(format!("{k} questions are open; say which (--question 1..{k})")),
-            (Some(n), k) if (1..=k).contains(&n) => n - 1,
-            (Some(n), k) => return Err(format!("no question {n}; {k} open")),
-        };
-        let offered = view::options(&self.questions[at].1);
-        if !offered.iter().any(|o| o == option) {
-            return Err(format!("{option:?} is not offered; pick one of {}", offered.join(", ")));
-        }
-        let (wire, _) = self.questions.remove(at);
-        let outcome = json!({ "outcome": { "outcome": "selected", "optionId": option } });
-        Ok(vec![rpc::ok(&wire, outcome)])
+    /// open) with `option`; see `Questions::answer`.
+    pub(crate) fn answer(
+        &mut self,
+        option: &str,
+        n: Option<usize>,
+        expect: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        self.questions.answer(option, n, expect).map(|line| vec![line])
+    }
+
+    /// A prompt is in flight, or the peer's last turn report says it runs.
+    pub(crate) fn working(&self) -> bool {
+        self.prompt.is_some() || self.state.as_ref().is_some_and(|s| s["state"] != "idle")
+    }
+
+    /// The open permission questions, oldest first.
+    pub(crate) fn questions(&self) -> Vec<view::Question> {
+        self.questions.list()
     }
 
     pub(crate) fn view(&self, peer: &str) -> SessionView {
@@ -190,7 +193,7 @@ impl Remote {
                 _ => None,
             },
             transcript: view::transcript(self.updates.iter()),
-            questions: self.questions.iter().map(|(_, p)| view::question(p)).collect(),
+            questions: self.questions(),
         }
     }
 
@@ -359,8 +362,9 @@ mod tests {
         );
         assert_eq!(r.view("old-pc").turn.unwrap()["state"], "waiting");
         assert_eq!(r.view("old-pc").transcript, "> go", "the resent prompt is shown");
-        assert!(r.answer("always", None).is_err(), "only offered options");
-        let answer = parse(&r.answer("once", None).unwrap().remove(0));
+        assert!(r.answer("always", None, None).is_err(), "only offered options");
+        assert!(r.answer("once", Some(1), Some("another question")).is_err(), "the title must still match");
+        let answer = parse(&r.answer("once", Some(1), Some("permission")).unwrap().remove(0));
         assert_eq!((answer["id"].as_u64(), answer["result"]["outcome"]["optionId"].as_str()), (Some(9), Some("once")));
         // A drop retires question ids; the next attach starts with initialize.
         r.receive(&ask);

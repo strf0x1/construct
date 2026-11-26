@@ -35,7 +35,9 @@ impl Shared {
                 r.prompt(text, key)
             }),
             Request::Cancel { id } => self.acp(&id, |r| r.cancel()),
-            Request::Answer { id, option, question } => self.acp(&id, |r| r.answer(&option, question)),
+            Request::Answer { id, option, question, title } => {
+                self.acp(&id, |r| r.answer(&option, question, title.as_deref()))
+            }
             Request::Session { id } => self.acp(&id, |_| Ok(vec![])),
             Request::Pair { secs } => {
                 self.pairing_until = (secs > 0).then(|| now().saturating_add(secs));

@@ -50,6 +50,8 @@ pub(crate) struct Conn {
 pub(crate) struct Waiting {
     pub(crate) key: PublicKey,
     pub(crate) code: String,
+    /// Unix seconds when the link turns the join away (`APPROVAL_TTL_SECS`).
+    pub(crate) until: u64,
 }
 
 /// What a link's task is told to do: carry out a decision made over the
@@ -98,12 +100,16 @@ impl Shared {
                 peer.state = State::Pending;
                 peer.key = Some(w.key.to_hex());
             }
+            let remote = self.remotes.get(&p.id);
             PeerStatus {
                 peer,
                 online: conn.is_some(),
                 remote: conn.map(|c| c.remote.clone()),
                 code: waiting.map(|w| w.code.clone()),
                 llm: self.usage.get(&p.id).cloned(),
+                expires: waiting.map(|w| w.until),
+                working: remote.is_some_and(Remote::working),
+                questions: remote.map(Remote::questions).unwrap_or_default(),
             }
         };
         let mut peers: Vec<PeerStatus> = self.registry.peers.iter().map(row).collect();

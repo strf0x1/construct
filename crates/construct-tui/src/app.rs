@@ -146,6 +146,8 @@ pub(super) struct App {
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
     skill_libs: Option<Vec<Library>>,
+    /// The hub's peers, when this build has a hub (`peers/`).
+    pub(super) peers: super::peers::Peers,
 }
 
 impl App {
@@ -187,6 +189,7 @@ impl App {
             picker: None,
             browser: None,
             skill_libs: None,
+            peers: Default::default(),
         }
     }
 
@@ -233,6 +236,7 @@ impl App {
             || self.motion.running()
             || self.browser.as_ref().is_some_and(|b| b.loading)
             || !self.prompts.is_empty()
+            || self.peers.asking()
             || self.learning.is_some()
             || self.started.elapsed() < Duration::from_millis(1600)
             || self.toast.as_ref().is_some_and(|t| t.2.elapsed() < Duration::from_secs(4))

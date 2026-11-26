@@ -193,12 +193,16 @@ may_use = ["admit", "control", "invite", "remote", "state"]
 [crates.construct-hub.modules.proxy]
 may_use = []
 
+# A peer's permission questions waiting for a human (#365).
+[crates.construct-hub.modules.questions]
+may_use = ["view"]
+
 [crates.construct-hub.modules.registry]
 may_use = []
 
 # The ACP client for one peer (#362): pure, no socket or lock (ADR 0071).
 [crates.construct-hub.modules.remote]
-may_use = ["registry", "view"]
+may_use = ["questions", "registry", "view"]
 
 [crates.construct-hub.modules.server]
 may_use = ["conn", "control", "files", "lock", "proxy", "registry", "state", "status"]
@@ -207,7 +211,7 @@ may_use = ["conn", "control", "files", "lock", "proxy", "registry", "state", "st
 may_use = ["files", "proxy", "registry", "remote", "status"]
 
 [crates.construct-hub.modules.status]
-may_use = ["files", "proxy", "registry"]
+may_use = ["files", "proxy", "registry", "view"]
 
 # This node's Tailscale address for `--listen tailscale` / `build --tailscale` (#364).
 [crates.construct-hub.modules.tailnet]
@@ -328,7 +332,7 @@ used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the a
 may_use = ["app", "motion", "theme"]
 
 [crates.construct-tui.modules.app]
-may_use = ["ask", "boxed", "motion", "palette", "picker", "sessions", "theme", "turn"]
+may_use = ["ask", "boxed", "motion", "palette", "peers", "picker", "sessions", "theme", "turn"]
 
 [crates.construct-tui.modules.app_events]
 may_use = ["app", "args", "theme"]
@@ -337,7 +341,7 @@ may_use = ["app", "args", "theme"]
 may_use = []
 
 [crates.construct-tui.modules.ask]
-may_use = ["app"]
+may_use = ["app", "theme"]
 
 [crates.construct-tui.modules.boxed]
 may_use = ["text", "theme"]
@@ -346,13 +350,13 @@ may_use = ["text", "theme"]
 may_use = []
 
 [crates.construct-tui.modules.commands]
-may_use = ["app", "clip", "help", "listing", "picker", "sessions", "theme"]
+may_use = ["app", "clip", "help", "listing", "peers", "picker", "sessions", "theme"]
 
 [crates.construct-tui.modules.help]
 may_use = ["boxed", "theme"]
 
 [crates.construct-tui.modules.input]
-may_use = ["app", "ask", "commands", "picker", "theme"]
+may_use = ["app", "ask", "commands", "peers", "picker", "theme"]
 
 [crates.construct-tui.modules.input_line]
 may_use = ["app", "text", "theme"]
@@ -373,10 +377,15 @@ may_use = ["app", "boxed", "theme"]
 may_use = ["table", "text", "theme"]
 
 [crates.construct-tui.modules.palette]
-may_use = ["help", "picker", "theme", "view"]
+may_use = ["help", "picker", "text", "theme"]
+
+# Peers (#365, ADR 0074): the tile, the join and question popup, `/peer`.
+# It reaches the hub only through the `PeerHub` the binary hands it.
+[crates.construct-tui.modules.peers]
+may_use = ["markdown", "theme"]
 
 [crates.construct-tui.modules.picker]
-may_use = ["palette", "theme", "view"]
+may_use = ["palette", "text", "theme"]
 
 [crates.construct-tui.modules.prompt]
 may_use = ["ask", "markdown", "theme"]
@@ -403,7 +412,7 @@ may_use = []
 may_use = []
 
 [crates.construct-tui.modules.view]
-may_use = ["app", "boxed", "help", "markdown", "motion", "prompt", "theme"]
+may_use = ["app", "boxed", "help", "markdown", "motion", "peers", "prompt", "text", "theme"]
 
 [crates.construct-tui.modules.motion]
 may_use = ["theme", "turn"]

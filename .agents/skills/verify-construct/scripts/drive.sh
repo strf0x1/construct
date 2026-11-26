@@ -6,7 +6,8 @@
 # A recipe dir holds model.json (the scripted model's steps), drive.txt (the
 # construct-dev drive script), optionally setup.sh (runs first, with WORK,
 # OUTSIDE, CHOME and EVIDENCE set; write config or files there) and
-# optionally serve.args (extra `serve` flags), drive.env (KEY=VALUE lines for
+# optionally teardown.sh (runs at exit, pass or fail, with the same variables;
+# stops what setup.sh started), serve.args (extra `serve` flags), drive.env (KEY=VALUE lines for
 # construct's environment; CONSTRUCT_MOTION=on turns motion back on, which
 # recipes run without so a frame never depends on its timing) and check.sh (runs after a passing
 # drive with the same variables and
@@ -53,6 +54,7 @@ collect() {
 }
 
 cleanup() {
+  [ -f "$recipe/teardown.sh" ] && bash "$recipe/teardown.sh" || true
   [ -f "$scratch/mock/pid" ] && kill "$(cat "$scratch/mock/pid")" 2>/dev/null || true
   collect
   [ "${VERIFY_KEEP:-}" = 1 ] && echo "scratch kept: $scratch" >&2 || rm -rf "$scratch"

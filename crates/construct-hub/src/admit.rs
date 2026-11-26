@@ -18,6 +18,10 @@ use construct_peer::PublicKey;
 /// Most joins waiting for a human at once.
 pub const MAX_PENDING: usize = 5;
 
+/// How long a join waits for a human before the hub turns it away (#365):
+/// the TUI counts it down beside the SAS code.
+pub const APPROVAL_TTL_SECS: u64 = 300;
+
 /// Wrong join tokens a slot takes before it is burnt.
 pub const MAX_STRIKES: u32 = 5;
 

@@ -44,6 +44,9 @@ pub struct Question {
     pub title: String,
     /// The option ids the peer offers (`once`, `session`, `deny`, …).
     pub options: Vec<String>,
+    /// The peer's wording for each option, in the same order (#365).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
 }
 
 /// The option ids a `session/request_permission` offers.
@@ -58,6 +61,10 @@ pub(crate) fn question(params: &Value) -> Question {
     Question {
         title: params["toolCall"]["title"].as_str().unwrap_or("permission").to_string(),
         options: options(params),
+        labels: params["options"]
+            .as_array()
+            .map(|o| o.iter().map(|o| o["name"].as_str().unwrap_or_default().to_string()).collect())
+            .unwrap_or_default(),
     }
 }
 
