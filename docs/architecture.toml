@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core", "construct-deck", "construct-hub", "construct-peer", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-skills", "construct-tools-web", "construct-tui"]
+may_use_crates = ["construct-core", "construct-deck", "construct-hub", "construct-peer", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-peers", "construct-tools-skills", "construct-tools-web", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -282,6 +282,25 @@ used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271)
 
 [crates.construct-tools-jobs.modules.lib]
 may_use = []
+
+[crates.construct-tools-peers]
+may_use_crates = ["construct-core"]
+used_only_by = { crates = ["construct"], reason = "an optional tool crate (#366, ADR 0075): the binary's `hub` feature registers it as a `ToolSource` with a `Hub` over the control socket; the engine and the hub crate never name it" }
+
+[crates.construct-tools-peers.modules.fence]
+may_use = []
+
+[crates.construct-tools-peers.modules.hub]
+may_use = []
+
+[crates.construct-tools-peers.modules.lib]
+may_use = []
+
+[crates.construct-tools-peers.modules.tool]
+may_use = ["fence", "hub", "watch"]
+
+[crates.construct-tools-peers.modules.watch]
+may_use = ["hub"]
 
 [crates.construct-tools-memory]
 may_use_crates = ["construct-core"]

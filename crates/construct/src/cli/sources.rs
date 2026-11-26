@@ -23,6 +23,14 @@ pub(super) fn tool_sources() -> ToolSources {
     let sources = sources.with(construct_tools_jobs::Jobs);
     #[cfg(feature = "deck")]
     let sources = sources.with(construct_deck::DeckTools);
+    // The `peer` tool talks to this home's hub; it exists only once there is one.
+    #[cfg(feature = "hub")]
+    let sources = match construct_core::config::Paths::resolve() {
+        Ok(paths) => {
+            sources.with(construct_tools_peers::Peers(std::sync::Arc::new(super::hub::tool::Socket::new(&paths))))
+        }
+        Err(_) => sources,
+    };
     sources
 }
 

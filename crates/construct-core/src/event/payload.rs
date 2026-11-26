@@ -14,6 +14,9 @@ pub enum Kind {
     /// A delegated child: only in journals from before delegation was
     /// removed (#294), kept so their job rows still read.
     Delegate,
+    /// Work running somewhere else that a tool crate waits on (a peer's turn,
+    /// #366): the body only watches it and reports how it ended.
+    Remote,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,6 +33,9 @@ pub enum Status {
     Timeout,
     /// Stopped by the model, the user or quitting.
     Cancelled,
+    /// Remote work paused on a question only a human may answer (#366): the
+    /// job ends so the agent hears of it, and a new job watches the rest.
+    Waiting,
 }
 
 /// A job at one moment, and the payload of its `job_end` row. It may still be

@@ -14,7 +14,7 @@
 
 use crate::questions::Questions;
 use crate::registry::{Peer, Prompt};
-use crate::view::{self, SessionView};
+use crate::view::{self, Answered, SessionView};
 use construct_core::acp::{map, rpc};
 use rpc::Incoming;
 use serde_json::{Value, json};
@@ -49,6 +49,8 @@ pub(crate) struct Remote {
     state: Option<Value>,
     /// How the last prompt ended (`end_turn`, `cancelled`, `error: …`).
     last: Option<String>,
+    /// The last answered prompt with its key and reply (#366).
+    answered: Option<Answered>,
     updates: VecDeque<Value>,
     /// Open permission questions, waiting for a human.
     questions: Questions,
@@ -68,6 +70,7 @@ impl Remote {
             sent: None,
             state: None,
             last: None,
+            answered: None,
             updates: VecDeque::new(),
             questions: Questions::default(),
         }
@@ -149,8 +152,18 @@ impl Remote {
         Ok(out)
     }
 
-    /// Cancel the running turn on the peer.
+    /// Cancel the running turn on the peer. A prompt waiting on its first
+    /// session cannot have reached the peer yet, so it is dropped here and
+    /// answered as cancelled (#366).
     pub(crate) fn cancel(&mut self) -> Result<Vec<String>, String> {
+        if matches!(self.phase, Phase::Opening { load: false, .. })
+            && let Some(p) = self.prompt.take()
+        {
+            let stop = "cancelled".to_string();
+            self.answered = Some(Answered { key: p.key, stop: stop.clone(), turn: self.turn, reply: String::new() });
+            self.last = Some(stop);
+            return Ok(vec![]);
+        }
         match (&self.phase, &self.session) {
             (Phase::Ready, Some(sid)) => Ok(vec![rpc::notification("session/cancel", json!({ "sessionId": sid }))]),
             (Phase::Ready, None) => Err("no session yet".into()),
@@ -187,7 +200,9 @@ impl Remote {
             cwd: self.cwd.clone(),
             turn: self.state.clone(),
             prompt: self.prompt.as_ref().map(|p| p.text.clone()),
+            key: self.prompt.as_ref().map(|p| p.key.clone()),
             last: self.last.clone(),
+            answered: self.answered.clone(),
             error: match &self.phase {
                 Phase::Failed(e) => Some(e.clone()),
                 _ => None,
@@ -252,11 +267,17 @@ impl Remote {
             return;
         }
         if id.is_some() && id == self.sent {
-            self.last = Some(match result {
+            let stop = match result {
                 Ok(v) => v["stopReason"].as_str().unwrap_or("end_turn").to_string(),
                 Err(e) => format!("error: {}", e.message),
+            };
+            self.answered = self.prompt.take().map(|p| Answered {
+                key: p.key,
+                stop: stop.clone(),
+                turn: self.turn,
+                reply: view::reply(self.updates.iter()),
             });
-            (self.prompt, self.sent) = (None, None);
+            (self.last, self.sent) = (Some(stop), None);
         }
     }
 
@@ -332,6 +353,8 @@ mod tests {
         r.receive(&reply(&prompt, json!({ "stopReason": "end_turn" })));
         let v = r.view("old-pc");
         assert_eq!((v.prompt, v.last.as_deref(), v.transcript.as_str()), (None, Some("end_turn"), "> hi\nhello"));
+        let a = v.answered.unwrap();
+        assert_eq!((a.key.as_str(), a.stop.as_str(), a.turn, a.reply.as_str()), ("k1", "end_turn", Some(1), "hello"));
         let mut row = Peer::new("old-pc", crate::registry::State::Pinned);
         assert!(r.sync(&mut row));
         assert_eq!((row.session.as_deref(), row.turn, row.prompt), (Some("s1"), Some(1), None));
@@ -372,6 +395,18 @@ mod tests {
         assert!(r.view("old-pc").questions.is_empty());
         assert!(r.cancel().is_err());
         assert_eq!(parse(&r.attach(Some("/w".into()))[0])["method"], "initialize");
+    }
+
+    #[test]
+    fn a_prompt_cancelled_before_its_session_opens_never_reaches_the_peer() {
+        let mut r = Remote::new(None, 0);
+        let init = r.attach(Some("/w".into())).remove(0);
+        r.receive(&reply(&init, json!({})));
+        let new = r.prompt("hi".into(), "k1".into()).unwrap().remove(0);
+        assert!(r.cancel().unwrap().is_empty());
+        assert!(r.receive(&reply(&new, json!({ "sessionId": "s1" }))).is_empty(), "no prompt follows the session");
+        let v = r.view("old-pc");
+        assert_eq!((v.key, v.answered.map(|a| (a.key, a.stop))), (None, Some(("k1".into(), "cancelled".into()))));
     }
 
     #[test]

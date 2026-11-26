@@ -22,6 +22,7 @@ construct-deck = { path = "crates/construct-deck" }
 construct-tools-web = { path = "crates/construct-tools-web" }
 construct-tools-history = { path = "crates/construct-tools-history" }
 construct-tools-jobs = { path = "crates/construct-tools-jobs" }
+construct-tools-peers = { path = "crates/construct-tools-peers" }
 construct-tools-memory = { path = "crates/construct-tools-memory" }
 construct-tools-skills = { path = "crates/construct-tools-skills" }
 # Peer wire protocol (Noise IK, chunked envelopes, WebSocket, keep-alive; #368).

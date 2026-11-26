@@ -28,14 +28,35 @@ pub struct SessionView {
     /// The prompt in flight, until its answer arrives.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
+    /// The idempotency key of the prompt in flight, so a client that sent
+    /// it can tell its own completion from a later prompt's (#366).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     /// How the last answered prompt ended.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<String>,
+    /// The last answered prompt: its key, how it ended and what the peer's
+    /// agent said in reply (#366).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answered: Option<Answered>,
     /// Why the session could not be opened, if it could not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     pub transcript: String,
     pub questions: Vec<Question>,
+}
+
+/// A prompt the peer has answered, as the `peer` tool reports it (#366).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Answered {
+    /// The idempotency key it was sent with.
+    pub key: String,
+    /// `end_turn`, `cancelled`, `error: …`.
+    pub stop: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn: Option<u64>,
+    /// The agent's words after the prompt, tool lines left out.
+    pub reply: String,
 }
 
 /// A permission question from the peer, waiting for `construct hub answer`.
@@ -99,6 +120,19 @@ pub(crate) fn show_prompt(updates: &mut VecDeque<Value>, text: &str, cap: usize)
         let said = json!({ "sessionUpdate": "user_message_chunk", "content": { "type": "text", "text": text } });
         keep(updates, said, cap);
     }
+}
+
+/// What the agent said after the latest user message: its reply to the
+/// prompt that turn answered.
+pub(crate) fn reply<'a>(updates: impl DoubleEndedIterator<Item = &'a Value>) -> String {
+    let mut said: Vec<&str> = updates
+        .rev()
+        .take_while(|u| u["sessionUpdate"] != "user_message_chunk")
+        .filter(|u| u["sessionUpdate"] == "agent_message_chunk")
+        .filter_map(|u| u["content"]["text"].as_str())
+        .collect();
+    said.reverse();
+    said.concat()
 }
 
 /// The transcript as text: user turns as `> …`, the agent's words as they
@@ -201,5 +235,6 @@ mod tests {
             json!({ "sessionUpdate": "agent_message_chunk", "content": { "text": "done" } }),
         ];
         assert_eq!(transcript(u.iter()), "> read it\non it\n[completed] read a.txt\ndone");
+        assert_eq!(reply(u.iter()), "on itdone", "the reply is the agent's words after the prompt");
     }
 }

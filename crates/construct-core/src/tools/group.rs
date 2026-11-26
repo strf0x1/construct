@@ -13,6 +13,9 @@ pub enum Group {
     /// Checking and cancelling background jobs; on once the session has one.
     Jobs,
     Developer,
+    /// Sending work to peers (constructs on other machines, #366); present
+    /// only when this home runs a hub.
+    Peers,
     /// Deck's boundary tools; present only when the VM runtime set an
     /// endpoint, so it is never offered by the router.
     Boundary,
@@ -32,6 +35,7 @@ impl Group {
             Group::SkillWrite => "skill-write".into(),
             Group::History => "history".into(),
             Group::Developer => "developer".into(),
+            Group::Peers => "peers".into(),
             Group::Boundary => "boundary".into(),
             Group::Coordinator => "coordinator".into(),
             Group::Jobs => "jobs".into(),
@@ -51,6 +55,7 @@ impl Group {
             "memory" => Group::Memory,
             "history" => Group::History,
             "developer" => Group::Developer,
+            "peers" => Group::Peers,
             "skills" => Group::Skills,
             "skill-write" => Group::SkillWrite,
             l => Group::Mcp(l.strip_prefix("mcp:")?.to_string()),
