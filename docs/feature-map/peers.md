@@ -1,8 +1,10 @@
 ---
 id: peers
-status: built
+status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/peers, crates/construct/src/cli/hub/tui.rs, crates/construct-hub/src/status.rs, crates/construct-hub/src/state.rs, crates/construct-hub/src/conn.rs, crates/construct-hub/src/remote.rs, crates/construct-hub/src/view.rs, crates/construct-dev/tests/peer_tui.rs]
+verified_at: 6323e7b
+verified_deps: 43bfb5dced409d4a
 ---
 # Peers in the TUI
 
