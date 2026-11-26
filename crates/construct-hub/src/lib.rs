@@ -29,6 +29,7 @@ mod remote;
 pub mod server;
 mod state;
 pub mod status;
+pub mod tailnet;
 pub mod view;
 
 pub use files::Files;

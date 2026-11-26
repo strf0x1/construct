@@ -9,7 +9,8 @@ use construct_core::config::{Config, Paths};
 use construct_hub::control::{self, Request, Response};
 use construct_hub::invite::{DEFAULT_TTL_SECS, InviteReply, parse_span};
 use construct_hub::registry::State;
-use construct_hub::server::DEFAULT_LISTEN;
+use construct_hub::server::{DEFAULT_LISTEN, DEFAULT_PORT};
+use construct_hub::tailnet;
 use construct_hub::view::SessionView;
 use construct_hub::{Files, Options, Status, offline};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -19,7 +20,8 @@ pub(super) struct HubArgs {
     #[command(subcommand)]
     cmd: Option<HubCmd>,
     /// Address peers dial (`host:port`; default loopback, or
-    /// `CONSTRUCT_HUB_LISTEN`). Give the tailnet or LAN address for a real drop.
+    /// `CONSTRUCT_HUB_LISTEN`). Give the tailnet or LAN address for a real
+    /// drop; `tailscale` (or `tailscale:<port>`) is this machine's tailnet IP.
     #[arg(long)]
     listen: Option<String>,
 }
@@ -109,6 +111,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
         .or_else(|| std::env::var("CONSTRUCT_HUB_LISTEN").ok().filter(|s| !s.is_empty()))
         .unwrap_or_else(|| DEFAULT_LISTEN.into());
     let Some(cmd) = args.cmd else {
+        let listen = tailnet::resolve_listen(&listen, DEFAULT_PORT)?;
         return construct_hub::serve(Options { home: paths.home.clone(), listen, cfg }, |s| {
             eprintln!("construct hub: peers dial {}", s.listen.as_deref().unwrap_or("?"));
             eprintln!("construct hub: key {}", s.key.as_deref().unwrap_or("?"));
@@ -131,7 +134,12 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             println!("hub: stopping");
         }
         HubCmd::Invite { id, expires, url, json } => {
-            let reply = invite(&files, &id, expires, url, format!("ws://{listen}")).await?;
+            // Only an offline invite needs the address worked out here.
+            let offline = match &url {
+                Some(u) => u.clone(),
+                None => format!("ws://{}", tailnet::resolve_listen(&listen, DEFAULT_PORT)?),
+            };
+            let reply = invite(&files, &id, expires, url, offline).await?;
             print_invite(&reply, expires, json)?;
         }
         HubCmd::Pending => {
@@ -235,13 +243,13 @@ fn print_invite(reply: &InviteReply, ttl: u64, json: bool) -> Result<()> {
     println!("  {}\n", reply.command);
     if reply.url.contains("127.0.0.1") || reply.url.contains("localhost") {
         println!(
-            "(the hub listens on loopback: start it with `--listen <tailnet or LAN address>:<port>` for another machine)"
+            "(the hub listens on loopback: start it with `--listen tailscale` or `--listen <LAN address>:<port>` for another machine)"
         );
     }
     Ok(())
 }
 
-async fn status(files: &Files) -> Result<Status> {
+pub(super) async fn status(files: &Files) -> Result<Status> {
     match ask(files, &Request::Status).await? {
         Some(resp) => match resp.status {
             Some(s) => Ok(*s),

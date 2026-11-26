@@ -127,12 +127,7 @@ impl Remote {
                 }
             }
             Incoming::Notification { method, params } if self.ours(&params) => match method.as_str() {
-                "session/update" => {
-                    if self.updates.len() == MAX_UPDATES {
-                        self.updates.pop_front();
-                    }
-                    self.updates.push_back(params["update"].clone());
-                }
+                "session/update" => view::keep(&mut self.updates, params["update"].clone(), MAX_UPDATES),
                 map::TURN_METHOD | map::LEGACY_TURN_METHOD => self.turned(params),
                 _ => {}
             },
@@ -288,6 +283,7 @@ impl Remote {
                     json!({ "sessionId": sid, "prompt": blocks, "_meta": meta }),
                 ));
                 self.sent = Some(id);
+                view::show_prompt(&mut self.updates, &p.text, MAX_UPDATES);
             }
             (None, Some(cwd)) => {
                 out.push(rpc::request(id, "session/new", json!({ "cwd": cwd, "mcpServers": [] })));
@@ -332,7 +328,7 @@ mod tests {
         r.receive(&rpc::notification("session/update", json!({ "sessionId": "s1", "update": chunk })));
         r.receive(&reply(&prompt, json!({ "stopReason": "end_turn" })));
         let v = r.view("old-pc");
-        assert_eq!((v.prompt, v.last.as_deref(), v.transcript.as_str()), (None, Some("end_turn"), "hello"));
+        assert_eq!((v.prompt, v.last.as_deref(), v.transcript.as_str()), (None, Some("end_turn"), "> hi\nhello"));
         let mut row = Peer::new("old-pc", crate::registry::State::Pinned);
         assert!(r.sync(&mut row));
         assert_eq!((row.session.as_deref(), row.turn, row.prompt), (Some("s1"), Some(1), None));
@@ -362,6 +358,7 @@ mod tests {
             (Some("session/prompt"), Some("k1"))
         );
         assert_eq!(r.view("old-pc").turn.unwrap()["state"], "waiting");
+        assert_eq!(r.view("old-pc").transcript, "> go", "the resent prompt is shown");
         assert!(r.answer("always", None).is_err(), "only offered options");
         let answer = parse(&r.answer("once", None).unwrap().remove(0));
         assert_eq!((answer["id"].as_u64(), answer["result"]["outcome"]["optionId"].as_str()), (Some(9), Some("once")));
@@ -384,5 +381,22 @@ mod tests {
         assert!(r.receive(&missing).is_empty());
         let new = r.prompt("hi".into(), "k".into()).unwrap().remove(0);
         assert_eq!(parse(&new)["method"], "session/new");
+    }
+
+    #[test]
+    fn a_prompt_the_replay_already_shows_is_not_shown_twice() {
+        let mut row = Peer::new("old-pc", crate::registry::State::Pinned);
+        row.session = Some("s1".into());
+        row.prompt = Some(Prompt { key: "k1".into(), text: "go".into() });
+        let mut r = Remote::new(Some(&row), 5);
+        let init = r.attach(Some("/w".into())).remove(0);
+        let load = r.receive(&reply(&init, json!({}))).remove(0);
+        for (kind, text) in [("user_message_chunk", "g"), ("user_message_chunk", "o"), ("agent_message_chunk", "on it")]
+        {
+            let u = json!({ "sessionUpdate": kind, "content": { "type": "text", "text": text } });
+            r.receive(&rpc::notification("session/update", json!({ "sessionId": "s1", "update": u })));
+        }
+        assert_eq!(parse(&r.receive(&reply(&load, json!({}))).remove(0))["method"], "session/prompt");
+        assert_eq!(r.view("old-pc").transcript, "> go\non it");
     }
 }

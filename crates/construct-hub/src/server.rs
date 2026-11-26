@@ -32,6 +32,8 @@ use tokio::task::JoinSet;
 /// The default peer listen address: loopback only. A Tailscale or LAN drop
 /// (#364) passes the tailnet or LAN interface explicitly.
 pub const DEFAULT_LISTEN: &str = "127.0.0.1:9443";
+/// The port of [`DEFAULT_LISTEN`], also used for `--listen tailscale`.
+pub const DEFAULT_PORT: u16 = 9443;
 
 /// How long shutdown waits for peer links to say goodbye.
 const CLOSE_GRACE: Duration = Duration::from_secs(2);
