@@ -133,4 +133,9 @@ crashes without anyone touching it. Constraints:
   token, the hub saw `cancelled`, the effect ran once, no stray process),
   revoked while stopped (the no-restart exit, key deleted, `NRestarts=0`;
   run while the code was still 3, before it became 77), `--uninstall`,
-  and reinstall over a running binary. The reboot is recorded in the PR.
+  and reinstall over a running binary. A reboot while installed: the
+  lingering user manager started the unit in the same second userspace was
+  up (`NRestarts=0`). sddm autologin also started then, so this boot does
+  not separate the two. The peer retried through `Network is unreachable`,
+  rejoined 17 s later without a token, and the next prompt ran in the same
+  session with its model call through the hub.
