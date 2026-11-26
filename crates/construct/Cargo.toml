@@ -52,7 +52,7 @@ peer = ["dep:construct-peer"]
 # `construct hub` (construct-hub, #360): the host process peers dial home to.
 # A host build only: a dropped peer never links the listener, the registry or
 # the control socket, so `lean` and bare leave it out (ADR 0069).
-hub = ["dep:construct-hub"]
+hub = ["dep:construct-hub", "dep:async-trait"]
 
 [dependencies]
 construct-core = { workspace = true, default-features = false }
@@ -66,6 +66,8 @@ construct-tools-skills = { workspace = true, optional = true }
 construct-peer = { workspace = true, default-features = false, features = ["dial"], optional = true }
 construct-hub = { workspace = true, optional = true }
 anyhow.workspace = true
+# The TUI's `PeerHub` over the hub's control socket (`cli/hub/tui.rs`, #365).
+async-trait = { workspace = true, optional = true }
 clap.workspace = true
 reqwest.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

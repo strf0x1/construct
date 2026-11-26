@@ -25,3 +25,14 @@ pub(super) fn tool_sources() -> ToolSources {
     let sources = sources.with(construct_deck::DeckTools);
     sources
 }
+
+/// The TUI's way to the hub's peers, when this build has a hub (#365).
+pub(super) fn peer_hub(paths: &construct_core::config::Paths) -> Option<std::sync::Arc<dyn construct_tui::PeerHub>> {
+    #[cfg(feature = "hub")]
+    return Some(std::sync::Arc::new(super::hub::tui::Socket::new(paths)));
+    #[cfg(not(feature = "hub"))]
+    {
+        let _ = paths;
+        None
+    }
+}

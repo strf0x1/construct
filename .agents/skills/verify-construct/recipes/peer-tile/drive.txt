@@ -1,0 +1,36 @@
+# A peer waits for approval: the tile shows it, the popup shows its code.
+wait "ask construct" 5000
+wait "old-pc pending" 8000
+wait "wants to join this hub" 3000
+# keys are ignored for 450 ms after the popup appears
+sleep 600
+snap --style join
+expect-style "JOIN · old-pc" fg=#1a1b26 bold
+expect-style "Approve · pins its key" fg=#9ece6a bg=#2c3048 bold
+expect-style "Deny" fg=#f7768e
+image {evidence}/join.png
+type a
+wait "approved: its key is pinned" 4000
+wait "old-pc online" 5000
+# A prompt to the peer; its model asks to read outside its sandbox.
+type /peer old-pc read the secret
+key enter
+wait "about its own machine" 10000
+sleep 600
+snap --style ask
+expect-style "PEER · old-pc" fg=#1a1b26 bold
+expect-style "Allow once on old-pc" fg=#9ece6a bg=#2c3048 bold
+expect-style "Always allow · saved to old-pc's config" fg=#e0af68
+image {evidence}/ask.png
+type y
+wait "answered" 4000
+gone "about its own machine" 3000
+# Watch the peer's session.
+type /peer old-pc
+key enter
+wait "peer finished" 10000
+snap --style attach
+image {evidence}/attach.png
+key esc
+gone "esc close" 2000
+snap after

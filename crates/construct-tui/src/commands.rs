@@ -110,6 +110,11 @@ pub(super) fn slash(app: &mut App, rest: &str, cmd: &mpsc::UnboundedSender<Cmd>)
             Err(why) => app.notice(theme::DIM, why),
         },
         "copy" => copy(app, arg),
+        "peer" => {
+            if let Some((color, text)) = super::peers::command(&mut app.peers, arg) {
+                app.notice(color, text);
+            }
+        }
         "help" | "?" => {
             let skills = app.skills();
             app.push(Block::new(Kind::Help, super::help::skill_rows(&skills)));

@@ -4,6 +4,8 @@
 //! session, answer), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
+pub(super) mod tui;
+
 use anyhow::{Result, bail};
 use construct_core::config::{Config, Paths};
 use construct_hub::control::{self, Request, Response};
@@ -195,7 +197,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             }
         }
         HubCmd::Answer { id, option, question } => {
-            session(&files, Request::Answer { id: id.clone(), option: option.clone(), question }).await?;
+            session(&files, Request::Answer { id: id.clone(), option: option.clone(), question, title: None }).await?;
             println!("hub: answered {id} with {option}");
         }
         HubCmd::Pair { span, close } => {

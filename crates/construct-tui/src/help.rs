@@ -28,6 +28,7 @@ pub(super) const COMMANDS: &[Entry] = &[
     entry("/memory", "", "show what construct remembers"),
     entry("/learn", "", "run the learning pass now"),
     entry("/status", "", "session id, journal and totals"),
+    entry("/peer", "[name] [prompt]", "list peers, watch one, or send it a prompt"),
     entry("/copy", "[error|status]", "last reply (or last tool error, or status) to the clipboard"),
     entry("/help", "", "this list (also /?)"),
     entry("/quit", "", "exit (also /exit, /q)"),

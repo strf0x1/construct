@@ -14,7 +14,7 @@
 //! the link through its own channel, so the control socket never touches a
 //! socket it does not own.
 
-use crate::admit::{Admission, Offer};
+use crate::admit::{APPROVAL_TTL_SECS, Admission, Offer};
 use crate::proxy::Calls;
 use crate::state::{Conn, Hub, ToLink, Waiting, lock, now, stopped};
 use construct_peer::{
@@ -23,6 +23,7 @@ use construct_peer::{
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, watch};
 
@@ -58,7 +59,9 @@ pub(crate) async fn run(
         let admission = s.registry.admit(offer, live);
         let conn = s.next_conn;
         s.next_conn += 1;
-        let waiting = matches!(admission, Admission::Pending { .. }).then(|| Waiting { key, code: code.clone() });
+        let until = now().saturating_add(APPROVAL_TTL_SECS);
+        let waiting =
+            matches!(admission, Admission::Pending { .. }).then(|| Waiting { key, code: code.clone(), until });
         if !matches!(admission, Admission::Refused(_)) {
             s.online.insert(id.clone(), Conn { id: conn, remote: remote.clone(), tx, waiting });
         }
@@ -124,6 +127,12 @@ async fn follow<S: FrameStream>(
     let mut ka = KeepAliveState::new();
     // Dropped when this returns: every model call still running is aborted.
     let mut calls = Calls::new(lock(hub).upstream.clone());
+    // A join nobody decides on is turned away when its countdown ends.
+    let mut expiry = lock(hub)
+        .online
+        .get(id)
+        .and_then(|c| c.waiting.as_ref())
+        .map(|w| tokio::time::Instant::now() + Duration::from_secs(w.until.saturating_sub(now())));
     loop {
         tokio::select! {
             got = recv_with_keepalive(link, KeepAlive::default(), &mut ka) => match got {
@@ -168,6 +177,7 @@ async fn follow<S: FrameStream>(
                     }
                 }
                 Some(ToLink::Approved) => {
+                    expiry = None;
                     link.set_max_envelope_bytes(PINNED_MAX_ENVELOPE);
                     send(link, &Control::JoinAck { accepted: true, reason: None }).await;
                     eprintln!("construct hub: {id} approved and pinned");
@@ -191,6 +201,16 @@ async fn follow<S: FrameStream>(
                     return;
                 }
             },
+            () = tokio::time::sleep_until(expiry.unwrap_or_else(tokio::time::Instant::now)), if expiry.is_some() => {
+                let still = lock(hub).online.get_mut(id).and_then(|c| c.waiting.take()).is_some();
+                if still {
+                    send(link, &Control::JoinAck { accepted: false, reason: Some("nobody approved the join in time".into()) }).await;
+                    let _ = link.close(None).await;
+                    eprintln!("construct hub: {id}'s join expired");
+                    return;
+                }
+                expiry = None;
+            }
             () = stopped(&mut stop) => {
                 let _ = link.close(Some("hub shutting down".into())).await;
                 return;

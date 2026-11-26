@@ -32,7 +32,7 @@ paths = [
   "crates/construct-dev/src/drive/",
   "crates/construct-dev/src/style.rs",
 ]
-tests = ["catalog", "developer", "e2e", "jobs", "optchat", "permission", "providers", "recovery", "sessions", "slash", "snapshots", "turn"]
+tests = ["catalog", "developer", "e2e", "jobs", "optchat", "peer_tui", "permission", "providers", "recovery", "sessions", "slash", "snapshots", "turn"]
 
 # The repo's own tooling: compiled into the test binary, run by none of it.
 [[area]]
@@ -109,14 +109,14 @@ tests = ["e2e", "snapshots"]
 [[area]]
 name = "peer-wire"
 paths = ["crates/construct-peer/"]
-tests = ["hub", "join", "peer_acp", "peer_llm"]
+tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tui"]
 
 # `construct hub` (#360) and joining it (#361): the host process, `construct
 # peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
-paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/peer.rs"]
-tests = ["hub", "join", "peer_acp", "peer_llm", "stamp"]
+paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/hub/tui.rs", "crates/construct/src/cli/peer.rs"]
+tests = ["hub", "join", "peer_acp", "peer_llm", "peer_tui", "stamp"]
 
 # Stamped peer binaries (#363): the trailer and its config layer, and
 # `construct build`.

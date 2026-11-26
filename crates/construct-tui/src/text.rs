@@ -26,6 +26,25 @@ pub fn cols(s: &str) -> usize {
     unicode_width::UnicodeWidthStr::width(s.replace(|c: char| c.is_control(), "").as_str())
 }
 
+/// `s` cut to `w` columns, ending in `…` when it was cut.
+pub fn fit(s: &str, w: usize) -> String {
+    if unicode_width::UnicodeWidthStr::width(s) <= w {
+        return s.to_string();
+    }
+    let mut out = String::new();
+    let mut cw = 0;
+    for c in s.chars() {
+        let x = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+        if cw + x + 1 > w {
+            break;
+        }
+        out.push(c);
+        cw += x;
+    }
+    out.push('…');
+    out
+}
+
 /// Property-test setup, duplicated from `construct_core::text` (`#[cfg(test)]`
 /// items cannot cross crates): text that breaks byte arithmetic, and one
 /// deterministic config so CI replays the same cases every run.

@@ -16,6 +16,10 @@ pub const FAINT: Color = Color::Rgb(70, 76, 102);
 /// A permission panel's selected choice: the one background construct draws
 /// (`prompt.rs`), and how `motion` finds that row in a drawn frame.
 pub const SELECTED_BG: Color = Color::Rgb(44, 48, 72);
+/// Keys are ignored for this long after a question panel appears (the local
+/// one or a peer's), so the Enter or `y` someone was in the middle of typing
+/// can't answer it (ADR 0016).
+pub const GRACE: std::time::Duration = std::time::Duration::from_millis(450);
 
 pub fn dim() -> Style {
     Style::new().fg(DIM)

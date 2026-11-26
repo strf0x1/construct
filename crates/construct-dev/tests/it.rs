@@ -54,6 +54,8 @@ mod optchat;
 mod peer_acp;
 #[path = "peer_llm.rs"]
 mod peer_llm;
+#[path = "peer_tui.rs"]
+mod peer_tui;
 #[path = "permission.rs"]
 mod permission;
 #[path = "providers.rs"]

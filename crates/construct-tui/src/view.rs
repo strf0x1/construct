@@ -3,6 +3,7 @@
 
 use super::app::{App, Kind, Status};
 use super::motion::{Place, rise};
+use super::text::fit;
 use super::{boxed, help, markdown, prompt, theme};
 use anyhow::Result;
 use construct_core::tools::OutputKind;
@@ -246,6 +247,7 @@ impl App {
             }
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
             motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, self.blocks.is_empty());
+            super::peers::draw(f, &mut self.peers, Rect::new(0, 0, width, main_h), self.prompts.is_empty(), phase);
             if panel.is_some() {
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, area.height.saturating_sub(1), width, 1));
                 return;
@@ -289,22 +291,4 @@ fn tool_body(kind: OutputKind, out: &str) -> String {
         }
         OutputKind::Plain => out.to_string(),
     }
-}
-
-pub(super) fn fit(s: &str, w: usize) -> String {
-    if s.width() <= w {
-        return s.to_string();
-    }
-    let mut out = String::new();
-    let mut cw = 0;
-    for c in s.chars() {
-        let x = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
-        if cw + x + 1 > w {
-            break;
-        }
-        out.push(c);
-        cw += x;
-    }
-    out.push('…');
-    out
 }

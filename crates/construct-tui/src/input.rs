@@ -115,6 +115,9 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
     if !app.prompts.is_empty() {
         return super::ask::prompt_key(app, k);
     }
+    if super::peers::key(&mut app.peers, k) {
+        return false;
+    }
     if app.picker.is_some() {
         picker_key(app, k, cmd);
         return false;

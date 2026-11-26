@@ -20,6 +20,7 @@ mod listing;
 mod markdown;
 mod motion;
 mod palette;
+mod peers;
 mod picker;
 mod prompt;
 mod restore;
@@ -52,6 +53,8 @@ use std::io::Write;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use worker::{Launch, Ready, agent_task};
+
+pub use peers::{Act, PeerHub, PeerRow, Question, Standing};
 
 struct Guard {
     kbd: bool,
@@ -125,9 +128,10 @@ pub async fn run(
     startup_browser: bool,
     model_override: Option<String>,
     sources: ToolSources,
+    hub: Option<std::sync::Arc<dyn PeerHub>>,
 ) -> Result<()> {
     let saved_stderr = quiet_stderr(&paths);
-    let r = run_inner(cfg, paths, resume, startup_browser, model_override, sources).await;
+    let r = run_inner(cfg, paths, resume, startup_browser, model_override, sources, hub).await;
     restore_stderr(saved_stderr);
     r
 }
@@ -139,6 +143,7 @@ async fn run_inner(
     startup_browser: bool,
     model_override: Option<String>,
     sources: ToolSources,
+    hub: Option<std::sync::Arc<dyn PeerHub>>,
 ) -> Result<()> {
     construct_core::trace::mark("tui start");
     terminal::enable_raw_mode()?;
@@ -183,6 +188,11 @@ async fn run_inner(
         out,
     ));
 
+    // The hub is polled only now that the first frame is up.
+    let (peer_tx, mut peer_rx) = mpsc::unbounded_channel::<peers::Msg>();
+    if let Some(hub) = hub {
+        app.peers.start(hub, peer_tx);
+    }
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -205,6 +215,10 @@ async fn run_inner(
             }
             Some(()) = refused_rx.recv() => {
                 app.turn.refused();
+                dirty = true;
+            }
+            Some(msg) = peer_rx.recv() => {
+                if let Some((color, text)) = app.peers.on(msg) { app.notice(color, text); }
                 dirty = true;
             }
             Some(prompt) = prompt_rx.recv() => {

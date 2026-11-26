@@ -9,23 +9,23 @@ expression: "screen(&env, &d)"
 
 
 
-
   ╭─ commands ─────────────────────────────────────────────────────────────────╮
-  │ /resume [id]          browse saved sessions in this directory, or resume   │
-  │                       by id                                                │
-  │ /rename <title>       name the current session                             │
-  │ /new                  fresh session (also /clear)                          │
-  │ /model [id]           pick from the catalog, or switch to any id           │
-  │ /models [query]       search the endpoint's model list: window and price   │
-  │ /skills [name]        list the skill library, or run one (also /<name>     │
-  │                       <request>)                                           │
-  │ /memory               show what construct remembers                        │
-  │ /learn                run the learning pass now                            │
-  │ /status               session id, journal and totals                       │
-  │ /copy [error|status]  last reply (or last tool error, or status) to the    │
-  │                       clipboard                                            │
-  │ /help                 this list (also /?)                                  │
-  │ /quit                 exit (also /exit, /q)                                │
+  │ /resume [id]           browse saved sessions in this directory, or resume  │
+  │                        by id                                               │
+  │ /rename <title>        name the current session                            │
+  │ /new                   fresh session (also /clear)                         │
+  │ /model [id]            pick from the catalog, or switch to any id          │
+  │ /models [query]        search the endpoint's model list: window and price  │
+  │ /skills [name]         list the skill library, or run one (also /<name>    │
+  │                        <request>)                                          │
+  │ /memory                show what construct remembers                       │
+  │ /learn                 run the learning pass now                           │
+  │ /status                session id, journal and totals                      │
+  │ /peer [name] [prompt]  list peers, watch one, or send it a prompt          │
+  │ /copy [error|status]   last reply (or last tool error, or status) to the   │
+  │                        clipboard                                           │
+  │ /help                  this list (also /?)                                 │
+  │ /quit                  exit (also /exit, /q)                               │
   ╰────────────────────────────────────────────────────────────────────────────╯
   ╭─ skills ───────────────────────────────────────────────────────────────────╮
   │ /release-crate  Publish a release of a Rust crate                          │

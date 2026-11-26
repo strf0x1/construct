@@ -220,7 +220,7 @@ impl Palette {
                 let kind = if i.skill { "skill · " } else { "" };
                 let room = width.saturating_sub(4 + col + 2 + kind.width());
                 spans.push(Span::styled(kind, theme::faint()));
-                spans.push(Span::styled(super::view::fit(&i.about, room), theme::dim()));
+                spans.push(Span::styled(super::text::fit(&i.about, room), theme::dim()));
                 Line::from(spans)
             })
             .collect();

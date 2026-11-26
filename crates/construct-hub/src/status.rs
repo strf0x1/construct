@@ -7,6 +7,7 @@
 use crate::files::Files;
 use crate::proxy::LlmUsage;
 use crate::registry::{Peer, Registry};
+use crate::view::Question;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as _;
@@ -45,6 +46,32 @@ pub struct PeerStatus {
     /// What the peer's hub-proxied model calls used since the hub started.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub llm: Option<LlmUsage>,
+    /// Unix seconds when a waiting join is turned away (#365).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires: Option<u64>,
+    /// A prompt is in flight or the peer reports its turn running (#365).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub working: bool,
+    /// The peer's open permission questions, for the TUI's panel (#365).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<Question>,
+}
+
+impl PeerStatus {
+    /// A row with no live link.
+    #[must_use]
+    pub fn offline(peer: Peer) -> Self {
+        Self {
+            peer,
+            online: false,
+            remote: None,
+            code: None,
+            llm: None,
+            expires: None,
+            working: false,
+            questions: vec![],
+        }
+    }
 }
 
 impl Status {
@@ -59,11 +86,7 @@ impl Status {
             key,
             socket: files.socket().display().to_string(),
             pairing_until: None,
-            peers: registry
-                .peers
-                .into_iter()
-                .map(|peer| PeerStatus { peer, online: false, remote: None, code: None, llm: None })
-                .collect(),
+            peers: registry.peers.into_iter().map(PeerStatus::offline).collect(),
         })
     }
 
@@ -138,7 +161,7 @@ mod tests {
             key: Some("cd".repeat(32)),
             socket: "/h/hub.sock".into(),
             pairing_until: Some(400),
-            peers: vec![PeerStatus { peer, online: true, remote: None, code: Some("K7M-4QP".into()), llm: None }],
+            peers: vec![PeerStatus { online: true, code: Some("K7M-4QP".into()), ..PeerStatus::offline(peer) }],
         };
         let text = s.render(220);
         assert!(text.contains("hub: running (pid 42), peers dial ws://127.0.0.1:9443"), "{text}");
