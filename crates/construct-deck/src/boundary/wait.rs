@@ -1,7 +1,8 @@
 //! `boundary_wait`: the agent chooses to wait for a Deck decision.
 
-use super::client::{Boundary, MAX_WAIT, Outcome};
+use super::client::{Boundary, MAX_WAIT};
 use super::note::status_text;
+use super::wire::Outcome;
 use super::{WAIT, WITHDRAW};
 use construct_core::tools::{Ctx, Group, Output, Tool, ToolError, arg, def, num, obj};
 use serde_json::{Value, json};

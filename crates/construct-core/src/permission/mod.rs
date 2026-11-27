@@ -21,7 +21,6 @@ mod persist;
 
 pub use grants::protected;
 pub use named::{Outside, PolicyTools, outside};
-pub use operation::OperationAsk;
 pub use paths::blocked_in;
 pub use perms::Perms;
 
@@ -64,6 +63,15 @@ pub struct PathAsk {
     /// Asked before a shell command runs, for the paths it names (#64).
     #[serde(default)]
     pub ahead: bool,
+}
+
+/// A frozen developer operation awaiting explicit approval.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationAsk {
+    pub operation: String,
+    pub scope: String,
+    /// The complete frozen execution plan, without credentials.
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

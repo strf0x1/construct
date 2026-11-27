@@ -26,15 +26,6 @@ construct-core = [
     "config <-> models",
     "config <-> providers",
 ]
-construct-tools-web = [
-    # Older than the crate: ddg and search were already two-way inside
-    # core's tools::web, where submodules went uncounted (#271).
-    "ddg <-> search",
-]
-construct-dev = [
-    "arch <-> xtask",
-    "feature_map <-> xtask",
-]
 construct-tui = [
     "app <-> ask",
     "app <-> sessions",
@@ -49,5 +40,4 @@ construct-tui = [
 [cycles]
 # Intended (ADR 0057, 0060): config resolution.
 construct-core = ["config, endpoint, models, providers"]
-construct-dev = ["arch, feature_map, xtask"]
 construct-tui = ["app, ask, sessions"]

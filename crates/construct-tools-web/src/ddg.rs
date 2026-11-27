@@ -4,7 +4,7 @@
 
 use super::{
     filter::Filter,
-    search::{Answer, Hit},
+    result::{Answer, Hit, key_names, strip_tags},
 };
 use construct_core::tools::Ctx;
 use std::time::Duration;
@@ -29,10 +29,7 @@ pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<A
         .map_err(|e| e.to_string())?;
     let out = parse(&html, n);
     if out.is_empty() && html.contains("anomaly") {
-        return Err(format!(
-            "DuckDuckGo rate-limited this request; set {} with `construct secrets set`",
-            super::search::key_names()
-        ));
+        return Err(format!("DuckDuckGo rate-limited this request; set {} with `construct secrets set`", key_names()));
     }
     Ok(Answer { backend: "DuckDuckGo", hits: out, notes })
 }
@@ -66,20 +63,6 @@ fn parse(html: &str, n: usize) -> Vec<Hit> {
 
 fn between<'a>(s: &'a str, a: &str, b: &str) -> Option<&'a str> {
     Some(s.split_once(a)?.1.split_once(b)?.0)
-}
-
-pub(super) fn strip_tags(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut in_tag = false;
-    for c in s.chars() {
-        match c {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            c if !in_tag => out.push(c),
-            _ => {}
-        }
-    }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn decode_entities(s: &str) -> String {

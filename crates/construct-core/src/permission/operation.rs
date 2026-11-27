@@ -3,18 +3,9 @@
 //! command name or an operation kind. They never widen the shell sandbox.
 
 use super::perms::raced;
-use super::{Perms, Request, Verdict};
+use super::{OperationAsk, Perms, Request, Verdict};
 use crate::event::Event;
-use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OperationAsk {
-    pub operation: String,
-    pub scope: String,
-    /// The complete frozen execution plan, without credentials.
-    pub detail: String,
-}
 
 impl Perms {
     /// Authorize this exact execution plan. Reusable grants are session-only;

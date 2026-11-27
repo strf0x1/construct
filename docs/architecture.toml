@@ -337,7 +337,7 @@ may_use_crates = ["construct-core"]
 used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271): the binary's `web` feature registers it as a `ToolSource`; the engine never names it, so a build without the feature has none of it" }
 
 [crates.construct-tools-web.modules.ddg]
-may_use = ["filter", "search"]
+may_use = ["filter", "result"]
 
 [crates.construct-tools-web.modules.filter]
 may_use = []
@@ -348,8 +348,11 @@ may_use = []
 [crates.construct-tools-web.modules.lib]
 may_use = []
 
+[crates.construct-tools-web.modules.result]
+may_use = []
+
 [crates.construct-tools-web.modules.search]
-may_use = ["ddg", "filter", "http", "select"]
+may_use = ["ddg", "filter", "http", "result", "select"]
 
 [crates.construct-tools-web.modules.select]
 may_use = []
@@ -468,7 +471,7 @@ may_use_crates = ["construct-core"]
 may_use = []
 
 [crates.construct-dev.modules.arch]
-may_use = ["xtask"]
+may_use = ["scratch"]
 
 [crates.construct-dev.modules.contract]
 may_use = []
@@ -480,7 +483,7 @@ may_use = []
 may_use = ["style"]
 
 [crates.construct-dev.modules.feature_map]
-may_use = ["xtask"]
+may_use = ["scratch"]
 
 [crates.construct-dev.modules.lib]
 may_use = []

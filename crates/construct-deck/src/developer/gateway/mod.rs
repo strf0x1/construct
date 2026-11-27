@@ -13,7 +13,7 @@
 mod client;
 mod push;
 
-use super::prepare::required;
+use super::runner::required;
 use client::{CREATE_PR, Gateway, REFS, REVIEW, UPDATE_PR};
 use construct_core::permission::OperationAsk;
 use construct_core::tools::{Ctx, Output, ToolError};

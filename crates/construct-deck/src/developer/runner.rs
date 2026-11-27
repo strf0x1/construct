@@ -41,6 +41,12 @@ pub(super) async fn drain(mut pipe: impl AsyncRead + Unpin, limit: usize) -> std
     }
 }
 
+pub(super) fn required<'a>(args: &'a serde_json::Value, name: &str) -> Result<&'a str, ToolError> {
+    args.get(name).and_then(serde_json::Value::as_str).filter(|s| !s.is_empty() && !s.contains('\0')).ok_or_else(|| {
+        ToolError::new("invalid_argument", format!("{name} must be a nonempty string without NUL bytes"))
+    })
+}
+
 pub fn private_root(ctx: &Ctx) -> Result<PathBuf, ToolError> {
     private_directory(ctx, "developer-tmp")
 }

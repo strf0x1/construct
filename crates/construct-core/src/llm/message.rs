@@ -4,9 +4,20 @@
 //! streamed it in, and only then (ADR 0044), so a server is sent nothing it
 //! did not send first.
 
-use super::{dialect, stream};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+/// The delta key of OpenRouter's structured reasoning, and the message key it
+/// goes back under.
+pub(super) const DETAILS: &str = "reasoning_details";
+
+/// The delta keys reasoning text streams under, in order of preference.
+pub(super) const REASONING_KEYS: [&str; 2] = ["reasoning_content", "reasoning"];
+
+/// Wire value for an ephemeral prompt-cache breakpoint.
+pub(super) fn ephemeral() -> Value {
+    json!({ "type": "ephemeral" })
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Message {
@@ -113,7 +124,7 @@ impl Message {
                 .map(|p| {
                     let mut part = json!({ "type": "text", "text": p.text });
                     if p.mark {
-                        part["cache_control"] = dialect::ephemeral();
+                        part["cache_control"] = ephemeral();
                     }
                     part
                 })
@@ -130,7 +141,7 @@ impl Message {
         // sending the plain text beside it would send it twice.
         if self.role == "assistant" {
             match (&self.reasoning_details, &self.reasoning, &self.reasoning_field) {
-                (Some(d), _, _) => v[stream::DETAILS] = d.clone(),
+                (Some(d), _, _) => v[DETAILS] = d.clone(),
                 (None, Some(r), Some(field)) => v[field.as_str()] = json!(r),
                 _ => {}
             }

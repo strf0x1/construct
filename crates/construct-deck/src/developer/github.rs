@@ -1,11 +1,19 @@
 //! GitHub writes use fixed REST endpoints with JSON stdin. Creating a pull
 //! request this way cannot implicitly push a local branch.
 
-use super::prepare::{Body, Prepared, required};
-use super::runner::Executable;
+use super::runner::{Executable, required};
 use construct_core::permission::OperationAsk;
 use construct_core::tools::{Ctx, ToolError};
 use serde_json::{Value, json};
+use std::path::PathBuf;
+
+pub(super) struct Plan {
+    pub request: OperationAsk,
+    pub executable: Executable,
+    pub cwd: PathBuf,
+    pub endpoint: String,
+    pub input: Vec<u8>,
+}
 
 pub(super) fn repository(repo: &str) -> Result<String, ToolError> {
     let parts: Vec<_> = repo.split('/').collect();
@@ -22,7 +30,7 @@ pub(super) fn repository(repo: &str) -> Result<String, ToolError> {
     Ok(repo.to_ascii_lowercase())
 }
 
-pub fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
+pub(super) fn prepare(ctx: &Ctx, args: &Value) -> Result<Plan, ToolError> {
     let operation = required(args, "operation")?;
     let repo = repository(required(args, "repo")?)?;
     let title = required(args, "title")?;
@@ -50,14 +58,12 @@ pub fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
     let executable = Executable::find("gh", ctx)?;
     let cwd = super::runner::private_root(ctx)?;
     detail.push_str(&format!("\nHost executable: {}\nWorking directory: {}\nCommand: api --hostname github.com --method POST {endpoint} --input -", executable.identity(), cwd.display()));
-    Ok(Prepared {
+    Ok(Plan {
         request: OperationAsk { operation: operation.into(), scope: format!("github.com/{repo}"), detail },
         executable,
         cwd,
-        operation: Body::Github {
-            endpoint,
-            input: serde_json::to_vec(&input).map_err(|_| "cannot encode GitHub operation")?,
-        },
+        endpoint,
+        input: serde_json::to_vec(&input).map_err(|_| "cannot encode GitHub operation")?,
     })
 }
 

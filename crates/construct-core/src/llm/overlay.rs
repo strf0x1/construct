@@ -9,7 +9,8 @@
 //! another run's rows (#355).
 
 use super::Client;
-use super::catalog::{self, ModelInfo, cached, refresh};
+use super::catalog::{self, ModelInfo, cached};
+use super::discover::refresh;
 use crate::config::{Config, Dialect, Paths};
 use crate::endpoint::{self, Endpoint};
 use crate::models::{ModelEntry, Pricing};

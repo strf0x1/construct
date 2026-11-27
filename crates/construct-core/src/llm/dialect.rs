@@ -8,6 +8,7 @@
 //! Responses need no dialect: `usage::Usage::parse` reads every provider's
 //! fields.
 
+use super::message::{DETAILS, REASONING_KEYS, ephemeral};
 use super::{Message, Request};
 use crate::config::{CacheMode, Dialect, ProviderConfig, Reasoning};
 use crate::endpoint::Endpoint;
@@ -117,14 +118,10 @@ pub(super) fn standard_body(req: &Request<'_>) -> Value {
 fn drop_reasoning(body: &mut Value) {
     let Some(msgs) = body["messages"].as_array_mut() else { return };
     for m in msgs.iter_mut().filter_map(Value::as_object_mut) {
-        for key in super::stream::REASONING_KEYS.iter().chain([&super::stream::DETAILS]) {
+        for key in REASONING_KEYS.iter().chain([&DETAILS]) {
             m.remove(*key);
         }
     }
-}
-
-pub(super) fn ephemeral() -> Value {
-    json!({ "type": "ephemeral" })
 }
 
 /// Remove the `cache_control` of every marked content part, keeping only the
