@@ -1,0 +1,60 @@
+# Motion on (drive.env). A pending peer opens the JOIN popup: its cyan border
+# draws itself while its interior beams in, moving selection sweeps Deny white,
+# approving pops the choice and dissolves green. Then a peer read opens the PEER
+# popup while the tile shows an orbiting working beacon, /peer opens the attach
+# view with scroll fade and dissolves cyan on esc, and --model sweeps lavender.
+wait "ask construct" 5000
+wait "JOIN · old-pc" 8000
+snap --style arrive-1
+image {evidence}/join-arrive.png
+snap --style arrive-2
+snap --style arrive-3
+wait "wants to join this hub" 3000
+sleep 650
+snap --style join-settled
+image {evidence}/join-settled.png
+key down
+snap --style sel-1
+snap --style sel-2
+key up
+sleep 250
+key enter
+snap --style ghost-1
+image {evidence}/join-ghost.png
+snap --style ghost-2
+snap --style ghost-3
+snap --style ghost-4
+wait "approved: its key is pinned" 4000
+wait "old-pc online" 5000
+sleep 600
+type /peer old-pc read the secret
+key enter
+wait "about its own machine" 10000
+sleep 600
+snap --style ask-settled
+image {evidence}/ask.png
+type y
+wait "answered" 4000
+gone "about its own machine" 3000
+type /peer old-pc
+key enter
+wait "old-pc" 4000
+snap --style attach-open-1
+image {evidence}/attach-open.png
+wait "peer finished" 10000
+sleep 450
+snap --style attach-settled
+image {evidence}/attach.png
+key esc
+snap --style attach-close-1
+image {evidence}/attach-close.png
+snap --style attach-close-2
+gone "esc close" 3000
+type /peer old-pc --model small
+key enter
+wait "old-pc's model calls now go to small" 4000
+wait "small (hub)" 4000
+snap --style model-1
+image {evidence}/model.png
+sleep 600
+snap --style settled

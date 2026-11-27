@@ -2,7 +2,9 @@
 //! frame layout. The activity line is `activity.rs`.
 
 use super::app::{App, Kind, Status};
+use super::motion::peers as peer_motion;
 use super::motion::{Place, rise};
+use super::peers::{Decision as PeerDecision, Drawn as PeersDrawn, Tile as PeerTile};
 use super::{boxed, help, markdown, prompt, theme, tool_block};
 use anyhow::Result;
 use crossterm::queue;
@@ -186,7 +188,9 @@ impl App {
             }
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
             motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, is_splash);
-            super::peers::draw(f, &mut self.peers, Rect::new(0, 0, width, main_h), self.prompts.is_empty(), phase);
+            let peers_drawn =
+                super::peers::draw(f, &mut self.peers, Rect::new(0, 0, width, main_h), self.prompts.is_empty(), phase);
+            motion.peers(f.buffer_mut(), peer_frame(peers_drawn));
             if panel.is_some() {
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, area.height.saturating_sub(1), width, 1));
                 return;
@@ -212,5 +216,47 @@ impl App {
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;
         Ok(())
+    }
+}
+
+fn peer_frame(d: PeersDrawn) -> peer_motion::PeerFrame {
+    let state = |t| match t {
+        PeerTile::Expected => peer_motion::PeerState::Expected,
+        PeerTile::Pending => peer_motion::PeerState::Pending,
+        PeerTile::Online => peer_motion::PeerState::Online,
+        PeerTile::Working => peer_motion::PeerState::Working,
+        PeerTile::Away => peer_motion::PeerState::Away,
+        PeerTile::Stale => peer_motion::PeerState::Stale,
+        PeerTile::Revoked => peer_motion::PeerState::Revoked,
+    };
+    peer_motion::PeerFrame {
+        tile: d.tile.map(|(area, rows)| {
+            (
+                area,
+                rows.into_iter()
+                    .map(|r| peer_motion::PeerTileRow {
+                        id: r.id,
+                        state: state(r.state),
+                        questions: r.questions,
+                        model: r.model,
+                    })
+                    .collect(),
+            )
+        }),
+        popup: d.popup.map(|p| peer_motion::PeerPopup { area: p.area, key: p.key, is_join: p.is_join }),
+        decision: d.decision.map(|x| match x {
+            PeerDecision::Allow { pop } => peer_motion::PeerDecision::Allow { pop },
+            PeerDecision::Always { pop } => peer_motion::PeerDecision::Always { pop },
+            PeerDecision::Deny { pop } => peer_motion::PeerDecision::Deny { pop },
+            PeerDecision::Later => peer_motion::PeerDecision::Later,
+        }),
+        attach: d.attach.map(|a| peer_motion::PeerAttach {
+            area: a.area,
+            inner: a.inner,
+            id: a.id,
+            top: a.top,
+            text_len: a.text_len,
+            working: a.working,
+        }),
     }
 }

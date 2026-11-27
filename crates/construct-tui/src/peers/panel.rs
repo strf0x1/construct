@@ -8,7 +8,7 @@
 //! ignored for the same 450 ms after it appears (ADR 0016), and esc puts an
 //! item aside rather than answering it: the tile keeps showing it.
 
-use super::{Act, Item, Peers, clean};
+use super::{Act, Decision, Item, Peers, clean};
 use crate::markdown::wrap;
 use crate::theme;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -131,8 +131,16 @@ fn body(item: &Item, selected: usize, w: usize, now: u64) -> Vec<Line<'static>> 
     out
 }
 
-/// Draw the popup for `item`, centered in `area`.
-pub(super) fn render(f: &mut Frame, area: Rect, item: &Item, selected: usize, ready: bool, phase: f32, now: u64) {
+/// Draw the popup for `item`, centered in `area`. Returns its screen rect.
+pub(super) fn render(
+    f: &mut Frame,
+    area: Rect,
+    item: &Item,
+    selected: usize,
+    ready: bool,
+    phase: f32,
+    now: u64,
+) -> Rect {
     let width = area.width.saturating_sub(4).min(76);
     let inner_w = width.saturating_sub(4) as usize;
     let lines = body(item, selected, inner_w, now);
@@ -156,6 +164,7 @@ pub(super) fn render(f: &mut Frame, area: Rect, item: &Item, selected: usize, re
     f.render_widget(Clear, at);
     f.render_widget(block, at);
     f.render_widget(Paragraph::new(lines), inner);
+    at
 }
 
 /// A key for the peer popup or the attach view; true when it was used here.
@@ -167,6 +176,7 @@ pub(crate) fn key(peers: &mut Peers, k: KeyEvent) -> bool {
     };
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
     if k.code == KeyCode::Esc || (ctrl && k.code == KeyCode::Char('c')) {
+        peers.decision = Some(Decision::Later);
         peers.set_aside.insert(item.key());
         peers.current();
         return true;
@@ -185,21 +195,33 @@ pub(crate) fn key(peers: &mut Peers, k: KeyEvent) -> bool {
             peers.selected = (peers.selected + 1) % n;
             None
         }
-        KeyCode::Enter => options.get(peers.selected),
-        KeyCode::Char(c) if !ctrl => options.iter().find(|o| o.key == Some(c.to_ascii_lowercase())),
+        KeyCode::Enter => options.get(peers.selected).map(|o| (peers.selected, o)),
+        KeyCode::Char(c) if !ctrl => options.iter().enumerate().find(|(_, o)| o.key == Some(c.to_ascii_lowercase())),
         _ => None,
     };
-    let Some(pick) = pick else { return true };
-    let act = match &item {
-        Item::Join(p) if pick.option == "approve" => Act::Approve(p.id.clone()),
-        Item::Join(p) => Act::Deny(p.id.clone()),
-        Item::Ask(p, q) => Act::Answer {
-            id: p.id.clone(),
-            question: q + 1,
-            title: p.questions[*q].title.clone(),
-            option: pick.option.clone(),
-        },
+    let Some((idx, pick)) = pick else { return true };
+    let pop = idx == peers.selected;
+    let (act, decision) = match &item {
+        Item::Join(p) if pick.option == "approve" => (Act::Approve(p.id.clone()), Decision::Allow { pop }),
+        Item::Join(p) => (Act::Deny(p.id.clone()), Decision::Deny { pop }),
+        Item::Ask(p, q) => {
+            let decision = match pick.option.as_str() {
+                "deny" => Decision::Deny { pop },
+                o if o == "always" || o.ends_with("always") => Decision::Always { pop },
+                _ => Decision::Allow { pop },
+            };
+            (
+                Act::Answer {
+                    id: p.id.clone(),
+                    question: q + 1,
+                    title: p.questions[*q].title.clone(),
+                    option: pick.option.clone(),
+                },
+                decision,
+            )
+        }
     };
+    peers.decision = Some(decision);
     peers.send(act);
     peers.set_aside.insert(item.key());
     peers.current();

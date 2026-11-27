@@ -45,6 +45,7 @@ This directory is the maintained source for the user-facing behavior of construc
 - [Motion: permission panel and outcomes](./panel-motion.md) — the panel draws its border as it arrives and dissolves once answered; a failed tool shakes
 - [Motion: diff highlighter and compaction](./diff-compact-motion.md) — a finished edit's diff gets a highlighter pass; a compaction folds the transcript into its notice and drains the gauge
 - [Motion: splash intro](./splash-motion.md) — the title resolves out of shaded blocks and the rest of the splash fades in after it
+- [Motion: peers tile, popup and attach view](./peer-motion.md) — peer tile beam-ins, reactions and orbital working beacon; JOIN/PEER popup border draw and confirm-pop dissolve; attach tune-in, scroll fade and tune-out ghost
 - [Slash commands](./slash-commands.md) — `/help`, `/skills`, `/model`, `/memory`, `/learn`, `/new`, `/quit`, `/<skill>`, and the `/` palette
 - [Providers](./providers.md) — named endpoints with their own url, key and models; `provider/model` selection; `construct providers [test <name>]`
 - [Model picker](./model-picker.md) — `/model` opens the catalog: search, limits beside the list, switch
