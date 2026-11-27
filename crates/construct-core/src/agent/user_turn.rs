@@ -16,13 +16,23 @@ pub(super) struct UserTurn<'a> {
 }
 
 impl Agent {
+    /// Forget a cancel left over from an earlier turn. Every entry point but
+    /// `turn_keyed` calls it as the turn begins; ACP clears the flag when it
+    /// accepts the prompt instead, so a cancel between then and here is kept.
+    pub(super) fn rearm(&self) {
+        self.cancel_tx.send_replace(false);
+    }
+
     pub async fn turn(&mut self, text: &str, tx: &Events) -> Result<()> {
+        self.rearm();
         self.turn_keyed(text, None, tx).await
     }
 
     /// A turn whose prompt carries the client's idempotency key, journaled on
     /// its `Submitted` row (contract 1.3.0 §12). The caller has already made
-    /// sure the key is new to this session.
+    /// sure the key is new to this session. Unlike `turn`, it leaves the
+    /// cancel flag as it finds it: the caller clears it when it accepts the
+    /// prompt, so a cancel that arrives before the turn starts still stops it.
     pub async fn turn_keyed(&mut self, text: &str, key: Option<String>, tx: &Events) -> Result<()> {
         self.run_turn(Some(UserTurn { text, invoked: None, key }), tx).await
     }
@@ -41,6 +51,7 @@ impl Agent {
         match self.ctx.load_skill(skill, None) {
             Ok(body) => {
                 let invoked = Some((skill, body, original.to_string()));
+                self.rearm();
                 self.run_turn(Some(UserTurn { text, invoked, key: None }), tx).await.map(|()| true)
             }
             Err(e) => {

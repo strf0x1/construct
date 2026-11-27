@@ -37,6 +37,7 @@ impl Agent {
         if self.ctx.jobs.pending().is_empty() {
             return Ok(false);
         }
+        self.rearm();
         self.run_turn(None, tx).await?;
         Ok(true)
     }
