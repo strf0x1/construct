@@ -4,13 +4,17 @@
 //! session, answer), switch a peer's model (#390), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
+mod invite;
+mod model;
 pub(super) mod tool;
 pub(super) mod tui;
+
+pub(super) use invite::invite;
 
 use anyhow::{Result, bail};
 use construct_core::config::{Config, Paths};
 use construct_hub::control::{self, Request, Response};
-use construct_hub::invite::{DEFAULT_TTL_SECS, InviteReply, parse_span};
+use construct_hub::invite::parse_span;
 use construct_hub::registry::State;
 use construct_hub::server::{DEFAULT_LISTEN, DEFAULT_PORT};
 use construct_hub::tailnet;
@@ -155,7 +159,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
                 None => format!("ws://{}", tailnet::resolve_listen(&listen, DEFAULT_PORT)?),
             };
             let reply = invite(&files, &id, expires, url, offline).await?;
-            print_invite(&reply, expires, json)?;
+            invite::print_invite(&reply, expires, json)?;
         }
         HubCmd::Pending => {
             let status = status(&files).await?;
@@ -201,7 +205,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             session(&files, Request::Cancel { id: id.clone() }).await?;
             println!("hub: cancel sent to {id}");
         }
-        HubCmd::Model { id, model, clear } => set_model(&files, &cfg, &id, model, clear).await?,
+        HubCmd::Model { id, model, clear } => model::run(&files, &cfg, &id, model, clear).await?,
         HubCmd::Session { id, json } => {
             let view = session(&files, Request::Session { id }).await?;
             if json {
@@ -226,71 +230,6 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
                 );
             }
         }
-    }
-    Ok(())
-}
-
-/// `construct hub model`: show, set or clear `id`'s model override, through
-/// the running hub or straight into the registry when none runs.
-async fn set_model(files: &Files, cfg: &Config, id: &str, model: Option<String>, clear: bool) -> Result<()> {
-    if model.is_none() && !clear {
-        let status = status(files).await?;
-        let Some(p) = status.peers.iter().find(|p| p.peer.id == id) else { bail!("hub: no peer {id}") };
-        match p.model() {
-            Some((m, true)) => println!("{id}: {m} (set at the hub; `--clear` goes back to its own)"),
-            Some((m, false)) => println!("{id}: {m} (its own)"),
-            None => println!("{id}: its own model (it has made no model call through this hub yet)"),
-        }
-        return Ok(());
-    }
-    let req = Request::Model { id: id.to_string(), model: model.clone() };
-    match ask(files, &req).await? {
-        Some(resp) => expect_ok(Some(resp))?,
-        None => offline::set_model(files, cfg, id, model.as_deref())?,
-    }
-    match model.as_deref().map(str::trim) {
-        Some(m) => {
-            let window = construct_hub::model::window(cfg, m)
-                .map(|w| format!(" (window {w} tokens here; a larger context is compacted to fit)"))
-                .unwrap_or_default();
-            println!("hub: {id}'s model calls now go to {m}{window}");
-        }
-        None => println!("hub: {id} uses the model it asks for"),
-    }
-    Ok(())
-}
-
-/// Expect `id` and mint its token: through the running hub, or straight into
-/// the registry when none runs (dialing `url`, else `offline_url`).
-/// `construct build --invite` shares it.
-pub(super) async fn invite(
-    files: &Files,
-    id: &str,
-    ttl: u64,
-    url: Option<String>,
-    offline_url: String,
-) -> Result<InviteReply> {
-    match ask(files, &Request::Invite { id: id.to_string(), ttl_secs: ttl, url: url.clone() }).await? {
-        Some(resp) => match resp.invite {
-            Some(i) => Ok(i),
-            None => bail!("hub: {}", resp.error.unwrap_or_else(|| "no invite in the reply".into())),
-        },
-        None => offline::invite(files, id, ttl, url.unwrap_or(offline_url)),
-    }
-}
-
-fn print_invite(reply: &InviteReply, ttl: u64, json: bool) -> Result<()> {
-    if json {
-        println!("{}", serde_json::to_string_pretty(reply)?);
-        return Ok(());
-    }
-    let ttl = if ttl == DEFAULT_TTL_SECS { "15m".into() } else { construct_hub::status::left(ttl) };
-    println!("invite for {}: single use, valid for {ttl}. On the target, run:\n", reply.id);
-    println!("  {}\n", reply.command);
-    if reply.url.contains("127.0.0.1") || reply.url.contains("localhost") {
-        println!(
-            "(the hub listens on loopback: start it with `--listen tailscale` or `--listen <LAN address>:<port>` for another machine)"
-        );
     }
     Ok(())
 }

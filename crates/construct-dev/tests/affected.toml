@@ -115,7 +115,7 @@ tests = ["hub", "join", "peer_acp", "peer_install", "peer_llm", "peer_restart", 
 # peer`, their CLIs and the control socket.
 [[area]]
 name = "hub"
-paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/hub/tui.rs", "crates/construct/src/cli/peer.rs", "crates/construct/src/cli/peer/"]
+paths = ["crates/construct-hub/", "crates/construct/src/cli/hub.rs", "crates/construct/src/cli/hub/tui.rs", "crates/construct/src/cli/hub/invite.rs", "crates/construct/src/cli/hub/model.rs", "crates/construct/src/cli/peer.rs", "crates/construct/src/cli/peer/"]
 tests = ["hub", "join", "peer_acp", "peer_install", "peer_llm", "peer_restart", "peer_tool", "peer_tui", "stamp"]
 
 # The coordinator's `peer` tool (#366): the tool crate, its `Hub` over the
