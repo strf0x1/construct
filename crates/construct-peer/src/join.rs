@@ -42,14 +42,16 @@ pub struct Outbox {
 /// How the link ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
-    /// Turned away before joining (wrong or expired token, unknown id, a
-    /// known id with another key, too many waiting), with the hub's reason.
+    /// Turned away with no verdict before (wrong or expired token, unknown
+    /// id, a known id with another key, too many waiting), with the hub's
+    /// reason.
     Refused(String),
     /// A human denied the join at the hub.
     Denied(String),
     /// The hub revoked this key: delete it and stop.
     Revoked(Option<String>),
-    /// The hub closed a joined link (shutting down), with its reason.
+    /// The hub closed a link it had held or joined (shutting down, a newer
+    /// link for this id), with its reason.
     Closed(Option<String>),
     /// The transport dropped.
     Lost(String),
@@ -77,6 +79,8 @@ pub async fn run(
         .await
         .map_err(|_| WireError::Protocol("the hub did not answer the handshake".into()))??;
     let mut joined = false;
+    // The hub said `Pending`: its verdict on this link is given.
+    let mut held = false;
     let mut ka = KeepAliveState::new();
     loop {
         let got = tokio::select! {
@@ -114,7 +118,10 @@ pub async fn run(
             Channel::Acp | Channel::Llm => continue,
         }
         match env.decode_control()? {
-            Control::Pending => on(Event::Waiting { code: link.handshake_hash().sas_code() }),
+            Control::Pending => {
+                held = true;
+                on(Event::Waiting { code: link.handshake_hash().sas_code() });
+            }
             Control::JoinAck { accepted: true, .. } => {
                 joined = true;
                 while out.acp.try_recv().is_ok() {}
@@ -129,7 +136,7 @@ pub async fn run(
                 let _ = link.close(None).await;
                 return Ok(Outcome::Revoked(reason));
             }
-            Control::Close { reason } if joined => return Ok(Outcome::Closed(reason)),
+            Control::Close { reason } if joined || held => return Ok(Outcome::Closed(reason)),
             Control::Close { reason } => {
                 return Ok(Outcome::Refused(reason.unwrap_or_else(|| "closed without a reason".into())));
             }

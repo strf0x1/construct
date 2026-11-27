@@ -1,7 +1,9 @@
 //! A peer survives reboots and crashes (#367, ADR 0076): a real `construct
 //! hub` and a real `construct peer` run the way the installed unit runs it
 //! (`--require-key`, no token). The peer is SIGKILLed mid-turn and started
-//! again, revoked while it is down, or started before its hub. Assertions
+//! again, revoked while it is down, or started before its hub. A peer still
+//! waiting for approval redials when its hub restarts, under a new code, and
+//! is refused if the pairing window it joined in is gone (#388). Assertions
 //! read what the hub reports (`hub session --json`), the peer's journal and
 //! exit code, the requests its model got, and the files it leaves.
 //!
@@ -157,5 +159,101 @@ fn an_installed_peer_started_before_its_hub_waits_for_it() {
     let hub = hub_on(&env, port);
     wait_log(&env, "joined the hub as old-pc", 2);
     kill(early);
+    stop_hub(&env, hub);
+}
+
+/// A peer with no token and no `--require-key`, so it makes a key and waits
+/// for approval as `id`; stderr appends to `peer_log`.
+fn walk_up(env: &Env, port: u16, id: &str) -> Child {
+    let key = ok(env, &["hub", "key"]);
+    let url = format!("ws://127.0.0.1:{port}");
+    let log = std::fs::OpenOptions::new().create(true).append(true).open(peer_log(env)).unwrap();
+    command(env, &["peer", "--url", &url, "--hub-key", key.trim(), "--id", id])
+        .env_remove("CONSTRUCT_JOIN")
+        .stdout(Stdio::null())
+        .stderr(log)
+        .spawn()
+        .unwrap()
+}
+
+/// Every SAS code the peer printed, in order.
+fn codes(env: &Env) -> Vec<String> {
+    log(&peer_log(env))
+        .lines()
+        .filter(|l| l.contains("waiting for approval"))
+        .filter_map(|l| l.split("code ").nth(1)?.split_whitespace().next().map(str::to_string))
+        .collect()
+}
+
+/// What `hub pending` lists for `id`.
+fn pending_line(env: &Env, id: &str) -> String {
+    ok(env, &["hub", "pending"]).lines().filter(|l| l.starts_with(&format!("{id} "))).collect()
+}
+
+#[test]
+fn a_peer_waiting_for_approval_redials_for_a_new_code_when_the_hub_restarts() {
+    let env = Env::new("pr-pending", json!({ "steps": [] }));
+    let port = free_port();
+    let hub = hub_on(&env, port);
+    // An expected slot, and a peer that walks up without the token.
+    ok(&env, &["hub", "invite", "old-pc"]);
+    let mut peer = walk_up(&env, port, "old-pc");
+    wait_log(&env, "waiting for approval", 1);
+    let first = codes(&env)[0].clone();
+    assert!(pending_line(&env, "old-pc").contains(&first), "{}", pending_line(&env, "old-pc"));
+
+    // A clean stop: the hub closes the held link ("hub shutting down"),
+    // which is not a refusal.
+    stop_hub(&env, hub);
+    wait_log(&env, "redialing for a new approval code", 1);
+    assert!(peer.try_wait().unwrap().is_none(), "it exited:\n{}", log(&peer_log(&env)));
+    let hub = hub_on(&env, port);
+    wait_log(&env, "waiting for approval", 2);
+    let second = codes(&env)[1].clone();
+    assert_ne!(first, second, "a new handshake, a new code");
+    let line = pending_line(&env, "old-pc");
+    assert!(line.contains(&second) && !line.contains(&first), "the hub shows only the new code: {line}");
+
+    // A crash: the transport just drops.
+    let mut hub = hub;
+    hub.kill().unwrap();
+    let _ = hub.wait();
+    wait_log(&env, "redialing for a new approval code", 2);
+    let hub = hub_on(&env, port);
+    wait_log(&env, "waiting for approval", 3);
+    let third = codes(&env)[2].clone();
+    assert!(third != first && third != second, "{first} {second} {third}");
+    assert!(pending_line(&env, "old-pc").contains(&third));
+
+    // Approving the redialed link pins the key this peer holds.
+    ok(&env, &["hub", "approve", "old-pc"]);
+    wait_log(&env, "joined the hub as old-pc", 1);
+    let st: Value = serde_json::from_str(&ok(&env, &["hub", "status", "--json"])).unwrap();
+    let row = st["peers"].as_array().unwrap().iter().find(|p| p["id"] == "old-pc").unwrap().clone();
+    let key = construct_peer::keyfile::load(&env.home.join("peer.key")).unwrap().unwrap().public().to_hex();
+    assert_eq!((row["state"].as_str(), row["key"].as_str()), (Some("pinned"), Some(key.as_str())), "{row}");
+    assert!(peer.try_wait().unwrap().is_none());
+    kill(peer);
+    stop_hub(&env, hub);
+}
+
+#[test]
+fn a_peer_waiting_in_a_pairing_window_is_refused_after_a_restart_closes_it() {
+    let env = Env::new("pr-pair", json!({ "steps": [] }));
+    let port = free_port();
+    let hub = hub_on(&env, port);
+    ok(&env, &["hub", "pair", "--for", "5m"]);
+    let mut peer = walk_up(&env, port, "nosy");
+    wait_log(&env, "waiting for approval", 1);
+    stop_hub(&env, hub);
+    wait_log(&env, "redialing for a new approval code", 1);
+
+    // The window lived only in the old hub: the redial is refused, not held.
+    let hub = hub_on(&env, port);
+    let status = exits(&env, &mut peer);
+    assert_eq!(status.code(), Some(NO_RESTART), "{}", log(&peer_log(&env)));
+    assert!(log(&peer_log(&env)).contains("nosy is not expected"), "{}", log(&peer_log(&env)));
+    assert_eq!(log(&peer_log(&env)).matches("waiting for approval").count(), 1);
+    assert!(pending_line(&env, "nosy").is_empty());
     stop_hub(&env, hub);
 }
