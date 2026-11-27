@@ -33,6 +33,8 @@ accept = []
 construct-core = { workspace = true, default-features = false }
 curve25519-dalek = { version = "4", default-features = false }
 futures.workspace = true
+# getpwnam_r/getgrgid_r for `--install --system --user` (#389).
+libc.workspace = true
 # Already linked through rustls; used directly only for join tokens (#361).
 ring = "0.17"
 rustls.workspace = true

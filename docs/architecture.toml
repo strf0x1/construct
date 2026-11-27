@@ -226,6 +226,10 @@ must_not_use_crates = [
   { crate = "construct-tui", reason = "the peer wire crate runs headless on targets and never depends on the TUI (#368)" },
 ]
 
+# The account a system install runs as (#389): lookup, home hand-over.
+[crates.construct-peer.modules.account]
+may_use = []
+
 [crates.construct-peer.modules.chunk]
 may_use = ["envelope", "error"]
 
@@ -257,6 +261,10 @@ may_use = ["keys"]
 [crates.construct-peer.modules.keys]
 may_use = ["crypto", "error"]
 
+# Staying up on macOS (#389): the launchd job.
+[crates.construct-peer.modules.launchd]
+may_use = ["account", "service"]
+
 [crates.construct-peer.modules.lib]
 may_use = []
 
@@ -268,7 +276,7 @@ may_use = ["chunk", "crypto", "envelope", "error", "frame", "keys"]
 
 # Staying up across reboots and crashes (#367): the systemd unit.
 [crates.construct-peer.modules.service]
-may_use = []
+may_use = ["account"]
 
 [crates.construct-peer.modules.ws]
 may_use = ["envelope", "error", "frame"]

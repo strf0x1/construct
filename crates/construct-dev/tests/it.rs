@@ -52,6 +52,8 @@ mod notes;
 mod optchat;
 #[path = "peer_acp.rs"]
 mod peer_acp;
+#[path = "peer_install.rs"]
+mod peer_install;
 #[path = "peer_llm.rs"]
 mod peer_llm;
 #[path = "peer_restart.rs"]

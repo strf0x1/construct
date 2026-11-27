@@ -59,10 +59,12 @@ The stamped binary with no arguments is `construct peer`. It pins the hub's
 key, the hub pins its key, and the token is spent. From then on it rejoins
 without one.
 
-**4. Keep it running across reboots and crashes** (Linux, systemd; #367):
+**4. Keep it running across reboots and crashes** (Linux systemd, #367;
+macOS launchd, #389):
 
 ```sh
-ssh nas './construct-nas --install'          # a user unit; add --system for a root one
+ssh nas './construct-nas --install'                              # a user unit
+ssh nas 'sudo ./construct-nas --install --system --user "$USER"' # a system unit run as you, from boot
 ```
 
 `--install` works on a peer that has joined. It copies the binary to
@@ -82,11 +84,35 @@ or `peer.key` is gone (it needs a new join and never makes a key on its
 own). A hub that is down at boot is redialled until it comes up. A crash
 mid-turn is never re-run: the hub reattaches, resends its prompt, and gets
 `cancelled`. `./construct-nas --uninstall` stops and removes the unit; the
-binary, the key and the home stay.
+binary, the key and the home stay. Every exit 77 also leaves its reason in
+`~/.construct/peer.stopped`. Once the peer has joined again, run
+`--install` again to start the service again.
+
+`--system` alone runs the peer as root. `--system --user <name>` runs it
+as that account instead (`User=`/`Group=`), using that account's own
+`~/.construct` (where it joined) unless `CONSTRUCT_HOME` says otherwise.
+The home is handed to the account, `0700`, with `peer.key` `0600`. The
+binary stays in root-owned `/usr/local/bin`, where the peer cannot
+overwrite it.
 
 ```sh
 ssh nas 'systemctl --user status construct-peer-nas'
 ssh nas 'journalctl --user -u construct-peer-nas'
+```
+
+On a Mac, `--install` writes a launchd job, `construct.peer.nas.plist`,
+instead. Without `--system` it is a LaunchAgent in `~/Library/LaunchAgents`,
+which runs while you are logged in. A Mac reached only over ssh has no
+login session, so use `sudo ./construct-nas --install --system --user
+"$USER"` for a LaunchDaemon in `/Library/LaunchDaemons` that starts at boot.
+launchd restarts the peer after every exit until `peer.stopped` appears.
+It cannot read exit codes, so this file is how it learns about exit 77. The
+peer's output goes to `~/.construct/peer.log`. `--env` keys are kept in a
+`0600` `peer.env` that the job sources, never in the plist.
+
+```sh
+ssh mac 'launchctl print gui/$(id -u)/construct.peer.nas'   # or system/construct.peer.nas
+ssh mac 'tail -f ~/.construct/peer.log'
 ```
 
 Then, on the hub machine:
