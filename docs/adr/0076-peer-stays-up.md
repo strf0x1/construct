@@ -94,9 +94,14 @@ crashes without anyone touching it. Constraints:
 - A peer whose key was deleted by hand needs `hub revoke` and `invite` at
   the hub, as before. `--require-key` only makes that say so instead of
   waiting for an approval that cannot come.
-- Not done: a peer waiting for approval still exits when the hub restarts.
-  ADR 0070 expected it to redial with a new code. Also not done: launchd on
-  macOS, and a `User=` for system units other than root.
+- A peer waiting for approval redials when the hub restarts or the link
+  drops (#388), as ADR 0070 expected. Once the hub has said `Pending`, a
+  `Close` ends the link instead of refusing the peer. The redial is a new
+  handshake, so both ends show a new code and the old one approves nothing.
+  Admission runs again: a pairing window that closed with the old hub
+  refuses the peer, and the pending cap and strike rules are unchanged.
+- Not done: launchd on macOS, and a `User=` for system units other than
+  root.
 
 ## Evidence
 
@@ -112,6 +117,11 @@ crashes without anyone touching it. Constraints:
     new join" and creates no key.
   - **Hub down at boot.** The peer keeps dialing ("cannot reach the hub")
     and joins once the hub starts on the same port.
+  - **Hub restarted while a peer waits (#388).** A clean `hub stop` and a
+    SIGKILL each make the peer redial. It prints a new code, `hub pending`
+    lists only that one, and `approve` pins the peer's key. A peer that
+    walked up in a pairing window is refused after the restart and exits
+    77.
 - e2e `join.rs`, updated: a live revocation exits 77. The old key under a
   new id now completes the handshake, gets `Revoke` then a close, and
   leaves no row.

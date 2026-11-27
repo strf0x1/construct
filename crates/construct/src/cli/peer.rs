@@ -14,7 +14,10 @@
 //! agent keeps its sessions, running turns and unanswered questions while the
 //! peer redials with backoff, and the hub reattaches with `session/load`
 //! (ADR 0071). Only a revocation, a refusal, or SIGTERM/SIGINT stops it, and
-//! only then are turns cancelled.
+//! only then are turns cancelled. A peer the hub held for approval redials
+//! the same way (#388): the new link is a new handshake, so it waits again
+//! under a new code, and admission decides afresh (a closed pairing window
+//! refuses it).
 //!
 //! Staying up (#367, ADR 0076): `--install` writes a systemd unit that runs
 //! this with `--require-key` and restarts it after any exit but
@@ -171,8 +174,8 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     }
 }
 
-/// Follow the hub, redialing after a lost link once this peer has joined,
-/// until an outcome that ends the peer.
+/// Follow the hub, redialing after a lost link once this peer has joined or
+/// been held for approval, until an outcome that ends the peer.
 #[expect(clippy::too_many_arguments, reason = "one call site; each is a distinct piece of the peer's state")]
 async fn follow(
     url: &str,
@@ -187,10 +190,15 @@ async fn follow(
 ) -> Result<Outcome, WireError> {
     let mut backoff = Backoff::new(Duration::from_millis(250), Duration::from_secs(15));
     let mut joined = joined_before;
+    // Held for approval on some link, never joined: the hub knows this
+    // peer is coming, so a lost link is redialed for a new code.
+    let mut held = false;
     loop {
         let mut joined_now = false;
+        let mut held_now = false;
         let got = join::run(url, key, hub, hello, outbox, |event| match event {
             Event::Waiting { code } => {
+                held_now = true;
                 eprintln!("peer: waiting for approval at the hub; code {code} (it must match what the hub shows)");
             }
             Event::Joined => {
@@ -211,17 +219,25 @@ async fn follow(
             backoff.reset();
             // The token is single use and now spent.
             hello.join_token = None;
+        } else if held_now {
+            held = true;
+            backoff.reset();
         }
+        // A held link that ends was never approved: its code is void, and the
+        // redial shows a new one.
+        let again = if joined { "reconnecting" } else { "redialing for a new approval code" };
         match got {
-            Ok(Outcome::Lost(why)) if joined => eprintln!("peer: lost the hub ({why}); reconnecting"),
-            Ok(Outcome::Closed(why)) if joined => {
-                eprintln!("peer: the hub closed the link ({}); reconnecting", why.as_deref().unwrap_or("no reason"));
+            Ok(Outcome::Lost(why)) if joined || held => eprintln!("peer: lost the hub ({why}); {again}"),
+            Ok(Outcome::Closed(why)) if joined || held => {
+                eprintln!("peer: the hub closed the link ({}); {again}", why.as_deref().unwrap_or("no reason"));
             }
-            Err(e) if joined => eprintln!("peer: cannot reach the hub ({e}); retrying"),
+            Err(e) if joined || held => eprintln!("peer: cannot reach the hub ({e}); retrying"),
             other => return other,
         }
-        // The hub's attachment is over; the agent keeps working for the next.
-        let _ = to_agent.send(Input::Detached);
+        if joined {
+            // The hub's attachment is over; the agent keeps working for the next.
+            let _ = to_agent.send(Input::Detached);
+        }
         tokio::time::sleep(backoff.next_delay()).await;
     }
 }
