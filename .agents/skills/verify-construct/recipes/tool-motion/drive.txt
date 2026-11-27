@@ -1,23 +1,24 @@
-# Motion on (drive.env). While the tool runs, a comet rides the rule above the
-# input; when it finishes, its output opens row by row (pushing the transcript
-# up) while the gutter fills top to bottom with a bright head, then settles.
-# The reply then streams in slowly (serve.args): its newest characters land
-# bright and dry to ink behind a blinking caret. Idle, the rule is plain
-# again. Opening takes ~900 ms, so it is snapped several times in a row.
+# Motion on (drive.env). While bash runs, a comet rides the rule above the input
+# and a live 5-line tail streams under the spinning header, newest line bright
+# and older lines fading darker as they scroll up. On completion, the tail
+# smoothly collapses into a compact 2-line preview with `… 6 more lines (ctrl+o)`.
+# The reply streams slowly (`serve.args`): newest chars land bright and dry
+# behind a blinking caret. Idle, the rule is plain again.
 wait "ask construct" 5000
 type list eight words
 key enter
-wait "running bash" 8000
+wait "zeta-out" 8000
 snap --style busy
-image {evidence}/comet.png
+image {evidence}/live.png
 wait "✓ bash" 8000
-snap --style unfurl-1
-image {evidence}/unfurl.png
-snap --style unfurl-2
-snap --style unfurl-3
-snap --style unfurl-4
-sleep 1100
-snap --style opened
+snap --style settle-1
+image {evidence}/settle.png
+sleep 150
+snap --style settle-2
+sleep 150
+snap --style settle-3
+sleep 500
+snap --style settled
 wait "listed eight" 10000
 snap --style stream-1
 image {evidence}/stream.png

@@ -19,7 +19,7 @@ use tachyonfx::{EffectRenderer, Interpolation};
 pub(super) struct Panel {
     pub(super) area: Rect,
     pub(super) cells: Vec<Cell>,
-    sel: Option<u16>,
+    pub(super) sel: Option<u16>,
 }
 
 #[cfg(test)]

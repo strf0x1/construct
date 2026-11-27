@@ -1,14 +1,18 @@
-# Motion on (drive.env). At startup the splash's title resolves out of shaded
-# blocks and takes a white sweep while the tagline, session rows and key
-# hints fade in after it, each a beat later. The intro lasts ~1.6 s, so the
-# first half second is snapped several times in a row.
+# Motion on (drive.env). At startup a luminous beam traces the heavy geometric
+# CONSTRUCT logo left to right (no shaded blocks), a thin divider rule draws in
+# underneath, the tagline, session rows and key hints cascade in, and a soft
+# sheen glides across the finished logo. The intro lasts ~1.6 s.
 wait "openrouter" 3000
 snap --style s-1
-image {evidence}/intro.png
+sleep 120
 snap --style s-2
+image {evidence}/beam.png
+sleep 160
 snap --style s-3
+sleep 220
 snap --style s-4
+sleep 220
 snap --style s-5
-sleep 2000
+sleep 1800
 snap --style settled
 image {evidence}/settled.png

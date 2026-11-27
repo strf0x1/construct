@@ -47,9 +47,12 @@ pub(super) struct Block {
     pub(super) ms: u64,
     pub(super) id: String,
     pub(super) version: u64,
-    /// For tool blocks: lines of output to preview, and how to render it.
+    /// For tool blocks: lines of output to preview, how to render it, and live tail.
     pub(super) preview: usize,
     pub(super) out: OutputKind,
+    pub(super) live: Vec<(String, Instant)>,
+    pub(super) partial: String,
+    pub(super) had_live: bool,
     /// For `Kind::Boxes`: what to draw.
     pub(super) boxes: Vec<super::boxed::Section>,
 }
@@ -68,6 +71,9 @@ impl Block {
             version: 0,
             preview: 0,
             out: OutputKind::Plain,
+            live: Vec::new(),
+            partial: String::new(),
+            had_live: false,
             boxes: Vec::new(),
         }
     }

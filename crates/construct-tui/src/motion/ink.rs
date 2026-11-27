@@ -7,7 +7,7 @@
 //! from the end, so markdown that hides its syntax shifts the match by a
 //! cell or two at most, which nobody sees in a fade.
 
-use super::{Motion, WHITE};
+use super::{INK, Motion, WHITE};
 use crate::theme;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -18,9 +18,6 @@ use std::time::{Duration, Instant};
 const DRY: Duration = Duration::from_millis(600);
 /// The longest a burst is spread over.
 const SPREAD: Duration = Duration::from_millis(140);
-/// What the default foreground dries toward before it is left alone: a
-/// cool near-white close to the terminal's own text on a dark theme.
-const INK: Color = Color::Rgb(192, 202, 245);
 
 /// The reply being written: its block and when its characters arrived, as
 /// (time, non-blank characters so far).

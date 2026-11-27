@@ -117,7 +117,7 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
     }
     let mut asks = 0;
     let r = loop {
-        let r = run_once(ctx, &policy, command, &cwd, timeout).await;
+        let r = run_once(ctx, call, &policy, command, &cwd, timeout).await;
         // A Landlock denial is otherwise visible only in the command's own
         // output, so asking comes after the fact: the user sees which paths
         // it named and that approving runs the command again.
@@ -210,6 +210,7 @@ fn sandbox_note(ctx: &Ctx, mut out: String, named: &Outside, policy: &Policy, hi
 
 async fn run_once(
     ctx: &Ctx,
+    call: &Call,
     policy: &Policy,
     command: &str,
     cwd: &std::path::Path,
@@ -217,14 +218,8 @@ async fn run_once(
 ) -> Result<String, ToolError> {
     let shell = if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" };
     let mut cmd = policy.command(shell, &format!("exec 2>&1\n{command}"));
-    cmd.current_dir(cwd)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .env("CONSTRUCT", "1")
-        .env("GIT_PAGER", "cat")
-        .env("PAGER", "cat")
-        .process_group(0);
+    cmd.current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.env("CONSTRUCT", "1").env("GIT_PAGER", "cat").env("PAGER", "cat").process_group(0);
     let started = Instant::now();
     let mut child = cmd.spawn().map_err(|e| format!("spawn failed: {e}"))?;
     let mut guard = StopOnDrop(child.id());
@@ -232,9 +227,9 @@ async fn run_once(
         return Err("spawn failed: no pipes".into());
     };
     let mut cancel = ctx.cancel.clone();
-
     let mut buf = Vec::new();
     let mut chunk = [0u8; 16384];
+    let mut live = call.output_stream();
     let deadline = tokio::time::sleep(Duration::from_secs(timeout));
     tokio::pin!(deadline);
     let mut stopped: Option<&str> = None;
@@ -243,6 +238,7 @@ async fn run_once(
             n = stdout.read(&mut chunk) => match n {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
+                    live.push(&chunk[..n]);
                     // Keep memory bounded on runaway output: head + rolling tail.
                     buf.extend_from_slice(&chunk[..n]);
                     if buf.len() > 8 * 1024 * 1024 {
@@ -253,10 +249,12 @@ async fn run_once(
                     }
                 }
             },
+            _ = live.ready() => live.flush(),
             _ = &mut deadline => { stopped = Some("timed out"); break; }
             _ = cancel.changed() => { if *cancel.borrow() { stopped = Some("interrupted"); break; } }
         }
     }
+    live.flush();
     if stopped.is_some() {
         guard.stop();
     }

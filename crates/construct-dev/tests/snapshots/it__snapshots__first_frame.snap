@@ -7,27 +7,27 @@ expression: "screen(&env, &d)"
 
 
 
+                                ┏━━ ┏━┓ ┏┓┃ ┏━━ ━┳━ ┏━┓ ┃ ┃ ┏━━ ━┳━
+                                ┃   ┃ ┃ ┃┗┫ ┗━┓  ┃  ┣┳┛ ┃ ┃ ┃    ┃
+                                ┗━━ ┗━┛ ┃ ┃ ━━┛  ┃  ┃┗━ ┗━┛ ┗━━  ┃
 
+                                 ◆ lean · fast · learns as it goes
+                                ───────────────────────────────────
 
-
-
-
-
-
-
-
-
-  ▄▀▀ ▄▀▄ █▄ █ ▄▀▀ ▀█▀ █▀▄ █ █ ▄▀▀ ▀█▀
-  ▀▄▄ ▀▄▀ █ ▀█ ▄██  █  █▀▄ ▀▄▀ ▀▄▄  █
-
-  lean · fast · learns as it goes
-
-  model    openrouter/free
-  endpoint http://127.0.0.1:[PORT]/v1
-  router   auto
-  session  [SESSION0]
+                                model    openrouter/free
+                                endpoint http://127.0.0.1:[PORT]/v1
+                                router   auto
+                                session  [SESSION0]
 
   enter send · alt+enter newline · esc interrupt · ctrl+o expand · pgup/pgdn scroll · /help commands
+
+
+
+
+
+
+
+
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────
 › ask construct anything… (/help)

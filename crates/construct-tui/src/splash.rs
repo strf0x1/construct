@@ -1,20 +1,26 @@
-//! The splash: what an empty transcript shows, the title in block letters
-//! (one line on a narrow terminal) shimmering in once, and the session's
-//! model, endpoint and router underneath. With motion
-//! on, the title skips the shimmer and `motion::splash` runs its intro over
-//! the parts recorded in `App::rows`.
+//! The splash: what an empty transcript shows — a three-row heavy geometric
+//! `CONSTRUCT` wordmark (one line on a narrow terminal) centered optically in
+//! the viewport with a subtle divider rule, the session's model, endpoint and
+//! router underneath, and key hints. With motion on, `motion::splash` runs a
+//! luminous beam trace-in and specular sheen over the parts recorded in
+//! `App::rows`; with motion off, the static gradient wordmark shows at once.
 
 use super::app::App;
 use super::motion::Place;
-use super::motion::splash::{HINTS, ROWS, TAGLINE, TITLE};
+use super::motion::splash::{HINTS, ROWS, RULE, TAGLINE, TITLE};
 use super::theme;
-use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
+use unicode_width::UnicodeWidthStr;
 
-/// The title in block letters, two rows tall, where there is room for it.
-const LOGO: [&str; 2] = ["▄▀▀ ▄▀▄ █▄ █ ▄▀▀ ▀█▀ █▀▄ █ █ ▄▀▀ ▀█▀", "▀▄▄ ▀▄▀ █ ▀█ ▄██  █  █▀▄ ▀▄▀ ▀▄▄  █ "];
+/// The title in heavy geometric box-drawing letters, three rows tall.
+const LOGO: [&str; 3] = [
+    "┏━━ ┏━┓ ┏┓┃ ┏━━ ━┳━ ┏━┓ ┃ ┃ ┏━━ ━┳━",
+    "┃   ┃ ┃ ┃┗┫ ┗━┓  ┃  ┣┳┛ ┃ ┃ ┃    ┃ ",
+    "┗━━ ┗━┛ ┃ ┃ ━━┛  ┃  ┃┗━ ┗━┛ ┗━━  ┃ ",
+];
 const LOGO_W: usize = 35;
+
 /// The key hints under the splash: key, then what it does.
 const HINTS_KEYS: [(&str, &str); 6] = [
     ("enter", "send"),
@@ -26,18 +32,40 @@ const HINTS_KEYS: [(&str, &str); 6] = [
 ];
 
 impl App {
-    pub(super) fn splash(&mut self, area: Rect, phase: f32) -> Vec<Line<'static>> {
-        let mut lines = vec![];
-        let title: &[&str] = if area.width as usize >= LOGO_W + 4 { &LOGO } else { &["◆ construct"] };
-        let top = area.height.saturating_sub(8 + title.len() as u16) / 3;
-        for _ in 0..top {
-            lines.push(Line::default());
+    pub(super) fn splash(&mut self, width: u16, height: u16, phase: f32) -> Vec<Line<'static>> {
+        let w = width as usize;
+        let wide = w >= LOGO_W + 4;
+        let title: &[&str] = if wide { &LOGO } else { &["◆ construct"] };
+        let title_w = if wide { LOGO_W } else { 11 };
+
+        // Session info rows: align their block cleanly beneath the logo.
+        let mut info = vec![
+            ("model", self.cfg.model.clone()),
+            ("endpoint", self.cfg.endpoint().base_url),
+            ("router", self.cfg.router.mode.clone()),
+        ];
+        if !self.session.is_empty() {
+            info.push(("session", self.session.clone()));
         }
-        let mut parts = [(0, 0); 4];
-        parts[TITLE] = (lines.len(), title.len());
+        let info_w = info.iter().map(|(_, v)| 9 + v.width()).max().unwrap_or(0).max(title_w);
+        let col_pad = |block_w: usize| {
+            if w > block_w + 4 { (w - block_w) / 2 } else { 2 }
+        };
+        let logo_pad = col_pad(title_w);
+        let info_pad = col_pad(info_w.min(w.saturating_sub(4)));
+
+        // Content height: title + gap + tagline + rule + gap + info + gap + hints.
+        let content_h = title.len() + 1 + 1 + 1 + 1 + info.len() + 1 + 1;
+        // Optical vertical center (slightly above geometric midpoint).
+        let top = (height as usize).saturating_sub(content_h) * 2 / 5;
+        let mut lines = vec![Line::default(); top];
+        let mut parts = [(0usize, 0usize, 0usize); 5];
+
+        // 1. Wordmark
+        parts[TITLE] = (lines.len(), title.len(), logo_pad);
         for row in title {
             let n = row.chars().count().max(1) as f32;
-            let mut t = vec![Span::raw("  ")];
+            let mut t = vec![Span::raw(" ".repeat(logo_pad))];
             if phase < 1.6 && !self.motion.on() {
                 t.extend(theme::shimmer(row, phase, theme::ACCENT, Color::Rgb(235, 235, 255)));
             } else {
@@ -48,39 +76,58 @@ impl App {
             }
             lines.push(Line::from(t));
         }
-        if title.len() > 1 {
-            lines.push(Line::default()); // block letters need air under them
-        }
-        parts[TAGLINE] = (lines.len(), 1);
-        lines.push(Line::from(Span::styled("  lean · fast · learns as it goes", theme::dim())));
         lines.push(Line::default());
-        let row = |k: &str, v: String| {
-            Line::from(vec![Span::styled(format!("  {k:<9}"), theme::faint()), Span::styled(v, theme::dim())])
-        };
+
+        // 2. Tagline
+        let tag_text = "◆ lean · fast · learns as it goes";
+        let tag_pad = col_pad(tag_text.width());
+        parts[TAGLINE] = (lines.len(), 1, tag_pad);
+        lines.push(Line::from(vec![
+            Span::raw(" ".repeat(tag_pad)),
+            Span::styled("◆ ", Style::new().fg(theme::ACCENT2)),
+            Span::styled("lean · fast · learns as it goes", Style::new().fg(theme::SOFT)),
+        ]));
+
+        // 3. Subtle divider rule matching the wordmark width
+        let rule_w = title_w.min(w.saturating_sub(4));
+        let rule_pad = col_pad(rule_w);
+        parts[RULE] = (lines.len(), 1, rule_pad);
+        lines.push(Line::from(vec![Span::raw(" ".repeat(rule_pad)), Span::styled("─".repeat(rule_w), theme::faint())]));
+        lines.push(Line::default());
+
+        // 4. Session info rows
         let first = lines.len();
-        lines.push(row("model", self.cfg.model.clone()));
-        lines.push(row("endpoint", self.cfg.endpoint().base_url));
-        lines.push(row("router", self.cfg.router.mode.clone()));
-        if !self.session.is_empty() {
-            lines.push(row("session", self.session.clone()));
+        for (k, v) in info {
+            lines.push(Line::from(vec![
+                Span::raw(" ".repeat(info_pad)),
+                Span::styled(format!("{k:<9}"), theme::faint()),
+                Span::styled(v, theme::dim()),
+            ]));
         }
-        parts[ROWS] = (first, lines.len() - first);
+        parts[ROWS] = (first, lines.len() - first, info_pad);
         lines.push(Line::default());
-        parts[HINTS] = (lines.len(), 1);
-        let mut hints = vec![Span::raw("  ")];
+
+        // 5. Key hints
+        let mut hints_inner = Vec::new();
         for (i, (key, what)) in HINTS_KEYS.iter().enumerate() {
             if i > 0 {
-                hints.push(Span::styled(" · ", theme::faint()));
+                hints_inner.push(Span::styled(" · ", theme::faint()));
             }
-            hints.push(Span::styled(*key, theme::accent()));
-            hints.push(Span::styled(format!(" {what}"), theme::faint()));
+            hints_inner.push(Span::styled(*key, theme::accent()));
+            hints_inner.push(Span::styled(format!(" {what}"), theme::faint()));
         }
+        let hints_w: usize = hints_inner.iter().map(|s| s.content.width()).sum();
+        let hints_pad = col_pad(hints_w);
+        parts[HINTS] = (lines.len(), 1, hints_pad);
+        let mut hints = vec![Span::raw(" ".repeat(hints_pad))];
+        hints.extend(hints_inner);
         lines.push(Line::from(hints));
+
         self.rows = parts
             .iter()
-            .map(|&(start, len)| {
-                let width = lines[start..start + len].iter().map(Line::width).max().unwrap_or(0) as u16;
-                Place { start, len, width }
+            .map(|&(start, len, left)| {
+                let right = lines[start..start + len].iter().map(Line::width).max().unwrap_or(0);
+                Place { left: left as u16, start, len, width: right.saturating_sub(left) as u16 }
             })
             .collect();
         lines
