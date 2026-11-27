@@ -3,12 +3,14 @@
 //!
 //! Each operation changes the registry under the hub's one lock, saves it,
 //! and hands any effect on a live link (approve, deny, revoke, an ACP line
-//! for the peer's agent) to that link's task as a `ToLink`. The design choice: approval exists only here, never
+//! for the peer's agent) to that link's task as a `ToLink`. A model
+//! override (#390) needs no message: the link reads it on each call. The design choice: approval exists only here, never
 //! offline, because the SAS code a human compares lives only in an open link.
 
 use crate::admit::Live;
 use crate::control::{Request, Response};
 use crate::invite::{self, InviteReply};
+use crate::model;
 use crate::remote::Remote;
 use crate::state::{Shared, ToLink, now};
 use anyhow::{Context, Result, bail};
@@ -35,6 +37,10 @@ impl Shared {
                 r.prompt(text, key)
             }),
             Request::Cancel { id } => self.acp(&id, |r| r.cancel()),
+            Request::Model { id, model } => match self.set_model(&id, model) {
+                Ok(()) => Response::status(self.status()),
+                Err(e) => Response::error(e),
+            },
             Request::Answer { id, option, question, title } => {
                 self.acp(&id, |r| r.answer(&option, question, title.as_deref()))
             }
@@ -89,6 +95,15 @@ impl Shared {
             self.online.get_mut(id).filter(|c| c.waiting.is_some()).context(format!("no join is waiting for {id}"))?;
         conn.waiting = None;
         let _ = conn.tx.send(ToLink::Denied("denied at the hub".into()));
+        Ok(())
+    }
+
+    /// Set or clear `id`'s model override; the link's next call uses it.
+    fn set_model(&mut self, id: &str, model: Option<String>) -> Result<(), String> {
+        let model = model.map(|m| model::check(self.upstream.cfg(), &m)).transpose()?;
+        self.registry.set_model(id, model.clone()).map_err(|e| format!("{e:#}"))?;
+        self.save();
+        eprintln!("construct hub: {id}'s model {}", model.map_or_else(|| "cleared".into(), |m| format!("set to {m}")));
         Ok(())
     }
 

@@ -32,7 +32,9 @@ impl Socket {
 }
 
 fn row(p: PeerStatus) -> PeerRow {
+    let model = p.model().map(|(m, set)| (m.to_string(), set));
     PeerRow {
+        model,
         standing: match p.peer.state {
             State::Expected => Standing::Expected,
             State::Pending => Standing::Pending,
@@ -72,6 +74,7 @@ impl PeerHub for Socket {
             Act::Approve(id) => Request::Approve { id },
             Act::Deny(id) => Request::Deny { id },
             Act::Prompt { id, text } => Request::Prompt { id, text },
+            Act::Model { id, model } => Request::Model { id, model },
             Act::Answer { id, question, title, option } => {
                 Request::Answer { id, option, question: Some(question), title: Some(title) }
             }

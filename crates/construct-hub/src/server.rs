@@ -73,6 +73,7 @@ pub async fn serve(opts: Options, ready: impl FnOnce(&Status)) -> Result<()> {
         remotes: HashMap::new(),
         upstream,
         usage: HashMap::new(),
+        asked: HashMap::new(),
     }));
     let (stop_tx, stop_rx) = watch::channel(false);
 

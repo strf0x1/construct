@@ -1,5 +1,6 @@
-//! `/peer` and the attach view: list the peers, send one a prompt, or watch
-//! its session over the transcript while the input line stays yours.
+//! `/peer` and the attach view: list the peers, send one a prompt, switch
+//! its model (`--model`, #390), or watch its session over the transcript
+//! while the input line stays yours.
 //!
 //! The design choice: the view is read-only and lies over the transcript's
 //! rows only, so `/peer <name> <prompt>` can be typed while watching, and
@@ -16,7 +17,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Clear, Padding, Paragraph};
 
-/// `/peer`, `/peer <name>`, `/peer <name> <prompt>`; what to say about it.
+/// `/peer`, `/peer <name>`, `/peer <name> <prompt>`,
+/// `/peer <name> --model [<selector> | --clear]`; what to say about it.
 pub(crate) fn command(peers: &mut Peers, arg: &str) -> Option<(Color, String)> {
     let (id, text) = arg.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((arg, ""));
     if peers.acts.is_none() {
@@ -29,12 +31,15 @@ pub(crate) fn command(peers: &mut Peers, arg: &str) -> Option<(Color, String)> {
             return Some((theme::DIM, none.into()));
         }
         let rows: Vec<String> = list.iter().map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect()).collect();
-        let how = "/peer <name> watches one · /peer <name> <prompt> sends";
+        let how = "/peer <name> watches one · /peer <name> <prompt> sends · /peer <name> --model <model> switches";
         return Some((theme::DIM, format!("peers:\n{}\n{how}", rows.join("\n"))));
     }
     let Some(row) = peers.row(id) else {
         return Some((theme::YELLOW, format!("no peer {id} — /peer lists them")));
     };
+    if let Some(rest) = text.strip_prefix("--model").filter(|r| r.is_empty() || r.starts_with(' ')) {
+        return model(peers, id, rest.trim());
+    }
     if text.is_empty() {
         // Whatever it is waiting on comes back to the popup.
         peers.set_aside.retain(|k| !k.contains(&format!("\0{id}\0")));
@@ -47,6 +52,30 @@ pub(crate) fn command(peers: &mut Peers, arg: &str) -> Option<(Color, String)> {
     }
     peers.send(Act::Prompt { id: id.to_string(), text: text.to_string() });
     None
+}
+
+/// `/peer <id> --model …`: show the model, set it, or `--clear` it.
+fn model(peers: &Peers, id: &str, arg: &str) -> Option<(Color, String)> {
+    let row = peers.row(id)?;
+    match arg {
+        "" => {
+            let shown = match &row.model {
+                Some((m, true)) => format!("{id}: {m}, set at the hub · /peer {id} --model --clear goes back"),
+                Some((m, false)) => format!("{id}: {m}, its own"),
+                None => format!("{id}: its own model (no model call through the hub yet)"),
+            };
+            Some((theme::DIM, shown))
+        }
+        _ if row.standing == Standing::Revoked => Some((theme::YELLOW, format!("{id} is revoked"))),
+        "--clear" => {
+            peers.send(Act::Model { id: id.to_string(), model: None });
+            None
+        }
+        m => {
+            peers.send(Act::Model { id: id.to_string(), model: Some(m.to_string()) });
+            None
+        }
+    }
 }
 
 /// A key while the attach view is open.

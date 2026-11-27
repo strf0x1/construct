@@ -50,6 +50,13 @@ pub enum Request {
     Prompt { id: String, text: String },
     /// Cancel the turn running on `id`.
     Cancel { id: String },
+    /// Use `model` for `id`'s hub-proxied model calls in place of the one it
+    /// sends; `None` clears the override (#390). Answered with the status.
+    Model {
+        id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+    },
     /// `id`'s session as the hub holds it: turn, transcript, questions.
     Session { id: String },
     /// Answer `id`'s open permission question `question` (1-based; may be

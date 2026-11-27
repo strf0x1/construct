@@ -1,7 +1,7 @@
 //! `construct hub` behind the `hub` feature (#360, #361, #362): run the hub,
 //! print its public key, show its status, invite, approve, deny or revoke
 //! peers, open a pairing window, drive a peer's session (prompt, cancel,
-//! session, answer), or stop it. The logic lives in `construct-hub`;
+//! session, answer), switch a peer's model (#390), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
 pub(super) mod tool;
@@ -78,6 +78,18 @@ enum HubCmd {
     },
     /// Cancel the turn running on a peer.
     Cancel { id: String },
+    /// Switch the model a peer with `llm = "hub"` uses: its next model call
+    /// goes to this selector, resolved in this host's config. `--clear` goes
+    /// back to the model the peer asks for; with neither, show it.
+    Model {
+        id: String,
+        /// A selector this host's config resolves (`provider/model`, a catalog id).
+        #[arg(conflicts_with = "clear")]
+        model: Option<String>,
+        /// Remove the override.
+        #[arg(long)]
+        clear: bool,
+    },
     /// Show a peer's session: its turn, transcript and open questions.
     Session {
         id: String,
@@ -189,6 +201,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             session(&files, Request::Cancel { id: id.clone() }).await?;
             println!("hub: cancel sent to {id}");
         }
+        HubCmd::Model { id, model, clear } => set_model(&files, &cfg, &id, model, clear).await?,
         HubCmd::Session { id, json } => {
             let view = session(&files, Request::Session { id }).await?;
             if json {
@@ -213,6 +226,36 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
                 );
             }
         }
+    }
+    Ok(())
+}
+
+/// `construct hub model`: show, set or clear `id`'s model override, through
+/// the running hub or straight into the registry when none runs.
+async fn set_model(files: &Files, cfg: &Config, id: &str, model: Option<String>, clear: bool) -> Result<()> {
+    if model.is_none() && !clear {
+        let status = status(files).await?;
+        let Some(p) = status.peers.iter().find(|p| p.peer.id == id) else { bail!("hub: no peer {id}") };
+        match p.model() {
+            Some((m, true)) => println!("{id}: {m} (set at the hub; `--clear` goes back to its own)"),
+            Some((m, false)) => println!("{id}: {m} (its own)"),
+            None => println!("{id}: its own model (it has made no model call through this hub yet)"),
+        }
+        return Ok(());
+    }
+    let req = Request::Model { id: id.to_string(), model: model.clone() };
+    match ask(files, &req).await? {
+        Some(resp) => expect_ok(Some(resp))?,
+        None => offline::set_model(files, cfg, id, model.as_deref())?,
+    }
+    match model.as_deref().map(str::trim) {
+        Some(m) => {
+            let window = construct_hub::model::window(cfg, m)
+                .map(|w| format!(" (window {w} tokens here; a larger context is compacted to fit)"))
+                .unwrap_or_default();
+            println!("hub: {id}'s model calls now go to {m}{window}");
+        }
+        None => println!("hub: {id} uses the model it asks for"),
     }
     Ok(())
 }

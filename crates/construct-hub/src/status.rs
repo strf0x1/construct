@@ -46,6 +46,10 @@ pub struct PeerStatus {
     /// What the peer's hub-proxied model calls used since the hub started.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub llm: Option<LlmUsage>,
+    /// The model selector the peer last sent through the hub (#390). The
+    /// row's own `model` is the hub's override, which wins over it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asked_model: Option<String>,
     /// Unix seconds when a waiting join is turned away (#365).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires: Option<u64>,
@@ -67,9 +71,23 @@ impl PeerStatus {
             remote: None,
             code: None,
             llm: None,
+            asked_model: None,
             expires: None,
             working: false,
             questions: vec![],
+        }
+    }
+}
+
+impl PeerStatus {
+    /// The model this peer's calls use, and whether the hub set it (#390):
+    /// the override, else what the peer last asked for, if it called yet.
+    #[must_use]
+    pub fn model(&self) -> Option<(&str, bool)> {
+        match (&self.peer.model, &self.asked_model) {
+            (Some(m), _) => Some((m, true)),
+            (None, Some(m)) => Some((m, false)),
+            (None, None) => None,
         }
     }
 }
@@ -125,7 +143,10 @@ impl Status {
                     format!("  llm {} calls, {} in / {} out tokens", u.requests, u.prompt_tokens, u.completion_tokens)
                 })
                 .unwrap_or_default();
-            let _ = writeln!(out, "  {}  {}  {link}  {seen}{key}{code}{llm}", p.peer.id, p.peer.state.label());
+            let model =
+                p.model().map(|(m, over)| format!("  model {m}{}", if over { " (set at the hub)" } else { "" }));
+            let model = model.unwrap_or_default();
+            let _ = writeln!(out, "  {}  {}  {link}  {seen}{key}{code}{model}{llm}", p.peer.id, p.peer.state.label());
         }
         out
     }
@@ -167,6 +188,13 @@ mod tests {
         assert!(text.contains("hub: running (pid 42), peers dial ws://127.0.0.1:9443"), "{text}");
         assert!(text.contains("old-pc  pending  online  seen 2m ago  key abababababababab…  code K7M-4QP"), "{text}");
         assert!(text.contains("pairing: open for 3m"), "{text}");
+        let mut over = PeerStatus::offline(Peer { model: Some("small".into()), ..Peer::new("pi", State::Pinned) });
+        over.asked_model = Some("big".into());
+        let asked =
+            PeerStatus { asked_model: Some("big".into()), ..PeerStatus::offline(Peer::new("pc", State::Pinned)) };
+        let text = Status { peers: vec![over, asked], ..s.clone() }.render(220);
+        assert!(text.contains("pi  pinned  offline  never seen  model small (set at the hub)"), "{text}");
+        assert!(text.contains("pc  pinned  offline  never seen  model big\n"), "{text}");
         let none = Status { running: false, pid: None, listen: None, key: None, peers: vec![], ..s };
         assert!(none.render(0).contains("hub: not running") && none.render(0).contains("peers: none"));
     }

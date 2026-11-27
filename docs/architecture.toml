@@ -183,15 +183,19 @@ may_use = []
 [crates.construct-hub.modules.lock]
 may_use = []
 
+# A peer's model override (#390): checking a selector, the window it has (ADR 0078).
+[crates.construct-hub.modules.model]
+may_use = []
+
 [crates.construct-hub.modules.offline]
-may_use = ["files", "invite", "lock", "registry"]
+may_use = ["files", "invite", "lock", "model", "registry"]
 
 [crates.construct-hub.modules.ops]
-may_use = ["admit", "control", "invite", "remote", "state"]
+may_use = ["admit", "control", "invite", "model", "remote", "state"]
 
 # The model proxy for `llm = "hub"` peers (#371): the credential boundary.
 [crates.construct-hub.modules.proxy]
-may_use = []
+may_use = ["model"]
 
 # A peer's permission questions waiting for a human (#365).
 [crates.construct-hub.modules.questions]

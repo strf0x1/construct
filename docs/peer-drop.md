@@ -122,6 +122,7 @@ construct hub status                      # nas  pinned  online
 construct hub prompt nas --wait what is using the most disk here
 construct hub session nas                 # the transcript, and any question it is asking
 construct hub answer nas once             # answer a permission question
+construct hub model nas openrouter/vendor/small   # its next model call uses this; --clear goes back
 construct hub revoke nas                  # the peer deletes its key and stops
 ```
 

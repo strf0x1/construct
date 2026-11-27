@@ -33,4 +33,12 @@ snap --style attach
 image {evidence}/attach.png
 key esc
 gone "esc close" 2000
+# Switch its model from the hub (#390): the tile marks the override.
+type /peer old-pc --model small
+key enter
+wait "old-pc's model calls now go to small" 4000
+wait "small (hub)" 4000
+snap --style model
+expect-style "small (hub)" fg=#bb9af7
+image {evidence}/model.png
 snap after

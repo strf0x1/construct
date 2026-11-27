@@ -1,5 +1,5 @@
-//! Changing the registry while no hub runs (#361): `construct hub invite`
-//! and `revoke` work before a hub ever started.
+//! Changing the registry while no hub runs (#361): `construct hub invite`,
+//! `revoke` and `model` work before a hub ever started.
 //!
 //! The design choice keeps ADR 0069's one-writer rule: the command takes the
 //! same instance lock a hub takes, so it is the hub for a moment; if a hub
@@ -9,8 +9,10 @@
 use crate::files::Files;
 use crate::invite::{self, InviteReply};
 use crate::lock;
+use crate::model;
 use crate::registry::Registry;
 use anyhow::Result;
+use construct_core::config::Config;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Load, change and save the registry under the instance lock.
@@ -30,6 +32,13 @@ pub fn invite(files: &Files, id: &str, ttl_secs: u64, url: String) -> Result<Inv
     let expires = inv.expires;
     with_registry(files, |r| r.invite(id, inv))?;
     Ok(invite::reply(id, token, expires, url, key))
+}
+
+/// Set or clear `id`'s model override (#390), checked against `cfg`, the
+/// config the hub will run with.
+pub fn set_model(files: &Files, cfg: &Config, id: &str, model: Option<&str>) -> Result<()> {
+    let model = model.map(|m| model::check(cfg, m)).transpose().map_err(anyhow::Error::msg)?;
+    with_registry(files, |r| r.set_model(id, model))
 }
 
 /// Revoke `id`; its key stays on the row so it is refused before message 2.

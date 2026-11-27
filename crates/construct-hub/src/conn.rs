@@ -155,12 +155,16 @@ async fn follow<S: FrameStream>(
                 }
                 Ok(env) => match llm::Frame::decode(&env) {
                     Ok(llm::Frame { msg: llm::Msg::Request { id: call }, bytes }) => {
-                        // Checked on every call: a revoked or waiting peer gets nothing.
-                        let pinned = {
+                        // Checked on every call: a revoked or waiting peer gets
+                        // nothing, and an override set since the last call applies.
+                        let (pinned, model) = {
                             let s = lock(hub);
-                            s.pinned(id) && s.online.get(id).is_some_and(|c| c.waiting.is_none())
+                            let pinned = s.pinned(id) && s.online.get(id).is_some_and(|c| c.waiting.is_none());
+                            (pinned, s.registry.get(id).and_then(|p| p.model.clone()))
                         };
-                        calls.request(call, bytes, pinned);
+                        if let Some(asked) = calls.request(call, bytes, pinned, model.as_deref()) {
+                            lock(hub).asked.insert(id.to_string(), asked);
+                        }
                     }
                     Ok(llm::Frame { msg: llm::Msg::Cancel { id: call }, .. }) => calls.cancel(call),
                     // Hub-to-peer frames from a peer, or garbage: ignored.

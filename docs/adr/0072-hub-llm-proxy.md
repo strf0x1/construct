@@ -107,6 +107,10 @@ back to the host. Constraints:
   for the stamped selector, so the override must either carry a window or
   stay within models of a similar size until that is settled.
 - **Usage counts reset with the hub** by design; nothing persists them.
+- **Built in #390, ADR 0078**: the override is `construct hub model`, kept
+  on the peer's registry row, and the window question is settled there. The
+  hub refuses a request too big for the override's window, phrased as the
+  provider overflow the peer already recovers from.
 
 ## Evidence
 

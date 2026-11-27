@@ -1,6 +1,7 @@
 //! What the running hub's tasks share (#360, #361, #362): the registry, live
 //! links by peer id, the pairing window, each peer's ACP session, and the
-//! model proxy with what each peer's calls used (#371), behind one mutex.
+//! model proxy with what each peer's calls used and the model each asked for
+//! (#371, #390), behind one mutex.
 //!
 //! The design choice: a link's task owns its socket, and everyone else
 //! reaches it only through `Conn::tx` with a `ToLink`, so the control socket
@@ -34,6 +35,8 @@ pub(crate) struct Shared {
     pub(crate) upstream: Arc<Upstream>,
     /// What each peer's proxied calls used since the hub started.
     pub(crate) usage: HashMap<String, LlmUsage>,
+    /// The model selector each peer last sent, override or not (#390).
+    pub(crate) asked: HashMap<String, String>,
 }
 
 /// One live link.
@@ -107,6 +110,7 @@ impl Shared {
                 remote: conn.map(|c| c.remote.clone()),
                 code: waiting.map(|w| w.code.clone()),
                 llm: self.usage.get(&p.id).cloned(),
+                asked_model: self.asked.get(&p.id).cloned(),
                 expires: waiting.map(|w| w.until),
                 working: remote.is_some_and(Remote::working),
                 questions: remote.map(Remote::questions).unwrap_or_default(),

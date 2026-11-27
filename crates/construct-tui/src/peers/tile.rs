@@ -1,6 +1,7 @@
 //! The peer tile: one row per peer in the upper right, with the state a
 //! human needs at a glance (`pending`, `online`, `working`, `away`, `stale`,
-//! `revoked`), and the order everything peer-related is drawn in.
+//! `revoked`) and the model its calls use, marked `(hub)` when the hub set
+//! it, and the order everything peer-related is drawn in.
 //!
 //! The design choice: the state is derived here from the hub's plain facts
 //! (registry standing, live link, turn, last seen), so the hub reports what
@@ -89,6 +90,15 @@ pub(super) fn lines(rows: &[PeerRow], now: u64) -> Vec<Line<'static>> {
             if !r.questions.is_empty() {
                 spans.push(Span::styled(format!(" ?{}", r.questions.len()), Style::new().fg(theme::ORANGE)));
             }
+            if let Some((model, set)) = &r.model {
+                // The model's own name, without its provider path.
+                let short = model.rsplit('/').next().unwrap_or(model);
+                spans.push(if *set {
+                    Span::styled(format!(" {short} (hub)"), Style::new().fg(theme::ACCENT2))
+                } else {
+                    Span::styled(format!(" {short}"), Style::new().fg(theme::DIM))
+                });
+            }
             spans.push(Span::raw(" "));
             Line::from(spans)
         })
@@ -151,5 +161,15 @@ mod tests {
         let l = lines(&[join, busy], 0);
         assert_eq!(text(&l[0]), "◆ old-pc pending K7M-4QP");
         assert_eq!(text(&l[1]), "◉ pi working ?1");
+    }
+
+    #[test]
+    fn the_model_shows_without_its_provider_and_an_override_is_marked() {
+        let own = PeerRow { model: Some(("openrouter/vendor/big".into(), false)), ..row("pi", Standing::Pinned) };
+        let set = PeerRow { model: Some(("small".into(), true)), ..row("pc", Standing::Pinned) };
+        let l = lines(&[own, set], 0);
+        assert_eq!(text(&l[0]), "● pi online big");
+        assert_eq!(text(&l[1]), "● pc online small (hub)");
+        assert_eq!(l[1].spans.iter().rev().nth(1).unwrap().style.fg, Some(theme::ACCENT2));
     }
 }

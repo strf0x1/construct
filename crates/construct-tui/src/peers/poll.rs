@@ -53,6 +53,8 @@ fn said(act: &Act) -> String {
         Act::Approve(id) => format!("{id} approved: its key is pinned"),
         Act::Deny(id) => format!("{id}'s join denied"),
         Act::Prompt { id, text } => format!("sent to {id}: {text}"),
+        Act::Model { id, model: Some(m) } => format!("{id}'s model calls now go to {m}"),
+        Act::Model { id, model: None } => format!("{id} uses the model it asks for"),
         Act::Answer { id, title, option, .. } => format!("{id}: answered {option:?} to {title}"),
     }
 }

@@ -12,4 +12,6 @@ sqlite3 "$j" "select payload from events where type = 'tool_end'" | grep -q '"ok
   || { echo "the peer's read did not run"; sqlite3 "$j" "select type, payload from events"; exit 1; }
 sqlite3 "$j" "select payload from events where type = 'access'" | grep -q '"decision":"once"' \
   || { echo "no access row with decision once on the peer"; exit 1; }
-echo "ok: old-pc pinned; popup showed code $code; peer read ran after an answer of once"
+grep -q '"model": "small"' "$CHOME/hub/peers.json" \
+  || { echo "the hub did not keep old-pc's model override"; cat "$CHOME/hub/peers.json"; exit 1; }
+echo "ok: old-pc pinned; popup showed code $code; peer read ran after an answer of once; model override small kept"

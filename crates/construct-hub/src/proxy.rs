@@ -11,8 +11,10 @@
 //! every call in flight is aborted with it. A call the peer cancels stops
 //! upstream but still ends normally, so what it used is counted: the engine
 //! hangs up as soon as it reads `[DONE]`, often before the upstream body has
-//! quite ended.
+//! quite ended. A model override set at the hub (#390, `model.rs`) replaces
+//! the peer's selector here, before anything is resolved.
 
+use crate::model;
 use construct_core::config::Config;
 use construct_core::llm::{Provider, Usage};
 use construct_peer::llm::{Frame, Msg};
@@ -40,6 +42,11 @@ impl Upstream {
             construct_core::http::engine().connect_timeout(Duration::from_secs(20)).tcp_nodelay(true),
         )?;
         Ok(Self { cfg, http })
+    }
+
+    /// The host's config, which every selector is resolved against.
+    pub(crate) fn cfg(&self) -> &Config {
+        &self.cfg
     }
 }
 
@@ -89,23 +96,40 @@ impl Calls {
     }
 
     /// A request from the peer: refused when `allowed` is false (the peer is
-    /// not pinned) or too many are in flight, else started.
-    pub(crate) fn request(&mut self, id: u64, body: Vec<u8>, allowed: bool) {
+    /// not pinned), the body is not JSON, it cannot fit the window of the
+    /// `model` the hub set for this peer, or too many are in flight; else
+    /// started. Returns the selector the peer asked for, when it named one.
+    pub(crate) fn request(&mut self, id: u64, body: Vec<u8>, allowed: bool, model: Option<&str>) -> Option<String> {
         while self.tasks.try_join_next().is_some() {}
         if !allowed {
-            return refuse(&self.tx, id, 403, None, "hub: this peer is not pinned; no model calls".into());
+            refuse(&self.tx, id, 403, None, "hub: this peer is not pinned; no model calls".into());
+            return None;
+        }
+        let Ok(json @ Value::Object(_)) = serde_json::from_slice::<Value>(&body) else {
+            refuse(&self.tx, id, 400, None, "hub: the request body is not a JSON object".into());
+            return None;
+        };
+        let asked = json["model"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
+        let selector = model.map(str::to_string).or_else(|| asked.clone()).unwrap_or_else(|| self.up.cfg.model.clone());
+        if let Some(sel) = model
+            && let Some(why) = model::window(&self.up.cfg, sel).and_then(|w| model::too_big(body.len(), w, sel))
+        {
+            refuse(&self.tx, id, 400, None, why);
+            return asked;
         }
         if self.live.len() >= MAX_INFLIGHT {
             let why = format!("hub: {MAX_INFLIGHT} model calls already in flight for this peer");
-            return refuse(&self.tx, id, 429, Some(1), why);
+            refuse(&self.tx, id, 429, Some(1), why);
+            return asked;
         }
         let (up, tx) = (self.up.clone(), self.tx.clone());
         let (stop, cancelled) = oneshot::channel();
         self.tasks.spawn(async move {
-            let (error, usage) = call(&up, id, body, &tx, cancelled).await;
+            let (error, usage) = call(&up, id, json, selector, &tx, cancelled).await;
             let _ = tx.send(Out { frame: Frame::bare(Msg::End { id, error }), usage: Some(usage) });
         });
         self.live.insert(id, stop);
+        asked
     }
 
     /// The peer gave up on `id`: stop it upstream (its usage is still counted).
@@ -130,7 +154,9 @@ impl Calls {
 
 /// Answer `id` with a complete error response, OpenAI-shaped.
 fn refuse(tx: &mpsc::UnboundedSender<Out>, id: u64, status: u16, retry_after: Option<u64>, message: String) {
-    let body = serde_json::json!({ "error": { "message": message, "type": "hub_proxy" } }).to_string();
+    // A window refusal carries the code providers use for one (`model.rs`).
+    let code = message.contains("maximum context length").then_some("context_length_exceeded");
+    let body = serde_json::json!({ "error": { "message": message, "type": "hub_proxy", "code": code } }).to_string();
     let frames = [Frame::bare(Msg::Head { id, status, retry_after }), Frame::new(Msg::Data { id }, body.into_bytes())];
     for frame in frames {
         let _ = tx.send(Out { frame, usage: None });
@@ -139,12 +165,14 @@ fn refuse(tx: &mpsc::UnboundedSender<Out>, id: u64, status: u16, retry_after: Op
     let _ = tx.send(Out { frame: Frame::bare(Msg::End { id, error: None }), usage: None });
 }
 
-/// Make one call upstream, relaying its head and bytes to `tx`. Returns how
-/// the body ended (an error means it was cut off) and the usage it reported.
+/// Make one call for `selector` upstream, relaying its head and bytes to
+/// `tx`. Returns how the body ended (an error means it was cut off) and the
+/// usage it reported.
 async fn call(
     up: &Upstream,
     id: u64,
-    body: Vec<u8>,
+    mut body: Value,
+    selector: String,
     tx: &mpsc::UnboundedSender<Out>,
     mut cancelled: oneshot::Receiver<()>,
 ) -> (Option<String>, Option<Usage>) {
@@ -152,12 +180,6 @@ async fn call(
     let send = |frame| {
         let _ = tx.send(Out { frame, usage: None });
     };
-    let Ok(mut body @ Value::Object(_)) = serde_json::from_slice::<Value>(&body) else {
-        refuse(tx, id, 400, None, "hub: the request body is not a JSON object".into());
-        return (None, None);
-    };
-    let selector =
-        body["model"].as_str().filter(|s| !s.is_empty()).map_or_else(|| up.cfg.model.clone(), str::to_string);
     let ep = up.cfg.endpoint_for(&selector);
     let key = match ep.require(ep.key()) {
         Ok(k) => k,
@@ -287,7 +309,7 @@ mod tests {
     #[tokio::test]
     async fn a_peer_that_is_not_pinned_gets_403_and_nothing_goes_upstream() {
         let mut c = calls();
-        c.request(1, b"{\"model\":\"m\"}".to_vec(), false);
+        c.request(1, b"{\"model\":\"m\"}".to_vec(), false, None);
         let (status, body) = drain(&mut c, 1).await;
         assert_eq!(status, 403);
         assert!(body.contains("not pinned"), "{body}");
@@ -305,22 +327,44 @@ mod tests {
         };
         let mut c = Calls::new(Arc::new(Upstream::new(cfg).unwrap()));
         for id in 1..=MAX_INFLIGHT as u64 {
-            c.request(id, b"{\"model\":\"m\"}".to_vec(), true);
+            c.request(id, b"{\"model\":\"m\"}".to_vec(), true, None);
         }
-        c.request(9, b"{\"model\":\"m\"}".to_vec(), true);
+        c.request(9, b"{\"model\":\"m\"}".to_vec(), true, None);
         let (status, body) = drain(&mut c, 9).await;
         assert_eq!(status, 429, "{body}");
         c.cancel(1);
         assert_eq!(c.live.len(), MAX_INFLIGHT - 1);
-        c.request(10, b"{\"model\":\"m\"}".to_vec(), true);
+        c.request(10, b"{\"model\":\"m\"}".to_vec(), true, None);
         assert_eq!(c.live.len(), MAX_INFLIGHT, "the cancelled call's slot went to the next");
     }
 
     #[tokio::test]
     async fn a_body_that_is_not_json_is_refused_400() {
         let mut c = calls();
-        c.request(2, b"not json".to_vec(), true);
+        c.request(2, b"not json".to_vec(), true, None);
         assert_eq!(drain(&mut c, 2).await.0, 400);
         assert!(c.live.is_empty(), "the end retires the call");
+    }
+
+    #[tokio::test]
+    async fn an_override_with_a_smaller_window_refuses_what_cannot_fit_before_anything_goes_upstream() {
+        // Nothing listens on port 9: a call that went upstream would be 502.
+        let cfg: Config = toml::from_str(
+            "base_url = \"http://127.0.0.1:9/v1\"\napi_key_secret = \"\"\n[models.small]\ncontext_window = 10\n",
+        )
+        .unwrap();
+        let mut c = Calls::new(Arc::new(Upstream::new(cfg).unwrap()));
+        let big = format!("{{\"model\":\"big\",\"messages\":\"{}\"}}", "x".repeat(100));
+        let asked = c.request(3, big.clone().into_bytes(), true, Some("small"));
+        assert_eq!(asked.as_deref(), Some("big"), "the hub still learns what the peer asked for");
+        let (status, body) = drain(&mut c, 3).await;
+        assert_eq!(status, 400, "{body}");
+        let err: Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(err["error"]["code"], "context_length_exceeded", "{body}");
+        assert!(body.contains("maximum context length is 10 tokens"), "{body}");
+        assert!(c.live.is_empty(), "nothing went upstream");
+        // Without the override the same body goes upstream (and fails there).
+        c.request(4, big.into_bytes(), true, None);
+        assert_eq!(drain(&mut c, 4).await.0, 502);
     }
 }
