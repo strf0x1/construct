@@ -53,7 +53,8 @@ impl Motion {
             self.panel_fx.clear();
             let tint = std::mem::replace(&mut self.tint, theme::DIM);
             self.rearm = false;
-            self.ghost = Some((p.area, ghost(p.cells, tint, 420)));
+            let sel = p.sel.and_then(|y| y.checked_sub(p.area.y));
+            self.ghost = Some((p.area, ghost(p.cells, sel, tint, 420)));
         }
         if let Some((area, e)) = self.ghost.as_mut() {
             buf.render_effect(e, area.intersection(buf.area), dt);

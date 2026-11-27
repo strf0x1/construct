@@ -12,9 +12,11 @@ quad() { grep -q -e '▖' -e '▗' -e '▘' -e '▙' -e '▚' -e '▛' -e '▜' 
 grep 'tool_end' "$EVIDENCE/journal.txt" | grep -q 'edited' || { echo "no edit tool_end in the journal"; exit 1; }
 grep -q 'compacted' "$EVIDENCE/journal.txt" || { echo "no compacted row in the journal"; exit 1; }
 
-# highlighter: an added line is white mid-pass, not yet its settled green
+# highlighter: an added line is white mid-pass, not yet its settled green, and edit header carries +N −M counts
 s=$(first diff "grep 'g.push(Web)' | grep -q 'fg=#ebeeff'") || { echo "no snap caught the diff's highlighter pass"; exit 1; }
 echo "highlighter caught in $s"
+sec diff-4 | strip | grep '✓ edit' | grep -Eq '\+[0-9]+ −[0-9]+' || { echo "edit header missing +N −M diff counters"; exit 1; }
+echo "diff counters shown in edit header"
 
 # compaction: a notice still resolving out of quadrant blocks
 s=$(first compact "strip | grep 'compacted hist' | quad") || { echo "no snap caught the notice resolving"; exit 1; }

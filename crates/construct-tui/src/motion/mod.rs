@@ -1,14 +1,13 @@
 //! Motion: short effects drawn over a finished frame with tachyonfx (ADR
-//! 0065). A finished tool's output unfurls (the gutter fills top to bottom,
-//! the text trickles in, the header flashes its outcome; a failure shakes) and
-//! a comet rides the rule above the input while a turn runs, colored by what
-//! it is doing. A permission panel draws its own border as it arrives and,
-//! once answered, dissolves into the screen beneath it. A reply being
-//! written dries from bright to ink behind a caret.
+//! 0065). A finished tool's output unfurls (or collapses smoothly from a live
+//! streaming tail into its compact preview), edit `+N −M` counters tick up,
+//! `ctrl+o` eases tool details open/closed, a comet rides the rule above the
+//! input while a turn runs, a permission panel draws its own border and pops
+//! its confirmed choice before dissolving, streaming text dries behind a caret,
+//! and text receding past the top of a scrolled viewport fades softly darker.
 //! Effects recolor or blank cells already drawn and never set a background
-//! (construct draws on the terminal's own); the few that move layout (an
-//! output opening, the panel rising) are row counts in `grow.rs` (ADR 0066).
-//! `CONSTRUCT_MOTION=off` draws exactly what construct drew before.
+//! (construct draws on the terminal's own); the few that move layout are row
+//! counts in `grow.rs` (ADR 0066). `CONSTRUCT_MOTION=off` draws the plain screen.
 
 mod compact;
 mod grow;
@@ -31,19 +30,21 @@ pub(crate) use grow::rise;
 use ink::Ink;
 use panel::{Panel, Part};
 pub(crate) use rule::hue;
-use shaders::{gutter_fill, shake};
+use shaders::{gutter_fill, scroll_fade, shake};
 
+pub(crate) const INK: Color = Color::Rgb(192, 202, 245);
 const WHITE: Color = Color::Rgb(235, 238, 255);
 const FLASH_OK: Color = Color::Rgb(230, 255, 210);
 const FLASH_ERR: Color = Color::Rgb(255, 200, 210);
 /// The `│` of a tool's output gutter (`    │ `), counted from the left edge.
 const GUTTER_X: u16 = 4;
 
-/// Where a block landed in the last transcript drawn: its first row (after
-/// the blank line before it), how many rows, and how wide its widest line
-/// is, so an effect's sweep spans the text rather than the whole row.
+/// Where a block landed in the last transcript drawn: its left column, first
+/// row (after the blank line before it), how many rows, and how wide its widest
+/// line is, so an effect's sweep spans the text rather than the whole row.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub(crate) struct Place {
+    pub(crate) left: u16,
     pub(crate) start: usize,
     pub(crate) len: usize,
     pub(crate) width: u16,
@@ -86,8 +87,12 @@ pub(super) struct Motion {
     rearm: bool,
     /// The ctx gauge easing down after a drop: from, to, since.
     gauge: Option<(u64, u64, Instant)>,
-    /// Tool blocks whose output is opening, and since when.
-    opening: Vec<(usize, Instant)>,
+    /// Blocks whose body row count is easing (unfurl, tail collapse, ctrl+o).
+    resize: Vec<grow::Resize>,
+    /// Edit blocks whose `+N −M` header counters are ticking up.
+    diff_tick: Vec<(usize, Instant)>,
+    /// Keep redrawing while live streaming bash lines cool from bright to faint.
+    live_until: Option<Instant>,
     /// The permission panel rising since, and an answered one's room
     /// closing: its height, since.
     rise: Option<Instant>,
@@ -120,7 +125,9 @@ impl Motion {
             tint: theme::DIM,
             rearm: false,
             gauge: None,
-            opening: Vec::new(),
+            resize: Vec::new(),
+            diff_tick: Vec::new(),
+            live_until: None,
             rise: None,
             sink: None,
             ink: None,
@@ -143,6 +150,15 @@ impl Motion {
         self.on
     }
 
+    /// Live tool output arrived: keep frames ticking while new lines cool.
+    pub(crate) fn live_tick(&mut self) {
+        if !self.on {
+            return;
+        }
+        self.wake();
+        self.live_until = Some(Instant::now() + std::time::Duration::from_millis(900));
+    }
+
     /// Something is moving, so the loop keeps drawing.
     pub(super) fn running(&self) -> bool {
         !self.fx.is_empty()
@@ -151,24 +167,32 @@ impl Motion {
             || !self.panel_fx.is_empty()
             || self.ghost.is_some()
             || self.gauge.is_some_and(|g| g.2.elapsed() < compact::DRAIN)
+            || self.live_until.is_some_and(|until| Instant::now() < until)
             || self.moving()
             || self.drying()
     }
 
-    /// Tool block `i` finished: unfurl its output and flash its outcome.
-    pub(super) fn tool_done(&mut self, i: usize, ok: bool, diff: bool) {
+    /// Tool block `i` finished: flash its outcome, and either collapse from its
+    /// `from_live` streaming tail or unfurl its output from the header down.
+    pub(super) fn tool_done(&mut self, i: usize, ok: bool, diff: bool, from_live: Option<usize>) {
         if !self.on {
             return;
         }
         self.wake();
-        self.open(i);
         let flash = if ok { FLASH_OK } else { FLASH_ERR };
         self.fx.push((Target::Head(i), fx::fade_from_fg(flash, (700, Interpolation::QuadOut))));
-        // coalesce runs its sweep backwards: down_to_up reveals the top row first.
-        let trickle = fx::coalesce((1100, Interpolation::QuadOut)).with_pattern(SweepPattern::down_to_up(3));
-        self.fx.push((Target::Body(i), trickle));
-        self.fx.push((Target::Body(i), gutter_fill(800, if ok { theme::ACCENT } else { theme::RED })));
+        if let Some(rows) = from_live {
+            self.collapse(i, rows);
+            self.fx.push((Target::Body(i), gutter_fill(450, if ok { theme::GREEN } else { theme::RED })));
+        } else {
+            self.open(i);
+            // coalesce runs its sweep backwards: down_to_up reveals the top row first.
+            let trickle = fx::coalesce((1100, Interpolation::QuadOut)).with_pattern(SweepPattern::down_to_up(3));
+            self.fx.push((Target::Body(i), trickle));
+            self.fx.push((Target::Body(i), gutter_fill(800, if ok { theme::ACCENT } else { theme::RED })));
+        }
         if ok && diff {
+            self.tick_diff(i);
             // a highlighter pass over the diff once it has trickled in
             let pass =
                 fx::fade_from_fg(WHITE, (1100, Interpolation::SineOut)).with_pattern(SweepPattern::left_to_right(14));
@@ -189,20 +213,25 @@ impl Motion {
         let dt = self.tick();
         let area = buf.area;
         // two columns of slack: a shake's shift, the caret after the text
-        let place = |start: usize, len: usize, width: u16| -> Option<Rect> {
+        let place = |left: u16, start: usize, len: usize, width: u16| -> Option<Rect> {
             let (lo, hi) = (start.max(top), (start + len).min(top + h as usize));
-            let w = width.saturating_add(2).min(area.width);
-            (hi > lo).then(|| Rect::new(area.x, y0 + (lo - top) as u16, w, (hi - lo) as u16))
+            let x = area.x.saturating_add(left).min(area.right());
+            let w = width.saturating_add(2).min(area.right().saturating_sub(x));
+            (hi > lo && w > 0).then(|| Rect::new(x, y0 + (lo - top) as u16, w, (hi - lo) as u16))
         };
         let full = area.width;
         for (target, e) in &mut self.fx {
             let rect = match *target {
-                Target::Splash(k) => rows.get(k).and_then(|r| place(r.start, r.len, r.width)).filter(|_| splash),
+                Target::Splash(k) => {
+                    rows.get(k).and_then(|r| place(r.left, r.start, r.len, r.width)).filter(|_| splash)
+                }
                 _ if splash => None,
-                Target::Head(i) => rows.get(i).and_then(|r| place(r.start, 1, r.width)),
-                Target::Body(i) => rows.get(i).and_then(|r| place(r.start + 1, r.len.saturating_sub(1), r.width)),
-                Target::Block(i) => rows.get(i).and_then(|r| place(r.start, r.len, r.width)),
-                Target::Above(i) => rows.get(i).and_then(|r| place(0, r.start, full)),
+                Target::Head(i) => rows.get(i).and_then(|r| place(r.left, r.start, 1, r.width)),
+                Target::Body(i) => {
+                    rows.get(i).and_then(|r| place(r.left, r.start + 1, r.len.saturating_sub(1), r.width))
+                }
+                Target::Block(i) => rows.get(i).and_then(|r| place(r.left, r.start, r.len, r.width)),
+                Target::Above(i) => rows.get(i).and_then(|r| place(0, 0, r.start, full)),
             };
             if let Some(r) = rect.map(|r| r.intersection(area)).filter(|r| !r.is_empty()) {
                 buf.render_effect(e, r, dt);
@@ -213,8 +242,11 @@ impl Motion {
         }
         self.fx.retain(|(t, e)| e.running() && (splash || !matches!(t, Target::Splash(_))));
         if let Some(i) = self.ink.as_ref().map(|ink| ink.block).filter(|_| !splash) {
-            let rect = rows.get(i).and_then(|r| place(r.start, r.len, r.width)).map(|r| r.intersection(area));
+            let rect = rows.get(i).and_then(|r| place(r.left, r.start, r.len, r.width)).map(|r| r.intersection(area));
             self.dry(buf, i, rect);
+        }
+        if self.on && !splash && top > 0 {
+            scroll_fade(buf, y0, h, top);
         }
     }
 
@@ -252,7 +284,7 @@ mod tests {
     #[test]
     fn off_adds_nothing() {
         let mut m = Motion::new(false);
-        m.tool_done(0, true, false);
+        m.tool_done(0, true, false, None);
         m.turn(Some(Some(&Phase::Thinking)));
         assert!(!m.running());
     }
@@ -368,13 +400,13 @@ mod tests {
     #[test]
     fn a_failure_shakes_its_header() {
         let mut m = Motion::new(true);
-        m.tool_done(0, false, false);
+        m.tool_done(0, false, false, None);
         let mut moved = false;
         for _ in 0..10 {
             let mut b = Buffer::empty(Rect::new(0, 0, 20, 2));
             b.set_string(2, 0, "✗ bash", ratatui::style::Style::new());
             m.last = Instant::now() - std::time::Duration::from_millis(30);
-            m.transcript(&mut b, &[Place { start: 0, len: 2, width: 20 }], 0, 0, 2, false);
+            m.transcript(&mut b, &[Place { left: 0, start: 0, len: 2, width: 20 }], 0, 0, 2, false);
             moved |= b[(2, 0)].symbol() != "✗";
         }
         assert!(moved, "the header shifted at least once");
@@ -383,8 +415,8 @@ mod tests {
     #[test]
     fn unfurl_hides_rows_not_yet_reached_and_finishes() {
         let mut m = Motion::new(true);
-        m.tool_done(0, true, false);
-        m.opening.clear(); // the rows opening is grow.rs's to test, on the wall clock
+        m.tool_done(0, true, false, None);
+        m.resize.clear(); // the rows opening is grow.rs's to test, on the wall clock
         let mut b = Buffer::empty(Rect::new(0, 0, 20, 4));
         let draw = |b: &mut Buffer| {
             for y in 1..4 {
@@ -393,15 +425,30 @@ mod tests {
         };
         draw(&mut b);
         m.last = Instant::now() - std::time::Duration::from_millis(20);
-        m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);
+        m.transcript(&mut b, &[Place { left: 0, start: 0, len: 4, width: 20 }], 0, 0, 4, false);
         assert_eq!(b[(GUTTER_X, 3)].symbol(), " ", "the last row's gutter is not filled yet");
         for _ in 0..16 {
             draw(&mut b);
             m.last = Instant::now() - std::time::Duration::from_millis(100);
-            m.transcript(&mut b, &[Place { start: 0, len: 4, width: 20 }], 0, 0, 4, false);
+            m.transcript(&mut b, &[Place { left: 0, start: 0, len: 4, width: 20 }], 0, 0, 4, false);
         }
         assert!(!m.running(), "the unfurl runs out");
         assert_eq!(b[(GUTTER_X, 3)].symbol(), "│");
         assert_eq!(b[(6, 3)].symbol(), "o");
+    }
+
+    #[test]
+    fn scroll_fade_dims_top_rows_only_when_scrolled_past_top() {
+        let mut m = Motion::new(true);
+        let mut b = Buffer::empty(Rect::new(0, 0, 20, 6));
+        for y in 0..6 {
+            b.set_string(2, y, "line text", ratatui::style::Style::new().fg(INK));
+        }
+        m.transcript(&mut b, &[], 0, 0, 6, false);
+        assert_eq!(b[(2, 0)].fg, INK, "top == 0 leaves rows untouched");
+
+        m.transcript(&mut b, &[], 5, 0, 6, false);
+        assert_ne!(b[(2, 0)].fg, INK, "top row fades darker when scrolled past top");
+        assert_eq!(b[(2, 4)].fg, INK, "lower rows stay bright");
     }
 }

@@ -30,6 +30,7 @@ mod status;
 mod table;
 mod text;
 mod theme;
+mod tool_block;
 mod turn;
 mod view;
 mod worker;

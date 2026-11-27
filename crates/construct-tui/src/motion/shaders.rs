@@ -1,15 +1,21 @@
 //! The hand-written effects `Motion` schedules, each an `effect_fn_buf` over a
-//! rect. They change only glyphs and foreground colors of cells already drawn
-//! (the ghost puts back cells the panel itself drew), never a background the
-//! panel did not set, so they read the same on any terminal theme.
+//! rect (plus the stateless viewport top-edge fade). They change only glyphs
+//! and foreground colors of cells already drawn (the ghost puts back cells the
+//! panel itself drew), never a background the panel did not set, so they read
+//! the same on any terminal theme.
 
-use super::{GUTTER_X, WHITE};
+use super::{FLASH_OK, GUTTER_X, INK, WHITE};
 use crate::theme;
-use ratatui::buffer::Cell;
+use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use tachyonfx::fx;
 use tachyonfx::{Effect, Interpolation};
+
+/// Darker than `FAINT` (`#464c66`) for text receding past the top edge.
+const SCROLL_DEPTH: Color = Color::Rgb(38, 42, 60);
+/// Confirm pop highlight for a denied choice.
+const FLASH_DENY: Color = Color::Rgb(255, 232, 175);
 
 /// A bright head with a fading tail, lapping the rule left to right.
 pub(super) fn comet(color: Color, period_ms: u32) -> Effect {
@@ -32,6 +38,108 @@ pub(super) fn comet(color: Color, period_ms: u32) -> Effect {
             }
         }
     }))
+}
+
+/// Luminous left-to-right beam reveal: strokes ahead of the beam stay blank,
+/// the leading edge lights bright white and cools through `edge` into each
+/// cell's own color. No shaded block noise.
+pub(super) fn beam_reveal(ms: u32, edge: Color) -> Effect {
+    fx::effect_fn_buf((), (ms, Interpolation::CubicOut), move |_, ctx, buf| {
+        let a = ctx.area;
+        let alpha = ctx.timer.alpha();
+        let trail = 6.0f32;
+        let head = alpha * (a.width as f32 + trail);
+        for dy in 0..a.height {
+            for dx in 0..a.width {
+                let d = head - dx as f32;
+                let cell = &mut buf[(a.x + dx, a.y + dy)];
+                if alpha == 0.0 || d <= 0.0 {
+                    cell.set_symbol(" ");
+                } else if d < trail && alpha < 1.0 && !cell.symbol().trim().is_empty() {
+                    if d < 1.3 {
+                        cell.set_fg(WHITE);
+                    } else {
+                        let k = ((d - 1.3) / (trail - 1.3)).clamp(0.0, 1.0);
+                        let target = if matches!(cell.fg, Color::Rgb(..)) { cell.fg } else { INK };
+                        let mid = theme::lerp(WHITE, edge, (k * 2.0).min(1.0));
+                        cell.set_fg(theme::lerp(mid, target, k));
+                    }
+                }
+            }
+        }
+    })
+}
+
+/// A soft diagonal specular sheen gliding across non-empty glyphs once.
+pub(super) fn sheen(ms: u32) -> Effect {
+    fx::effect_fn_buf((), (ms, Interpolation::SineInOut), |_, ctx, buf| {
+        let a = ctx.area;
+        let band = 7.0f32;
+        let span = a.width as f32 + a.height as f32 * 2.0 + band * 2.0;
+        let pos = ctx.timer.alpha() * span - band;
+        for dy in 0..a.height {
+            for dx in 0..a.width {
+                let cell = &mut buf[(a.x + dx, a.y + dy)];
+                if cell.symbol().trim().is_empty() {
+                    continue;
+                }
+                let dist = ((dx as f32 + dy as f32 * 2.0) - pos).abs();
+                if dist < band {
+                    let k = (1.0 - dist / band).powi(2) * 0.72;
+                    let base = if matches!(cell.fg, Color::Rgb(..)) { cell.fg } else { INK };
+                    cell.set_fg(theme::lerp(base, WHITE, k));
+                }
+            }
+        }
+    })
+}
+
+/// Draws a thin horizontal rule left-to-right with a bright `━` tip.
+pub(super) fn rule_draw(ms: u32) -> Effect {
+    fx::effect_fn_buf((), (ms, Interpolation::CubicOut), |_, ctx, buf| {
+        let a = ctx.area;
+        let alpha = ctx.timer.alpha();
+        let trail = 5.0f32;
+        let head = alpha * (a.width as f32 + trail);
+        for dx in 0..a.width {
+            let d = head - dx as f32;
+            let cell = &mut buf[(a.x + dx, a.y)];
+            if alpha == 0.0 || d <= 0.0 {
+                cell.set_symbol(" ");
+            } else if d < 1.2 && alpha < 1.0 {
+                cell.set_symbol("━").set_fg(WHITE);
+            } else if d < trail && alpha < 1.0 {
+                let k = ((d - 1.2) / (trail - 1.2)).clamp(0.0, 1.0);
+                cell.set_fg(theme::lerp(theme::ACCENT, theme::FAINT, k));
+            }
+        }
+    })
+}
+
+/// Attenuate the top rows of a scrolled transcript (`top > 0`) so text softly
+/// fades darker as it scrolls up past the top edge. Foreground-only.
+pub(super) fn scroll_fade(buf: &mut Buffer, y0: u16, h: u16, top: usize) {
+    if top == 0 || h < 4 {
+        return;
+    }
+    let strength = (top.min(3) as f32) / 3.0;
+    const WEIGHTS: [f32; 3] = [0.74, 0.46, 0.20];
+    let area = buf.area;
+    for (dy, &w) in WEIGHTS.iter().enumerate() {
+        let y = y0 + dy as u16;
+        if y >= area.bottom() {
+            break;
+        }
+        let k = w * strength;
+        for x in area.x..area.right() {
+            let cell = &mut buf[(x, y)];
+            if cell.symbol().trim().is_empty() {
+                continue;
+            }
+            let base = if matches!(cell.fg, Color::Rgb(..)) { cell.fg } else { INK };
+            cell.set_fg(theme::lerp(base, SCROLL_DEPTH, k));
+        }
+    }
 }
 
 /// The gutter fills like a pipe: rows below the head are blank, the head is
@@ -120,20 +228,29 @@ pub(super) fn shake(ms: u32) -> Effect {
 
 /// An answered panel, gone from the layout, dissolving into what is now
 /// drawn beneath it. `cells` is the panel as last drawn, row by row over the
-/// rect this effect is given. Its glyphs first wash to `tint` (green for
-/// allowed, amber for denied), then drop out cell by cell in a fixed
-/// scatter, so every frame shows a little more of the screen underneath.
-pub(super) fn ghost(cells: Vec<Cell>, tint: Color, ms: u32) -> Effect {
+/// rect this effect is given; `sel` is the chosen row relative to the panel's
+/// top edge. The chosen row pops bright for a beat while the rest of the panel
+/// washes to `tint` (green for allowed, amber for denied) and drops out cell
+/// by cell in a fixed scatter.
+pub(super) fn ghost(cells: Vec<Cell>, sel: Option<u16>, tint: Color, ms: u32) -> Effect {
+    let pop = if tint == theme::GREEN { FLASH_OK } else { FLASH_DENY };
     fx::effect_fn_buf(cells, (ms, Interpolation::QuadIn), move |cells, ctx, buf| {
         let a = ctx.area;
         let t = ctx.timer.alpha();
         for (i, c) in cells.iter().enumerate() {
             let (dx, dy) = ((i % a.width as usize) as u16, (i / a.width as usize) as u16);
-            if dy >= a.height || scatter(dx, dy) < t {
+            if dy >= a.height {
+                continue;
+            }
+            let chosen = sel == Some(dy) && dx >= 1 && dx + 1 < a.width;
+            let drop_t = if chosen { ((t - 0.22) / 0.78).max(0.0) } else { t };
+            if scatter(dx, dy) < drop_t {
                 continue;
             }
             let mut c = c.clone();
-            if let Color::Rgb(..) = c.fg {
+            if chosen && !c.symbol().trim().is_empty() {
+                c.set_fg(theme::lerp(pop, tint, (t / 0.4).min(1.0)));
+            } else if let Color::Rgb(..) = c.fg {
                 c.set_fg(theme::lerp(tint, c.fg, ((t - 0.15) / 0.5).max(0.0)));
             }
             if let Some(cell) = buf.cell_mut((a.x + dx, a.y + dy)) {

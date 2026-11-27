@@ -3,8 +3,8 @@ id: panel-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/grow.rs, crates/construct-tui/src/motion/rule.rs, crates/construct-tui/src/motion/panel.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app.rs, crates/construct-tui/src/prompt.rs, crates/construct-tui/src/theme.rs]
-verified_at: 6323e7b
-verified_deps: 54ffadaad36c6b1b
+verified_at: 400ae96
+verified_deps: ae9312a8bf63e3b8
 ---
 # Motion: permission panel and outcomes
 
@@ -15,7 +15,7 @@ A permission panel rises out of the status line over about a third of a second, 
 - `motion-panel-rise` the panel rises from the foot, taking more rows each frame until it is whole; once answered its room closes after the ghost.
 - `motion-panel-arrive` the panel's border draws itself from the bottom middle and its contents coalesce left to right.
 - `motion-panel-select` a moved selection sweeps the new row white.
-- `motion-panel-dissolve` an answered panel dissolves as a ghost, washed green (allowed) or amber (denied).
+- `motion-panel-dissolve` an answered panel dissolves as a ghost, popping the confirmed choice bright for a beat while the rest washes green (allowed) or amber (denied).
 - `motion-fail-shake` a failed tool's header shakes and settles at its indent.
 
 ## How to get to it (user POV)

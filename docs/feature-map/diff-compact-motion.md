@@ -2,17 +2,17 @@
 id: diff-compact-motion
 status: verified
 surfaces: [tui]
-depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/compact.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/status.rs, crates/construct-tui/src/view.rs]
-verified_at: 6323e7b
-verified_deps: 74f655f5e4584725
+depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/compact.rs, crates/construct-tui/src/motion/grow.rs, crates/construct-tui/src/tool_block.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/status.rs, crates/construct-tui/src/view.rs]
+verified_at: 400ae96
+verified_deps: 6b6e13a5cb3d107b
 ---
 # Motion: diff highlighter and compaction
 
-When an edit finishes, its diff trickles in like any tool output, then a white highlighter pass sweeps it left to right and the `+`/`-` lines settle to green and red. When construct compacts history, the transcript stays on screen (only what the model is sent shrinks), so nothing is dissolved away: a lavender wash over the transcript above the `◇ compacted history` notice clears from the top down into it, the notice resolves out of quadrant block glyphs, and when the next usage report shows the context share dropped by ten points or more, the `ctx` gauge drains down to it over ~0.9 s instead of jumping. `CONSTRUCT_MOTION=off` draws none of it (ADR 0065).
+When an edit finishes, its header shows green `+N` and red `−M` diff counters that tick up as its diff trickles in, then a white highlighter pass sweeps it left to right and the `+`/`-` lines settle to green and red. When construct compacts history, the transcript stays on screen (only what the model is sent shrinks), so nothing is dissolved away: a lavender wash over the transcript above the `◇ compacted history` notice clears from the top down into it, the notice resolves out of quadrant block glyphs, and when the next usage report shows the context share dropped by ten points or more, the `ctx` gauge drains down to it over ~0.9 s instead of jumping. `CONSTRUCT_MOTION=off` draws none of it (ADR 0065).
 
 ## Sub-features
 
-- `motion-diff-highlight` a finished edit's diff gets one white highlighter pass left to right.
+- `motion-diff-highlight` a finished edit's header ticks up `+N −M` counts and its diff gets one white highlighter pass left to right.
 - `motion-compact-wave` the transcript above a compaction notice washes lavender and clears top-down into it.
 - `motion-compact-notice` the notice resolves out of quadrant blocks.
 - `motion-gauge-drain` a drop of ten points or more in the context share drains the gauge; a rise or a small drop shows at once.

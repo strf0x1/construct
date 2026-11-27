@@ -370,7 +370,7 @@ may_use = ["app", "motion", "theme"]
 may_use = ["ask", "boxed", "motion", "palette", "peers", "picker", "sessions", "theme", "turn"]
 
 [crates.construct-tui.modules.app_events]
-may_use = ["app", "args", "theme"]
+may_use = ["app", "args", "theme", "tool_block"]
 
 [crates.construct-tui.modules.args]
 may_use = []
@@ -443,11 +443,14 @@ may_use = []
 [crates.construct-tui.modules.theme]
 may_use = []
 
+[crates.construct-tui.modules.tool_block]
+may_use = ["app", "motion", "text", "theme"]
+
 [crates.construct-tui.modules.turn]
 may_use = []
 
 [crates.construct-tui.modules.view]
-may_use = ["app", "boxed", "help", "markdown", "motion", "peers", "prompt", "text", "theme"]
+may_use = ["app", "boxed", "help", "markdown", "motion", "peers", "prompt", "theme", "tool_block"]
 
 [crates.construct-tui.modules.motion]
 may_use = ["theme", "turn"]

@@ -105,6 +105,12 @@ pub enum Event {
         name: String,
         args: String,
     },
+    /// Live output chunk from a running tool (shell stdout/stderr). Not
+    /// journaled: `ToolEnd` carries the full output.
+    ToolOutput {
+        id: String,
+        text: String,
+    },
     ToolEnd {
         id: String,
         name: String,

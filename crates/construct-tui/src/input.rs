@@ -158,7 +158,15 @@ pub(super) fn handle_key(app: &mut App, k: KeyEvent, cmd: &mpsc::UnboundedSender
             }
         }
         KeyCode::Char('o') if ctrl => {
+            let heights: Vec<(usize, usize)> = app
+                .blocks
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| matches!(b.kind, Kind::Tool | Kind::Reasoning))
+                .filter_map(|(i, _)| app.rows.get(i).map(|r| (i, r.len.saturating_sub(1))))
+                .collect();
             app.expand = !app.expand;
+            app.motion.toggle_expand(heights);
         }
         KeyCode::Char('l') if ctrl => app.cache.clear(),
         KeyCode::Enter if alt || shift => app.insert("\n"),

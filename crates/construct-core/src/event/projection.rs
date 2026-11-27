@@ -28,6 +28,7 @@ impl Event {
                 | Event::Text { .. }
                 | Event::Reasoning { .. }
                 | Event::ToolPending { .. }
+                | Event::ToolOutput { .. }
                 | Event::Learn { .. }
         )
     }

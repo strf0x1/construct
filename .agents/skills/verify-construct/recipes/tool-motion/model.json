@@ -1,4 +1,4 @@
 {"steps":[
-  {"call":"shell","args":{"command":"for w in alpha beta gamma delta epsilon zeta eta theta; do echo \"${w}-out\"; done; sleep 1"}},
-  {"text":"listed eight words, one per line, from alpha down to theta, and the last four are the ones shown under the command above","delay_ms":1500}
+  {"call":"shell","args":{"command":"for w in alpha beta gamma delta epsilon zeta eta theta; do echo \"${w}-out\"; sleep 0.14; done"}},
+  {"text":"listed eight words, one per line, from alpha down to theta, and the live tail settled into the compact preview above","delay_ms":1400}
 ]}

@@ -103,15 +103,27 @@ impl App {
                 self.turn.set_phase(Phase::Tool(name));
                 self.push(b);
             }
+            Event::ToolOutput { id, text } => {
+                if let Some(b) = self.blocks.iter_mut().rev().find(|b| b.kind == Kind::Tool && b.id == id && b.status == Status::Running) {
+                    push_live(b, &text);
+                    b.version += 1;
+                    self.motion.live_tick();
+                }
+            }
             Event::ToolEnd { id, ok, output, ms, kind, .. } => {
                 if let Some(i) = self.blocks.iter().rposition(|b| b.kind == Kind::Tool && b.id == id) {
-                    self.motion.tool_done(i, ok, kind == construct_core::tools::OutputKind::Diff);
                     let b = &mut self.blocks[i];
+                    let live_count = b.live.len() + usize::from(!b.partial.is_empty());
+                    let from_live = (live_count > 0).then(|| live_count.min(super::tool_block::LIVE_TAIL));
+                    b.had_live = live_count > 0;
+                    b.live.clear();
+                    b.partial.clear();
                     b.status = if ok { Status::Ok } else { Status::Err };
                     b.text = output;
                     b.ms = ms;
                     b.out = kind;
                     b.version += 1;
+                    self.motion.tool_done(i, ok, kind == construct_core::tools::OutputKind::Diff, from_live);
                 }
                 if !self.blocks.iter().any(|b| b.kind == Kind::Tool && b.status == Status::Running) {
                     self.turn.set_phase(Phase::Waiting);
@@ -180,6 +192,25 @@ impl App {
                     self.toast = Some((status, theme::ACCENT2, Instant::now()));
                 }
             }
+        }
+    }
+}
+
+/// Append a streamed tool output chunk to a running block's rolling live tail.
+fn push_live(b: &mut Block, chunk: &str) {
+    let now = Instant::now();
+    for ch in chunk.chars() {
+        match ch {
+            '\n' => {
+                let line = std::mem::take(&mut b.partial);
+                b.live.push((line, now));
+                if b.live.len() > 32 {
+                    let drop = b.live.len() - 32;
+                    b.live.drain(..drop);
+                }
+            }
+            '\r' => b.partial.clear(),
+            c => b.partial.push(c),
         }
     }
 }

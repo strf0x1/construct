@@ -3,10 +3,8 @@
 
 use super::app::{App, Kind, Status};
 use super::motion::{Place, rise};
-use super::text::fit;
-use super::{boxed, help, markdown, prompt, theme};
+use super::{boxed, help, markdown, prompt, theme, tool_block};
 use anyhow::Result;
-use construct_core::tools::OutputKind;
 use crossterm::queue;
 use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use ratatui::Terminal;
@@ -16,13 +14,16 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::io::{Stdout, Write};
-use unicode_width::UnicodeWidthStr;
 
 impl App {
     pub(super) fn block_lines(&mut self, i: usize, width: u16, phase: f32) -> Vec<Line<'static>> {
         let expand = self.expand;
         let b = &self.blocks[i];
-        let dynamic = b.status == Status::Running;
+        let diff_k = self.motion.diff_progress(i);
+        let collapse = (b.kind == Kind::Tool && b.status != Status::Running)
+            .then(|| self.motion.collapse_rows(i, tool_block::settled_tail_rows(b, expand)))
+            .flatten();
+        let dynamic = b.status == Status::Running || diff_k < 1.0 || collapse.is_some();
         if !dynamic
             && let Some((w, v, e, lines)) = self.cache.get(&i)
             && *w == width
@@ -84,68 +85,7 @@ impl App {
                     ]));
                 }
             }
-            Kind::Tool => {
-                let (icon, color) = match b.status {
-                    Status::Running => (theme::spinner(phase).to_string(), theme::YELLOW),
-                    Status::Ok => ("✓".into(), theme::GREEN),
-                    Status::Err => ("✗".into(), theme::RED),
-                };
-                let mut head = vec![
-                    Span::styled(format!("  {icon} "), Style::new().fg(color)),
-                    Span::styled(b.title.clone(), Style::new().fg(theme::ACCENT).add_modifier(Modifier::BOLD)),
-                    Span::raw(" "),
-                ];
-                let time = match b.status {
-                    Status::Running => format!(" {:.1}s", b.started.elapsed().as_secs_f32()),
-                    _ if b.ms >= 1000 => format!(" {:.1}s", b.ms as f32 / 1000.0),
-                    _ => format!(" {}ms", b.ms),
-                };
-                let room = w.saturating_sub(5 + b.title.width() + time.width());
-                let detail = fit(&b.detail, room);
-                head.push(Span::styled(detail, theme::dim()));
-                head.push(Span::styled(time, theme::faint()));
-                out.push(Line::from(head));
-                if b.status != Status::Running && !b.text.is_empty() {
-                    let max = if expand {
-                        60
-                    } else if b.status == Status::Err {
-                        4
-                    } else {
-                        b.preview
-                    };
-                    let body = tool_body(b.out, &b.text);
-                    let lines: Vec<&str> = body.lines().collect();
-                    for l in lines.iter().take(max) {
-                        let style = if b.out == OutputKind::Diff {
-                            match l.chars().next() {
-                                Some('+') => Style::new().fg(theme::GREEN),
-                                Some('-') => Style::new().fg(theme::RED),
-                                _ => theme::faint(),
-                            }
-                        } else if b.status == Status::Err {
-                            Style::new().fg(theme::RED)
-                        } else {
-                            theme::faint()
-                        };
-                        out.push(Line::from(vec![
-                            Span::styled("    │ ", theme::faint()),
-                            Span::styled(fit(&l.replace('\t', "  "), w.saturating_sub(6)), style),
-                        ]));
-                    }
-                    if max == 0 && !expand {
-                        out.push(Line::from(Span::styled(format!("    │ {} lines", lines.len()), theme::faint())));
-                    } else if lines.len() > max {
-                        out.push(Line::from(Span::styled(
-                            format!(
-                                "    │ … {} more lines{}",
-                                lines.len() - max,
-                                if expand { "" } else { " (ctrl+o)" }
-                            ),
-                            theme::faint(),
-                        )));
-                    }
-                }
-            }
+            Kind::Tool => out.extend(tool_block::lines(b, w, phase, expand, self.motion.on(), diff_k, collapse)),
             Kind::Help => out.extend(help::lines(w, &b.text)),
             Kind::Boxes(max) => out.extend(boxed::lines(w, *max, &b.boxes, &b.text)),
             Kind::Notice(color) => {
@@ -181,7 +121,7 @@ impl App {
             self.motion.clip(i, &mut b); // an output still opening
             let gap = usize::from(b.first().is_some_and(|l| l.spans.is_empty())); // the blank line before a block
             let w = b.iter().map(Line::width).max().unwrap_or(0) as u16;
-            self.rows.push(Place { start: lines.len() + gap, len: b.len() - gap, width: w });
+            self.rows.push(Place { left: 0, start: lines.len() + gap, len: b.len() - gap, width: w });
             lines.extend(b);
         }
         lines
@@ -211,11 +151,9 @@ impl App {
             }
         };
         let main_h = area.height.saturating_sub(bottom);
-        let body = if self.blocks.is_empty() {
-            self.splash(area, phase)
-        } else {
-            self.transcript(width.saturating_sub(1), phase)
-        };
+        let is_splash = self.blocks.is_empty();
+        let body =
+            if is_splash { self.splash(width, main_h, phase) } else { self.transcript(width.saturating_sub(1), phase) };
         let total = body.len();
         if self.scroll > 0 && total > self.last_total {
             self.scroll += total - self.last_total;
@@ -235,8 +173,9 @@ impl App {
         let mut stdout = std::io::stdout();
         queue!(stdout, BeginSynchronizedUpdate)?;
         term.draw(|f| {
-            // pad from the top so short transcripts sit right above the input
-            let pad = main_h.saturating_sub(visible.len() as u16);
+            // pad from the top so short transcripts sit right above the input;
+            // the splash centers itself vertically inside `main_h`.
+            let pad = if is_splash { 0 } else { main_h.saturating_sub(visible.len() as u16) };
             // a rising panel is drawn whole, then cut to its top rows at the foot
             let panel = panel_h.zip(risen).zip(self.prompts.front());
             if let Some(((h, shown), p)) = panel {
@@ -246,7 +185,7 @@ impl App {
                 rise(f.buffer_mut(), full, shown);
             }
             f.render_widget(Paragraph::new(visible.clone()), Rect::new(0, pad, width, main_h - pad));
-            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, self.blocks.is_empty());
+            motion.transcript(f.buffer_mut(), &self.rows, start, pad, main_h - pad, is_splash);
             super::peers::draw(f, &mut self.peers, Rect::new(0, 0, width, main_h), self.prompts.is_empty(), phase);
             if panel.is_some() {
                 f.render_widget(Paragraph::new(status.clone()), Rect::new(0, area.height.saturating_sub(1), width, 1));
@@ -273,22 +212,5 @@ impl App {
         queue!(stdout, EndSynchronizedUpdate)?;
         stdout.flush()?;
         Ok(())
-    }
-}
-
-/// What to show under a finished tool: the diff under an edit's summary
-/// line, the tail of command output.
-fn tool_body(kind: OutputKind, out: &str) -> String {
-    match kind {
-        OutputKind::Diff => out.lines().skip(1).collect::<Vec<_>>().join("\n"),
-        OutputKind::Tail => {
-            let lines: Vec<&str> = out.lines().collect();
-            if lines.len() > 4 {
-                lines[lines.len() - 4..].join("\n") + &format!("\n({} lines)", lines.len())
-            } else {
-                out.to_string()
-            }
-        }
-        OutputKind::Plain => out.to_string(),
     }
 }
