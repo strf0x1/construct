@@ -19,10 +19,11 @@
 //! under a new code, and admission decides afresh (a closed pairing window
 //! refuses it).
 //!
-//! Staying up (#367, ADR 0076): `--install` writes a systemd unit that runs
-//! this with `--require-key` and restarts it after any exit but
-//! `service::EXIT_NO_RESTART`, the code for an end restarting cannot fix:
-//! revoked, refused, denied, or no key to rejoin with.
+//! Staying up (#367, #389, ADR 0076, 0077): `--install` writes a systemd
+//! unit or a launchd job that runs this with `--require-key` and restarts it
+//! after any exit but `service::EXIT_NO_RESTART`, the code for an end
+//! restarting cannot fix: revoked, refused, denied, or no key to rejoin
+//! with. That exit also leaves `service::STOPPED`, which launchd reads.
 
 use anyhow::{Context, Result, bail};
 use construct_core::acp::server::{self, Input};
@@ -58,17 +59,23 @@ pub(super) struct PeerArgs {
     #[arg(long)]
     cwd: Option<PathBuf>,
     /// Keep this joined peer running: copy the binary out of its workspace
-    /// and write a systemd unit that starts it at boot and restarts it after
-    /// a crash (Linux).
+    /// and write a systemd unit (Linux) or a launchd job (macOS) that starts
+    /// it at boot or login and restarts it after a crash.
     #[arg(long, conflicts_with_all = ["uninstall", "join"])]
     install: bool,
     /// Stop and remove the unit `--install` wrote.
     #[arg(long)]
     uninstall: bool,
-    /// With --install or --uninstall: a system unit (run as root, binary in
-    /// /usr/local/bin) instead of a user unit.
+    /// With --install or --uninstall: a system service (a systemd system unit
+    /// or a LaunchDaemon; starts at boot, binary in /usr/local/bin) instead
+    /// of a user one.
     #[arg(long)]
     system: bool,
+    /// With --install --system: run the service as this account instead of
+    /// root, and hand it the peer's home (its own ~/.construct unless
+    /// CONSTRUCT_HOME names one).
+    #[arg(long, value_name = "NAME", requires_all = ["install", "system"])]
+    user: Option<String>,
     /// With --install: copy this environment variable into a 0600 file the
     /// unit reads (API keys for `llm = "local"`); repeatable.
     #[arg(long = "env", value_name = "NAME", requires = "install")]
@@ -79,10 +86,14 @@ pub(super) struct PeerArgs {
     require_key: bool,
 }
 
-/// End the peer for good: print why and exit with the code that tells the
-/// installed unit not to restart it.
-fn gone(why: &str) -> ! {
+/// End the peer for good: print why, leave `service::STOPPED` (launchd's
+/// signal), and exit with the code that tells a systemd unit not to restart
+/// it.
+fn gone(home: &std::path::Path, why: &str) -> ! {
     eprintln!("construct: {why}");
+    if let Err(e) = service::mark_stopped(home, why) {
+        eprintln!("construct: could not write {}: {e}", home.join(service::STOPPED).display());
+    }
     std::process::exit(service::EXIT_NO_RESTART)
 }
 
@@ -112,11 +123,14 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     let key = if args.require_key {
         match keyfile::load(&path).context("peer key")? {
             Some(k) => k,
-            None => gone(&format!(
-                "no peer key at {}: {id} needs a new join (at the hub: `construct hub revoke {id}` if it is \
+            None => gone(
+                &paths.home,
+                &format!(
+                    "no peer key at {}: {id} needs a new join (at the hub: `construct hub revoke {id}` if it is \
                  still pinned, then `construct hub invite {id}`)",
-                path.display()
-            )),
+                    path.display()
+                ),
+            ),
         }
     } else {
         keyfile::load_or_create(&path).context("peer key")?
@@ -136,6 +150,7 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     }
     let (to_agent, input) = mpsc::unbounded_channel();
     let (out, acp) = mpsc::unbounded_channel();
+    let home = paths.home.clone();
     let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
     let mut outbox = Outbox { acp, llm };
     // An installed peer was joined before, so a hub it cannot reach yet
@@ -161,15 +176,18 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
             Ok(())
         }
         Outcome::Lost(why) => bail!("lost the hub: {why}"),
-        Outcome::Refused(why) => gone(&format!("the hub refused {id}: {why}")),
-        Outcome::Denied(why) => gone(&format!("the hub denied {id}: {why}")),
+        Outcome::Refused(why) => gone(&home, &format!("the hub refused {id}: {why}")),
+        Outcome::Denied(why) => gone(&home, &format!("the hub denied {id}: {why}")),
         Outcome::Revoked(reason) => {
             keyfile::delete(&path).with_context(|| format!("delete {}", path.display()))?;
-            gone(&format!(
-                "the hub revoked {id}{}; deleted {}",
-                reason.map(|r| format!(" ({r})")).unwrap_or_default(),
-                path.display()
-            ))
+            gone(
+                &home,
+                &format!(
+                    "the hub revoked {id}{}; deleted {}",
+                    reason.map(|r| format!(" ({r})")).unwrap_or_default(),
+                    path.display()
+                ),
+            )
         }
     }
 }

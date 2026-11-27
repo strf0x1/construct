@@ -11,7 +11,14 @@
 //! never tight-loops a peer the hub will not take back. The unit holds no
 //! secret: with `llm = "hub"` there is none on the target, and the keys an
 //! `llm = "local"` peer needs go in a separate `0600` `EnvironmentFile=`.
+//!
+//! A system unit runs as root unless `--user` names an account (#389): then
+//! it carries `User=`/`Group=`, and `account::hand_over` gives that account
+//! the peer's home. The no-restart exit also leaves `STOPPED` in the home,
+//! which is how launchd (`launchd.rs`, which cannot match an exit code)
+//! learns the same thing.
 
+use crate::account::Account;
 use std::ffi::OsString;
 use std::io::{Error, ErrorKind, Result, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -21,6 +28,23 @@ use std::process::Command;
 /// The exit code that means "do not restart me": `RestartPreventExitStatus=`.
 /// sysexits' `EX_NOPERM`, which the journal shows as `status=77/NOPERM`.
 pub const EXIT_NO_RESTART: i32 = 77;
+
+/// Left in the peer's home beside `EXIT_NO_RESTART`, holding why; `--install`
+/// removes it. launchd keeps the job alive only while it is absent.
+pub const STOPPED: &str = "peer.stopped";
+
+/// Record that this peer stopped for good, and why (`0600`).
+pub fn mark_stopped(home: &Path, why: &str) -> Result<()> {
+    write_file(&home.join(STOPPED), &format!("{why}\n"), 0o600)
+}
+
+/// Forget a stop, so the service manager may start the peer again.
+pub fn clear_stopped(home: &Path) -> Result<()> {
+    match std::fs::remove_file(home.join(STOPPED)) {
+        Err(e) if e.kind() != ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
+    }
+}
 
 /// Where a user or a system install puts the binary and the unit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,9 +96,11 @@ pub struct Unit<'a> {
     /// The peer's workspace, and the home holding its key.
     pub cwd: &'a Path,
     pub home: &'a Path,
-    /// `HOME` for a system unit, which runs as root with none set.
+    /// `HOME` for a system unit that runs as root, which has none set.
     pub user_home: Option<&'a Path>,
     pub env_file: Option<&'a Path>,
+    /// A system unit's `User=` and `Group=` (`--user`); `None` is root.
+    pub run_as: Option<&'a Account>,
 }
 
 /// The unit file.
@@ -101,9 +127,15 @@ pub fn render(u: &Unit<'_>) -> String {
         cwd = quote(&u.cwd.display().to_string()),
         home = quote(&format!("CONSTRUCT_HOME={}", u.home.display())),
     );
-    // No `User=`: a system unit runs as root, and systemd sets no HOME then.
-    if let Some(home) = u.user_home.filter(|_| u.system) {
-        s.push_str(&format!("Environment={}\n", quote(&format!("HOME={}", home.display()))));
+    match u.run_as.filter(|_| u.system) {
+        // systemd sets HOME (and USER) from the account.
+        Some(a) => s.push_str(&format!("User={}\nGroup={}\n", quote(&a.name), quote(&a.group))),
+        // Root, and systemd sets no HOME then.
+        None => {
+            if let Some(home) = u.user_home.filter(|_| u.system) {
+                s.push_str(&format!("Environment={}\n", quote(&format!("HOME={}", home.display()))));
+            }
+        }
     }
     if let Some(f) = u.env_file {
         s.push_str(&format!("EnvironmentFile={}\n", quote(&f.display().to_string())));
@@ -224,6 +256,7 @@ mod tests {
             home: Path::new("/home/b/.construct"),
             user_home: Some(Path::new("/root")),
             env_file,
+            run_as: None,
         })
     }
 
@@ -253,6 +286,43 @@ mod tests {
         assert!(u.lines().any(|l| l == "WantedBy=multi-user.target"), "{u}");
         assert!(u.lines().any(|l| l == "EnvironmentFile=/root/.construct/peer.env"), "{u}");
         assert!(u.lines().any(|l| l == "Environment=HOME=/root"), "{u}");
+    }
+
+    #[test]
+    fn a_system_unit_with_a_user_runs_as_it_and_sets_no_root_home() {
+        let bob = Account { name: "bob".into(), uid: 1000, gid: 1000, group: "users".into(), home: "/home/bob".into() };
+        let args = ["peer".to_string()];
+        let render_as = |system| {
+            render(&Unit {
+                id: "nas",
+                url: "ws://desk:9443",
+                system,
+                binary: Path::new("/usr/local/bin/construct-nas"),
+                args: &args,
+                cwd: Path::new("/srv/diag"),
+                home: Path::new("/home/bob/.construct"),
+                user_home: Some(Path::new("/root")),
+                env_file: None,
+                run_as: Some(&bob),
+            })
+        };
+        let u = render_as(true);
+        assert!(u.lines().any(|l| l == "User=bob") && u.lines().any(|l| l == "Group=users"), "{u}");
+        assert!(!u.contains("HOME=/root"), "{u}");
+        assert!(!render_as(false).contains("User="), "a user unit already runs as its user");
+    }
+
+    #[test]
+    fn a_stop_is_recorded_and_forgotten() {
+        let d = std::env::temp_dir().join(format!("construct-peer-stopped-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        clear_stopped(&d).unwrap();
+        mark_stopped(&d, "revoked").unwrap();
+        assert_eq!(std::fs::read_to_string(d.join(STOPPED)).unwrap(), "revoked\n");
+        assert_eq!(std::fs::metadata(d.join(STOPPED)).unwrap().permissions().mode() & 0o777, 0o600);
+        clear_stopped(&d).unwrap();
+        assert!(!d.join(STOPPED).exists());
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

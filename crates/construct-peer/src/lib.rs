@@ -21,8 +21,10 @@
 //! calls (#371): `llm` (the channel's frames, both sides) and, with `dial`,
 //! `gateway` (the peer's loopback endpoint the engine is pointed at). For
 //! staying up (#367): `service` (the systemd unit `--install` writes, and
-//! the exit code that tells it not to restart).
+//! the exit code that tells it not to restart), `launchd` (the macOS job,
+//! #389) and `account` (the user a system install runs as).
 
+pub mod account;
 pub mod chunk;
 pub mod crypto;
 pub mod envelope;
@@ -35,6 +37,7 @@ pub mod join;
 pub mod keepalive;
 pub mod keyfile;
 pub mod keys;
+pub mod launchd;
 pub mod llm;
 pub mod noise;
 pub mod service;

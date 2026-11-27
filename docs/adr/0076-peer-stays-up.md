@@ -53,7 +53,8 @@ crashes without anyone touching it. Constraints:
     warning.
   - `--uninstall` disables, stops and removes the unit. The binary, key and
     home stay.
-  - systemd only. On macOS `--install` refuses.
+  - systemd only. On macOS `--install` refuses (amended by ADR 0077:
+    launchd).
 - **Exit 77 means do not restart.** The peer exits with
   `service::EXIT_NO_RESTART` (77, sysexits' `EX_NOPERM`, shown as
   `status=77/NOPERM`) when the hub revoked, refused or denied it, and when
@@ -100,8 +101,8 @@ crashes without anyone touching it. Constraints:
   handshake, so both ends show a new code and the old one approves nothing.
   Admission runs again: a pairing window that closed with the old hub
   refuses the peer, and the pending cap and strike rules are unchanged.
-- Not done: launchd on macOS, and a `User=` for system units other than
-  root.
+- Not done here: launchd on macOS, and a `User=` for system units other
+  than root. Both are ADR 0077 (#389).
 
 ## Evidence
 

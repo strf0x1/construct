@@ -73,10 +73,13 @@ fn a_stamped_binary_shows_its_stamped_settings_with_no_config_file() {
     assert_eq!(keyless.status.code(), Some(77), "{}", text(&keyless));
     assert!(text(&keyless).contains("old-pc needs a new join"), "{}", text(&keyless));
     assert!(!env.dir.join("fresh/peer.key").exists());
+    // ...and records the stop where launchd looks for it (#389).
+    let stopped = std::fs::read_to_string(env.dir.join("fresh/peer.stopped")).unwrap_or_default();
+    assert!(stopped.contains("old-pc needs a new join"), "{stopped:?}");
     let install = run(&env, &bin, "fresh", &["--install"]);
     let said = text(&install);
     assert!(!install.status.success(), "{said}");
-    assert!(said.contains("has not joined yet") || said.contains("needs Linux"), "{said}");
+    assert!(said.contains("has not joined yet"), "{said}");
 }
 
 #[test]

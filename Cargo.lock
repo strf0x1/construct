@@ -1061,6 +1061,7 @@ dependencies = [
  "construct-core",
  "curve25519-dalek",
  "futures",
+ "libc",
  "rcgen",
  "ring",
  "rustls",
