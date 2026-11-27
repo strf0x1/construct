@@ -3,7 +3,8 @@
 //! One row per peer id: its name, the X25519 key it is pinned to, a state,
 //! when it was last seen, an open invite (the token's SHA-256, never the
 //! token) with its wrong-token strikes, and the ACP session, turn and
-//! unanswered prompt the hub holds for it (#362, `remote.rs`). The design choice: only three states are ever
+//! unanswered prompt the hub holds for it (#362, `remote.rs`), and the model
+//! the hub uses in place of the one it asks for (#390, `model.rs`). The design choice: only three states are ever
 //! written — `expected` (a slot an invite or `construct build` made),
 //! `pinned` and `revoked`. A join waiting for a human is `pending` only while
 //! its link is open (the SAS code exists only there), so a dead connection
@@ -83,6 +84,10 @@ pub struct Peer {
     /// with the same key after any reconnect or hub restart, so it runs once.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<Prompt>,
+    /// The model selector the hub puts in place of the one this peer sends
+    /// (#390): kept here so it outlasts a redial and a hub restart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// A prompt and the idempotency key it travels with (ADR 0045).
@@ -110,6 +115,7 @@ impl Peer {
             session: None,
             turn: None,
             prompt: None,
+            model: None,
         }
     }
 }
@@ -229,6 +235,19 @@ impl Registry {
             row.key = Some(k.to_hex());
         }
         row.invite = None;
+        // A later invite for this id starts from the model it asks for.
+        row.model = None;
+        Ok(())
+    }
+
+    /// Use `model` for `id`'s model calls, or the one it asks for (`None`).
+    /// A revoked peer makes no calls, so it takes no override.
+    pub fn set_model(&mut self, id: &str, model: Option<String>) -> Result<()> {
+        let row = self.get_mut(id).with_context(|| format!("no peer {id}"))?;
+        if row.state == State::Revoked {
+            bail!("{id} is revoked");
+        }
+        row.model = model;
         Ok(())
     }
 
@@ -295,6 +314,23 @@ mod tests {
         r.invite("pi", invite()).unwrap();
         let p = r.get("pi").unwrap();
         assert_eq!((p.state, p.key.clone()), (State::Expected, None));
+    }
+
+    #[test]
+    fn a_model_override_survives_a_reload_and_a_revoked_peer_takes_none() {
+        let d = std::env::temp_dir().join(format!("construct-hub-model-{}", std::process::id()));
+        let path = d.join("hub/peers.json");
+        let mut r = Registry::default();
+        r.pin("pi", key(), 1);
+        r.set_model("pi", Some("small".into())).unwrap();
+        r.save(&path).unwrap();
+        assert_eq!(Registry::load(&path).unwrap().get("pi").unwrap().model.as_deref(), Some("small"));
+        r.set_model("pi", None).unwrap();
+        assert_eq!(r.get("pi").unwrap().model, None);
+        assert!(r.set_model("nobody", Some("small".into())).is_err());
+        r.revoke("pi", None).unwrap();
+        assert!(r.set_model("pi", Some("small".into())).unwrap_err().to_string().contains("revoked"));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

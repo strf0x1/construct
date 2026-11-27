@@ -14,7 +14,8 @@
 //! a peer's model calls with the host's keys (`llm = "hub"`) is ADR 0072;
 //! stamping a drop-and-run peer binary (`construct build`, `build.rs`) is ADR 0073;
 //! what a TUI shows and answers through the control socket is ADR 0074;
-//! what the coordinator's `peer` tool may do through it is ADR 0075.
+//! what the coordinator's `peer` tool may do through it is ADR 0075;
+//! switching a running peer's model from the hub is ADR 0078.
 
 pub mod admit;
 pub mod build;
@@ -23,6 +24,7 @@ pub mod control;
 pub mod files;
 pub mod invite;
 pub mod lock;
+pub mod model;
 pub mod offline;
 mod ops;
 pub mod proxy;

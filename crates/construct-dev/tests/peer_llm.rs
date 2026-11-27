@@ -224,3 +224,92 @@ fn a_local_peer_calls_its_own_endpoint_with_its_own_key() {
     let _ = command(&env, &["hub", "stop"]).output();
     let _ = hub.wait();
 }
+
+/// The peer's row in `hub status --json`.
+fn row_of(env: &Env) -> Value {
+    let status: Value = serde_json::from_str(&ok(env, &["hub", "status", "--json"])).unwrap();
+    status["peers"].as_array().and_then(|p| p.iter().find(|p| p["id"] == "old-pc")).cloned().unwrap_or(Value::Null)
+}
+
+#[test]
+fn a_model_set_at_the_hub_takes_the_peers_next_call_and_clearing_it_gives_the_peers_own_back() {
+    let env = Env::new("pllm-model", json!({ "steps": [{ "text": "first answer" }, { "text": "second answer" }] }));
+    env.config(&format!("{QUIET}[models.small]\ncontext_window = 200000\n"));
+    let mut hub = hub(&env);
+    let (mut peer, _log) = peer(&env, &format!("llm = \"hub\"\nmodel = \"big\"\n{QUIET}"), None);
+
+    // A selector the host cannot route is refused and nothing changes.
+    let out = command(&env, &["hub", "model", "old-pc", "  "]).output().unwrap();
+    assert!(!out.status.success(), "{}", text(&out));
+    let set = ok(&env, &["hub", "model", "old-pc", "small"]);
+    assert!(set.contains("now go to small (window 200000 tokens here"), "{set}");
+    assert_eq!(row_of(&env)["model"], "small", "kept on the registry row");
+
+    ok(&env, &["hub", "prompt", "old-pc", "one"]);
+    wait_session(&env, "the first turn to end", |v| v["last"] == "end_turn");
+    let reqs = env.requests();
+    assert_eq!(reqs[0]["model"], "small", "the hub sent the override, not the peer's selector");
+    let row = row_of(&env);
+    assert_eq!((row["model"].as_str(), row["asked_model"].as_str()), (Some("small"), Some("big")), "{row:#}");
+    let shown = ok(&env, &["hub", "model", "old-pc"]);
+    assert!(shown.contains("old-pc: small (set at the hub"), "{shown}");
+    let lines = ok(&env, &["hub", "status"]);
+    assert!(lines.contains("model small (set at the hub)"), "{lines}");
+
+    // Cleared: the same running peer's next call goes to its own model.
+    ok(&env, &["hub", "model", "old-pc", "--clear"]);
+    ok(&env, &["hub", "prompt", "old-pc", "two"]);
+    wait_session(&env, "the second turn to end", |v| {
+        v["last"] == "end_turn" && v["transcript"].as_str().unwrap_or_default().contains("second answer")
+    });
+    let reqs = env.requests();
+    assert_eq!(reqs.len(), 2, "{reqs:#?}");
+    assert_eq!(reqs[1]["model"], "big");
+    assert!(row_of(&env).get("model").is_none());
+
+    let _ = peer.kill();
+    let _ = peer.wait();
+    let _ = command(&env, &["hub", "stop"]).output();
+    let _ = hub.wait();
+}
+
+#[test]
+fn an_override_too_small_for_the_peers_context_is_refused_at_the_hub_as_an_overflow_the_peer_reads() {
+    let env = Env::new("pllm-window", json!({ "steps": [{ "text": "never sent" }] }));
+    // No first request (system prompt and tools) fits 50 tokens.
+    env.config(&format!("{QUIET}[models.tiny]\ncontext_window = 50\n"));
+    let mut hub = hub(&env);
+    let (mut peer, _log) = peer(&env, &format!("llm = \"hub\"\nmodel = \"big\"\n{QUIET}"), None);
+    let peer_home = env.dir.join("peer-home");
+    ok(&env, &["hub", "model", "old-pc", "tiny"]);
+    ok(&env, &["hub", "prompt", "old-pc", "hello"]);
+    wait_session(&env, "the turn to stop", |v| v["last"].is_string() && v["prompt"].is_null());
+
+    assert!(env.requests().is_empty(), "nothing reached the model: {:#?}", env.requests());
+    // The peer took the refusal as an overflow and went to compact (with
+    // only the first request there is nothing to cut), rather than failing
+    // on an unexplained 400.
+    let rows = env.journal_of(&peer_home);
+    let errors: Vec<&str> =
+        rows.iter().filter(|r| r.ty == "error").filter_map(|r| r.payload["message"].as_str()).collect();
+    assert_eq!(errors, ["the prompt is too long and nothing is left to cut"], "{rows:#?}");
+
+    let _ = peer.kill();
+    let _ = peer.wait();
+    let _ = command(&env, &["hub", "stop"]).output();
+    let _ = hub.wait();
+}
+
+#[test]
+fn a_model_is_set_with_no_hub_running_and_a_running_hub_reports_it() {
+    let env = Env::new("pllm-offline", json!({ "steps": [] }));
+    env.config(QUIET);
+    ok(&env, &["hub", "invite", "old-pc"]);
+    assert!(ok(&env, &["hub", "model", "old-pc", "small"]).contains("now go to small"));
+    let out = command(&env, &["hub", "model", "nobody", "small"]).output().unwrap();
+    assert!(!out.status.success() && text(&out).contains("no peer nobody"), "{}", text(&out));
+    let mut hub = hub(&env);
+    assert_eq!(row_of(&env)["model"], "small");
+    let _ = command(&env, &["hub", "stop"]).output();
+    let _ = hub.wait();
+}

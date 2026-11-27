@@ -61,6 +61,8 @@ pub struct PeerRow {
     /// Unix seconds when a waiting join is turned away.
     pub expires: Option<u64>,
     pub questions: Vec<Question>,
+    /// The model its calls use, and whether the hub set it (#390).
+    pub model: Option<(String, bool)>,
 }
 
 /// What a human did about a peer.
@@ -71,6 +73,11 @@ pub enum Act {
     Prompt {
         id: String,
         text: String,
+    },
+    /// Use `model` for a peer's model calls; `None` clears the override.
+    Model {
+        id: String,
+        model: Option<String>,
     },
     /// Answer question `question` (1-based) with `option`; `title` is the
     /// question the human saw, so a list that moved under them is refused.
@@ -257,6 +264,7 @@ mod tests {
             code: None,
             expires: None,
             questions: vec![],
+            model: None,
         }
     }
 

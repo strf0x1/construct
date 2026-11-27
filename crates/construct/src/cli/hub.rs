@@ -1,16 +1,20 @@
 //! `construct hub` behind the `hub` feature (#360, #361, #362): run the hub,
 //! print its public key, show its status, invite, approve, deny or revoke
 //! peers, open a pairing window, drive a peer's session (prompt, cancel,
-//! session, answer), or stop it. The logic lives in `construct-hub`;
+//! session, answer), switch a peer's model (#390), or stop it. The logic lives in `construct-hub`;
 //! this only maps arguments onto it and prints the answers.
 
+mod invite;
+mod model;
 pub(super) mod tool;
 pub(super) mod tui;
+
+pub(super) use invite::invite;
 
 use anyhow::{Result, bail};
 use construct_core::config::{Config, Paths};
 use construct_hub::control::{self, Request, Response};
-use construct_hub::invite::{DEFAULT_TTL_SECS, InviteReply, parse_span};
+use construct_hub::invite::parse_span;
 use construct_hub::registry::State;
 use construct_hub::server::{DEFAULT_LISTEN, DEFAULT_PORT};
 use construct_hub::tailnet;
@@ -78,6 +82,18 @@ enum HubCmd {
     },
     /// Cancel the turn running on a peer.
     Cancel { id: String },
+    /// Switch the model a peer with `llm = "hub"` uses: its next model call
+    /// goes to this selector, resolved in this host's config. `--clear` goes
+    /// back to the model the peer asks for; with neither, show it.
+    Model {
+        id: String,
+        /// A selector this host's config resolves (`provider/model`, a catalog id).
+        #[arg(conflicts_with = "clear")]
+        model: Option<String>,
+        /// Remove the override.
+        #[arg(long)]
+        clear: bool,
+    },
     /// Show a peer's session: its turn, transcript and open questions.
     Session {
         id: String,
@@ -143,7 +159,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
                 None => format!("ws://{}", tailnet::resolve_listen(&listen, DEFAULT_PORT)?),
             };
             let reply = invite(&files, &id, expires, url, offline).await?;
-            print_invite(&reply, expires, json)?;
+            invite::print_invite(&reply, expires, json)?;
         }
         HubCmd::Pending => {
             let status = status(&files).await?;
@@ -189,6 +205,7 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
             session(&files, Request::Cancel { id: id.clone() }).await?;
             println!("hub: cancel sent to {id}");
         }
+        HubCmd::Model { id, model, clear } => model::run(&files, &cfg, &id, model, clear).await?,
         HubCmd::Session { id, json } => {
             let view = session(&files, Request::Session { id }).await?;
             if json {
@@ -213,41 +230,6 @@ pub(super) async fn run(cfg: Config, paths: &Paths, args: HubArgs) -> Result<()>
                 );
             }
         }
-    }
-    Ok(())
-}
-
-/// Expect `id` and mint its token: through the running hub, or straight into
-/// the registry when none runs (dialing `url`, else `offline_url`).
-/// `construct build --invite` shares it.
-pub(super) async fn invite(
-    files: &Files,
-    id: &str,
-    ttl: u64,
-    url: Option<String>,
-    offline_url: String,
-) -> Result<InviteReply> {
-    match ask(files, &Request::Invite { id: id.to_string(), ttl_secs: ttl, url: url.clone() }).await? {
-        Some(resp) => match resp.invite {
-            Some(i) => Ok(i),
-            None => bail!("hub: {}", resp.error.unwrap_or_else(|| "no invite in the reply".into())),
-        },
-        None => offline::invite(files, id, ttl, url.unwrap_or(offline_url)),
-    }
-}
-
-fn print_invite(reply: &InviteReply, ttl: u64, json: bool) -> Result<()> {
-    if json {
-        println!("{}", serde_json::to_string_pretty(reply)?);
-        return Ok(());
-    }
-    let ttl = if ttl == DEFAULT_TTL_SECS { "15m".into() } else { construct_hub::status::left(ttl) };
-    println!("invite for {}: single use, valid for {ttl}. On the target, run:\n", reply.id);
-    println!("  {}\n", reply.command);
-    if reply.url.contains("127.0.0.1") || reply.url.contains("localhost") {
-        println!(
-            "(the hub listens on loopback: start it with `--listen tailscale` or `--listen <LAN address>:<port>` for another machine)"
-        );
     }
     Ok(())
 }
