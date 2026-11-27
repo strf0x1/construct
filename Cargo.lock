@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "construct"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -964,7 +964,7 @@ dependencies = [
 
 [[package]]
 name = "construct-core"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "construct-deck"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1012,7 +1012,7 @@ dependencies = [
 
 [[package]]
 name = "construct-dev"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "construct-hub"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "construct-core",
@@ -1056,7 +1056,7 @@ dependencies = [
 
 [[package]]
 name = "construct-peer"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "construct-core",
  "curve25519-dalek",
@@ -1077,7 +1077,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-history"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1089,7 +1089,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-jobs"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1100,7 +1100,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-memory"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1111,7 +1111,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-peers"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1122,7 +1122,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-skills"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1133,7 +1133,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tools-web"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "construct-tui"
-version = "0.6.0-rc.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
