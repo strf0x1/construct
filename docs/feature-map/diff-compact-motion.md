@@ -3,8 +3,8 @@ id: diff-compact-motion
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/compact.rs, crates/construct-tui/src/motion/grow.rs, crates/construct-tui/src/tool_block.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/status.rs, crates/construct-tui/src/view.rs]
-verified_at: 6323e7b
-verified_deps: 898803ef9441db81
+verified_at: 400ae96
+verified_deps: 6b6e13a5cb3d107b
 ---
 # Motion: diff highlighter and compaction
 
