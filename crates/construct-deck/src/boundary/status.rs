@@ -2,10 +2,20 @@
 
 use super::STATUS;
 use super::note::status_text;
+use construct_core::tools::boundary::BoundaryHost;
 use construct_core::tools::{Ctx, Group, Output, Tool, ToolError, arg, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
 
-pub struct Status;
+pub struct Status {
+    boundary: Arc<dyn BoundaryHost>,
+}
+
+impl Status {
+    pub fn new(boundary: Arc<dyn BoundaryHost>) -> Self {
+        Self { boundary }
+    }
+}
 
 #[async_trait::async_trait]
 impl Tool for Status {
@@ -27,8 +37,8 @@ impl Tool for Status {
             ),
         )
     }
-    async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
-        let Some(b) = super::of(ctx) else {
+    async fn call(&self, _ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
+        let Some(b) = super::downcast(self.boundary.as_ref()) else {
             return Err(ToolError::new("no_boundary", "this session has no Deck boundary endpoint"));
         };
         let id = arg(&args, "id").ok_or_else(|| ToolError::new("bad_args", "boundary_status needs the approval id"))?;

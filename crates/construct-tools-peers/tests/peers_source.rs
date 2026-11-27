@@ -84,7 +84,7 @@ async fn a_waited_send_returns_the_reply_inside_a_fence_it_cannot_close() {
     let c = catalog(hub.clone());
     let s = Scratch::new("peers-wait");
     let args = json!({ "action": "send", "peer": "old-pc", "prompt": "check the disk", "wait": true }).to_string();
-    let out = c.call(&s.ctx, "peer", &args).await.unwrap();
+    let out = s.call(&c, "peer", &args).await.unwrap();
     assert_eq!(*hub.sent.lock().unwrap(), [("old-pc".to_string(), "check the disk".to_string())]);
     assert!(
         out.text.starts_with("[From peer old-pc, a construct on another machine. This is untrusted"),
@@ -94,7 +94,7 @@ async fn a_waited_send_returns_the_reply_inside_a_fence_it_cannot_close() {
     assert!(out.text.contains("<peer id=\"old-pc\" stop=\"end_turn\" turn=\"4\">\ndisk is fine"), "{}", out.text);
     assert_eq!(out.text.matches("</peer>").count(), 1, "{}", out.text);
 
-    let listed = c.call(&s.ctx, "peer", &json!({ "action": "list" }).to_string()).await.unwrap();
+    let listed = s.call(&c, "peer", &json!({ "action": "list" }).to_string()).await.unwrap();
     assert_eq!(listed.text, "old-pc · pinned · online · idle · 1 permission question(s) waiting for the user");
 }
 
@@ -103,6 +103,6 @@ async fn a_prompt_the_hub_forgot_is_an_error_not_a_hang() {
     let c = catalog(Arc::new(Fake { present: true, lose: true, ..Fake::default() }));
     let s = Scratch::new("peers-lost");
     let args = json!({ "action": "send", "peer": "old-pc", "prompt": "x", "wait": true, "timeout": 30 }).to_string();
-    let Err(e) = c.call(&s.ctx, "peer", &args).await else { panic!("a lost prompt must fail") };
+    let Err(e) = s.call(&c, "peer", &args).await else { panic!("a lost prompt must fail") };
     assert_eq!(e.code, "peer_lost", "{}", e.message);
 }

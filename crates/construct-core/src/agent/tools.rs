@@ -111,10 +111,12 @@ impl Agent {
             self.catalog.readonly(&c.function.name) || c.function.name == ENABLE_TOOLS || own.contains(&c.function.name)
         });
         let ctx = self.ctx.clone();
+        let boundary = self.boundary.clone();
         let catalog = self.catalog.clone();
         let journal = self.journal.clone();
         let run = |c: llm::ToolCall| {
             let ctx = ctx.clone();
+            let boundary = boundary.clone();
             let catalog = catalog.clone();
             let journal = journal.clone();
             let tx = tx.clone();
@@ -129,7 +131,7 @@ impl Agent {
                 );
                 // Attribution is by time: the cursor before the call, the
                 // gateway's events after it.
-                let before = deck::before_tool(&ctx).await;
+                let before = deck::before_tool(boundary.as_ref()).await;
                 let t = Instant::now();
                 let call = Call::new(&c.id, journal.clone(), tx.clone());
                 let r = catalog.call_with(&ctx, &call, &c.function.name, &c.function.arguments).await;
@@ -138,7 +140,7 @@ impl Agent {
                     Ok(o) => (true, o.text, o.kind, o.data, None),
                     Err(e) => (false, format!("Error: {}", e.message), e.kind, e.data, Some(e.code.to_string())),
                 };
-                deck::after_tool(&ctx, before, &mut out).await;
+                deck::after_tool(boundary.as_ref(), before, &mut out).await;
                 // What scorers read back from the journal: codes and data,
                 // never the prose.
                 journal.emit(

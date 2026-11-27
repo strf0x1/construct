@@ -14,16 +14,15 @@ const SKILL: &str = "---\nname: tidy\ndescription: Tidy a repo\n---\n\n1. Sweep\
 #[tokio::test(flavor = "multi_thread")]
 async fn the_skill_tools_keep_the_tool_contract_and_load_as_a_user_does() {
     let s = Scratch::new("skills-source");
-    let ctx = &s.ctx;
     let sources = ToolSources::default().with(Skills);
     let c = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
     contract::holds(&c, "skills-contract").await;
     assert_eq!((c.group_of("skill"), c.group_of("skill_manage")), (Some(Group::Skills), Some(Group::SkillWrite)));
-    c.call(ctx, "skill_manage", &json!({ "action": "create", "name": "tidy", "content": SKILL }).to_string())
+    s.call(&c, "skill_manage", &json!({ "action": "create", "name": "tidy", "content": SKILL }).to_string())
         .await
         .unwrap();
-    let tool = c.call(ctx, "skill", &json!({ "name": "tidy" }).to_string()).await.unwrap().text;
-    assert_eq!(tool, ctx.load_skill("tidy", None).unwrap(), "the tool and `/<skill>` load the same text");
+    let tool = s.call(&c, "skill", &json!({ "name": "tidy" }).to_string()).await.unwrap().text;
+    assert_eq!(tool, s.load_skill("tidy", None).unwrap(), "the tool and `/<skill>` load the same text");
     assert!(tool.starts_with("[global: ") && tool.contains("1. Sweep"), "{tool}");
 }
 

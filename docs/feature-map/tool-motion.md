@@ -2,7 +2,7 @@
 id: tool-motion
 status: verified
 surfaces: [tui]
-depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/grow.rs, crates/construct-tui/src/motion/ink.rs, crates/construct-tui/src/motion/rule.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/tool_block.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/input.rs, crates/construct-tui/src/lib.rs, crates/construct-core/src/tools/shell.rs, crates/construct-core/src/tools/call.rs]
+depends: [crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/grow.rs, crates/construct-tui/src/motion/ink.rs, crates/construct-tui/src/motion/rule.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/tool_block.rs, crates/construct-tui/src/view.rs, crates/construct-tui/src/app_events.rs, crates/construct-tui/src/input.rs, crates/construct-tui/src/lib.rs, crates/construct-core/src/tools/builtin/shell/mod.rs, crates/construct-core/src/tools/call.rs]
 verified_at: 400ae96
 verified_deps: 7972a5b205a5bce1
 ---

@@ -116,7 +116,11 @@ fn the_tool_exists_only_with_a_control_url() {
     let sources = ToolSources::default().with(DeckTools);
     let build = |deck: &Deck| Catalog::build_extended(&cfg, None, deck, &sources).unwrap();
     assert!(build(&Deck::default()).get(NAME).is_none(), "an ordinary session has no deck tool");
-    let github = Deck { boundary: true, github: true, control: None };
+    let github = Deck {
+        boundary: Some(std::sync::Arc::new(crate::boundary::Boundary::new("http://127.0.0.1:9"))),
+        github: Some("http://127.0.0.1:9".into()),
+        control: None,
+    };
     assert!(build(&github).get(NAME).is_none(), "nor a worker task");
     let coordinator = Deck { control: Some("http://127.0.0.1:9".into()), ..Deck::default() };
     let catalog = build(&coordinator);

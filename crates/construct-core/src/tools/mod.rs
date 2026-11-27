@@ -9,51 +9,33 @@
 //! huge list. Once on, a group stays on for the session: the tool list then
 //! only ever grows, which keeps provider prefix caches warm.
 
-pub mod access;
 pub mod boundary;
+mod builtin;
 pub mod call;
-mod cap;
 mod catalog;
 #[cfg(any(test, feature = "test-support"))]
 pub mod contract;
 mod ctx;
-pub mod edit;
-pub mod fs;
-pub mod glob;
-pub mod grep;
 mod group;
-pub mod mcp;
-pub mod read;
-pub mod shell;
-mod shell_exit;
-mod shell_job;
 mod source;
-pub mod write;
 
-use anyhow::Result;
+pub use builtin::{canonical, edit, glob, grep, mcp, read, shell, write};
 pub use call::Call;
-pub use cap::{OUTPUT_MAX, cap_output};
-pub use catalog::{Catalog, Deck};
-pub use ctx::{Ctx, policy_tools};
+pub use catalog::Catalog;
+pub use ctx::{Ctx, OUTPUT_MAX};
 pub use group::Group;
+pub use source::{Deck, ToolSource, ToolSources, policy_tools};
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-pub use source::{ToolSource, ToolSources};
 
 /// The switch the model uses to turn on a group the router missed. The agent
 /// answers it itself; it is not a catalog tool.
 pub const ENABLE_TOOLS: &str = "enable_tools";
 
-/// Old wire names and the tool each now is (ADR 0046). An alias is accepted
-/// wherever a user or an old journal names a tool, never offered to the model.
-const RENAMED: &[(&[&str], &str)] = &[(shell::Shell::ALIASES, shell::Shell::NAME)];
-
-/// The current name for `name`: itself, unless it is a renamed tool's old name.
-/// Callers look `name` up as given first, so a tool that really has an old
-/// name (a custom `search_name`, say) still wins.
-pub fn canonical(name: &str) -> &str {
-    RENAMED.iter().find(|(old, _)| old.contains(&name)).map_or(name, |(_, new)| new)
-}
+/// Core's shell wire name, declared once here so `ctx`, `source` and `fs`
+/// never depend upward on the `shell` implementation (`Shell::NAME` aliases this).
+pub(crate) const SHELL_NAME: &str = "bash";
 
 /// One tool: everything about it lives in its `impl`, and its wire name is
 /// declared there and nowhere else.
@@ -202,11 +184,4 @@ pub fn arg<'a>(a: &'a Value, k: &str) -> Option<&'a str> {
 /// A non-negative integer argument, given as a number or a numeric string.
 pub fn num(a: &Value, k: &str) -> Option<usize> {
     a.get(k).and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))).map(|n| n as usize)
-}
-
-/// Filesystem walks are synchronous; keep them off the async workers.
-fn blocking(ctx: &Ctx, f: impl FnOnce() -> Result<String, ToolError>) -> Result<Output, ToolError> {
-    // The walk borrows ctx, so use block_in_place rather than spawn_blocking.
-    let r = tokio::task::block_in_place(f)?;
-    Ok(Output::plain(cap_output(ctx, "out", &r)))
 }

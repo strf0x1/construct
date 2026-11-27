@@ -53,11 +53,11 @@ pub fn private_root(ctx: &Ctx) -> Result<PathBuf, ToolError> {
 
 pub(super) fn private_directory(ctx: &Ctx, name: &str) -> Result<PathBuf, ToolError> {
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-    let root = ctx.paths.home.join(name);
+    let root = ctx.home().join(name);
     let policy = ctx.policy();
     let writable = |path: &Path| {
         policy.write.iter().any(|entry| path.starts_with(construct_core::sandbox::Policy::real(entry)))
-            || path.starts_with(construct_core::sandbox::Policy::real(&ctx.cwd))
+            || path.starts_with(construct_core::sandbox::Policy::real(ctx.cwd()))
     };
     if writable(&construct_core::sandbox::Policy::real(&root)) {
         return Err("authenticated operation state must be outside every shell-writable root".into());
@@ -120,7 +120,7 @@ pub async fn run_limited(
     limit: usize,
 ) -> Result<Vec<u8>, ToolError> {
     exe.check()?;
-    if *ctx.cancel.borrow() {
+    if ctx.is_cancelled() {
         return Err(ToolError::new("interrupted", "developer operation interrupted before execution"));
     }
     let mut command = tokio::process::Command::new(&exe.path);
@@ -159,7 +159,7 @@ pub async fn run_limited(
     let policy = ctx.policy();
     let dirs: Vec<_> = std::env::split_paths(&safe_path)
         .filter_map(|dir| dir.canonicalize().ok())
-        .filter(|dir| !dir.starts_with(&ctx.cwd) && !policy.write.iter().any(|root| dir.starts_with(root)))
+        .filter(|dir| !dir.starts_with(ctx.cwd()) && !policy.write.iter().any(|root| dir.starts_with(root)))
         .collect();
     command.env("PATH", std::env::join_paths(dirs).map_err(|_| "host PATH could not be sanitized")?);
     let scratch = Scratch::new(ctx)?;
@@ -177,7 +177,7 @@ pub async fn run_limited(
     let stdin = child.stdin.take();
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    let mut cancel = ctx.cancel.clone();
+    let mut cancel = ctx.cancel_signal();
     let operation = async {
         let write = async {
             if let Some(mut stdin) = stdin {

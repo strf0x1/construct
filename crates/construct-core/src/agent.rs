@@ -23,7 +23,7 @@ use crate::router::{self, Route};
 use crate::tools::{Catalog, Ctx, ENABLE_TOOLS, Group, ToolSources};
 use anyhow::Result;
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{mpsc, watch};
@@ -34,7 +34,12 @@ pub struct Agent {
     pub cfg: Config,
     pub paths: Paths,
     pub client: llm::Client,
-    pub ctx: Arc<Ctx>,
+    router_http: reqwest::Client,
+    sources: ToolSources,
+    jobs: crate::jobs::Jobs,
+    perms: Arc<crate::permission::Perms>,
+    boundary: Option<Arc<dyn crate::tools::boundary::BoundaryHost>>,
+    ctx: Arc<Ctx>,
     pub catalog: Arc<Catalog>,
     pub manifest: Manifest,
     pub context: Box<dyn crate::context::Context>,
@@ -61,7 +66,7 @@ impl Agent {
     /// Pre-connect to the model endpoint and to Jev in the background.
     pub fn warm(&self) {
         self.client.warm();
-        router::warm(&self.cfg.router, &self.ctx.http);
+        router::warm(&self.cfg.router, &self.router_http);
     }
 
     /// Switch to `id` for the next request: its catalog entry's window, cap
@@ -149,15 +154,10 @@ impl Agent {
             .and_then(|m| m.content.as_deref())
             .unwrap_or("");
         let skills = self.ctx.all_skills();
-        let mcp: BTreeMap<String, String> = self
-            .ctx
-            .mcp
-            .as_ref()
-            .map(|m| m.servers().iter().map(|(k, v)| (k.clone(), v.description.clone())).collect())
-            .unwrap_or_default();
+        let mcp = self.catalog.mcp_descriptions();
         router::route(
             &self.cfg.router,
-            &self.ctx.http,
+            &self.router_http,
             router::Input { request: text, previous, skills: &skills, mcp: &mcp, groups: &self.catalog.groups() },
         )
         .await
@@ -169,7 +169,7 @@ impl Agent {
     async fn run_turn(&mut self, user: Option<user_turn::UserTurn<'_>>, tx: &Events) -> Result<()> {
         let started = Instant::now();
         self.ctx.turn_began();
-        self.ctx.perms.set_sink(self.journal.clone(), tx.clone());
+        self.perms.set_sink(self.journal.clone(), tx.clone());
         for ev in std::mem::take(&mut self.unsent) {
             let _ = tx.send(ev);
         }
@@ -178,7 +178,7 @@ impl Agent {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         if let Some(user) = user {
-            self.ctx.jobs.activate_recovered();
+            self.jobs.activate_recovered();
             self.begin_user_turn(user, tx).await;
         }
         self.deliver_jobs(tx);
@@ -300,7 +300,7 @@ impl Agent {
         let out = {
             let fut = self.client.stream_body(body, Some(&dtx), &mut self.notes);
             tokio::pin!(fut);
-            let mut cancel = self.ctx.cancel.clone();
+            let mut cancel = self.ctx.cancel_signal();
             loop {
                 tokio::select! {
                     biased;

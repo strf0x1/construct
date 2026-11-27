@@ -6,7 +6,7 @@
 //! crate's tests, so a tool moved out of core, or a replacement for one,
 //! is held to the same contract without a copy of it.
 
-use super::{Catalog, Ctx, Group};
+use super::{Catalog, Ctx, Group, Output, ToolError};
 use crate::config::{MemoryConfig, Paths, SandboxConfig};
 use serde_json::json;
 use std::path::PathBuf;
@@ -14,8 +14,8 @@ use std::path::PathBuf;
 /// A throwaway home and work dir under the system temp dir, and a `Ctx` on
 /// them with the default sandbox; removed when dropped.
 pub struct Scratch {
-    pub root: PathBuf,
-    pub ctx: Ctx,
+    root: PathBuf,
+    ctx: Ctx,
 }
 
 impl Scratch {
@@ -30,7 +30,19 @@ impl Scratch {
         let memory = crate::memory::Store::new(&paths, &MemoryConfig::default());
         let sandbox = crate::sandbox::Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
-        Self { root, ctx: Ctx::new(work, paths, memory, rx, None, sandbox) }
+        Self { root, ctx: Ctx::new(work, paths, memory, rx, sandbox) }
+    }
+
+    pub async fn call(&self, catalog: &Catalog, name: &str, args: &str) -> Result<Output, ToolError> {
+        catalog.call(&self.ctx, name, args).await
+    }
+
+    pub fn load_skill(&self, name: &str, file: Option<&str>) -> Result<String, String> {
+        self.ctx.load_skill(name, file)
+    }
+
+    async fn check_missing_arguments(&self, catalog: &Catalog, groups: &[Group]) {
+        missing_arguments_are_refused(catalog, &self.ctx, groups).await;
     }
 }
 
@@ -44,7 +56,7 @@ impl Drop for Scratch {
 pub async fn holds(catalog: &Catalog, name: &str) {
     let s = Scratch::new(name);
     schemas_are_well_formed(catalog, &all_groups());
-    missing_arguments_are_refused(catalog, &s.ctx, &all_groups()).await;
+    s.check_missing_arguments(catalog, &all_groups()).await;
 }
 
 /// Every definition in `groups` is an OpenAI function with a description,

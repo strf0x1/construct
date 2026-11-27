@@ -15,16 +15,16 @@ use construct_core::tools::{Call, Ctx, Display, Group, Output, Tool, ToolError, 
 pub(crate) use git::worktree::{MERGE_START, STAGE, STATUS};
 use serde_json::{Value, json};
 
-/// `gateway`: whether this process has Deck's GitHub gateway, which changes
-/// the operations and the description the model sees.
+/// `gateway`: Deck's GitHub gateway URL when running in a Deck task, which
+/// changes the operations and the description the model sees.
 pub struct Developer {
-    gateway: bool,
+    gateway: Option<String>,
 }
 
 impl Developer {
     pub const NAME: &str = "developer";
 
-    pub fn new(gateway: bool) -> Self {
+    pub fn new(gateway: Option<String>) -> Self {
         Self { gateway }
     }
 }
@@ -44,7 +44,7 @@ impl Tool for Developer {
         Display { primary_arg: "operation", preview_lines: 3 }
     }
     fn definition(&self) -> Value {
-        if self.gateway {
+        if self.gateway.is_some() {
             return def(
                 Self::NAME,
                 &gateway::DESCRIPTION.replace("{shell}", construct_core::tools::shell::Shell::NAME),
@@ -89,7 +89,7 @@ impl Tool for Developer {
     }
     async fn call_with(&self, ctx: &Ctx, _call: &Call, args: Value) -> Result<Output, ToolError> {
         let operation = args.get("operation").and_then(Value::as_str);
-        if let Some(url) = &ctx.github
+        if let Some(url) = &self.gateway
             && operation != Some("commit")
         {
             return gateway::call(ctx, url, args).await;
@@ -100,8 +100,8 @@ impl Tool for Developer {
         let prepared = prepare::prepare(ctx, args).await?;
         // A local commit in a Deck task asks nobody: the VM is the sandbox and
         // the gateway decides what leaves it (Deck ADR 0008 §5).
-        let deck_mode = ctx.github.is_some() && construct_core::secrets::managed();
-        if !deck_mode && !ctx.perms.operation(prepared.request.clone(), ctx.cancel.clone()).await {
+        let deck_mode = self.gateway.is_some() && construct_core::secrets::managed();
+        if !deck_mode && !ctx.approve_operation(prepared.request.clone()).await {
             return Err(ToolError::new(
                 "denied",
                 "Developer operation was not approved. The requested action was not executed.",

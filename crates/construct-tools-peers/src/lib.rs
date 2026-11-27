@@ -33,10 +33,15 @@ use std::sync::Arc;
 pub struct Peers(pub Arc<dyn Hub>);
 
 impl ToolSource for Peers {
-    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+    fn tools(
+        &self,
+        _cfg: &ToolsConfig,
+        _deck: &Deck,
+        jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
         if !self.0.present() {
             return Ok(vec![]);
         }
-        Ok(vec![Arc::new(PeerTool::new(self.0.clone()))])
+        Ok(vec![Arc::new(PeerTool::new(self.0.clone(), jobs.clone()))])
     }
 }

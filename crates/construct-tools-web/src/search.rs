@@ -15,7 +15,6 @@ use super::{
 };
 use construct_core::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
 use construct_core::text::truncate;
-use construct_core::tools::Ctx;
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -26,22 +25,29 @@ const TOP_CHARS: usize = 1200;
 const REST_CHARS: usize = 300;
 const TIMEOUT: Duration = Duration::from_secs(20);
 
-pub(super) async fn run(ctx: &Ctx, a: &Value, choice: Choice) -> Result<String, String> {
+pub(super) async fn run(http: &reqwest::Client, a: &Value, choice: Choice) -> Result<String, String> {
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
     let n = a.get("limit").and_then(Value::as_u64).unwrap_or(8).clamp(1, 20) as usize;
     let f = Filter::from_args(a);
     let plan = choice.plan(construct_core::secrets::optional)?;
-    let answer = first_answer(&plan, |backend, key| call(ctx, backend, key, q, n, &f)).await?;
+    let answer = first_answer(&plan, |backend, key| call(http, backend, key, q, n, &f)).await?;
     Ok(render(&answer))
 }
 
-async fn call(ctx: &Ctx, backend: Backend, key: String, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
+async fn call(
+    http: &reqwest::Client,
+    backend: Backend,
+    key: String,
+    q: &str,
+    n: usize,
+    f: &Filter,
+) -> Result<Answer, ApiError> {
     match backend {
-        Backend::Exa => exa(ctx, &key, q, n, f).await,
-        Backend::Brave => brave(ctx, &key, q, n, f).await,
-        Backend::Tavily => tavily(ctx, &key, q, n, f).await,
+        Backend::Exa => exa(http, &key, q, n, f).await,
+        Backend::Brave => brave(http, &key, q, n, f).await,
+        Backend::Tavily => tavily(http, &key, q, n, f).await,
         Backend::Ddg => {
-            super::ddg::search(ctx, q, n, f).await.map_err(|message| ApiError { message, transient: false })
+            super::ddg::search(http, q, n, f).await.map_err(|message| ApiError { message, transient: false })
         }
     }
 }
@@ -102,7 +108,7 @@ fn text(x: &Value, k: &str) -> String {
     x[k].as_str().unwrap_or("").to_string()
 }
 
-async fn exa(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
+async fn exa(http: &reqwest::Client, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let mut body = json!({ "query": q, "numResults": n, "contents": { "highlights": { "maxCharacters": TOP_CHARS } } });
     if let Some(r) = f.recency {
         body["startPublishedDate"] = r.since().into();
@@ -110,7 +116,7 @@ async fn exa(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answ
     if !f.domains.is_empty() {
         body["includeDomains"] = json!(f.domains);
     }
-    let req = ctx.http.post("https://api.exa.ai/search").header("x-api-key", key).json(&body).timeout(TIMEOUT);
+    let req = http.post("https://api.exa.ai/search").header("x-api-key", key).json(&body).timeout(TIMEOUT);
     let v = send_json("Exa", EXA_API_KEY, req).await?;
     Ok(Answer { backend: "Exa", hits: parse_exa(&v), notes: vec![] })
 }
@@ -132,14 +138,13 @@ fn parse_exa(v: &Value) -> Vec<Hit> {
         .unwrap_or_default()
 }
 
-async fn brave(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
+async fn brave(http: &reqwest::Client, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let (q, note) = f.site_query(q);
     let mut params = vec![("q", q), ("count", n.to_string()), ("extra_snippets", "true".into())];
     if let Some(r) = f.recency {
         params.push(("freshness", r.brave().into()));
     }
-    let req = ctx
-        .http
+    let req = http
         .get("https://api.search.brave.com/res/v1/web/search")
         .header("X-Subscription-Token", key)
         .query(&params)
@@ -171,7 +176,7 @@ fn parse_brave(v: &Value) -> Vec<Hit> {
         .unwrap_or_default()
 }
 
-async fn tavily(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
+async fn tavily(http: &reqwest::Client, key: &str, q: &str, n: usize, f: &Filter) -> Result<Answer, ApiError> {
     let mut body = json!({ "query": q, "max_results": n, "search_depth": "basic" });
     if let Some(r) = f.recency {
         body["time_range"] = r.name().into();
@@ -179,7 +184,7 @@ async fn tavily(ctx: &Ctx, key: &str, q: &str, n: usize, f: &Filter) -> Result<A
     if !f.domains.is_empty() {
         body["include_domains"] = json!(f.domains);
     }
-    let req = ctx.http.post("https://api.tavily.com/search").bearer_auth(key).json(&body).timeout(TIMEOUT);
+    let req = http.post("https://api.tavily.com/search").bearer_auth(key).json(&body).timeout(TIMEOUT);
     let v = send_json("Tavily", TAVILY_API_KEY, req).await?;
     Ok(Answer { backend: "Tavily", hits: parse_tavily(&v), notes: vec![] })
 }

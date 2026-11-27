@@ -4,9 +4,9 @@
 
 pub mod replace;
 
-use super::fs::{encoding_error, is_utf16, resolve};
-use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, arg, def, obj};
+use super::fs::{encoding_error, is_utf16};
 use crate::sandbox::{Policy, open};
+use crate::tools::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, arg, def, obj};
 use serde_json::{Value, json};
 
 pub struct Edit;
@@ -51,7 +51,7 @@ impl Tool for Edit {
 }
 
 fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
-    let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    let path = ctx.resolve_path(arg(a, "path").ok_or("path is required")?);
     let old = arg(a, "old_string").ok_or("old_string is required")?;
     let new = arg(a, "new_string").ok_or("new_string is required")?;
     let all = a.get("replace_all").and_then(Value::as_bool).unwrap_or(false);

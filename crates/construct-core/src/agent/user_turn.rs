@@ -73,7 +73,10 @@ impl Agent {
         let mut route = self.route(text).await;
         // Project skills are listed in the system prompt, so the tool that
         // loads them is on wherever they are: being in the repo is the trigger.
-        let has_kit_skills = self.ctx.project_skills.as_ref().is_some_and(|p| !p.list().is_empty());
+        let has_kit_skills = {
+            let libs = self.ctx.skill_libs();
+            libs.len() > 1 && !libs[0].list().is_empty()
+        };
         if has_kit_skills && !route.groups.contains(&Group::Skills) {
             route.groups.push(Group::Skills);
         }
@@ -103,17 +106,13 @@ impl Agent {
         }
         let mut content = text.to_string();
         if let Some((name, body, _)) = invoked {
-            let scope = if self.ctx.project_skills.as_ref().is_some_and(|p| p.get(name).is_some()) {
-                "project"
-            } else {
-                "global"
-            };
+            let libs = self.ctx.skill_libs();
+            let scope = if libs.len() > 1 && libs[0].get(name).is_some() { "project" } else { "global" };
             self.journal.emit(Event::Invoke { skill: name.to_string(), scope: scope.to_string() }, tx);
             content = crate::prompt::invoked_skill(name, &body, text);
         }
-        if let Some(r) =
-            crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills(), self.ctx.perms.tools().skill_view)
-        {
+        let skill_view = crate::tools::policy_tools(&self.sources).skill_view;
+        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills(), skill_view) {
             content.push_str("\n\n");
             content.push_str(&r);
         }

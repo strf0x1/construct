@@ -165,7 +165,7 @@ impl Control {
         }
         let operation = body["operation"].as_str().unwrap_or_default();
         let writes = matches!(operation, "create" | INTEGRATE | "prompt" | "stop");
-        let mut cancel = ctx.cancel.clone();
+        let mut cancel = ctx.cancel_signal();
         if *cancel.borrow() {
             return Err(ToolError::new("interrupted", "interrupted by the user before it was sent"));
         }
@@ -249,7 +249,7 @@ impl Tool for Control {
         let body = request(&args)?;
         let reply = self.send(ctx, &body).await?;
         let (text, data) = summary::reply(&body, &reply);
-        Ok(Output::plain(construct_core::tools::cap_output(ctx, NAME, &text)).with_data(data))
+        Ok(Output::plain(ctx.cap_output(NAME, &text)).with_data(data))
     }
 }
 

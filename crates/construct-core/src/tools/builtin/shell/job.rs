@@ -3,9 +3,9 @@
 //! runs under the same sandbox policy the foreground call would, with the
 //! permission questions already settled at spawn by `shell::run`.
 
-use super::{Call, Ctx, ToolError};
-use crate::jobs::{self, Kind};
+use crate::jobs::{self, Jobs, Kind};
 use crate::sandbox::Policy;
+use crate::tools::{Call, ToolError};
 use serde_json::Value;
 use std::path::Path;
 use std::time::Duration;
@@ -17,7 +17,7 @@ pub(super) struct Started {
 }
 
 pub(super) fn start(
-    ctx: &Ctx,
+    jobs: &Jobs,
     call: &Call,
     command: &str,
     cwd: &Path,
@@ -30,8 +30,7 @@ pub(super) fn start(
     };
     // The call can ask for less than the limit, never more.
     let secs = asked.and_then(Value::as_u64).map_or(max_secs, |s| s.clamp(1, max_secs));
-    let id = ctx
-        .jobs
+    let id = jobs
         .start(jobs::Spec {
             kind: Kind::Shell,
             label: command.to_string(),

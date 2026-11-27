@@ -36,7 +36,7 @@ fn context(name: &str, format: &str) -> (Ctx, PathBuf) {
     let paths = Paths { home: root.join("home") };
     let store = Store::new(&paths, &MemoryConfig::default());
     let policy = Policy::new(&SandboxConfig::default(), &work, &paths);
-    let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, None, policy);
+    let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, policy);
     (ctx, root)
 }
 
@@ -49,10 +49,10 @@ async fn initial_commit_records_reviewed_tree_without_a_parent_in_both_object_fo
         assert!(plan.request.detail.contains("+initial content"));
         let output = plan.execute(&ctx).await.unwrap();
         assert!(output.text.starts_with("Committed "));
-        assert_eq!(git(&ctx.cwd, &["show", "HEAD:first.txt"]), "initial content");
-        assert_eq!(git(&ctx.cwd, &["rev-list", "--count", "HEAD"]), "1");
-        assert_eq!(git(&ctx.cwd, &["log", "-1", "--format=%P"]), "");
-        assert_eq!(git(&ctx.cwd, &["log", "-1", "--format=%B"]), "Initial commit");
+        assert_eq!(git(ctx.cwd(), &["show", "HEAD:first.txt"]), "initial content");
+        assert_eq!(git(ctx.cwd(), &["rev-list", "--count", "HEAD"]), "1");
+        assert_eq!(git(ctx.cwd(), &["log", "-1", "--format=%P"]), "");
+        assert_eq!(git(ctx.cwd(), &["log", "-1", "--format=%B"]), "Initial commit");
         std::fs::remove_dir_all(root).unwrap();
     }
 }
@@ -61,21 +61,21 @@ async fn initial_commit_records_reviewed_tree_without_a_parent_in_both_object_fo
 async fn a_branch_created_while_initial_commit_waits_is_not_overwritten() {
     let (ctx, root) = context("changed", "sha1");
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Approved initial commit"})).await.unwrap();
-    git(&ctx.cwd, &["commit", "-m", "Other initial commit"]);
-    let existing = git(&ctx.cwd, &["rev-parse", "HEAD"]);
+    git(ctx.cwd(), &["commit", "-m", "Other initial commit"]);
+    let existing = git(ctx.cwd(), &["rev-parse", "HEAD"]);
     assert_eq!(plan.execute(&ctx).await.err().unwrap().code, "changed");
-    assert_eq!(git(&ctx.cwd, &["rev-parse", "HEAD"]), existing);
+    assert_eq!(git(ctx.cwd(), &["rev-parse", "HEAD"]), existing);
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn corrupt_branch_is_not_treated_as_an_initial_commit() {
     let (ctx, root) = context("corrupt", "sha1");
-    std::fs::write(ctx.cwd.join(".git/refs/heads/main"), "invalid-object\n").unwrap();
+    std::fs::write(ctx.cwd().join(".git/refs/heads/main"), "invalid-object\n").unwrap();
     assert!(
         prepare::prepare(&ctx, json!({"operation":"commit","message":"Must not overwrite corruption"})).await.is_err()
     );
-    assert_eq!(std::fs::read_to_string(ctx.cwd.join(".git/refs/heads/main")).unwrap(), "invalid-object\n");
+    assert_eq!(std::fs::read_to_string(ctx.cwd().join(".git/refs/heads/main")).unwrap(), "invalid-object\n");
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -83,101 +83,101 @@ async fn corrupt_branch_is_not_treated_as_an_initial_commit() {
 async fn configured_reference_transaction_hooks_cannot_run_during_approved_commit() {
     let (ctx, root) = context("configured-hook", "sha1");
     let marker = root.join("configured-hook-ran");
-    git(&ctx.cwd, &["config", "hook.attack.command", &format!("touch '{}'; exit 1", marker.display())]);
-    git(&ctx.cwd, &["config", "hook.attack.event", "reference-transaction"]);
+    git(ctx.cwd(), &["config", "hook.attack.command", &format!("touch '{}'; exit 1", marker.display())]);
+    git(ctx.cwd(), &["config", "hook.attack.event", "reference-transaction"]);
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Approved without hooks"})).await.unwrap();
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
     assert!(!marker.exists(), "repository hook configuration reached host execution");
-    assert_eq!(git(&ctx.cwd, &["show", "HEAD:first.txt"]), "initial content");
+    assert_eq!(git(ctx.cwd(), &["show", "HEAD:first.txt"]), "initial content");
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn isolated_commit_context_preserves_reftable_storage() {
     let (ctx, root) = context("reftable", "sha1");
-    git(&ctx.cwd, &["refs", "migrate", "--ref-format=reftable"]);
+    git(ctx.cwd(), &["refs", "migrate", "--ref-format=reftable"]);
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Initial reftable commit"})).await.unwrap();
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
-    assert_eq!(git(&ctx.cwd, &["show", "HEAD:first.txt"]), "initial content");
-    assert_eq!(git(&ctx.cwd, &["rev-parse", "--show-ref-format"]), "reftable");
+    assert_eq!(git(ctx.cwd(), &["show", "HEAD:first.txt"]), "initial content");
+    assert_eq!(git(ctx.cwd(), &["rev-parse", "--show-ref-format"]), "reftable");
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn a_merge_can_preserve_the_current_tree_while_adding_ancestry() {
     let (ctx, root) = context("merge-unchanged-tree", "sha256");
-    git(&ctx.cwd, &["refs", "migrate", "--ref-format=reftable"]);
-    git(&ctx.cwd, &["commit", "-m", "Initial"]);
-    let base = git(&ctx.cwd, &["rev-parse", "HEAD"]);
-    git(&ctx.cwd, &["switch", "-c", "topic"]);
-    git(&ctx.cwd, &["commit", "--allow-empty", "-m", "Contributor"]);
-    let topic = git(&ctx.cwd, &["rev-parse", "HEAD"]);
-    git(&ctx.cwd, &["switch", "main"]);
-    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
-    let tree = git(&ctx.cwd, &["rev-parse", "HEAD^{tree}"]);
+    git(ctx.cwd(), &["refs", "migrate", "--ref-format=reftable"]);
+    git(ctx.cwd(), &["commit", "-m", "Initial"]);
+    let base = git(ctx.cwd(), &["rev-parse", "HEAD"]);
+    git(ctx.cwd(), &["switch", "-c", "topic"]);
+    git(ctx.cwd(), &["commit", "--allow-empty", "-m", "Contributor"]);
+    let topic = git(ctx.cwd(), &["rev-parse", "HEAD"]);
+    git(ctx.cwd(), &["switch", "main"]);
+    git(ctx.cwd(), &["merge", "--no-ff", "--no-commit", "topic"]);
+    let tree = git(ctx.cwd(), &["rev-parse", "HEAD^{tree}"]);
 
     let plan =
         prepare::prepare(&ctx, json!({"operation":"commit","message":"Retain the current files"})).await.unwrap();
     assert!(plan.request.detail.contains(&format!("Merge parents: {topic}")));
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
-    assert_eq!(git(&ctx.cwd, &["log", "-1", "--format=%P"]), format!("{base} {topic}"));
-    assert_eq!(git(&ctx.cwd, &["rev-parse", "HEAD^{tree}"]), tree);
-    assert!(!ctx.cwd.join(".git/MERGE_HEAD").exists());
+    assert_eq!(git(ctx.cwd(), &["log", "-1", "--format=%P"]), format!("{base} {topic}"));
+    assert_eq!(git(ctx.cwd(), &["rev-parse", "HEAD^{tree}"]), tree);
+    assert!(!ctx.cwd().join(".git/MERGE_HEAD").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn abandoning_a_merge_invalidates_an_approved_resolution_without_moving_head() {
     let (ctx, root) = context("merge-abandoned", "sha1");
-    git(&ctx.cwd, &["commit", "-m", "Initial"]);
-    let base = git(&ctx.cwd, &["rev-parse", "HEAD"]);
-    git(&ctx.cwd, &["switch", "-c", "topic"]);
-    std::fs::write(ctx.cwd.join("first.txt"), "contributor\n").unwrap();
-    git(&ctx.cwd, &["commit", "-am", "Contributor"]);
-    git(&ctx.cwd, &["switch", "main"]);
-    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
-    let staged = git(&ctx.cwd, &["write-tree"]);
+    git(ctx.cwd(), &["commit", "-m", "Initial"]);
+    let base = git(ctx.cwd(), &["rev-parse", "HEAD"]);
+    git(ctx.cwd(), &["switch", "-c", "topic"]);
+    std::fs::write(ctx.cwd().join("first.txt"), "contributor\n").unwrap();
+    git(ctx.cwd(), &["commit", "-am", "Contributor"]);
+    git(ctx.cwd(), &["switch", "main"]);
+    git(ctx.cwd(), &["merge", "--no-ff", "--no-commit", "topic"]);
+    let staged = git(ctx.cwd(), &["write-tree"]);
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Reviewed resolution"})).await.unwrap();
-    git(&ctx.cwd, &["merge", "--quit"]);
+    git(ctx.cwd(), &["merge", "--quit"]);
 
     assert_eq!(plan.execute(&ctx).await.err().unwrap().code, "changed");
-    assert_eq!(git(&ctx.cwd, &["rev-parse", "HEAD"]), base);
-    assert_eq!(git(&ctx.cwd, &["write-tree"]), staged);
+    assert_eq!(git(ctx.cwd(), &["rev-parse", "HEAD"]), base);
+    assert_eq!(git(ctx.cwd(), &["write-tree"]), staged);
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn an_autostash_ref_blocks_the_approved_merge_in_reftable() {
     let (ctx, root) = context("merge-autostash", "sha1");
-    git(&ctx.cwd, &["refs", "migrate", "--ref-format=reftable"]);
-    git(&ctx.cwd, &["commit", "-m", "Initial"]);
-    git(&ctx.cwd, &["switch", "-c", "topic"]);
-    git(&ctx.cwd, &["commit", "--allow-empty", "-m", "Contributor"]);
-    git(&ctx.cwd, &["switch", "main"]);
-    git(&ctx.cwd, &["merge", "--no-ff", "--no-commit", "topic"]);
-    git(&ctx.cwd, &["update-ref", "MERGE_AUTOSTASH", "HEAD"]);
+    git(ctx.cwd(), &["refs", "migrate", "--ref-format=reftable"]);
+    git(ctx.cwd(), &["commit", "-m", "Initial"]);
+    git(ctx.cwd(), &["switch", "-c", "topic"]);
+    git(ctx.cwd(), &["commit", "--allow-empty", "-m", "Contributor"]);
+    git(ctx.cwd(), &["switch", "main"]);
+    git(ctx.cwd(), &["merge", "--no-ff", "--no-commit", "topic"]);
+    git(ctx.cwd(), &["update-ref", "MERGE_AUTOSTASH", "HEAD"]);
     let error =
         prepare::prepare(&ctx, json!({"operation":"commit","message":"Do not move the stash"})).await.err().unwrap();
     assert!(error.message.contains("restore its autostash"), "{}", error.message);
-    assert!(!ctx.cwd.join(".git/MERGE_AUTOSTASH").exists(), "the real state is a reftable ref");
-    assert_eq!(git(&ctx.cwd, &["rev-parse", "MERGE_AUTOSTASH"]), git(&ctx.cwd, &["rev-parse", "HEAD"]));
+    assert!(!ctx.cwd().join(".git/MERGE_AUTOSTASH").exists(), "the real state is a reftable ref");
+    assert_eq!(git(ctx.cwd(), &["rev-parse", "MERGE_AUTOSTASH"]), git(ctx.cwd(), &["rev-parse", "HEAD"]));
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn preparing_a_partial_clone_cannot_start_repository_selected_ssh_for_lazy_fetch() {
     let (ctx, root) = context("lazy-fetch", "sha1");
-    git(&ctx.cwd, &["commit", "-m", "Source commit"]);
-    let blob = git(&ctx.cwd, &["rev-parse", "HEAD:first.txt"]);
-    std::fs::write(ctx.cwd.join("first.txt"), "changed content\n").unwrap();
-    git(&ctx.cwd, &["add", "first.txt"]);
-    git(&ctx.cwd, &["config", "core.repositoryformatversion", "1"]);
-    git(&ctx.cwd, &["config", "extensions.partialclone", "origin"]);
-    git(&ctx.cwd, &["config", "remote.origin.url", "ssh://git@example.invalid/source.git"]);
-    git(&ctx.cwd, &["config", "remote.origin.promisor", "true"]);
+    git(ctx.cwd(), &["commit", "-m", "Source commit"]);
+    let blob = git(ctx.cwd(), &["rev-parse", "HEAD:first.txt"]);
+    std::fs::write(ctx.cwd().join("first.txt"), "changed content\n").unwrap();
+    git(ctx.cwd(), &["add", "first.txt"]);
+    git(ctx.cwd(), &["config", "core.repositoryformatversion", "1"]);
+    git(ctx.cwd(), &["config", "extensions.partialclone", "origin"]);
+    git(ctx.cwd(), &["config", "remote.origin.url", "ssh://git@example.invalid/source.git"]);
+    git(ctx.cwd(), &["config", "remote.origin.promisor", "true"]);
     let marker = root.join("lazy-fetch-helper-ran");
-    git(&ctx.cwd, &["config", "core.sshCommand", &format!("touch '{}'; exit 1", marker.display())]);
-    std::fs::remove_file(ctx.cwd.join(".git/objects").join(blob.get(..2).unwrap()).join(blob.get(2..).unwrap()))
+    git(ctx.cwd(), &["config", "core.sshCommand", &format!("touch '{}'; exit 1", marker.display())]);
+    std::fs::remove_file(ctx.cwd().join(".git/objects").join(blob.get(..2).unwrap()).join(blob.get(2..).unwrap()))
         .unwrap();
     assert!(prepare::prepare(&ctx, json!({"operation":"commit","message":"Must not fetch"})).await.is_err());
     assert!(!marker.exists(), "preparing a review ran a repository-selected network helper");
@@ -189,54 +189,54 @@ async fn preparing_and_committing_never_run_index_hooks_or_rewrite_the_original_
     let (ctx, root) = context("index-hooks", "sha1");
     let configured = root.join("configured-index-hook-ran");
     let file_hook = root.join("file-index-hook-ran");
-    git(&ctx.cwd, &["config", "hook.attack.command", &format!("touch '{}'; exit 1", configured.display())]);
-    git(&ctx.cwd, &["config", "hook.attack.event", "post-index-change"]);
-    let hook = ctx.cwd.join(".git/hooks/post-index-change");
+    git(ctx.cwd(), &["config", "hook.attack.command", &format!("touch '{}'; exit 1", configured.display())]);
+    git(ctx.cwd(), &["config", "hook.attack.event", "post-index-change"]);
+    let hook = ctx.cwd().join(".git/hooks/post-index-change");
     std::fs::write(&hook, format!("#!/bin/sh\ntouch '{}'\n", file_hook.display())).unwrap();
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let index = std::fs::read(ctx.cwd.join(".git/index")).unwrap();
+    let index = std::fs::read(ctx.cwd().join(".git/index")).unwrap();
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Review index privately"})).await.unwrap();
     assert!(!configured.exists() && !file_hook.exists());
-    assert_eq!(std::fs::read(ctx.cwd.join(".git/index")).unwrap(), index);
+    assert_eq!(std::fs::read(ctx.cwd().join(".git/index")).unwrap(), index);
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
     assert!(!configured.exists() && !file_hook.exists());
-    assert_eq!(std::fs::read(ctx.cwd.join(".git/index")).unwrap(), index);
+    assert_eq!(std::fs::read(ctx.cwd().join(".git/index")).unwrap(), index);
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn private_review_copies_split_index_backing_without_mutating_it() {
     let (ctx, root) = context("split-index", "sha1");
-    git(&ctx.cwd, &["update-index", "--split-index"]);
-    let index = std::fs::read(ctx.cwd.join(".git/index")).unwrap();
+    git(ctx.cwd(), &["update-index", "--split-index"]);
+    let index = std::fs::read(ctx.cwd().join(".git/index")).unwrap();
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Split index commit"})).await.unwrap();
-    assert_eq!(std::fs::read(ctx.cwd.join(".git/index")).unwrap(), index);
+    assert_eq!(std::fs::read(ctx.cwd().join(".git/index")).unwrap(), index);
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
-    assert_eq!(git(&ctx.cwd, &["show", "HEAD:first.txt"]), "initial content");
-    assert_eq!(std::fs::read(ctx.cwd.join(".git/index")).unwrap(), index);
+    assert_eq!(git(ctx.cwd(), &["show", "HEAD:first.txt"]), "initial content");
+    assert_eq!(std::fs::read(ctx.cwd().join(".git/index")).unwrap(), index);
     std::fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn committing_a_linked_worktree_updates_its_head_and_branch_reflogs_only() {
     let (main, root) = context("linked-reflog", "sha1");
-    git(&main.cwd, &["commit", "-m", "Initial main commit"]);
+    git(main.cwd(), &["commit", "-m", "Initial main commit"]);
     let linked = root.join("linked");
-    git(&main.cwd, &["worktree", "add", "-b", "feature", linked.to_str().unwrap()]);
-    let before = git(&main.cwd, &["reflog", "show", "HEAD", "--format=%H:%gs"]);
+    git(main.cwd(), &["worktree", "add", "-b", "feature", linked.to_str().unwrap()]);
+    let before = git(main.cwd(), &["reflog", "show", "HEAD", "--format=%H:%gs"]);
     std::fs::write(linked.join("first.txt"), "feature content\n").unwrap();
     git(&linked, &["add", "first.txt"]);
     let paths = Paths { home: root.join("linked-home") };
     let store = Store::new(&paths, &MemoryConfig::default());
     let policy = Policy::new(&SandboxConfig::default(), &linked, &paths);
-    let ctx = Ctx::new(linked, paths, store, tokio::sync::watch::channel(false).1, None, policy);
+    let ctx = Ctx::new(linked, paths, store, tokio::sync::watch::channel(false).1, policy);
     let plan = prepare::prepare(&ctx, json!({"operation":"commit","message":"Linked feature commit"})).await.unwrap();
     assert!(plan.execute(&ctx).await.unwrap().text.starts_with("Committed "));
-    let head = git(&ctx.cwd, &["rev-parse", "HEAD"]);
-    assert_eq!(git(&ctx.cwd, &["reflog", "-1", "--format=%H", "HEAD"]), head);
-    assert_eq!(git(&ctx.cwd, &["reflog", "-1", "--format=%H", "refs/heads/feature"]), head);
-    assert_eq!(git(&main.cwd, &["reflog", "show", "HEAD", "--format=%H:%gs"]), before);
+    let head = git(ctx.cwd(), &["rev-parse", "HEAD"]);
+    assert_eq!(git(ctx.cwd(), &["reflog", "-1", "--format=%H", "HEAD"]), head);
+    assert_eq!(git(ctx.cwd(), &["reflog", "-1", "--format=%H", "refs/heads/feature"]), head);
+    assert_eq!(git(main.cwd(), &["reflog", "show", "HEAD", "--format=%H:%gs"]), before);
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -244,10 +244,10 @@ async fn committing_a_linked_worktree_updates_its_head_and_branch_reflogs_only()
 async fn reference_directory_symlinks_cannot_redirect_an_approved_commit() {
     use std::os::unix::fs::symlink;
     let (ctx, root) = context("redirected-refs", "sha1");
-    git(&ctx.cwd, &["commit", "-m", "Initial commit"]);
-    std::fs::write(ctx.cwd.join("first.txt"), "next content\n").unwrap();
-    git(&ctx.cwd, &["add", "first.txt"]);
-    let heads = ctx.cwd.join(".git/refs/heads");
+    git(ctx.cwd(), &["commit", "-m", "Initial commit"]);
+    std::fs::write(ctx.cwd().join("first.txt"), "next content\n").unwrap();
+    git(ctx.cwd(), &["add", "first.txt"]);
+    let heads = ctx.cwd().join(".git/refs/heads");
     let external = root.join("outside-heads");
     std::fs::rename(&heads, &external).unwrap();
     symlink(&external, &heads).unwrap();
@@ -262,7 +262,7 @@ async fn existing_and_dangling_head_log_symlinks_cannot_redirect_host_writes() {
     use std::os::unix::fs::symlink;
     for existing in [false, true] {
         let (ctx, root) = context("redirected-log", "sha1");
-        let logs = ctx.cwd.join(".git/logs");
+        let logs = ctx.cwd().join(".git/logs");
         std::fs::create_dir_all(&logs).unwrap();
         let outside = root.join("outside-log");
         if existing {
@@ -285,16 +285,16 @@ async fn existing_and_dangling_head_log_symlinks_cannot_redirect_host_writes() {
 async fn loose_object_prefix_symlinks_are_rejected_before_preparing_a_tree() {
     use std::os::unix::fs::symlink;
     let (ctx, root) = context("redirected-objects", "sha1");
-    let objects = ctx.cwd.join(".git/objects");
+    let objects = ctx.cwd().join(".git/objects");
     let prefix = (0..=255).map(|value| format!("{value:02x}")).find(|name| !objects.join(name).exists()).unwrap();
     let outside = root.join("outside-objects");
     std::fs::create_dir(&outside).unwrap();
     std::fs::write(outside.join("sentinel"), "unchanged\n").unwrap();
     symlink(&outside, objects.join(prefix)).unwrap();
-    let index = std::fs::read(ctx.cwd.join(".git/index")).unwrap();
+    let index = std::fs::read(ctx.cwd().join(".git/index")).unwrap();
     assert!(prepare::prepare(&ctx, json!({"operation":"commit","message":"Must not redirect objects"})).await.is_err());
     assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 1);
     assert_eq!(std::fs::read_to_string(outside.join("sentinel")).unwrap(), "unchanged\n");
-    assert_eq!(std::fs::read(ctx.cwd.join(".git/index")).unwrap(), index);
+    assert_eq!(std::fs::read(ctx.cwd().join(".git/index")).unwrap(), index);
     std::fs::remove_dir_all(root).unwrap();
 }

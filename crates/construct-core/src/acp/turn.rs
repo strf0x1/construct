@@ -61,7 +61,7 @@ pub(super) async fn run(
     };
     let turn = async {
         let mut agent = agent.lock().await;
-        agent.ctx.perms.set_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
+        agent.set_permission_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
         let result = agent.turn_keyed(&prompt.text, prompt.key.clone(), &tx).await;
         drop(tx);
         result

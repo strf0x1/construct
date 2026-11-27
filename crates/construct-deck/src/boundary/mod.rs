@@ -30,8 +30,7 @@ pub const WAIT: &str = "boundary_wait";
 pub const STATUS: &str = "boundary_status";
 pub const WITHDRAW: &str = "boundary_withdraw";
 
-/// This session's boundary, as the concrete handle the tools share: the one
-/// `Ctx` carries as a `BoundaryHost`. `None` outside a Deck task.
-pub(crate) fn of(ctx: &construct_core::tools::Ctx) -> Option<&Boundary> {
-    ctx.boundary.as_deref()?.as_any().downcast_ref()
+/// Downcast this session's `BoundaryHost` to the concrete `Boundary` client.
+pub(crate) fn downcast(host: &dyn construct_core::tools::boundary::BoundaryHost) -> Option<&Boundary> {
+    host.as_any().downcast_ref()
 }

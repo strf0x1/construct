@@ -6,17 +6,15 @@ use super::{
     filter::Filter,
     result::{Answer, Hit, key_names, strip_tags},
 };
-use construct_core::tools::Ctx;
 use std::time::Duration;
 
-pub(super) async fn search(ctx: &Ctx, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
+pub(super) async fn search(http: &reqwest::Client, q: &str, n: usize, f: &Filter) -> Result<Answer, String> {
     let (q, site_note) = f.site_query(q);
     let mut notes: Vec<String> = site_note.into_iter().collect();
     if f.recency.is_some() {
         notes.push("recency is not supported by DuckDuckGo and was ignored".into());
     }
-    let html = ctx
-        .http
+    let html = http
         .post("https://html.duckduckgo.com/html/")
         .header("user-agent", "Mozilla/5.0 (X11; Linux) construct")
         .form(&[("q", q.as_str())])

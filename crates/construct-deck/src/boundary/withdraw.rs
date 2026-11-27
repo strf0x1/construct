@@ -2,10 +2,20 @@
 
 use super::WITHDRAW;
 use super::client::check_id;
+use construct_core::tools::boundary::BoundaryHost;
 use construct_core::tools::{Ctx, Group, Output, Tool, ToolError, arg, def, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
 
-pub struct Withdraw;
+pub struct Withdraw {
+    boundary: Arc<dyn BoundaryHost>,
+}
+
+impl Withdraw {
+    pub fn new(boundary: Arc<dyn BoundaryHost>) -> Self {
+        Self { boundary }
+    }
+}
 
 #[async_trait::async_trait]
 impl Tool for Withdraw {
@@ -27,8 +37,8 @@ impl Tool for Withdraw {
             ),
         )
     }
-    async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
-        let Some(b) = super::of(ctx) else {
+    async fn call(&self, _ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
+        let Some(b) = super::downcast(self.boundary.as_ref()) else {
             return Err(ToolError::new("no_boundary", "this session has no Deck boundary endpoint"));
         };
         let id =

@@ -14,7 +14,7 @@
 
 use construct_core::config::ToolsConfig;
 use construct_core::event::Event;
-use construct_core::jobs::{Cancel, Delivered};
+use construct_core::jobs::{self, Cancel, Delivered};
 use construct_core::tools::{Call, Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolSource, arg, def, obj};
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -23,15 +23,26 @@ use std::sync::Arc;
 pub struct Jobs;
 
 impl ToolSource for Jobs {
-    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
-        Ok(vec![Arc::new(JobTool)])
+    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck, jobs: &jobs::Jobs) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        Ok(vec![Arc::new(JobTool::new(jobs.clone()))])
     }
 }
 
-pub struct JobTool;
+pub struct JobTool {
+    jobs: jobs::Jobs,
+}
 
 impl JobTool {
     pub const NAME: &str = "job";
+
+    pub fn new(jobs: jobs::Jobs) -> Self {
+        Self { jobs }
+    }
+
+    fn unknown(&self, id: &str) -> ToolError {
+        let known: Vec<String> = self.jobs.list().into_iter().map(|j| j.id).collect();
+        ToolError::new("unknown_job", format!("no job {id:?}; the jobs are {known:?}"))
+    }
 }
 
 #[async_trait::async_trait]
@@ -61,11 +72,11 @@ impl Tool for JobTool {
     async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
         self.call_with(ctx, &Call::detached(""), args).await
     }
-    async fn call_with(&self, ctx: &Ctx, call: &Call, args: Value) -> Result<Output, ToolError> {
+    async fn call_with(&self, _ctx: &Ctx, call: &Call, args: Value) -> Result<Output, ToolError> {
         let id = arg(&args, "id");
         match (arg(&args, "action"), id) {
             (Some("check"), None) => {
-                let jobs = ctx.jobs.list();
+                let jobs = self.jobs.list();
                 if jobs.is_empty() {
                     return Ok(Output::plain("no background jobs"));
                 }
@@ -85,7 +96,7 @@ impl Tool for JobTool {
                 Ok(Output::plain(lines.join("\n")))
             }
             (Some("check"), Some(id)) => {
-                let Some((info, consumed)) = ctx.jobs.check(id) else { return Err(unknown(ctx, id)) };
+                let Some((info, consumed)) = self.jobs.check(id) else { return Err(self.unknown(id)) };
                 if consumed {
                     call.emit(Event::JobsDelivered(Delivered {
                         ids: vec![id.to_string()],
@@ -96,20 +107,15 @@ impl Tool for JobTool {
                 Ok(Output::plain(info.report())
                     .with_data(json!({ "job": id, "status": info.status, "consumed": consumed })))
             }
-            (Some("cancel"), Some(id)) => match ctx.jobs.cancel(id) {
+            (Some("cancel"), Some(id)) => match self.jobs.cancel(id) {
                 Cancel::Sent => Ok(Output::plain(format!("cancelling job {id}; it will not wake you"))
                     .with_data(json!({ "job": id, "cancelled": true }))),
                 Cancel::Over(s) => Ok(Output::plain(format!("job {id} had already ended ({})", s.label()))
                     .with_data(json!({ "job": id, "cancelled": false }))),
-                Cancel::Unknown => Err(unknown(ctx, id)),
+                Cancel::Unknown => Err(self.unknown(id)),
             },
             (Some("cancel"), None) => Err("cancel needs the job's id".into()),
             _ => Err("action must be check or cancel".into()),
         }
     }
-}
-
-fn unknown(ctx: &Ctx, id: &str) -> ToolError {
-    let known: Vec<String> = ctx.jobs.list().into_iter().map(|j| j.id).collect();
-    ToolError::new("unknown_job", format!("no job {id:?}; the jobs are {known:?}"))
 }

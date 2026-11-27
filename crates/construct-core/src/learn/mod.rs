@@ -160,7 +160,10 @@ fn learner(
         sb.mode = "read-only".into();
     }
     let policy = crate::sandbox::Policy::new(&sb, &cwd, paths);
-    let ctx = Ctx::new(cwd, paths.clone(), memory, rx, None, policy).with_sources(sources.clone());
+    let perms = std::sync::Arc::new(
+        crate::permission::Perms::new(paths, policy).with_tools(crate::tools::policy_tools(sources)),
+    );
+    let ctx = Ctx::with_perms(cwd, paths.clone(), memory, rx, perms);
     Ok((ctx, Catalog::build_extended(&cfg.tools, None, &crate::tools::Deck::default(), sources)?))
 }
 

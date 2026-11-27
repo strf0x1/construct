@@ -7,12 +7,13 @@
 
 use super::{Agent, Event, Events};
 use crate::llm::Message;
-use crate::tools::Ctx;
+use crate::tools::boundary::BoundaryHost;
+use std::sync::Arc;
 
 /// The gateway sequence before a tool runs; `None` when there is no boundary
 /// endpoint or it is unreachable.
-pub(super) async fn before_tool(ctx: &Ctx) -> Option<u64> {
-    match &ctx.boundary {
+pub(super) async fn before_tool(boundary: Option<&Arc<dyn BoundaryHost>>) -> Option<u64> {
+    match boundary {
         Some(b) => b.cursor().await,
         None => None,
     }
@@ -20,8 +21,8 @@ pub(super) async fn before_tool(ctx: &Ctx) -> Option<u64> {
 
 /// Append what was blocked while the tool ran. A dead endpoint costs the note,
 /// never the tool.
-pub(super) async fn after_tool(ctx: &Ctx, before: Option<u64>, out: &mut String) {
-    let (Some(b), Some(before)) = (&ctx.boundary, before) else {
+pub(super) async fn after_tool(boundary: Option<&Arc<dyn BoundaryHost>>, before: Option<u64>, out: &mut String) {
+    let (Some(b), Some(before)) = (boundary, before) else {
         return;
     };
     if let Some(note) = b.tool_note(before).await {
@@ -34,7 +35,7 @@ impl Agent {
     /// Put late boundary decisions into the conversation. Returns whether any
     /// were queued.
     pub(super) fn deliver_boundary(&mut self, tx: &Events) -> bool {
-        let Some(boundary) = self.ctx.boundary.clone() else {
+        let Some(boundary) = self.boundary.clone() else {
             return false;
         };
         let Some(late) = boundary.take_late() else {

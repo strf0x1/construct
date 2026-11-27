@@ -143,7 +143,7 @@ async fn approve(ctx: &Ctx, operation: &str, repository: &str, detail: &str) -> 
         scope: format!("deck-gateway/{repository}"),
         detail: format!("{detail}\nThrough Deck's GitHub gateway; it decides again."),
     };
-    if ctx.perms.operation(request, ctx.cancel.clone()).await {
+    if ctx.approve_operation(request).await {
         Ok(())
     } else {
         Err(ToolError::new("denied", "Developer operation was not approved. The requested action was not executed."))

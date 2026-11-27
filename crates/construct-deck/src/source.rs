@@ -19,12 +19,17 @@ use std::sync::Arc;
 pub struct DeckTools;
 
 impl ToolSource for DeckTools {
-    fn tools(&self, _cfg: &ToolsConfig, deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
-        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(Developer::new(deck.github))];
-        if deck.boundary {
-            tools.push(Arc::new(Wait));
-            tools.push(Arc::new(Status));
-            tools.push(Arc::new(Withdraw));
+    fn tools(
+        &self,
+        _cfg: &ToolsConfig,
+        deck: &Deck,
+        _jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(Developer::new(deck.github.clone()))];
+        if let Some(boundary) = deck.boundary.clone() {
+            tools.push(Arc::new(Wait::new(boundary.clone())));
+            tools.push(Arc::new(Status::new(boundary.clone())));
+            tools.push(Arc::new(Withdraw::new(boundary)));
         }
         tools.extend(deck.control.iter().map(|url| Arc::new(Control::new(url)) as Arc<dyn Tool>));
         Ok(tools)

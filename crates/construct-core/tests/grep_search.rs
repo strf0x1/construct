@@ -25,13 +25,13 @@ impl Fixture {
         let memory = Store::new(&paths, &MemoryConfig::default());
         let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
-        let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
+        let ctx = Ctx::new(work, paths, memory, rx, sandbox);
         let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
         Self { root, ctx, catalog }
     }
 
     fn put(&self, rel: &str, text: &str) {
-        let p = self.ctx.cwd.join(rel);
+        let p = self.ctx.cwd().join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, text).unwrap();
     }

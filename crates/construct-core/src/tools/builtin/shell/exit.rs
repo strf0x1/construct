@@ -5,8 +5,8 @@
 //! because widening the sandbox to the source repository is the wrong fix.
 //! Core only finds the worktree; it never names the tools that work there.
 
-use super::ToolSources;
 use crate::sandbox::Policy;
+use crate::tools::ToolSources;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
@@ -75,6 +75,7 @@ mod tests {
             &self,
             _: &crate::config::ToolsConfig,
             _: &crate::tools::Deck,
+            _: &crate::jobs::Jobs,
         ) -> anyhow::Result<Vec<std::sync::Arc<dyn crate::tools::Tool>>> {
             Ok(vec![])
         }

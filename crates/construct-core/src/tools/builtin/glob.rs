@@ -1,7 +1,8 @@
 //! glob: find files by pattern, newest first, honouring .gitignore.
 
-use super::fs::{display, resolve, walker};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, obj};
+use super::blocking;
+use super::fs::{display, walker};
+use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -46,7 +47,7 @@ impl Tool for Glob {
 
 fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
-    let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
+    let root = arg(a, "path").map(|p| ctx.resolve_path(p)).unwrap_or_else(|| ctx.cwd().to_path_buf());
     let pat =
         if pattern.contains('/') || pattern.starts_with("**") { pattern.to_string() } else { format!("**/{pattern}") };
     let set =
@@ -64,7 +65,7 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, ToolError> {
     }
     hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     let n = hits.len();
-    let mut out: Vec<String> = hits.into_iter().take(GLOB_MAX).map(|(_, p)| display(ctx, &p)).collect();
+    let mut out: Vec<String> = hits.into_iter().take(GLOB_MAX).map(|(_, p)| display(ctx.cwd(), &p)).collect();
     if n == 0 {
         return Ok("no files matched".into());
     }

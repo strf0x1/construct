@@ -247,7 +247,7 @@ impl Server {
             }
         }
         let cancel = agent.canceller();
-        let boundary = agent.ctx.boundary.clone();
+        let boundary = agent.boundary();
         self.next_session += 1;
         self.sessions.insert(
             sid.clone(),
@@ -259,7 +259,7 @@ impl Server {
                 turn,
                 catalog: agent.catalog.clone(),
                 boundary,
-                cwd: agent.ctx.cwd.clone(),
+                cwd: agent.cwd().to_path_buf(),
                 agent: Arc::new(Mutex::new(agent)),
                 attached: self.attachment,
                 prompts: Default::default(),

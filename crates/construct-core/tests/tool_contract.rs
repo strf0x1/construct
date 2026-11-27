@@ -36,7 +36,7 @@ impl Fixture {
             ..Default::default()
         };
         let (_tx, rx) = tokio::sync::watch::channel(false);
-        let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
+        let ctx = Ctx::new(work, paths, memory, rx, sandbox);
         // A coordinator's catalog, so the `deck` tool is checked too; its
         // gateway is never reached, since every call here is refused first.
         let deck = Deck { control: Some("http://127.0.0.1:9".into()), ..Deck::default() };
@@ -107,8 +107,8 @@ fn sandbox_refusals_with_tmpdir_in_an_allowed_cache() {
 async fn sandbox_refusals(f: &Fixture) {
     let secret = f.root.join("outside/secret.txt");
     let outside = f.root.join("outside");
-    assert!(f.ctx.sandbox.check_read(&secret).is_err());
-    assert!(f.ctx.sandbox.check_write(&outside.join("new.txt")).is_err());
+    assert!(f.ctx.policy().check_read(&secret).is_err());
+    assert!(f.ctx.policy().check_write(&outside.join("new.txt")).is_err());
     let s = |p: &PathBuf| p.display().to_string();
     let cases = [
         ("read", json!({ "path": s(&secret) })),
@@ -134,7 +134,7 @@ async fn output_stays_under_the_cap() {
 
 async fn output_capped(f: &Fixture) {
     let line = format!("{}\n", "needle ".repeat(40));
-    std::fs::write(f.ctx.cwd.join("big.txt"), line.repeat(3000)).unwrap();
+    std::fs::write(f.ctx.cwd().join("big.txt"), line.repeat(3000)).unwrap();
     for (name, args) in [("read", json!({ "path": "big.txt" })), ("grep", json!({ "pattern": "needle" }))] {
         let out = f.call(name, args).await.unwrap();
         assert!(out.len() <= OUTPUT_MAX, "{name}: {} bytes", out.len());
@@ -144,7 +144,7 @@ async fn output_capped(f: &Fixture) {
 #[tokio::test(flavor = "multi_thread")]
 async fn edit_reports_stable_codes() {
     let f = Fixture::new("edit");
-    std::fs::write(f.ctx.cwd.join("a.txt"), "x x\n").unwrap();
+    std::fs::write(f.ctx.cwd().join("a.txt"), "x x\n").unwrap();
     let edit = |old: &str, new: &str| json!({ "path": "a.txt", "old_string": old, "new_string": new });
     assert_eq!(f.call("edit", edit("y", "z")).await.unwrap_err().1, "not_found");
     assert_eq!(f.call("edit", edit("x", "z")).await.unwrap_err().1, "ambiguous");
@@ -152,19 +152,19 @@ async fn edit_reports_stable_codes() {
     let out = f.catalog.call(&f.ctx, "edit", &edit("x x", "y").to_string()).await.unwrap();
     assert_eq!(out.kind, construct_core::tools::OutputKind::Diff);
     assert!(out.text.starts_with("edited "), "{}", out.text);
-    assert_eq!(std::fs::read_to_string(f.ctx.cwd.join("a.txt")).unwrap(), "y\n");
+    assert_eq!(std::fs::read_to_string(f.ctx.cwd().join("a.txt")).unwrap(), "y\n");
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn other_encodings_are_refused_with_the_way_out() {
     let f = Fixture::new("encoding");
-    std::fs::write(f.ctx.cwd.join("latin1.txt"), b"caf\xe9\n").unwrap();
+    std::fs::write(f.ctx.cwd().join("latin1.txt"), b"caf\xe9\n").unwrap();
     let args = json!({ "path": "latin1.txt", "old_string": "caf", "new_string": "bar" });
     let (msg, code) = f.call("edit", args).await.unwrap_err();
     assert_eq!(code, "not_utf8");
     assert!(msg.contains("bash"), "{msg}");
-    assert_eq!(std::fs::read(f.ctx.cwd.join("latin1.txt")).unwrap(), b"caf\xe9\n");
-    std::fs::write(f.ctx.cwd.join("utf16.txt"), b"\xff\xfea\0\n\0").unwrap();
+    assert_eq!(std::fs::read(f.ctx.cwd().join("latin1.txt")).unwrap(), b"caf\xe9\n");
+    std::fs::write(f.ctx.cwd().join("utf16.txt"), b"\xff\xfea\0\n\0").unwrap();
     for (name, args) in [
         ("read", json!({ "path": "utf16.txt" })),
         ("edit", json!({ "path": "utf16.txt", "old_string": "a", "new_string": "b" })),
@@ -213,7 +213,7 @@ async fn a_call_by_the_old_name_runs_the_shell_tool() {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_search_tool_can_be_renamed_and_nothing_else_changes() {
     let f = Fixture::new("rename");
-    std::fs::write(f.ctx.cwd.join("a.txt"), "needle\n").unwrap();
+    std::fs::write(f.ctx.cwd().join("a.txt"), "needle\n").unwrap();
     let cfg = ToolsConfig { search_name: "search".into(), ..Default::default() };
     let renamed = Catalog::build(&cfg, None).unwrap();
     let names = renamed.names();

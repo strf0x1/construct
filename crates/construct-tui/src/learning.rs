@@ -47,7 +47,7 @@ pub(super) fn maybe_learn(
     *reviewed = (agent.log().len(), agent.journal.last_seq());
     let (cfg, paths, tx, id, upto) =
         (agent.cfg.clone(), agent.paths.clone(), tx.clone(), agent.journal.session.clone(), reviewed.1);
-    let sources = agent.ctx.sources.clone();
+    let sources = agent.tool_sources().clone();
     tokio::spawn(async move {
         let _ = tx.send(Event::Learn { status: "learning from this session".into() });
         if let Some(r) = learn::distill(&cfg, &paths, &id, &slice).await {

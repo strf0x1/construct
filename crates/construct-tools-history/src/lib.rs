@@ -9,7 +9,7 @@
 //! the only way in, and every limit on the SQL one (docs/adr/0009) is
 //! enforced by SQLite itself, not by parsing the query.
 
-use construct_core::config::ToolsConfig;
+use construct_core::config::{Paths, ToolsConfig};
 use construct_core::permission::PolicyTools;
 use construct_core::tools::{Ctx, Deck, Display, Group, Output, Tool, ToolError, ToolKind, ToolSource, def, obj};
 use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
@@ -35,7 +35,12 @@ const READ_PRAGMAS: &[&str] = &["data_version", "table_info", "table_xinfo", "in
 pub struct History;
 
 impl ToolSource for History {
-    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+    fn tools(
+        &self,
+        _cfg: &ToolsConfig,
+        _deck: &Deck,
+        _jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
         Ok(vec![Arc::new(RecallResult), Arc::new(JournalQuery)])
     }
 
@@ -76,7 +81,7 @@ impl Tool for RecallResult {
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
         let id = a["id"].as_str().ok_or("id is required")?.to_string();
-        let file = construct_core::journal::path(&ctx.paths, &ctx.cwd);
+        let file = construct_core::journal::path(&Paths { home: ctx.home().to_path_buf() }, ctx.cwd());
         let found = blocking(move || {
             let conn = open(file)?;
             // The expression matches the `events_id` index exactly. Ids can
@@ -136,8 +141,8 @@ impl Tool for JournalQuery {
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
         let sql = a["sql"].as_str().ok_or("sql is required")?.to_string();
-        let file = construct_core::journal::path(&ctx.paths, &ctx.cwd);
-        let cancel = ctx.cancel.clone();
+        let file = construct_core::journal::path(&Paths { home: ctx.home().to_path_buf() }, ctx.cwd());
+        let cancel = ctx.cancel_signal();
         blocking(move || {
             let mut conn = open(file)?;
             query(&mut conn, &sql, cancel)
