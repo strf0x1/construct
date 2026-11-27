@@ -165,9 +165,9 @@ impl Agent {
 
     /// One turn. `user` is what the user submitted; `None` is a turn that job
     /// completions start (`wake`), which has no user message to route or answer.
+    /// The caller has already cleared or kept the cancel flag (`rearm`).
     async fn run_turn(&mut self, user: Option<user_turn::UserTurn<'_>>, tx: &Events) -> Result<()> {
         let started = Instant::now();
-        self.cancel_tx.send_replace(false);
         self.ctx.turn_began();
         self.ctx.perms.set_sink(self.journal.clone(), tx.clone());
         for ev in std::mem::take(&mut self.unsent) {

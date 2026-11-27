@@ -120,6 +120,9 @@ impl Server {
         }
         let Some(mut prompt) = s.prompts.pop_front() else { return };
         s.keys.start(&mut prompt);
+        // Cleared here, in the reader loop, not when the turn task gets the
+        // agent: a `session/cancel` read before the task starts must stick.
+        s.cancel.send_replace(false);
         s.turn.number += 1;
         s.turn.phase = Phase::Working;
         turns.spawn(turn::run(s.agent.clone(), sid.to_string(), prompt, self.commands.clone()));
