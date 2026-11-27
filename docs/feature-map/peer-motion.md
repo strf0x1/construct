@@ -1,8 +1,10 @@
 ---
 id: peer-motion
-status: built
+status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/motion/peers, crates/construct-tui/src/motion/mod.rs, crates/construct-tui/src/motion/shaders.rs, crates/construct-tui/src/peers, crates/construct-tui/src/view.rs, crates/construct-tui/src/theme.rs]
+verified_at: e7b3fff
+verified_deps: 2fe81663aabd7ef7
 ---
 # Motion: peers tile, popup and attach view
 
