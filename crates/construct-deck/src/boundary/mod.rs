@@ -13,12 +13,13 @@ mod host;
 mod note;
 mod status;
 mod wait;
+mod wire;
 mod withdraw;
 
 pub use client::Boundary;
-pub use note::Notice;
 pub use status::Status;
 pub use wait::Wait;
+pub use wire::Notice;
 pub use withdraw::Withdraw;
 
 /// The longest late-decision queue one session keeps.

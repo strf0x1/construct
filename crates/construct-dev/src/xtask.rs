@@ -103,7 +103,7 @@ fn conventions(root: &Path) -> Vec<String> {
         }
     }
 
-    for file in rust_sources(&root.join("crates")) {
+    for file in crate::scratch::rust_sources(&root.join("crates")) {
         let opens_with_doc = std::fs::read_to_string(&file).is_ok_and(|s| s.starts_with("//!"));
         if !opens_with_doc {
             bad.push(format!(
@@ -113,28 +113,6 @@ fn conventions(root: &Path) -> Vec<String> {
         }
     }
     bad
-}
-
-/// Every `.rs` file under `crates/*/src`, in path order.
-pub(crate) fn rust_sources(dir: &Path) -> Vec<PathBuf> {
-    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
-        for e in entries.flatten() {
-            let p = e.path();
-            if p.is_dir() {
-                walk(&p, out);
-            } else if p.extension().is_some_and(|x| x == "rs") {
-                out.push(p);
-            }
-        }
-    }
-    let mut out = Vec::new();
-    let Ok(crates) = std::fs::read_dir(dir) else { return out };
-    for c in crates.flatten() {
-        walk(&c.path().join("src"), &mut out);
-    }
-    out.sort();
-    out
 }
 
 /// Returns true if every gate passed. A gate named in `skip` does not run.

@@ -2,7 +2,6 @@
 //! hooks and signing; pushes run from a private bare repository so workspace
 //! configuration cannot choose a host credential helper or command.
 
-use super::prepare::{Body, Prepared, required};
 mod commit;
 mod context;
 mod merge;
@@ -15,12 +14,34 @@ pub use commit::commit;
 pub use transport::{Push, push};
 use transport::{destination, host_config};
 
-use super::runner::{self, Executable};
+use super::runner::{self, Executable, required};
 use construct_core::permission::OperationAsk;
 use construct_core::tools::{Ctx, ToolError};
 use serde_json::Value;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+pub(super) struct Plan {
+    pub request: OperationAsk,
+    pub executable: Executable,
+    pub cwd: PathBuf,
+    pub body: Body,
+}
+
+pub(super) enum Body {
+    Commit(Commit),
+    Push(Push),
+}
+
+impl Body {
+    pub(super) fn binding(&self) -> Result<Vec<u8>, ToolError> {
+        match self {
+            Body::Commit(plan) => serde_json::to_vec(plan),
+            Body::Push(plan) => serde_json::to_vec(plan),
+        }
+        .map_err(|_| "cannot encode git operation".into())
+    }
+}
 
 #[derive(serde::Serialize)]
 pub struct Commit {
@@ -37,15 +58,6 @@ pub struct Commit {
     message: String,
     author: String,
     email: String,
-}
-
-pub fn binding(body: &Body) -> Result<Vec<u8>, ToolError> {
-    match body {
-        Body::Commit(plan) => serde_json::to_vec(plan),
-        Body::Push(plan) => serde_json::to_vec(plan),
-        Body::Github { .. } => return Err("not a git operation".into()),
-    }
-    .map_err(|_| "cannot encode git operation".into())
 }
 
 pub(super) fn options() -> Vec<OsString> {
@@ -114,7 +126,7 @@ async fn index_review(
     context::CommitContext::index(ctx, layout, index, shared.as_deref())
 }
 
-pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
+pub(super) async fn prepare(ctx: &Ctx, args: &Value) -> Result<Plan, ToolError> {
     let raw = match args.get("workdir") {
         None => ".",
         Some(_) => required(args, "workdir")?,
@@ -252,10 +264,5 @@ pub async fn prepare(ctx: &Ctx, args: &Value) -> Result<Prepared, ToolError> {
         (Body::Push(Push { url, branch, oid, objects, host_config }), scope, detail)
     };
     detail.push_str(&format!("\nHost executable: {}", executable.identity()));
-    Ok(Prepared {
-        request: OperationAsk { operation: operation.into(), scope, detail },
-        executable,
-        cwd,
-        operation: body,
-    })
+    Ok(Plan { request: OperationAsk { operation: operation.into(), scope, detail }, executable, cwd, body })
 }

@@ -7,18 +7,14 @@
 //! path, and a failed one falls back to a stale cache instead of failing
 //! anything.
 
-use super::Client;
 use crate::config::{Paths, write_atomic};
-use crate::providers::{Discover, Reach};
-use anyhow::{Context, Result, bail};
+use crate::providers::Reach;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// How long a fetched list is used without asking again.
 const TTL_SECS: u64 = 2 * 60 * 60;
-/// One `/models` request, before giving up.
-const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// What one `/models` entry says about a model. Everything but the id is
 /// optional because only some endpoints state it.
@@ -216,25 +212,10 @@ pub fn cached(paths: &Paths, base_url: &str) -> Vec<ModelInfo> {
     read(paths, base_url).map(|c| c.models).unwrap_or_default()
 }
 
-impl Client {
-    /// `GET {base_url}/models`. The list is public on OpenRouter, so no key
-    /// goes with it.
-    pub async fn list_models(&self) -> Result<Vec<ModelInfo>> {
-        let mut rb = self.http.get(format!("{}/models", self.base_url)).timeout(FETCH_TIMEOUT);
-        for (k, v) in &self.headers {
-            rb = rb.header(k, v);
-        }
-        let resp = rb.send().await.context("model list request failed")?;
-        if !resp.status().is_success() {
-            bail!("model list returned {}", resp.status());
-        }
-        let body: Value = resp.json().await.context("model list is not JSON")?;
-        let models = parse(&body);
-        if models.is_empty() {
-            bail!("model list has no models");
-        }
-        Ok(models)
-    }
+/// The cached list when it is still fresh (`<= TTL_SECS`).
+pub(super) fn fresh(paths: &Paths, base_url: &str) -> Option<Vec<ModelInfo>> {
+    let c = read(paths, base_url)?;
+    (now().saturating_sub(c.fetched_at) <= TTL_SECS).then_some(c.models)
 }
 
 /// Cache `models` as `base_url`'s list, fetched now.
@@ -245,30 +226,15 @@ pub fn store(paths: &Paths, base_url: &str, models: &[ModelInfo]) {
     }
 }
 
-/// The list: the cache when it is fresh (and `force` is off), else a fetch
-/// the provider's way (`discover`), else a stale cache. Errors only when
-/// there is nothing at all.
-pub async fn refresh(client: &Client, paths: &Paths, force: bool, how: Discover) -> Result<Vec<ModelInfo>> {
-    let old = read(paths, &client.base_url);
-    if let Some(c) = old.as_ref().filter(|c| !force && now().saturating_sub(c.fetched_at) <= TTL_SECS) {
-        return Ok(c.models.clone());
+/// Record a failed refresh beside any stale cached list, returning the stale
+/// list (empty when none was cached).
+pub(super) fn record_failure(paths: &Paths, base_url: &str, cause: String) -> Vec<ModelInfo> {
+    let (fetched_at, models) = read(paths, base_url).map_or((0, vec![]), |c| (c.fetched_at, c.models));
+    let cache = Cached { fetched_at, models: models.clone(), failed: Some((now(), cause)) };
+    if let Ok(bytes) = serde_json::to_vec(&cache) {
+        let _ = write_atomic(&paths.models_cache(base_url), &bytes);
     }
-    match super::discover::fetch(client, how).await {
-        Ok(models) => {
-            store(paths, &client.base_url, &models);
-            Ok(models)
-        }
-        Err(e) => {
-            // Kept beside the list it failed to replace, so the picker can say so.
-            let cause = format!("{e:#}").rsplit(": ").next().unwrap_or_default().to_string();
-            let (fetched_at, models) = old.map_or((0, vec![]), |c| (c.fetched_at, c.models));
-            let cache = Cached { fetched_at, models: models.clone(), failed: Some((now(), cause)) };
-            if let Ok(bytes) = serde_json::to_vec(&cache) {
-                let _ = write_atomic(&paths.models_cache(&client.base_url), &bytes);
-            }
-            if models.is_empty() { Err(e) } else { Ok(models) }
-        }
-    }
+    models
 }
 
 #[cfg(test)]

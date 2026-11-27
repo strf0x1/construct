@@ -6,6 +6,7 @@
 //! bytes and decodes whole lines only, so a chunk boundary inside a
 //! multibyte character never reaches the decoder.
 
+use super::message::{DETAILS, REASONING_KEYS};
 use super::notes::{self, Notes};
 use super::{Completion, Delta, FunctionCall, Message, ToolCall, Usage};
 use crate::text::truncate;
@@ -40,15 +41,8 @@ impl Sse {
     }
 }
 
-/// The delta key of OpenRouter's structured reasoning, and the message key it
-/// goes back under.
-pub(super) const DETAILS: &str = "reasoning_details";
-
 /// The key of provider data on a tool call (Gemini's thought signature).
 const EXTRA: &str = "extra_content";
-
-/// The delta keys reasoning text streams under, in order of preference.
-pub(super) const REASONING_KEYS: [&str; 2] = ["reasoning_content", "reasoning"];
 
 /// The string fields of a `reasoning_details` block that stream in pieces.
 const DETAIL_TEXT: [&str; 3] = ["text", "summary", "data"];

@@ -6,47 +6,9 @@
 //! tool answers must agree with the descriptions the model read, so the tool
 //! names are the constants from the parent module, not retyped prose.
 
-use super::client::{Entry, Outcome};
+use super::wire::{Entry, Notice, Outcome};
 use super::{WAIT, WITHDRAW};
-use serde::Deserialize;
 use std::collections::BTreeMap;
-
-/// A decision Deck pushed over ACP (either boundary method). It informs; it
-/// grants nothing and the agent cannot answer it with a decision.
-#[derive(Debug, Clone, Deserialize)]
-pub struct Notice {
-    #[serde(rename = "approval_id", alias = "id", deserialize_with = "approval_id")]
-    pub id: String,
-    #[serde(default)]
-    pub destination: Option<String>,
-    #[serde(default, alias = "state")]
-    pub outcome: Option<String>,
-    #[serde(default, deserialize_with = "super::grant::optional_string")]
-    pub scope: Option<String>,
-    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
-    pub expires_at_ms: Option<u64>,
-    #[serde(default, rename = "sessionId", alias = "session_id")]
-    pub session: Option<String>,
-}
-
-/// Empty IDs cannot identify a decision for deduplication (contract §5.3).
-fn approval_id<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    let id = String::deserialize(deserializer)?;
-    if id.is_empty() {
-        return Err(serde::de::Error::custom("approval id must not be empty"));
-    }
-    Ok(id)
-}
-
-impl Notice {
-    pub fn validate(self) -> Result<Self, String> {
-        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
-        Ok(self)
-    }
-    pub fn outcome(&self) -> &str {
-        self.outcome.as_deref().unwrap_or("decided")
-    }
-}
 
 /// The note appended to a tool result. `seen` is the set of ids whose terminal
 /// state the agent already saw through a tool or an earlier note.

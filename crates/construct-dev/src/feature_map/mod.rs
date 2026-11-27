@@ -242,7 +242,7 @@ fn hex_colors(line: &str) -> Vec<String> {
 /// Every `Rgb(r, g, b)` in construct's sources, as lowercase hex.
 fn known_colors(root: &Path) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
-    for file in crate::xtask::rust_sources(&root.join("crates")) {
+    for file in crate::scratch::rust_sources(&root.join("crates")) {
         let Ok(src) = std::fs::read_to_string(&file) else { continue };
         for after in src.split("Rgb(").skip(1) {
             let args = after.split(')').next().unwrap_or("");

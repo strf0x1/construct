@@ -9,7 +9,8 @@
 //! a session; it just states nothing.
 
 use super::Client;
-use super::catalog::ModelInfo;
+use super::catalog::{self, ModelInfo};
+use crate::config::Paths;
 use crate::providers::Discover;
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
@@ -19,6 +20,48 @@ use std::time::Duration;
 /// are listed without a window.
 const SHOW_AT_MOST: usize = 50;
 const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+
+impl Client {
+    /// `GET {base_url}/models`. The list is public on OpenRouter, so no key
+    /// goes with it.
+    pub async fn list_models(&self) -> Result<Vec<ModelInfo>> {
+        let mut rb = self.http.get(format!("{}/models", self.base_url)).timeout(PROBE_TIMEOUT);
+        for (k, v) in &self.headers {
+            rb = rb.header(k, v);
+        }
+        let resp = rb.send().await.context("model list request failed")?;
+        if !resp.status().is_success() {
+            bail!("model list returned {}", resp.status());
+        }
+        let body: Value = resp.json().await.context("model list is not JSON")?;
+        let models = catalog::parse(&body);
+        if models.is_empty() {
+            bail!("model list has no models");
+        }
+        Ok(models)
+    }
+}
+
+/// The list: the cache when it is fresh (and `force` is off), else a fetch
+/// the provider's way, else a stale cache. Errors only when there is nothing
+/// at all.
+pub async fn refresh(client: &Client, paths: &Paths, force: bool, how: Discover) -> Result<Vec<ModelInfo>> {
+    if !force && let Some(models) = catalog::fresh(paths, &client.base_url) {
+        return Ok(models);
+    }
+    match fetch(client, how).await {
+        Ok(models) => {
+            catalog::store(paths, &client.base_url, &models);
+            Ok(models)
+        }
+        Err(e) => {
+            // Kept beside the list it failed to replace, so the picker can say so.
+            let cause = format!("{e:#}").rsplit(": ").next().unwrap_or_default().to_string();
+            let models = catalog::record_failure(paths, &client.base_url, cause);
+            if models.is_empty() { Err(e) } else { Ok(models) }
+        }
+    }
+}
 
 /// The models `client`'s server lists, with whatever windows it states.
 pub async fn fetch(client: &Client, how: Discover) -> Result<Vec<ModelInfo>> {

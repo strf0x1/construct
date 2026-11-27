@@ -139,7 +139,7 @@ impl Context for Optchat {
     }
 
     fn call(&mut self, name: &str, args: &str) -> Option<Result<String, String>> {
-        if name != zoom::ZOOM {
+        if name != tree::ZOOM {
             return None;
         }
         Some(zoom::call(self.entries(), &self.tree, args))
@@ -200,7 +200,7 @@ mod tests {
     use crate::llm::{Completion, Usage};
 
     use super::guide::GUIDE;
-    use super::zoom::ZOOM;
+    use super::tree::ZOOM;
 
     /// Answers every summary call with one short line.
     struct Lines;

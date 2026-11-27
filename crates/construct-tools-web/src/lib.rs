@@ -10,6 +10,7 @@
 mod ddg;
 mod filter;
 mod http;
+mod result;
 mod search;
 mod select;
 

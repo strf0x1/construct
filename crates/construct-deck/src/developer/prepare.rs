@@ -1,6 +1,7 @@
 //! Prepare immutable developer operations before asking. Execution consumes
 //! the prepared inputs, so approval cannot be transferred to another payload.
 
+use super::runner::required;
 use super::{git, github, runner};
 use construct_core::permission::OperationAsk;
 use construct_core::tools::{Ctx, Output, ToolError};
@@ -18,14 +19,7 @@ pub struct Prepared {
 
 pub(super) enum Body {
     Github { endpoint: String, input: Vec<u8> },
-    Commit(git::Commit),
-    Push(git::Push),
-}
-
-pub fn required<'a>(args: &'a Value, name: &str) -> Result<&'a str, ToolError> {
-    args.get(name).and_then(Value::as_str).filter(|s| !s.is_empty() && !s.contains('\0')).ok_or_else(|| {
-        ToolError::new("invalid_argument", format!("{name} must be a nonempty string without NUL bytes"))
-    })
+    Git(Box<git::Body>),
 }
 
 pub async fn prepare(ctx: &Ctx, args: Value) -> Result<Prepared, ToolError> {
@@ -41,10 +35,31 @@ pub async fn prepare(ctx: &Ctx, args: Value) -> Result<Prepared, ToolError> {
         return Err("unexpected developer-operation argument".into());
     }
     let mut prepared = match operation {
-        "issue_create" | "pr_create" => github::prepare(ctx, &args),
-        "commit" | "push" => git::prepare(ctx, &args).await,
-        _ => Err(ToolError::new("invalid_argument", "operation must be issue_create, commit, push, or pr_create")),
-    }?;
+        "issue_create" | "pr_create" => {
+            let plan = github::prepare(ctx, &args)?;
+            Prepared {
+                request: plan.request,
+                executable: plan.executable,
+                cwd: plan.cwd,
+                operation: Body::Github { endpoint: plan.endpoint, input: plan.input },
+            }
+        }
+        "commit" | "push" => {
+            let plan = git::prepare(ctx, &args).await?;
+            Prepared {
+                request: plan.request,
+                executable: plan.executable,
+                cwd: plan.cwd,
+                operation: Body::Git(Box::new(plan.body)),
+            }
+        }
+        _ => {
+            return Err(ToolError::new(
+                "invalid_argument",
+                "operation must be issue_create, commit, push, or pr_create",
+            ));
+        }
+    };
     let hash = prepared.fingerprint()?;
     prepared.request.detail.push_str(&format!("\nExecution fingerprint: {hash}"));
     Ok(prepared)
@@ -56,7 +71,7 @@ impl Prepared {
             Body::Github { endpoint, input } => {
                 serde_json::to_vec(&(endpoint, input)).map_err(|_| "cannot encode operation")?
             }
-            other => git::binding(other)?,
+            Body::Git(git) => git.binding()?,
         };
         let encoded = serde_json::to_vec(&(
             &self.request.operation,
@@ -71,7 +86,7 @@ impl Prepared {
 
     pub async fn execute(self, ctx: &Ctx) -> Result<Output, ToolError> {
         self.executable.check()?;
-        let remote = !matches!(&self.operation, Body::Commit(_));
+        let remote = !matches!(&self.operation, Body::Git(git) if matches!(git.as_ref(), git::Body::Commit(_)));
         let ledger = remote.then(|| Ledger::begin(ctx, &self)).transpose()?;
         if let Some(Ledger { previous: Some(text), .. }) = &ledger {
             return Ok(Output::plain(format!("Already completed: {text}"))
@@ -124,8 +139,10 @@ impl Prepared {
                     })?;
                 Ok(format!("Created {url}"))
             }
-            Body::Commit(commit) => git::commit(ctx, &self.executable, &self.cwd, commit).await,
-            Body::Push(push) => git::push(ctx, &self.executable, &self.cwd, push).await,
+            Body::Git(git) => match git.as_ref() {
+                git::Body::Commit(commit) => git::commit(ctx, &self.executable, &self.cwd, commit).await,
+                git::Body::Push(push) => git::push(ctx, &self.executable, &self.cwd, push).await,
+            },
         }
     }
 }

@@ -7,7 +7,7 @@
 //! never trusts the model's count, and a failed or refused call still returns
 //! text, so `fit` can advance the view without a hole (decision 10).
 
-use super::tree::{LINE, flatten};
+use super::tree::{LINE, cut, flatten};
 use crate::config::Config;
 use crate::context::Env;
 use crate::llm::{Message, Usage};
@@ -86,19 +86,6 @@ fn clip(text: &str) -> String {
     let head: String = text.chars().take(HEAD).collect();
     let tail: String = text.chars().skip(count - HEAD).collect();
     format!("{head}\n[…]\n{tail}")
-}
-
-/// The longest prefix of `text` at or below `max` bytes that ends on a char
-/// boundary. Never cuts inside a character.
-pub(super) fn cut(text: &str, max: usize) -> &str {
-    if text.len() <= max {
-        return text;
-    }
-    let mut end = max;
-    while end > 0 && !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    text.get(..end).unwrap_or("")
 }
 
 /// One line for a leaf that needs the model (the entry is over `LINE` bytes).

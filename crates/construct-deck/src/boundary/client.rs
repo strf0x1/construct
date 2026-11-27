@@ -8,8 +8,8 @@
 //! never turns a tool into a hang.
 
 use super::note;
+use super::wire::{Entry, Outcome};
 use super::{MAX_QUEUE, Notice};
-use serde::Deserialize;
 use std::collections::{HashSet, VecDeque};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,56 +20,6 @@ pub const MAX_WAIT: u64 = 300;
 /// An events fetch is loopback and tiny; a slow one is a dead one.
 const EVENTS_TIMEOUT: Duration = Duration::from_secs(2);
 const WITHDRAW_TIMEOUT: Duration = Duration::from_secs(5);
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Entry {
-    pub seq: u64,
-    pub approval_id: String,
-    #[serde(default)]
-    pub destination: Option<String>,
-    #[serde(default, alias = "outcome")]
-    pub state: Option<String>,
-    #[serde(default)]
-    pub scope: Option<String>,
-    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
-    pub expires_at_ms: Option<u64>,
-}
-
-impl Entry {
-    fn validate(self) -> Result<Self, String> {
-        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
-        Ok(self)
-    }
-    pub fn state(&self) -> &str {
-        self.state.as_deref().unwrap_or("pending")
-    }
-    /// A decision, as opposed to an item still waiting on the user.
-    pub fn terminal(&self) -> bool {
-        matches!(self.state(), "allowed" | "denied" | "expired" | "withdrawn")
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Outcome {
-    #[serde(default, alias = "state")]
-    pub outcome: String,
-    #[serde(default)]
-    pub scope: Option<String>,
-    #[serde(default)]
-    pub destination: Option<String>,
-    #[serde(default, deserialize_with = "super::grant::expires_at_ms")]
-    pub expires_at_ms: Option<u64>,
-}
-
-impl Outcome {
-    fn validate(self) -> Result<Self, String> {
-        super::grant::timed_has_deadline(self.scope.as_deref(), self.expires_at_ms)?;
-        Ok(self)
-    }
-    pub fn terminal(&self) -> bool {
-        matches!(self.outcome.as_str(), "allowed" | "denied" | "expired" | "withdrawn")
-    }
-}
 
 #[derive(serde::Deserialize)]
 #[serde(untagged)]

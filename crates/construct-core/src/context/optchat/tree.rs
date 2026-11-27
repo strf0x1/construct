@@ -3,13 +3,28 @@
 //! bytes is derived from the entry, so replay needs no journal row for it;
 //! only a line the summary model wrote is stored.
 
-use super::zoom::ZOOM;
 use crate::llm::Message;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+/// The `zoom` tool's wire name, declared once.
+pub const ZOOM: &str = "zoom";
+
 /// A leaf's byte ceiling. Part of the format: replay depends on it.
 pub const LINE: usize = 512;
+
+/// The longest prefix of `text` at or below `max` bytes that ends on a char
+/// boundary. Never cuts inside a character.
+pub(super) fn cut(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let mut end = max;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text.get(..end).unwrap_or("")
+}
 
 /// One written line. Leaves have `l == 0`, merges `l >= 1`; `fallback` marks
 /// a line written without the summary model succeeding (ADR 0043 decision 10).

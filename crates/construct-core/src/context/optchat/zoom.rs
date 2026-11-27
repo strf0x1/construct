@@ -6,14 +6,10 @@
 //! `Context::call`, never through the tool catalog, so the wire name is
 //! declared here and nowhere else.
 
-use super::summary::cut;
-use super::tree::{Tree, raw};
+use super::tree::{Tree, ZOOM, cut, raw};
 use crate::llm::Message;
 use serde::Deserialize;
 use serde_json::{Value, json};
-
-/// The tool's wire name, declared once.
-pub const ZOOM: &str = "zoom";
 
 /// A leaf page's byte ceiling. Pages cut on a char boundary.
 pub const PAGE: usize = 32_768;

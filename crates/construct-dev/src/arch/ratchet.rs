@@ -149,7 +149,7 @@ fn cycle_problems(krate: &str, found: &BTreeSet<String>, listed: &[String], bad:
 /// Non-test lines of every file over the soft limit, by repo-relative path.
 fn long_files(root: &Path) -> BTreeMap<String, usize> {
     let mut out = BTreeMap::new();
-    for f in crate::xtask::rust_sources(&root.join("crates")) {
+    for f in crate::scratch::rust_sources(&root.join("crates")) {
         let Ok(text) = std::fs::read_to_string(&f) else { continue };
         if f.file_name().is_some_and(|n| n == "tests.rs") {
             continue;

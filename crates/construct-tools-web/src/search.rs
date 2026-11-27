@@ -8,9 +8,9 @@
 //! posture. Who is in the plan is `select.rs`.
 
 use super::{
-    ddg::strip_tags,
     filter::Filter,
     http::{ApiError, send_json},
+    result::{Answer, Hit, strip_tags},
     select::{Backend, Choice},
 };
 use construct_core::secrets::{BRAVE_API_KEY, EXA_API_KEY, TAVILY_API_KEY};
@@ -19,33 +19,12 @@ use construct_core::tools::Ctx;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-/// Which keys to suggest when the keyless fallback is rate limited.
-pub(super) fn key_names() -> String {
-    format!("{EXA_API_KEY}, {BRAVE_API_KEY} or {TAVILY_API_KEY}")
-}
-
 /// How much of a snippet the model sees: the best hits get room, the tail a
 /// line. Exa is asked for the larger size, since it cannot vary per result.
 const TOP_RESULTS: usize = 5;
 const TOP_CHARS: usize = 1200;
 const REST_CHARS: usize = 300;
 const TIMEOUT: Duration = Duration::from_secs(20);
-
-pub(super) struct Hit {
-    pub title: String,
-    pub url: String,
-    pub snippet: String,
-    /// A day (`2026-10-21`) when the backend knows one, else its own wording.
-    pub date: Option<String>,
-}
-
-/// What a backend returns: who answered, the hits, and anything the model
-/// should know about how its arguments were handled.
-pub(super) struct Answer {
-    pub backend: &'static str,
-    pub hits: Vec<Hit>,
-    pub notes: Vec<String>,
-}
 
 pub(super) async fn run(ctx: &Ctx, a: &Value, choice: Choice) -> Result<String, String> {
     let q = a.get("query").and_then(Value::as_str).ok_or("query is required")?;
