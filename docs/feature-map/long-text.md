@@ -3,8 +3,8 @@ id: long-text
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/table.rs, crates/construct-tui/src/overlays/ask/draw.rs, crates/construct-tui/src/markdown.rs]
-verified_at: 97f158c
-verified_deps: f516ece2c20f4be1
+verified_at: 76ea271
+verified_deps: 88a6cc0cfdee0009
 ---
 # Long text wraps
 

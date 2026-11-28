@@ -3,8 +3,8 @@ id: session-browser
 status: verified
 surfaces: [tui, cli]
 depends: [crates/construct-core/src/journal, crates/construct-core/src/agent/restore.rs, crates/construct-core/src/agent/user_turn.rs, crates/construct-tui/src/overlays/sessions, crates/construct-tui/src/app/restore.rs, crates/construct-tui/src/worker, crates/construct-tui/src/turn.rs, crates/construct-tui/src/app/activity.rs, crates/construct/src/cli/resume.rs]
-verified_at: 1bbe9a8
-verified_deps: 5f36066b0e4df809
+verified_at: 76ea271
+verified_deps: 818955b591bee833
 ---
 # Resume saved sessions
 
