@@ -137,6 +137,7 @@ async fn handle_conn(
                         session: SessionPolicy::parse(&cfg.session, &cfg.name),
                         prompt: cfg.prompt.clone(),
                         learn: cfg.learn,
+                        notes: Vec::new(),
                     };
                     if ingress.send(event).is_ok() {
                         EmitReply::Ok { id, trigger: cfg.name.clone() }

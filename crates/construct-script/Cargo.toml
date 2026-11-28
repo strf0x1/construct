@@ -1,0 +1,34 @@
+[package]
+name = "construct-script"
+description = "construct's confined QuickJS runtime and its wake scripts, registered by the binary's `script` feature (ADR 0079)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+autotests = false
+
+[lib]
+doctest = false
+
+[[test]]
+name = "it"
+path = "tests/it.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+construct-core = { workspace = true, default-features = false }
+async-trait.workspace = true
+# QuickJS (a C library) behind the binary's `script` feature only: `lean` and
+# bare peers never compile it (ADR 0079). No `futures`, `loader` or `full`:
+# scripts get no module loader and no host futures, only the bridge in `bridge.rs`.
+rquickjs = { version = "0.14", default-features = false, features = ["std"] }
+rusqlite.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

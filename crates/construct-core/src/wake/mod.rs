@@ -96,6 +96,21 @@ pub struct WakeEvent {
     /// Whether this trigger allows background learning after the wake turn.
     #[serde(default)]
     pub learn: bool,
+    /// Conditions a filter recovered from on the way here (a script that
+    /// failed to reload, ADR 0079), journaled as `Event::Note` rows in the
+    /// session this event reaches. Never shown to the model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<WakeNote>,
+}
+
+/// One `Event::Note` a `WakeFilter` hands to the session an event reaches:
+/// a filter runs before any session exists, so its notes ride the next event
+/// it passes. The filter owns the `class`/`kind` names and caps `detail`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WakeNote {
+    pub class: String,
+    pub kind: String,
+    pub detail: String,
 }
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);

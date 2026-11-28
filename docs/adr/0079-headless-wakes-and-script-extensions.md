@@ -253,3 +253,37 @@ Constraints:
   idle session eviction, and tier-2 Code Mode / learned-tool token savings
   (tracked in `#416`, `#417`, `#267` and `#186`; results will be recorded as
   slices land).
+
+## Slice 2 as built (#417)
+
+The first PR ships the wake-script role only; tool scripts (#186) and Code
+Mode (#267) reuse its `sandbox`, `bridge` and `reload` modules later. Choices
+made along the way that later slices must keep:
+
+- **No compiler at run time.** QuickJS cannot compile source without its
+  `Eval` intrinsic, and with it `eval`, `new Function` and
+  `(async () => {}).constructor` can't be blocked from JS. So a script is
+  compiled to bytecode in a throwaway context that has `Eval`, and runs from
+  that bytecode in a fresh runtime whose context does not
+  (`construct-script/src/sandbox.rs`). There is no module loader, so `import`
+  fails. Each call gets a new runtime: memory cap, stack cap and a wall-clock
+  interrupt (defaults 16 MiB, 512 KiB, 500 ms). Module-level variables never
+  survive a call, so `ctx.state` is the only memory.
+- **The bridge records; the host acts afterwards.** `ctx.wake` and
+  `ctx.state.set` only take effect if `onEvent` returns cleanly. State writes
+  commit in one SQLite transaction, so a throw or timeout leaves state as it
+  was. A script that fails drops its event (fail closed: it was put there to
+  keep noise out).
+- **Trust only goes up.** `ctx.wake({ untrusted })` can mark a trusted event
+  untrusted, never the reverse.
+- **Notes ride the next passed event.** A filter runs before any session
+  exists, so a failed reload or failed call becomes a `WakeNote` on the next
+  event that script passes (`WakeEvent.notes`, additive and never shown to the
+  model), journaled as `Event::Note { class: "script" }` in the session it
+  reaches. It is also printed to stderr when it happens. A script that never
+  loaded has no next event, so its failure is on stderr only.
+- **Operator directory only.** `$CONSTRUCT_HOME/scripts/wakes/` is read;
+  a project's `.construct/scripts/` is not, because the agent can write
+  there. Reading it waits for the approval flow (#421).
+- Limits are crate constants for now; a `[script]` config section comes when
+  a second role needs different limits.

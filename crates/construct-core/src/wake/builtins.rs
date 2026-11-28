@@ -71,6 +71,7 @@ impl WakeSource for TimerSource {
                                 session: SessionPolicy::parse(&cfg.session, &cfg.name),
                                 prompt: cfg.prompt.clone(),
                                 learn: cfg.learn,
+                                notes: Vec::new(),
                             };
                             if tx.send(ev).is_err() {
                                 break;
@@ -165,6 +166,7 @@ async fn run_probe(cfg: &WakeTriggerConfig, script: &str, ctx: &SourceCtx) -> Op
                 session: SessionPolicy::parse(&cfg.session, &cfg.name),
                 prompt: cfg.prompt.clone(),
                 learn: cfg.learn,
+                notes: Vec::new(),
             });
         }
         Err(_) => {
@@ -181,6 +183,7 @@ async fn run_probe(cfg: &WakeTriggerConfig, script: &str, ctx: &SourceCtx) -> Op
                 session: SessionPolicy::parse(&cfg.session, &cfg.name),
                 prompt: cfg.prompt.clone(),
                 learn: cfg.learn,
+                notes: Vec::new(),
             });
         }
     };
@@ -206,6 +209,7 @@ async fn run_probe(cfg: &WakeTriggerConfig, script: &str, ctx: &SourceCtx) -> Op
         session: SessionPolicy::parse(&cfg.session, &cfg.name),
         prompt: cfg.prompt.clone(),
         learn: cfg.learn,
+        notes: Vec::new(),
     })
 }
 
