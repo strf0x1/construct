@@ -3,7 +3,7 @@
 //!
 //! An optional tool crate (#271, ADR 0064): the binary registers `Skills` as
 //! a `ToolSource` when its `skills` feature is on. The library itself, the
-//! loader a user's `/<skill>` shares (`Ctx::load_skill`) and the wire names
+//! loader a user's `/<skill>` shares (`skills::Stack::load`) and the wire names
 //! (`skills::VIEW_TOOL`, `MANAGE_TOOL`) stay in core, which the learning
 //! pass and the prompt need either way.
 
@@ -78,7 +78,7 @@ impl Tool for SkillView {
                 format!("name is required; {} with action=list shows the available skills", SkillManage::NAME).into()
             );
         };
-        Ok(Output::plain(ctx.load_skill(n, a["file"].as_str())?))
+        Ok(Output::plain(ctx.skills().load(n, a["file"].as_str())?))
     }
 }
 
@@ -134,12 +134,13 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let name = || s("name").ok_or_else(|| "name is required".to_string());
     if s("action") == Some("list") {
         let lines: Vec<String> = ctx
-            .skill_libs()
+            .skills()
+            .libs()
             .into_iter()
             .flat_map(|lib| {
                 lib.list()
                     .into_iter()
-                    .map(move |k| format!("- {} ({}): {}", k.name, ctx.locate_skill(lib, &k.name), k.description))
+                    .map(move |k| format!("- {} ({}): {}", k.name, lib.locate(&k.name), k.description))
             })
             .collect();
         if lines.is_empty() {
@@ -148,7 +149,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
         return Ok(lines.join("\n"));
     }
     // An existing skill is edited where it lives; a new one goes where `scope` says.
-    let lib = ctx.writable_skill_lib(s("name"), s("scope"))?;
+    let lib = ctx.skills().writable(s("name"), s("scope"))?;
     match s("action").unwrap_or("") {
         "create" => lib.create(name()?, s("content").ok_or("content is required")?, "agent"),
         "edit" => lib.edit(name()?, s("content").ok_or("content is required")?),
@@ -166,7 +167,7 @@ fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
     }
     .map(|msg| match (s("action"), s("name")) {
         (Some("create" | "edit" | "patch" | "write_file" | "remove_file"), Some(n)) => {
-            format!("{msg} ({})", ctx.locate_skill(lib, n))
+            format!("{msg} ({})", lib.locate(n))
         }
         _ => msg,
     })

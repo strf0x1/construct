@@ -151,7 +151,7 @@ impl Agent {
             .find(|m| m.role == "assistant" && m.content.is_some())
             .and_then(|m| m.content.as_deref())
             .unwrap_or("");
-        let skills = self.ctx.all_skills();
+        let skills = self.ctx.skills().all();
         let mcp = self.catalog.mcp_descriptions();
         router::route(
             &self.cfg.router,

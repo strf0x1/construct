@@ -10,7 +10,7 @@ use super::playbook::{self, Add, Books, Delta};
 use super::{Outcome, ask_json};
 use crate::config::{Config, Paths};
 use crate::llm::{self, Message};
-use crate::skills::Library;
+use crate::skills::Kit;
 use anyhow::Result;
 use serde::Deserialize;
 use std::fmt::Write as _;
@@ -56,12 +56,13 @@ fn lower_first(s: &str) -> String {
 
 /// Write each skill into `lib` (create or rewrite), and add a pointer bullet
 /// for each one that landed and isn't pointed at yet. Returns the log.
-pub fn write_skills(lib: &Library, skills: &[NewSkill], books: &Books, d: &mut Delta) -> Vec<String> {
+pub fn write_skills(kit: &Kit, skills: &[NewSkill], books: &Books, d: &mut Delta) -> Vec<String> {
     let mut log = Vec::new();
+    let lib = kit.writable();
     for s in skills.iter().take(MAX_SKILLS) {
         let content =
             format!("---\nname: {}\ndescription: {}\n---\n\n{}\n", s.name, s.description.trim(), s.body.trim());
-        let r = match lib.get(&s.name) {
+        let r = match kit.get(&s.name) {
             Some(_) => lib.edit(&s.name, &content),
             None => lib.create(&s.name, &content, "agent"),
         };
@@ -82,12 +83,12 @@ pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Resul
     let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
     let mut books = Books::load(paths);
-    let lib = books.kit.as_ref().map(|k| Library::at(k.skills_dir()));
+    let kit = books.kit_skills();
     let mut task = format!("{}{}", playbook::session_text(messages), books.listing());
-    match &lib {
-        Some(lib) => {
+    match &kit {
+        Some(kit) => {
             let _ = writeln!(task, "\nCURRENT SKILLS FOR THIS REPO:");
-            let skills = lib.list();
+            let skills = kit.list();
             if skills.is_empty() {
                 let _ = writeln!(task, "(none)");
             }
@@ -104,11 +105,8 @@ pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Resul
     let mut d: Delta = serde_json::from_value(v.clone()).unwrap_or_default();
     let skills: Vec<NewSkill> = serde_json::from_value(v["skills"].clone()).unwrap_or_default();
     let mut actions = Vec::new();
-    if let (Some(lib), false) = (&lib, skills.is_empty()) {
-        if let Some(k) = &books.kit {
-            k.touch();
-        }
-        actions.extend(write_skills(lib, &skills, &books, &mut d));
+    if let (Some(kit), false) = (&kit, skills.is_empty()) {
+        actions.extend(write_skills(kit, &skills, &books, &mut d));
     }
     actions.extend(books.apply(&d));
     let summary = if actions.is_empty() { "Nothing to save.".into() } else { "Playbook and skills updated.".into() };
@@ -119,10 +117,11 @@ pub async fn reflect(cfg: &Config, paths: &Paths, messages: &[Message]) -> Resul
 mod tests {
     use super::*;
 
-    fn kit(tag: &str) -> (std::path::PathBuf, Library) {
+    fn kit(tag: &str) -> (std::path::PathBuf, Kit) {
         let dir = std::env::temp_dir().join(format!("construct-hybrid-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        (dir.clone(), Library::at(dir.join("skills")))
+        let project = crate::project::Project { name: tag.into(), root: dir.clone(), dir: dir.clone() };
+        (dir, Kit::new(&project))
     }
 
     fn release() -> NewSkill {

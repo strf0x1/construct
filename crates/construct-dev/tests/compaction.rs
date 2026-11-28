@@ -196,7 +196,7 @@ fn rounds_too_big_to_elide_are_summarized_with_the_request_pinned() {
     let usage_rows = env.journal().into_iter().filter(|r| r.ty == "usage").count() as u64;
     assert_eq!(totals.requests, usage_rows + summarized.len() as u64);
     let summary_prompt: u64 = summarized.iter().map(|c| c["summary_prompt"].as_u64().unwrap()).sum();
-    assert_eq!(totals.side.prompt_tokens, summary_prompt);
+    assert_eq!(totals.side_calls().map(|s| s.prompt_tokens).unwrap_or_default(), summary_prompt);
     // The summarizer was asked with its own prompt and the replaced rounds;
     // a second summary is asked to build on the first.
     let side: Vec<Value> =

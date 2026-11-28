@@ -59,7 +59,7 @@ pub async fn distill(cfg: &Config, paths: &Paths, session: &str, messages: &[Mes
 /// and `workflow` keep a store of their own; the others add nothing and
 /// touch no files.
 pub fn prompt_block(strategy: &str, memory: &Store) -> String {
-    let kit = memory.project.as_ref().map(|p| p.dir.as_path());
+    let kit = memory.kit_dir();
     match strategy {
         PLAYBOOK | HYBRID => playbook::prompt_block(memory.dir(), kit),
         WORKFLOW => workflow::prompt_block(kit),

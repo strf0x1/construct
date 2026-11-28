@@ -19,8 +19,8 @@ use crate::admit::{APPROVAL_TTL_SECS, Admission, Offer};
 use crate::proxy::Calls;
 use crate::state::{Conn, Hub, ToLink, Waiting, lock, now, stopped};
 use construct_peer::{
-    Channel, Control, DEFAULT_HANDSHAKE_TIMEOUT, Envelope, FrameStream, KeepAlive, KeepAliveState, Keypair,
-    PINNED_MAX_ENVELOPE, PeerLink, accept_ws, handshake_responder, llm, recv_with_keepalive,
+    Channel, Control, DEFAULT_HANDSHAKE_TIMEOUT, Envelope, FrameStream, KeepAlive, KeepAliveState, Keypair, PeerLink,
+    accept_ws, handshake_responder, llm, recv_with_keepalive,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -84,7 +84,7 @@ pub(crate) async fn run(
             return;
         }
         Admission::Pinned => {
-            link.set_max_envelope_bytes(PINNED_MAX_ENVELOPE);
+            link.pin();
             if send(&mut link, &Control::JoinAck { accepted: true, reason: None }).await {
                 eprintln!("construct hub: {id} connected from {remote} (pinned)");
                 attach(&hub, &id, cwd.clone());
@@ -189,7 +189,7 @@ async fn follow<S: FrameStream>(
                 }
                 Some(ToLink::Approved) => {
                     expiry = None;
-                    link.set_max_envelope_bytes(PINNED_MAX_ENVELOPE);
+                    link.pin();
                     send(link, &Control::JoinAck { accepted: true, reason: None }).await;
                     eprintln!("construct hub: {id} approved and pinned");
                     attach(hub, id, cwd.clone());

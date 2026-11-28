@@ -4,9 +4,10 @@
 //! `[channel: u8][flags: u8][seq: u32 BE][total_len: u32 BE]`.
 //! The reassembler enforces the configured byte cap (`PRE_PIN_MAX_ENVELOPE`
 //! before pinning, `PINNED_MAX_ENVELOPE` after) before allocating, preventing
-//! unauthenticated OOM from spoofed lengths or unbounded streams.
+//! unauthenticated OOM from spoofed lengths or unbounded streams. The cap only
+//! ever moves one way, by `pin`: there is no setter to lower or widen it.
 
-use crate::envelope::{Channel, Envelope, MAX_CHUNK_PAYLOAD, NOISE_MAX_PLAINTEXT};
+use crate::envelope::{Channel, Envelope, MAX_CHUNK_PAYLOAD, NOISE_MAX_PLAINTEXT, PINNED_MAX_ENVELOPE};
 use crate::error::WireError;
 
 /// Chunk header size inside each Noise plaintext frame.
@@ -71,13 +72,9 @@ impl Reassembler {
         Self { limit, active: None }
     }
 
-    pub(crate) fn set_limit(&mut self, limit: usize) {
-        self.limit = limit;
-    }
-
-    #[must_use]
-    pub(crate) fn limit(&self) -> usize {
-        self.limit
+    /// The peer is pinned: accept envelopes up to `PINNED_MAX_ENVELOPE`.
+    pub(crate) fn pin(&mut self) {
+        self.limit = PINNED_MAX_ENVELOPE;
     }
 
     /// Feed one decrypted Noise plaintext frame. Returns `Ok(Some(envelope))`

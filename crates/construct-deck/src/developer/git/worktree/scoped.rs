@@ -15,7 +15,7 @@ use tokio::io::AsyncWriteExt as _;
 
 pub(super) struct Checkout {
     pub root: PathBuf,
-    pub git_dir: PathBuf,
+    git_dir: PathBuf,
     pub oid_len: usize,
     exe: Executable,
     scratch: Scratch,
@@ -93,6 +93,14 @@ impl Checkout {
             ..Policy::default()
         };
         Ok(Self { root, git_dir, oid_len, exe, scratch, policy })
+    }
+
+    /// Whether a merge, cherry-pick, revert, rebase or sequencer run is
+    /// already under way in this checkout: its state files sit in `git_dir`.
+    pub(super) fn operation_in_progress(&self) -> bool {
+        ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-apply", "rebase-merge", "sequencer"]
+            .iter()
+            .any(|name| self.git_dir.join(name).symlink_metadata().is_ok())
     }
 
     pub(super) async fn git(&self, ctx: &Ctx, args: &[&str], input: &[u8]) -> Result<String, ToolError> {

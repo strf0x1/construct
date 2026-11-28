@@ -169,7 +169,7 @@ pub fn apply(bullets: &mut Vec<Bullet>, d: &Delta, prefix: &str, scope: &str, ca
 /// The two playbooks a reflection in `cwd` reads and edits: this repo's and the
 /// global one. Shared with `hybrid`, which edits the same playbooks.
 pub(super) struct Books {
-    pub kit: Option<crate::project::Project>,
+    kit: Option<crate::project::Project>,
     gpath: PathBuf,
     global: Vec<Bullet>,
     project: Vec<Bullet>,
@@ -182,6 +182,12 @@ impl Books {
         let gpath = global_path(&paths.memory_dir());
         let project = kit.as_ref().map(|p| load(&project_path(&p.dir))).unwrap_or_default();
         Self { kit, global: load(&gpath), gpath, project }
+    }
+
+    /// This repo's skills, when the reflection runs in a repo: `hybrid` keeps
+    /// procedures there beside the playbook.
+    pub fn kit_skills(&self) -> Option<crate::skills::Kit> {
+        self.kit.as_ref().map(crate::skills::Kit::new)
     }
 
     /// The playbook as the reflection sees it, with each bullet's record.

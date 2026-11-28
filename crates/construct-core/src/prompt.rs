@@ -60,6 +60,7 @@ fn base(names: ToolNames, search: Option<&str>) -> String {
 pub fn build(
     cwd: &Path,
     memory: &memory::Store,
+    skills: &crate::skills::Stack,
     strategy: &str,
     names: ToolNames,
     search: Option<&str>,
@@ -82,13 +83,11 @@ pub fn build(
     }
     s.push_str(&memory.prompt_block());
     s.push_str(&crate::learn::prompt_block(strategy, memory));
-    if let (Some(p), Some(view)) = (&memory.project, names.skill_view) {
-        let kit = crate::skills::Library::at(p.skills_dir()).list();
+    if let (Some(kit), Some(view)) = (skills.kit(), names.skill_view) {
+        let name = kit.name();
+        let kit = kit.list();
         if !kit.is_empty() {
-            s.push_str(&format!(
-                "\n# Skills for this project ({}) — load with the {view} tool when one applies\n",
-                p.name
-            ));
+            s.push_str(&format!("\n# Skills for this project ({name}) — load with the {view} tool when one applies\n"));
             for k in kit {
                 s.push_str(&format!("- {}: {}\n", k.name, crate::text::truncate(&k.description, 200)));
             }

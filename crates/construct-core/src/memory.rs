@@ -44,7 +44,7 @@ pub struct Section {
 pub struct Store {
     dir: PathBuf,
     cfg: MemoryConfig,
-    pub project: Option<crate::project::Project>,
+    project: Option<crate::project::Project>,
 }
 
 impl Store {
@@ -56,6 +56,18 @@ impl Store {
     pub fn with_project(mut self, paths: &Paths, cwd: &std::path::Path) -> Self {
         self.project = crate::project::detect(paths, cwd);
         self
+    }
+
+    /// The skills this store's scope reaches: the project kit's (when it
+    /// holds a project) over the global library.
+    pub fn skills(&self, paths: &Paths) -> crate::skills::Stack {
+        crate::skills::Stack::new(paths, self.project.as_ref())
+    }
+
+    /// The project kit's directory, where learners that keep their own store
+    /// (playbook, workflow) put this repo's part of it.
+    pub fn kit_dir(&self) -> Option<&std::path::Path> {
+        self.project.as_ref().map(|p| p.dir.as_path())
     }
 
     fn path(&self, t: Target) -> PathBuf {

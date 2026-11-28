@@ -16,7 +16,7 @@ pub(in crate::tools) use access::SHELL_STOP_AFTER;
 use super::SHELL_NAME;
 use crate::config::Paths;
 use crate::permission::{Perms, PolicyTools};
-use crate::skills::Library;
+use crate::skills::Stack;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -37,9 +37,8 @@ pub struct Ctx {
     paths: Paths,
     cancel: watch::Receiver<bool>,
     memory: crate::memory::Store,
-    skills: Library,
-    /// The current repo's kit skills, when construct runs inside a repo.
-    project_skills: Option<Library>,
+    /// The repo's kit skills over the global library.
+    skills: Stack,
     /// Who may be asked, and what has been approved (`permission`).
     perms: Arc<Perms>,
     read_files: Mutex<HashSet<PathBuf>>,
@@ -71,15 +70,13 @@ impl Ctx {
         cancel: watch::Receiver<bool>,
         perms: Arc<Perms>,
     ) -> Self {
-        let skills = Library::new(&paths);
-        let project_skills = memory.project.as_ref().map(|p| Library::at(p.skills_dir()));
+        let skills = memory.skills(&paths);
         Self {
             cwd,
             paths,
             cancel,
             memory,
             skills,
-            project_skills,
             perms,
             read_files: Mutex::new(HashSet::new()),
             shell_blocked: Default::default(),

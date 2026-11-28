@@ -104,7 +104,7 @@ impl Status {
             key,
             socket: files.socket().display().to_string(),
             pairing_until: None,
-            peers: registry.peers.into_iter().map(PeerStatus::offline).collect(),
+            peers: registry.peers().iter().cloned().map(PeerStatus::offline).collect(),
         })
     }
 

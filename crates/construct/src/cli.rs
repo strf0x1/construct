@@ -240,8 +240,10 @@ pub fn run() -> Result<()> {
                     }
                 }
                 ("show", Some(n)) => println!("{}", lib.view(&n, None).map_err(anyhow::Error::msg)?),
-                ("pin", Some(n)) => lib.set_pinned(&n, true).map_err(anyhow::Error::msg)?,
-                ("unpin", Some(n)) => lib.set_pinned(&n, false).map_err(anyhow::Error::msg)?,
+                ("pin" | "unpin", Some(n)) => skills::Stack::new(&paths, None)
+                    .writable(Some(&n), None)
+                    .and_then(|w| w.pin(&n, action == "pin"))
+                    .map_err(anyhow::Error::msg)?,
                 _ => bail!("{action} needs a skill name"),
             }
             Ok(())
