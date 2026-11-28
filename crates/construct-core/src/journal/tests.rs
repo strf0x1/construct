@@ -137,6 +137,7 @@ fn latest_is_the_newest_head_in_this_directory() {
             .unwrap(),
             parent_session: None,
             parent_call_id: None,
+            origin: None,
         }
     };
     let (a, _) = Writer::create(&f, head("/a")).unwrap();

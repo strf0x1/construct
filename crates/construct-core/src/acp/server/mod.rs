@@ -28,6 +28,7 @@
 
 mod load;
 mod turns;
+mod wakes;
 
 use super::deck;
 use super::map;
@@ -38,11 +39,14 @@ use super::{VERSION, cwd, rpc};
 use crate::agent::Agent;
 use crate::config::{Config, Paths};
 use crate::tools::ToolSources;
+use crate::wake::{self, SourceCtx, WakeBatch, WakeBus, WakeSources};
 use anyhow::Result;
 use rpc::Incoming;
 use serde_json::{Value, json};
-use std::collections::HashMap;
-use tokio::sync::mpsc;
+use std::collections::{HashMap, VecDeque};
+use std::path::PathBuf;
+use std::time::Duration;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinSet;
 
 type Out = mpsc::UnboundedSender<String>;
@@ -63,18 +67,65 @@ pub async fn serve(
     cfg: Config,
     paths: Paths,
     sources: ToolSources,
+    input: mpsc::UnboundedReceiver<Input>,
+    out: Out,
+) -> Result<()> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    serve_with_wakes(cfg, paths, sources, WakeSources::default(), cwd, input, out).await
+}
+
+/// Like [`serve`], additionally running local `[[wakes]]` sources and
+/// `wake.sock` (for `construct peer`, ADR 0079) so wakes execute autonomously
+/// even while [`Input::Detached`].
+pub async fn serve_with_wakes(
+    cfg: Config,
+    paths: Paths,
+    sources: ToolSources,
+    wake_sources: WakeSources,
+    cwd: PathBuf,
     mut input: mpsc::UnboundedReceiver<Input>,
     out: Out,
 ) -> Result<()> {
+    let (wake_cancel_tx, wake_cancel_rx) = watch::channel(false);
+    let mut wake_tasks = Vec::new();
+    let mut wake_batches = if !cfg.wakes.is_empty() {
+        let bus = WakeBus::start(&cfg.wake, &cfg.wakes, wake_sources.filters().to_vec(), wake_cancel_rx.clone());
+        let ctx = SourceCtx { cwd: cwd.clone(), paths: paths.clone(), sandbox: cfg.sandbox.clone() };
+        match wake_sources.start_all(&cfg.wakes, &ctx, &bus.ingress, &wake_cancel_rx) {
+            Ok(handles) => wake_tasks.extend(handles),
+            Err(e) => eprintln!("acp: failed to start wake sources: {e:#}"),
+        }
+        match wake::socket::serve(&paths, cfg.wakes.clone(), bus.ingress.clone(), wake_cancel_rx.clone()).await {
+            Ok(h) => wake_tasks.push(h),
+            Err(e) => eprintln!("acp: wake socket disabled: {e:#}"),
+        }
+        wake_tasks.push(bus.task);
+        Some(bus.batches)
+    } else {
+        None
+    };
+
+    let max_concurrent_wakes = cfg.wake.max_concurrent_turns.max(1);
+    let idle_evict = cfg.wake.idle_evict_duration().unwrap_or(Duration::from_secs(300));
+    let evict_period = (idle_evict / 2).clamp(Duration::from_millis(50), Duration::from_secs(5));
+    let mut evict_tick = tokio::time::interval(evict_period);
+    evict_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     let (commands, mut pending) = mpsc::unbounded_channel();
     let mut srv = Server {
         cfg,
         paths,
         sources,
+        cwd,
         out,
         commands,
         questions: Questions::default(),
         sessions: HashMap::new(),
+        dedicated: HashMap::new(),
+        shared_session: None,
+        pending_wakes: VecDeque::new(),
+        max_concurrent_wakes,
+        idle_evict,
         wire: map::Wire::legacy(),
         attachment: 0,
         next_session: 0,
@@ -88,10 +139,21 @@ pub async fn serve(
                 Some(Input::Detached) => srv.detach(),
                 None => break,
             },
+            Some(batch) = async {
+                match wake_batches.as_mut() {
+                    Some(rx) => rx.recv().await,
+                    None => std::future::pending().await,
+                }
+            } => srv.on_wake_batch(batch, &mut turns),
             Some(command) = pending.recv() => srv.command(command, &mut turns),
+            _ = evict_tick.tick(), if wake_batches.is_some() => srv.evict_idle_wake_sessions(),
             Some(_) = turns.join_next(), if !turns.is_empty() => {}
             _ = srv.out.closed() => break,
         }
+    }
+    let _ = wake_cancel_tx.send(true);
+    for h in wake_tasks {
+        h.abort();
     }
     // Continue consuming turn output during shutdown, but start no queued turns.
     srv.closing = true;
@@ -121,6 +183,7 @@ struct Server {
     paths: Paths,
     /// Tools the composition root adds to every session's catalog.
     sources: ToolSources,
+    cwd: PathBuf,
     out: Out,
     questions: Questions,
     commands: mpsc::UnboundedSender<Command>,
@@ -128,6 +191,11 @@ struct Server {
     next_session: u64,
     closing: bool,
     sessions: HashMap<String, Session>,
+    dedicated: HashMap<String, String>,
+    shared_session: Option<String>,
+    pending_wakes: VecDeque<WakeBatch>,
+    max_concurrent_wakes: usize,
+    idle_evict: Duration,
     /// What this attachment's client parses (see `map::Wire`).
     wire: map::Wire,
 }

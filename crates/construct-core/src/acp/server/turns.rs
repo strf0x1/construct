@@ -25,7 +25,9 @@ impl Server {
         let blocks = params["prompt"].as_array().cloned().unwrap_or_default();
         let text = map::prompt_text(&blocks);
         match s.enqueue_prompt(id.clone(), attachment, text, key) {
-            Enqueue::Queued => self.start_prompt(sid, turns),
+            Enqueue::Queued => {
+                self.start_prompt(sid, turns);
+            }
             Enqueue::Waits => {}
             Enqueue::Answer(outcome) => self.reply(&id, keys::reply_outcome(outcome)),
             Enqueue::Conflict(k) => {
@@ -47,15 +49,16 @@ impl Server {
         }
     }
 
-    fn start_prompt(&mut self, sid: &str, turns: &mut JoinSet<()>) {
+    pub(super) fn start_prompt(&mut self, sid: &str, turns: &mut JoinSet<()>) -> bool {
         if self.closing {
-            return;
+            return false;
         }
         let Some((agent, prompt)) = self.sessions.get_mut(sid).and_then(Session::start_next_prompt) else {
-            return;
+            return false;
         };
         turns.spawn(turn::run(agent, sid.to_string(), prompt, self.commands.clone()));
         self.turn_notice(sid);
+        true
     }
 
     pub(super) fn command(&mut self, command: Command, turns: &mut JoinSet<()>) {
@@ -98,7 +101,23 @@ impl Server {
                     self.reply(&id, keys::reply_outcome(result.clone()));
                 }
                 if self.sessions.get(&session).is_some_and(|s| s.generation() == prompt.generation) {
-                    self.start_prompt(&session, turns);
+                    self.start_next_or_watch(&session, turns);
+                }
+                self.dispatch_wakes(turns);
+            }
+            Command::WakeFinished { session, generation, result } => {
+                if let Some(s) = self.sessions.get_mut(&session).filter(|s| s.generation() == generation) {
+                    s.finish_turn(&result);
+                    self.turn_notice(&session);
+                }
+                if self.sessions.get(&session).is_some_and(|s| s.generation() == generation) {
+                    self.start_next_or_watch(&session, turns);
+                }
+                self.dispatch_wakes(turns);
+            }
+            Command::JobReady { session, generation } => {
+                if self.sessions.get(&session).is_some_and(|s| s.generation() == generation) {
+                    self.start_next_or_watch(&session, turns);
                 }
             }
         }

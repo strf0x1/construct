@@ -29,6 +29,7 @@ use anyhow::{Context, Result, bail};
 use construct_core::acp::server::{self, Input};
 use construct_core::config::{Config, Llm, LlmGateway, Paths, stamp};
 use construct_core::tools::ToolSources;
+use construct_core::wake::WakeSources;
 use construct_peer::gateway::{self, Relay};
 use construct_peer::join::{self, Event, Outbox, Outcome};
 use construct_peer::{Backoff, Hello, PublicKey, WireError, keyfile, service};
@@ -102,7 +103,13 @@ fn flag_or_stamp(flag: Option<String>, stamped: Option<&String>, name: &str) -> 
     flag.or_else(|| stamped.cloned()).with_context(|| format!("--{name} is required (this binary is not stamped)"))
 }
 
-pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, args: PeerArgs) -> Result<()> {
+pub(super) async fn run(
+    mut cfg: Config,
+    paths: Paths,
+    sources: ToolSources,
+    wake_sources: WakeSources,
+    args: PeerArgs,
+) -> Result<()> {
     let stamped = stamp::current()?.map(|s| &s.peer);
     let id = flag_or_stamp(args.id.clone(), stamped.map(|p| &p.id), "id")?;
     if args.uninstall {
@@ -151,7 +158,7 @@ pub(super) async fn run(mut cfg: Config, paths: Paths, sources: ToolSources, arg
     let (to_agent, input) = mpsc::unbounded_channel();
     let (out, acp) = mpsc::unbounded_channel();
     let home = paths.home.clone();
-    let agent = tokio::spawn(server::serve(cfg, paths, sources, input, out));
+    let agent = tokio::spawn(server::serve_with_wakes(cfg, paths, sources, wake_sources, cwd, input, out));
     let mut outbox = Outbox { acp, llm };
     // An installed peer was joined before, so a hub it cannot reach yet
     // (booting, the network not up) is retried, not an exit.

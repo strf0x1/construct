@@ -35,6 +35,9 @@ pub enum Event {
         parent_session: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         parent_call_id: Option<String>,
+        /// How this session started (`None` for ordinary interactive sessions, ADR 0079).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        origin: Option<Box<payload::SessionOrigin>>,
     },
     /// The system prompt the session started with.
     System {
@@ -290,10 +293,14 @@ pub enum Event {
         why: String,
         message: Message,
     },
+    /// A wake event arrived for this session (ADR 0079).
+    WakeReceived(payload::WakeReceived),
+    /// One or more wake events reached the model at a turn boundary (ADR 0079).
+    WakesDelivered(payload::WakesDelivered),
 }
 
 mod output;
 pub mod payload;
 mod projection;
 mod submission;
-pub use {output::OutputKind, projection::MemoryNode, submission::Submission};
+pub use {output::OutputKind, payload::SessionOrigin, projection::MemoryNode, submission::Submission};

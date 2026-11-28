@@ -25,7 +25,7 @@ mod show;
 mod totals;
 mod writer;
 
-pub use browser::{Session, browse, prompts, saved_model, validate_directory};
+pub use browser::{Session, browse, find_dedicated, prompts, saved_model, validate_directory};
 pub use export::export;
 pub use read::{Entry, project};
 pub use show::{find, human, rows_text, share, status_rows, transcript};

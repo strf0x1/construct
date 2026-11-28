@@ -10,15 +10,19 @@ use super::map;
 use super::replay::Transcript;
 use super::rpc;
 use super::turn::Prompt;
+use super::turn_state::{Phase, Turn};
 use crate::agent::Agent;
 use crate::event::Event;
+use crate::jobs::Jobs;
 use crate::tools::Catalog;
 use crate::tools::boundary::BoundaryHost;
+use crate::wake::WakeEvent;
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, watch};
 
 /// Outcome of submitting a `session/prompt` to a [`Session`].
@@ -29,64 +33,12 @@ pub(super) enum Enqueue {
     Answer(Outcome),
 }
 
-struct Turn {
-    number: u64,
-    phase: Phase,
-}
-
-#[derive(PartialEq, Eq)]
-enum Phase {
-    Working,
-    Waiting,
-    Idle(Option<String>),
-}
-
-impl Turn {
-    fn observe(&mut self, event: &Event, reason: &mut Option<&'static str>) {
-        match event {
-            Event::TurnStart => {
-                self.number += 1;
-                *reason = None;
-            }
-            Event::Error { message } => {
-                if message.ends_with("(max_steps)") {
-                    *reason = Some("max_turn_requests");
-                } else if reason.is_none() {
-                    *reason = Some("error");
-                }
-            }
-            Event::TurnEnd { interrupted, .. } => {
-                let stop = if *interrupted { "cancelled" } else { reason.unwrap_or("end_turn") };
-                self.phase = Phase::Idle(Some(stop.into()));
-            }
-            Event::Recovered { .. } => self.phase = Phase::Idle(Some("cancelled".into())),
-            _ => {}
-        }
-    }
-
-    fn is_idle(&self) -> bool {
-        matches!(self.phase, Phase::Idle(_))
-    }
-
-    fn value(&self, session: &str) -> Value {
-        let state = match self.phase {
-            Phase::Working => "working",
-            Phase::Waiting => "waiting",
-            Phase::Idle(_) => "idle",
-        };
-        let mut value = json!({ "sessionId": session, "turn": self.number, "state": state });
-        if let Phase::Idle(Some(reason)) = &self.phase {
-            value["stopReason"] = json!(reason);
-        }
-        value
-    }
-}
-
 pub(super) struct Session {
     /// Reject queued commands from a closed instance of this session id.
     generation: u64,
     agent: Arc<Mutex<Agent>>,
     cancel: watch::Sender<bool>,
+    jobs: Jobs,
     catalog: Arc<Catalog>,
     /// Deck's boundary endpoint, when this session has one; the reader loop
     /// pushes late decisions here without taking the agent lock.
@@ -97,7 +49,12 @@ pub(super) struct Session {
     turn: Turn,
     attached: u64,
     prompts: VecDeque<Prompt>,
+    pending_wakes: VecDeque<Vec<WakeEvent>>,
     keys: Keys,
+    last_active: Instant,
+    wake_lane: Option<String>,
+    fresh_wake: bool,
+    learn_enabled: bool,
 }
 
 impl Session {
@@ -109,7 +66,7 @@ impl Session {
         let entries = agent.entries()?;
         let catalog = agent.catalog();
         let mut transcript = Transcript::default();
-        let mut turn = Turn { number: 0, phase: Phase::Idle(None) };
+        let mut turn = Turn::new();
         let mut reason = None;
         let mut keys = Keys::default();
         for entry in &entries {
@@ -118,12 +75,14 @@ impl Session {
             turn.observe(&entry.event, &mut reason);
         }
         let cancel = agent.canceller();
+        let jobs = agent.jobs();
         let boundary = agent.boundary();
         let cwd = agent.cwd().to_path_buf();
         let session = Self {
             generation,
             agent: Arc::new(Mutex::new(agent)),
             cancel,
+            jobs,
             catalog,
             boundary,
             cwd,
@@ -132,9 +91,61 @@ impl Session {
             turn,
             attached,
             prompts: VecDeque::new(),
+            pending_wakes: VecDeque::new(),
             keys,
+            last_active: Instant::now(),
+            wake_lane: None,
+            fresh_wake: false,
+            learn_enabled: true,
         };
         Ok((sid, session))
+    }
+
+    pub fn mark_wake(&mut self, lane: Option<String>, fresh: bool, learn: bool) {
+        (self.wake_lane, self.fresh_wake, self.learn_enabled) = (lane, fresh, learn);
+    }
+    pub fn is_wake_session(&self) -> bool {
+        self.wake_lane.is_some()
+    }
+    pub fn is_idle(&self) -> bool {
+        self.turn.is_idle()
+    }
+    pub fn enqueue_wake(&mut self, events: Vec<WakeEvent>) {
+        if !events.is_empty() {
+            self.pending_wakes.push_back(events);
+        }
+    }
+    /// Pop the next queued wake batch (or job-only wake) when idle.
+    pub fn start_next_wake(&mut self) -> Option<(Arc<Mutex<Agent>>, u64, Vec<WakeEvent>)> {
+        if !self.turn.is_idle() {
+            return None;
+        }
+        let events = match self.pending_wakes.pop_front() {
+            Some(ev) => ev,
+            None if !self.jobs.pending().is_empty() => Vec::new(),
+            None => return None,
+        };
+        self.cancel.send_replace(false);
+        self.turn.number += 1;
+        self.turn.phase = Phase::Working;
+        self.last_active = Instant::now();
+        Some((self.agent.clone(), self.generation, events))
+    }
+    pub fn running_jobs_watch(&self) -> Option<(u64, Jobs)> {
+        (self.turn.is_idle() && self.jobs.running() > 0).then(|| (self.generation, self.jobs.clone()))
+    }
+    fn idle_and_empty(&self) -> bool {
+        self.turn.is_idle()
+            && self.prompts.is_empty()
+            && self.pending_wakes.is_empty()
+            && self.jobs.running() == 0
+            && self.jobs.pending().is_empty()
+    }
+    pub fn is_done_fresh(&self) -> bool {
+        self.fresh_wake && self.idle_and_empty()
+    }
+    pub fn is_evictable(&self, ttl: Duration) -> bool {
+        self.wake_lane.is_some() && self.idle_and_empty() && self.last_active.elapsed() >= ttl
     }
 
     pub fn generation(&self) -> u64 {
@@ -276,11 +287,14 @@ impl Session {
     pub fn finish_turn(&mut self, result: &Outcome) -> Vec<Waiter> {
         self.transcript.finish_partial();
         self.turn.phase = Phase::Idle(Some(result.as_ref().copied().unwrap_or("error").to_string()));
+        self.last_active = Instant::now();
         self.keys.finish(result)
     }
 
     /// Spawn detached learning on shutdown when this session earned it.
     pub async fn spawn_learn_if_needed(&self) {
-        self.agent.lock().await.spawn_detached_learning();
+        if self.learn_enabled {
+            self.agent.lock().await.spawn_detached_learning();
+        }
     }
 }

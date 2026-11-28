@@ -2,10 +2,23 @@
 //! accounting survive; permissions, processes and cancellation handles do not.
 
 use super::*;
+use crate::event::SessionOrigin;
+
+/// Optional session-creation overrides: resume id, model override, wake origin,
+/// and per-session learning override (ADR 0079).
+#[derive(Clone, Default)]
+pub struct Options {
+    pub resume: Option<String>,
+    pub model_override: Option<String>,
+    pub origin: Option<SessionOrigin>,
+    /// When `Some(false)`, disables background learning for this session even
+    /// if `[learn] enabled = true` globally.
+    pub learn: Option<bool>,
+}
 
 impl Agent {
     pub fn new(cfg: Config, paths: Paths, cwd: std::path::PathBuf, resume: Option<String>) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, None, &ToolSources::default())
+        Self::build(cfg, paths, cwd, &ToolSources::default(), Options { resume, ..Default::default() })
     }
 
     /// An explicit launch or recovery model choice wins over saved policy.
@@ -16,7 +29,13 @@ impl Agent {
         resume: Option<String>,
         model_override: Option<&str>,
     ) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, model_override, &ToolSources::default())
+        Self::build(
+            cfg,
+            paths,
+            cwd,
+            &ToolSources::default(),
+            Options { resume, model_override: model_override.map(str::to_string), ..Default::default() },
+        )
     }
 
     /// `new_with_model` for a process whose composition root adds tools
@@ -29,17 +48,39 @@ impl Agent {
         model_override: Option<&str>,
         sources: &ToolSources,
     ) -> Result<Self> {
-        Self::build(cfg, paths, cwd, resume, model_override, sources)
+        Self::build(
+            cfg,
+            paths,
+            cwd,
+            sources,
+            Options { resume, model_override: model_override.map(str::to_string), ..Default::default() },
+        )
+    }
+
+    /// Build a session with explicit `Options` (such as a wake `SessionOrigin`
+    /// or per-trigger learning opt-out).
+    pub fn new_with_options(
+        cfg: Config,
+        paths: Paths,
+        cwd: std::path::PathBuf,
+        sources: &ToolSources,
+        opts: Options,
+    ) -> Result<Self> {
+        Self::build(cfg, paths, cwd, sources, opts)
     }
 
     fn build(
         mut cfg: Config,
         paths: Paths,
         cwd: std::path::PathBuf,
-        resume: Option<String>,
-        model_override: Option<&str>,
         sources: &ToolSources,
+        opts: Options,
     ) -> Result<Self> {
+        let Options { resume, model_override, origin, learn: learn_override } = opts;
+        if let Some(enabled) = learn_override {
+            cfg.learn.enabled = cfg.learn.enabled && enabled;
+        }
+        let model_override = model_override.as_deref();
         let file = journal::path(&paths, &cwd);
         if let Some(choice) = model_override {
             cfg.select_model(choice)?;
@@ -73,8 +114,13 @@ impl Agent {
             Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
         };
         let jobs = crate::jobs::Jobs::new(&cfg.jobs);
+        let wakes = crate::wake::Inbox::default();
         if let Some(id) = &resume {
-            jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
+            let saved = journal::Journal::open(&file)?.since(id, 0)?;
+            jobs.resume(&saved.iter().map(|e| e.event.clone()).collect::<Vec<_>>());
+            let ttl_ms = cfg.wake.default_ttl_duration().map(|d| d.as_millis() as u64).unwrap_or(900_000);
+            let pairs: Vec<(u64, &Event)> = saved.iter().map(|e| (e.at_ms, &e.event)).collect();
+            wakes.resume(crate::wake::unconsumed(&pairs, crate::wake::now_ms(), ttl_ms));
         }
         let boundary = cfg.deck.as_ref().and_then(|deck| sources.boundary(&deck.boundary_url));
         let deck = crate::tools::Deck {
@@ -99,6 +145,7 @@ impl Agent {
                     manifest: manifest.clone(),
                     parent_session: None,
                     parent_call_id: None,
+                    origin: origin.map(Box::new),
                 })?;
                 unsent.push(head);
                 (w, crate::context::build(&cfg.context.strategy, vec![])?)
@@ -179,6 +226,7 @@ impl Agent {
             router_http,
             sources: sources.clone(),
             jobs,
+            wakes,
             perms,
             boundary,
             ctx,

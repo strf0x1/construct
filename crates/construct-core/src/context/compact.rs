@@ -365,6 +365,7 @@ mod tests {
             manifest,
             parent_session: None,
             parent_call_id: None,
+            origin: None,
         };
         assert_eq!(crate::context::strategy_of([&head]), COMPACT);
         assert_eq!(crate::context::strategy_of(std::iter::empty()), COMPACT);

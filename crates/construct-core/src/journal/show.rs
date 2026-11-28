@@ -106,10 +106,13 @@ pub fn transcript(entries: &[Entry]) -> String {
     let mut out = String::new();
     for Entry { event, .. } in entries {
         match event {
-            Event::Head { id, cwd, model, version, parent_session, .. } => {
+            Event::Head { id, cwd, model, version, parent_session, origin, .. } => {
                 let _ = writeln!(out, "# session {id}\n# cwd {cwd}\n# model {model} · construct {version}");
                 if let Some(p) = parent_session {
                     let _ = writeln!(out, "# child of {p}");
+                }
+                if let Some(crate::event::SessionOrigin::Wake { source, trigger }) = origin.as_deref() {
+                    let _ = writeln!(out, "# origin wake:{source}/{trigger}");
                 }
                 out.push('\n');
             }
@@ -161,6 +164,13 @@ pub fn transcript(entries: &[Entry]) -> String {
             }
             Event::Note { class, kind, detail, count } => {
                 let _ = writeln!(out, "   note {class}/{kind} x{count}: {detail}");
+            }
+            Event::WakeReceived(w) => {
+                let trust = if w.untrusted { " untrusted" } else { "" };
+                let _ = writeln!(out, "   wake {}/{}{trust}: {}", w.kind, w.source, w.summary);
+            }
+            Event::WakesDelivered(d) => {
+                let _ = writeln!(out, "## wake ({}/{}: {})\n", d.kind, d.source, d.ids.join(", "));
             }
             _ => {}
         }

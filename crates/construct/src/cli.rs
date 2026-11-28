@@ -16,13 +16,14 @@ mod providers;
 mod resume;
 mod sources;
 mod stamped;
+mod watch;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use construct_core::config::{Config, Paths};
 use construct_core::{acp, home, journal, llm, manifest, memory, secrets, skills, tools};
 use resume::resolve_resume;
-use sources::{peer_hub, tool_sources};
+use sources::{peer_hub, tool_sources, wake_sources};
 use std::io::{IsTerminal, Read, Write};
 
 #[derive(Parser)]
@@ -108,36 +109,34 @@ enum Cmd {
     /// ({"users","errors","loaded"}). For gate evals.
     #[command(hide = true)]
     Gate,
-    /// Serve construct as an Agent Client Protocol agent on stdin and stdout
-    /// (for editors and other harnesses).
+    /// Serve construct as an Agent Client Protocol agent on stdin and stdout.
     Acp,
-    /// Run the hub peers dial home to, or manage it (`invite`, `approve`,
-    /// `revoke`, `status`, …).
+    /// Run the standalone headless wake watcher (`[[wakes]]`, no hub required).
+    Watch(watch::WatchArgs),
+    /// Emit a wake event to a running watcher or list configured triggers.
+    Wake(watch::WakeArgs),
+    /// Run the hub peers dial home to, or manage it (`invite`, `approve`, `revoke`, …).
     #[cfg(feature = "hub")]
     Hub(hub::HubArgs),
-    /// Join a hub as a peer and follow it (`construct hub invite` prints the
-    /// command). A stamped binary does this when run with no arguments.
+    /// Join a hub as a peer and follow it. A stamped binary does this with no arguments.
     #[cfg(feature = "peer")]
     Peer(peer::PeerArgs),
-    /// Stamp a drop-and-run peer binary for this home's hub: where to dial,
-    /// its key, and settings (`llm = "hub"` by default); never a secret.
+    /// Stamp a drop-and-run peer binary for this home's hub; never a secret.
     #[cfg(feature = "hub")]
     Build(build::BuildArgs),
 }
 
 #[derive(Subcommand)]
 enum SessionsCmd {
-    /// Print a session as JSONL in the old `sessions/<id>.jsonl` shape
-    /// (session, message, usage, route, tool, compact rows).
+    /// Print a session as JSONL in the old `sessions/<id>.jsonl` shape.
     Export { id: String },
-    /// Print a session as a readable transcript, found in any project's
-    /// journal (messages, tool calls with ok/error, access decisions, usage).
+    /// Print a session as a readable transcript, found in any project's journal.
     Show { id: String },
 }
 
 #[derive(Subcommand)]
 enum SecretsCmd {
-    /// Store a secret in the OS keyring (value from stdin when omitted; refused in a Deck guest or an env-only build).
+    /// Store a secret in the OS keyring (value from stdin when omitted).
     Set { name: String, value: Option<String> },
     /// Show which known secrets resolve, and from where.
     Status,
@@ -193,6 +192,8 @@ pub fn run() -> Result<()> {
             ))
         }
         Some(Cmd::Acp) => rt.block_on(acp::stdio::run(cfg, paths, tool_sources())),
+        Some(Cmd::Watch(args)) => rt.block_on(watch::run_watch(cfg, paths, tool_sources(), wake_sources(), args)),
+        Some(Cmd::Wake(args)) => rt.block_on(watch::run_wake(&cfg, &paths, args)),
         Some(Cmd::Learn { session, curate }) => rt.block_on(learning::run(cfg, paths, session, curate)),
         Some(Cmd::Secrets { cmd }) => match cmd {
             SecretsCmd::Set { name, value } => {
@@ -292,7 +293,7 @@ pub fn run() -> Result<()> {
         #[cfg(feature = "hub")]
         Some(Cmd::Hub(args)) => rt.block_on(hub::run(cfg, &paths, args)),
         #[cfg(feature = "peer")]
-        Some(Cmd::Peer(args)) => rt.block_on(peer::run(cfg, paths, tool_sources(), args)),
+        Some(Cmd::Peer(args)) => rt.block_on(peer::run(cfg, paths, tool_sources(), wake_sources(), args)),
         #[cfg(feature = "hub")]
         Some(Cmd::Build(args)) => rt.block_on(build::run(&paths, args)),
     }

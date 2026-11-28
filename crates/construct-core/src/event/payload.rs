@@ -6,6 +6,52 @@
 //! ADR 0026 lists the wake sources.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+/// How a session began: interactively (the default, omitted on `Head`) or from
+/// a wake trigger (`SessionOrigin::Wake`). Modeled on `fork_of` (ADR 0067,
+/// ADR 0079).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SessionOrigin {
+    Interactive,
+    Wake { source: String, trigger: String },
+}
+
+/// One wake event recorded in a session's journal (`wake_received`, ADR 0079).
+/// Generic over source kind so adding a wake source never adds an `Event`
+/// variant.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WakeReceived {
+    pub id: String,
+    pub kind: String,
+    pub source: String,
+    #[serde(default)]
+    pub untrusted: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub summary: String,
+    #[serde(default)]
+    pub data: Value,
+    /// The trigger's operator-authored instruction, kept so a wake recovered
+    /// on resume reaches the model as it would have.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+}
+
+/// One batch of wakes handed to the model at a turn boundary (`wakes_delivered`,
+/// ADR 0079). Carries the model-facing message verbatim for resume replay.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WakesDelivered {
+    pub ids: Vec<String>,
+    pub kind: String,
+    pub source: String,
+    #[serde(default)]
+    pub untrusted: bool,
+    #[serde(default)]
+    pub data: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<crate::llm::Message>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

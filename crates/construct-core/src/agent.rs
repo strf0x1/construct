@@ -29,7 +29,10 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{mpsc, watch};
 
-pub use crate::event::{Event, Events};
+pub use {
+    crate::event::{Event, Events},
+    restore::Options,
+};
 
 pub struct Agent {
     cfg: Config,
@@ -38,6 +41,7 @@ pub struct Agent {
     router_http: reqwest::Client,
     sources: ToolSources,
     jobs: crate::jobs::Jobs,
+    wakes: crate::wake::Inbox,
     perms: Arc<crate::permission::Perms>,
     boundary: Option<Arc<dyn crate::tools::boundary::BoundaryHost>>,
     ctx: Arc<Ctx>,
@@ -93,11 +97,6 @@ impl Agent {
             tx,
         );
         Ok(())
-    }
-
-    /// A handle the UI can use to interrupt the running turn.
-    pub fn canceller(&self) -> watch::Sender<bool> {
-        self.cancel_tx.clone()
     }
 
     fn cancelled(&self) -> bool {
@@ -162,7 +161,8 @@ impl Agent {
     }
 
     /// One turn. `user` is what the user submitted; `None` is a turn that job
-    /// completions start (`wake`), which has no user message to route or answer.
+    /// completions or wake events start (`wake`), which has no user message to
+    /// route or answer.
     /// The caller has already cleared or kept the cancel flag (`rearm`).
     async fn run_turn(&mut self, user: Option<user_turn::UserTurn<'_>>, tx: &Events) -> Result<()> {
         let started = Instant::now();
@@ -176,10 +176,10 @@ impl Agent {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         if let Some(user) = user {
-            self.jobs.activate_recovered();
+            self.activate_recovered();
             self.begin_user_turn(user, tx).await;
         }
-        self.deliver_jobs(tx);
+        self.deliver_wakes(tx);
 
         let mut steps = 0u32;
         let mut turn_usage = Usage::default();

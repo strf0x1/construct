@@ -5,6 +5,11 @@
 use super::*;
 
 impl Agent {
+    /// A handle the UI can use to interrupt the running turn.
+    pub fn canceller(&self) -> watch::Sender<bool> {
+        self.cancel_tx.clone()
+    }
+
     /// This session's durable identifier.
     pub fn session_id(&self) -> &str {
         &self.journal.session

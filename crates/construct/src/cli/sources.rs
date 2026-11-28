@@ -6,6 +6,14 @@
 //! that `cfg` is the only one a tool crate costs.
 
 use construct_core::tools::ToolSources;
+use construct_core::wake::WakeSources;
+
+/// Wake sources and filters this binary composes for `construct watch` and
+/// `construct peer` (ADR 0079). Feature-gated sources and script filters plug
+/// in here alongside `tool_sources`.
+pub(super) fn wake_sources() -> WakeSources {
+    WakeSources::builtin()
+}
 
 /// In the order the tools were pushed when they lived in core, so the
 /// manifest's list reads as it did.
