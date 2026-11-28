@@ -1,24 +1,39 @@
-//! Background jobs reaching the model (ADR 0026). A completion is told to the
-//! model only at a turn boundary: it rides in right behind the user's message
-//! when there is one, and starts a turn of its own when the agent is idle.
-//! Nothing here runs mid-turn, so the prompt cache is never broken and a turn
-//! always knows whether it answers the user or a job.
+//! Unified turn-boundary wake delivery (ADR 0026, ADR 0079). Both background
+//! job completions (`jobs::Status::wakes`) and external `WakeEvent`s pass
+//! through this one choke point: turn-boundary only, journaled before delivery,
+//! and exactly once. Nothing here runs mid-turn, so the prompt cache is never
+//! broken and a turn always knows whether it answers the user or a wake.
 
 use super::{Agent, Event, Events};
 use crate::jobs::{self, Jobs};
 use crate::llm::Message;
 use crate::tools::Group;
+use crate::wake::{self, WakeEvent};
 use anyhow::Result;
 
 impl Agent {
-    /// The session's jobs, for a UI to wait on.
+    /// The session's jobs, for a UI or headless host to wait on.
     pub fn jobs(&self) -> Jobs {
         self.jobs.clone()
     }
 
-    /// Put the endings no turn has told the model about into the
-    /// conversation, journaled with the ids they consume. Returns whether any.
-    pub(super) fn deliver_jobs(&mut self, tx: &Events) -> bool {
+    /// A user turn releases what a resume recovered: job endings and wakes
+    /// held back so opening history alone never starts a turn.
+    pub(super) fn activate_recovered(&self) {
+        self.jobs.activate_recovered();
+        self.wakes.activate_recovered();
+    }
+
+    /// Single turn-boundary wake choke point: deliver pending job endings and
+    /// pending wake events into the conversation, journaled before pushing to
+    /// context. Returns whether any wake or job completion was delivered.
+    pub(super) fn deliver_wakes(&mut self, tx: &Events) -> bool {
+        let jobs_sent = self.deliver_jobs(tx);
+        let wakes_sent = self.deliver_wake_events(tx);
+        jobs_sent || wakes_sent
+    }
+
+    fn deliver_jobs(&mut self, tx: &Events) -> bool {
         let ended = self.jobs.pending();
         if ended.is_empty() {
             return false;
@@ -32,14 +47,47 @@ impl Agent {
         true
     }
 
-    /// Run a turn on the endings that are waiting. False when none were.
+    fn deliver_wake_events(&mut self, tx: &Events) -> bool {
+        let events = self.wakes.drain_pending();
+        if events.is_empty() {
+            return false;
+        }
+        // `WakeReceived` was journaled on arrival (`wake_with`, or a resumed
+        // session's own rows); the UI sees it here, inside the turn it starts.
+        for e in &events {
+            let _ = tx.send(Event::WakeReceived(e.to_received()));
+        }
+        let message = Message::user(wake::render(&events));
+        self.journal.emit(Event::WakesDelivered(wake::delivered_payload(&events, message.clone())), tx);
+        self.context.push(message);
+        true
+    }
+
+    /// Run a turn on pending job endings or queued wakes. False when none were.
     pub async fn wake(&mut self, tx: &Events) -> Result<bool> {
-        if self.jobs.pending().is_empty() {
+        if self.jobs.pending().is_empty() && !self.wakes.has_pending() {
             return Ok(false);
         }
         self.rearm();
         self.run_turn(None, tx).await?;
         Ok(true)
+    }
+
+    /// Journal `events` as received, queue them, and run one wake turn. A
+    /// process that dies before the turn boundary finds them again on resume
+    /// (`wake::unconsumed`), unless they outlived `[wake] default_ttl`.
+    pub async fn wake_with(&mut self, events: Vec<WakeEvent>, tx: &Events) -> Result<bool> {
+        if events.is_empty() {
+            return Ok(false);
+        }
+        for e in &events {
+            self.journal.record(&Event::WakeReceived(e.to_received()));
+        }
+        // A headless lane has no user turn to release what a resume recovered,
+        // so a new wake carries the still-fresh ones along with it.
+        self.wakes.activate_recovered();
+        self.wakes.push(events);
+        self.wake(tx).await
     }
 
     /// A run that exits when its work is done: waits for the next ending to

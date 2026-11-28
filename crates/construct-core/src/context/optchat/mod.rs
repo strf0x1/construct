@@ -279,6 +279,7 @@ mod tests {
             manifest,
             parent_session: None,
             parent_call_id: None,
+            origin: None,
         }
     }
 

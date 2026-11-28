@@ -132,5 +132,7 @@ pub(super) fn activity(e: &Event) -> bool {
             | Event::TurnEnd { .. }
             | Event::JobStart(_)
             | Event::JobEnd(_)
+            | Event::WakeReceived(_)
+            | Event::WakesDelivered(_)
     )
 }

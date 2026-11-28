@@ -208,6 +208,7 @@ fn recovered_jobs_wait_for_user_and_completed_results_are_delivered_once() {
         manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: None,
         parent_call_id: None,
+        origin: None,
     })
     .unwrap();
     w.record(&Event::TurnStart);

@@ -42,6 +42,7 @@ impl Event {
             | Event::Assistant { message }
             | Event::ToolResult { message, .. } => Some(message),
             Event::JobsDelivered(d) => d.message.as_ref(),
+            Event::WakesDelivered(d) => d.message.as_ref(),
             Event::DeckBoundary { message, .. } => Some(message),
             Event::Nudge { message, .. } => Some(message),
             _ => None,

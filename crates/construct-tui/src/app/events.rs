@@ -39,7 +39,9 @@ impl App {
             | Event::ToolOutput { .. }
             | Event::Compacted { .. }
             // The turn it starts or joins says it.
-            | Event::JobsDelivered(_) => {}
+            | Event::JobsDelivered(_)
+            | Event::WakeReceived(_)
+            | Event::WakesDelivered(_) => {}
             Event::Submitted(_) => self.turn.submitted(),
             Event::TurnStart => {
                 // The agent clears its cancel flag as a turn starts.

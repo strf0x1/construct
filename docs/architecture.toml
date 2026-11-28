@@ -35,10 +35,10 @@ may_use = ["cli"]
 may_use_crates = []
 
 [crates.construct-core.modules.acp]
-may_use = ["agent", "config", "event", "journal", "permission", "text", "tools"]
+may_use = ["agent", "config", "event", "jobs", "journal", "permission", "text", "tools", "wake"]
 
 [crates.construct-core.modules.agent]
-may_use = ["compact", "config", "context", "event", "http", "jobs", "journal", "learn", "llm", "manifest", "mcp", "memory", "permission", "prompt", "router", "sandbox", "text", "tools"]
+may_use = ["compact", "config", "context", "event", "http", "jobs", "journal", "learn", "llm", "manifest", "mcp", "memory", "permission", "prompt", "router", "sandbox", "text", "tools", "wake"]
 
 [crates.construct-core.modules.clock]
 may_use = []
@@ -120,6 +120,9 @@ may_use = ["config", "secrets"]
 [crates.construct-core.modules.secrets]
 may_use = []
 
+[crates.construct-core.modules.sessions]
+may_use = ["agent", "config", "event", "jobs", "journal", "tools", "wake"]
+
 [crates.construct-core.modules.skills]
 may_use = ["clock", "guard", "home", "project"]
 
@@ -131,6 +134,9 @@ may_use = ["clock", "config", "event", "jobs", "journal", "mcp", "memory", "perm
 
 [crates.construct-core.modules.trace]
 may_use = ["config"]
+
+[crates.construct-core.modules.wake]
+may_use = ["config", "event", "llm", "sandbox", "text"]
 
 [crates.construct-deck]
 may_use_crates = ["construct-core"]

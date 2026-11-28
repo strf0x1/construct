@@ -17,10 +17,12 @@ mod mcp;
 mod sandbox;
 pub mod stamp;
 mod tools;
+mod wake;
 pub use jobs::{JobsConfig, ShellConfig};
 pub use llm::{Llm, LlmGateway};
 pub use sandbox::SandboxConfig;
 pub use tools::{SEARCH_TOOL, ToolsConfig, WebConfig};
+pub use wake::{WakeRuntimeConfig, WakeTriggerConfig, parse_duration};
 pub use {context::ContextConfig, deck::DeckConfig, learn::LearnConfig, mcp::McpServer};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +67,14 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub github_gateway: Option<String>,
     pub jobs: JobsConfig,
+    /// Declarative wake triggers (`[[wakes]]`, ADR 0079). Skipped when empty so
+    /// an ordinary session's config hash stays unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub wakes: Vec<WakeTriggerConfig>,
+    /// Process-wide wake runtime limits (`[wake]`, ADR 0079). Skipped when
+    /// default so an ordinary session's config hash stays unchanged.
+    #[serde(default, skip_serializing_if = "WakeRuntimeConfig::is_default")]
+    pub wake: WakeRuntimeConfig,
     pub mcp: BTreeMap<String, McpServer>,
     /// Extra headers sent with every model request.
     pub headers: BTreeMap<String, String>,
@@ -159,6 +169,8 @@ impl Default for Config {
             llm: Llm::Local,
             llm_gateway: None,
             jobs: Default::default(),
+            wakes: Vec::new(),
+            wake: WakeRuntimeConfig::default(),
             mcp: BTreeMap::new(),
             headers: BTreeMap::new(),
             provider: ProviderConfig::default(),
@@ -214,6 +226,9 @@ impl Config {
         for name in cfg.mcp.keys() {
             mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }
+        wake::validate(&cfg.wake, &cfg.wakes)
+            .map_err(anyhow::Error::msg)
+            .with_context(|| format!("in {}", path.display()))?;
         Ok(cfg)
     }
 

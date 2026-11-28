@@ -36,6 +36,7 @@ fn seed(env: &Env, label: &str, cwd: &str, child: bool, prompt: bool) -> String 
         manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: child.then(|| "parent".into()),
         parent_call_id: None,
+        origin: None,
     })
     .unwrap();
     if prompt {
@@ -278,6 +279,7 @@ fn compacted_model_view_keeps_the_full_historical_tui_transcript() {
         manifest: construct_core::manifest::Manifest::foreign(&cfg),
         parent_session: None,
         parent_call_id: None,
+        origin: None,
     })
     .unwrap();
     w.record(&Event::System { message: Message::system("old system instructions") });

@@ -3,7 +3,7 @@
 
 use super::{Entry, Journal, writer};
 use crate::config::Paths;
-use crate::event::Event;
+use crate::event::{Event, SessionOrigin};
 use anyhow::{Context, Result, bail, ensure};
 use rusqlite::Connection;
 use std::path::Path;
@@ -22,6 +22,7 @@ pub struct Session {
     pub interrupted: bool,
     pub in_use: bool,
     pub unreadable: Option<String>,
+    pub origin: Option<SessionOrigin>,
 }
 
 impl Journal {
@@ -108,6 +109,54 @@ pub fn validate_directory(entries: &[Entry], cwd: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Find the latest session for a dedicated wake lane (`Head.origin` matching
+/// `cwd` and `trigger`, ADR 0079). Read-only; returns `None` when none exists.
+pub fn find_dedicated(paths: &Paths, cwd: &Path, trigger: &str) -> Result<Option<String>> {
+    let file = super::path(paths, cwd);
+    if !file.exists() {
+        return Ok(None);
+    }
+    let db = Journal::read_only(&file)?;
+    let mut st = db.conn.prepare(
+        "SELECT session_id FROM events WHERE type = 'head' \
+         AND json_extract(payload, '$.cwd') = ?1 \
+         AND json_extract(payload, '$.origin.kind') = 'wake' \
+         AND json_extract(payload, '$.origin.trigger') = ?2 \
+         AND json_extract(payload, '$.parent_session') IS NULL \
+         ORDER BY seq DESC LIMIT 1",
+    )?;
+    let mut rows = st.query([cwd.display().to_string(), trigger.to_string()])?;
+    Ok(rows.next()?.map(|r| r.get::<_, String>(0)).transpose()?)
+}
+
+fn head_origin(entries: &[Entry]) -> Option<SessionOrigin> {
+    entries.first().and_then(|e| match &e.event {
+        Event::Head { origin, .. } => origin.as_deref().cloned(),
+        _ => None,
+    })
+}
+
+fn wake_labels(entries: &[Entry]) -> Vec<String> {
+    let mut out = vec![];
+    for e in entries {
+        match &e.event {
+            Event::WakeReceived(w) => {
+                let label = if w.summary.trim().is_empty() {
+                    format!("[wake:{}/{}]", w.kind, w.source)
+                } else {
+                    w.summary.clone()
+                };
+                out.push(label);
+            }
+            Event::WakesDelivered(d) if out.is_empty() => {
+                out.push(format!("[wake:{}/{}]", d.kind, d.source));
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 pub fn browse(paths: &Paths, cwd: &Path) -> Result<Vec<Session>> {
     let file = super::path(paths, cwd);
     if !file.exists() {
@@ -124,11 +173,25 @@ pub fn browse(paths: &Paths, cwd: &Path) -> Result<Vec<Session>> {
     for row in heads {
         let (id, _) = row?;
         let entries = db.since(&id, 0)?;
+        let origin = head_origin(&entries);
         let user = prompts(&entries);
-        if user.is_empty() {
+        let wakes = wake_labels(&entries);
+        let is_wake = matches!(origin, Some(SessionOrigin::Wake { .. }));
+        if user.is_empty() && wakes.is_empty() {
             continue;
         }
-        let first = user.first().cloned().unwrap_or_default();
+        let first = user.first().or_else(|| wakes.first()).cloned().unwrap_or_default();
+        let latest = user.last().or_else(|| wakes.last()).cloned().unwrap_or_default();
+        let default_title = match &origin {
+            Some(SessionOrigin::Wake { trigger, .. }) if user.is_empty() => {
+                if first.starts_with("[wake:") {
+                    format!("[wake:{trigger}]")
+                } else {
+                    format!("[wake:{trigger}] {first}")
+                }
+            }
+            _ => first.clone(),
+        };
         let title = entries
             .iter()
             .rev()
@@ -136,11 +199,13 @@ pub fn browse(paths: &Paths, cwd: &Path) -> Result<Vec<Session>> {
                 Event::SessionName { title } => Some(title.clone()),
                 _ => None,
             })
-            .unwrap_or_else(|| first.clone());
+            .unwrap_or(default_title);
         let (model, provider) = saved_model(&entries).unwrap_or_default();
         // Administrative, repair, model selection and learning events do not
         // change the conversational recency of a session.
         let at_ms = entries.iter().filter(|e| super::recovery::activity(&e.event)).map(|e| e.at_ms).max().unwrap_or(0);
+        let wake_turns = entries.iter().filter(|e| matches!(e.event, Event::WakesDelivered(_))).count();
+        let turns = if is_wake && user.is_empty() { wake_turns.max(1) } else { user.len() + wake_turns };
         let interrupted = entries
             .iter()
             .rev()
@@ -157,13 +222,14 @@ pub fn browse(paths: &Paths, cwd: &Path) -> Result<Vec<Session>> {
             id,
             title,
             first,
-            latest: user.last().cloned().unwrap_or_default(),
+            latest,
             cwd: cwd.display().to_string(),
             model,
             provider,
             at_ms,
-            turns: user.len(),
+            turns,
             interrupted,
+            origin,
         });
     }
     out.sort_by(|a, b| b.at_ms.cmp(&a.at_ms).then_with(|| b.id.cmp(&a.id)));
