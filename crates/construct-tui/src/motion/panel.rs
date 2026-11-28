@@ -81,7 +81,7 @@ impl Motion {
                         Part::Inner,
                         fx::coalesce((420, Interpolation::QuadOut)).with_pattern(SweepPattern::left_to_right(10)),
                     ),
-                    (Part::Edge, border_draw(420)),
+                    (Part::Edge, border_draw(420, theme::ORANGE)),
                 ];
             }
         }

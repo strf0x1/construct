@@ -7,7 +7,7 @@
 //! (registry standing, live link, turn, last seen), so the hub reports what
 //! it knows and the words a person reads live in one pure function.
 
-use super::{PeerRow, Peers, Standing, attach, now, panel};
+use super::{Decision, Item, PeerRow, Peers, Standing, attach, now, panel};
 use crate::theme;
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -20,7 +20,7 @@ const AWAY_SECS: u64 = 15 * 60;
 
 /// What the tile says about a peer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Tile {
+pub(crate) enum Tile {
     Expected,
     Pending,
     Online,
@@ -105,27 +105,81 @@ pub(super) fn lines(rows: &[PeerRow], now: u64) -> Vec<Line<'static>> {
         .collect()
 }
 
+/// One visible row of the peer tile, reported for `motion`.
+pub(crate) struct TileRow {
+    pub(crate) id: String,
+    pub(crate) state: Tile,
+    pub(crate) questions: usize,
+    pub(crate) model: Option<(String, bool)>,
+}
+
+/// The peer popup as drawn this frame.
+pub(crate) struct PopupDrawn {
+    pub(crate) area: Rect,
+    pub(crate) key: String,
+    pub(crate) is_join: bool,
+}
+
+/// The peer attach view as drawn this frame.
+pub(crate) struct AttachDrawn {
+    pub(crate) area: Rect,
+    pub(crate) inner: Rect,
+    pub(crate) id: String,
+    pub(crate) top: usize,
+    pub(crate) text_len: usize,
+    pub(crate) working: bool,
+}
+
+/// Where everything peer-related landed this frame, for `motion`.
+pub(crate) struct Drawn {
+    pub(crate) tile: Option<(Rect, Vec<TileRow>)>,
+    pub(crate) popup: Option<PopupDrawn>,
+    pub(crate) decision: Option<Decision>,
+    pub(crate) attach: Option<AttachDrawn>,
+}
+
 /// Draw everything peer-related over `area` (the transcript's rows): the
 /// attach view, the tile, then the popup when `popup` (no local question is
 /// on screen, which takes the keys first).
-pub(crate) fn draw(f: &mut Frame, peers: &mut Peers, area: Rect, popup: bool, phase: f32) {
+pub(crate) fn draw(f: &mut Frame, peers: &mut Peers, area: Rect, popup: bool, phase: f32) -> Drawn {
     let now = now();
-    if let Some(a) = peers.attach.as_mut() {
-        let row = peers.rows.iter().find(|r| r.id == a.id);
-        attach::render(f, area, a, row.map(|r| Tile::of(r, now)));
-    }
-    let tile = lines(&peers.rows, now);
-    if !tile.is_empty() {
-        let w = tile.iter().map(Line::width).max().unwrap_or(0).min(area.width as usize) as u16;
-        let h = (tile.len() as u16).min(area.height / 2);
+    let attach = if let Some(a) = peers.attach.as_mut() {
+        let state = peers.rows.iter().find(|r| r.id == a.id).map(|r| Tile::of(r, now));
+        let (inner, top, text_len) = attach::render(f, area, a, state);
+        Some(AttachDrawn { area, inner, id: a.id.clone(), top, text_len, working: state == Some(Tile::Working) })
+    } else {
+        None
+    };
+    let tile_lines = lines(&peers.rows, now);
+    let tile = if !tile_lines.is_empty() {
+        let w = tile_lines.iter().map(Line::width).max().unwrap_or(0).min(area.width as usize) as u16;
+        let h = (tile_lines.len() as u16).min(area.height / 2);
         let at = Rect::new(area.x + area.width - w, area.y, w, h);
         f.render_widget(Clear, at);
-        f.render_widget(Paragraph::new(tile).style(Style::new().bg(theme::SELECTED_BG)), at);
-    }
-    if popup && let Some(item) = peers.current() {
+        f.render_widget(Paragraph::new(tile_lines).style(Style::new().bg(theme::SELECTED_BG)), at);
+        let rows = peers
+            .rows
+            .iter()
+            .take(h as usize)
+            .map(|r| TileRow {
+                id: r.id.clone(),
+                state: Tile::of(r, now),
+                questions: r.questions.len(),
+                model: r.model.clone(),
+            })
+            .collect();
+        Some((at, rows))
+    } else {
+        None
+    };
+    let popup_drawn = if popup && let Some(item) = peers.current() {
         let ready = peers.shown.as_ref().is_some_and(|s| s.1.elapsed() >= theme::GRACE);
-        panel::render(f, area, &item, peers.selected, ready, phase, now);
-    }
+        let at = panel::render(f, area, &item, peers.selected, ready, phase, now);
+        Some(PopupDrawn { area: at, key: item.key(), is_join: matches!(item, Item::Join(_)) })
+    } else {
+        None
+    };
+    Drawn { tile, popup: popup_drawn, decision: peers.decision.take(), attach }
 }
 
 /// A tile row's text, for tests.

@@ -23,7 +23,16 @@ use tokio::sync::{mpsc, watch};
 
 pub(super) use attach::command;
 pub(super) use panel::key;
-pub(super) use tile::draw;
+pub(super) use tile::{Drawn, Tile, draw};
+
+/// How the user closed the peer popup, so `motion` can tint its ghost.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Decision {
+    Allow { pop: bool },
+    Always { pop: bool },
+    Deny { pop: bool },
+    Later,
+}
 
 /// Where a peer stands in the hub's registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +153,8 @@ pub(super) struct Peers {
     selected: usize,
     /// Items put off with esc, or answered and not yet gone from a poll.
     set_aside: HashSet<String>,
+    /// The last popup decision, consumed by `tile::draw` for `motion`.
+    decision: Option<Decision>,
 }
 
 impl Peers {

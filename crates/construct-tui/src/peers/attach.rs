@@ -90,8 +90,9 @@ pub(super) fn key(peers: &mut Peers, k: KeyEvent) -> bool {
     true
 }
 
-/// Draw the attach view over `area`, the transcript's rows.
-pub(super) fn render(f: &mut Frame, area: Rect, a: &mut Attach, state: Option<Tile>) {
+/// Draw the attach view over `area`, the transcript's rows. Returns its inner
+/// rect, how many rows are scrolled off the top, and the text length, for motion.
+pub(super) fn render(f: &mut Frame, area: Rect, a: &mut Attach, state: Option<Tile>) -> (Rect, usize, usize) {
     let state = state.map_or("gone", Tile::word);
     let title =
         Span::styled(format!(" ⇄ {} · {state} ", a.id), Style::new().fg(theme::CYAN).add_modifier(Modifier::BOLD));
@@ -110,8 +111,10 @@ pub(super) fn render(f: &mut Frame, area: Rect, a: &mut Attach, state: Option<Ti
     // Pinned to the bottom, like the transcript; pgup walks back.
     let bottom = body.len().saturating_sub(inner.height as usize);
     a.scroll = a.scroll.min(bottom);
-    let shown: Vec<Line<'static>> = body.into_iter().skip(bottom - a.scroll).take(inner.height as usize).collect();
+    let top = bottom - a.scroll;
+    let shown: Vec<Line<'static>> = body.into_iter().skip(top).take(inner.height as usize).collect();
     f.render_widget(Clear, area);
     f.render_widget(block, area);
     f.render_widget(Paragraph::new(shown), inner);
+    (inner, top, a.text.len())
 }

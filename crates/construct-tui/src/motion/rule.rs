@@ -53,7 +53,7 @@ impl Motion {
             self.panel_fx.clear();
             let tint = std::mem::replace(&mut self.tint, theme::DIM);
             self.rearm = false;
-            let sel = p.sel.and_then(|y| y.checked_sub(p.area.y));
+            let sel = p.sel.and_then(|y| y.checked_sub(p.area.y)).map(|y| y..y + 1);
             self.ghost = Some((p.area, ghost(p.cells, sel, tint, 420)));
         }
         if let Some((area, e)) = self.ghost.as_mut() {

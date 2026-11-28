@@ -13,6 +13,7 @@ mod compact;
 mod grow;
 mod ink;
 mod panel;
+pub(crate) mod peers;
 mod rule;
 mod shaders;
 pub(crate) mod splash;
@@ -101,6 +102,8 @@ pub(super) struct Motion {
     ink: Option<Ink>,
     writing: bool,
     started: Instant,
+    /// Animations for the peer tile, JOIN/PEER popup, and attach view.
+    peers: peers::PeerMotion,
 }
 
 /// Off: what `std::mem::take` leaves behind while a frame draws.
@@ -133,6 +136,7 @@ impl Motion {
             ink: None,
             writing: false,
             started: Instant::now(),
+            peers: peers::PeerMotion::default(),
         }
     }
 
@@ -170,6 +174,7 @@ impl Motion {
             || self.live_until.is_some_and(|until| Instant::now() < until)
             || self.moving()
             || self.drying()
+            || self.peers.running()
     }
 
     /// Tool block `i` finished: flash its outcome, and either collapse from its
@@ -246,7 +251,7 @@ impl Motion {
             self.dry(buf, i, rect);
         }
         if self.on && !splash && top > 0 {
-            scroll_fade(buf, y0, h, top);
+            scroll_fade(buf, Rect::new(area.x, y0, area.width, h), top);
         }
     }
 
