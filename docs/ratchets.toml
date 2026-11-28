@@ -26,11 +26,6 @@ construct-core = [
     "config <-> models",
     "config <-> providers",
 ]
-construct-tui = [
-    "app <-> ask",
-    "app <-> sessions",
-    "palette <-> picker",
-]
 
 # Every group of three or more modules joined into one cycle, per crate (a
 # strongly connected component, names sorted), from the same scan. Pairs
@@ -40,4 +35,3 @@ construct-tui = [
 [cycles]
 # Intended (ADR 0057, 0060): config resolution.
 construct-core = ["config, endpoint, models, providers"]
-construct-tui = ["app, ask, sessions"]

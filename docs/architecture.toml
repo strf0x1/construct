@@ -366,76 +366,31 @@ must_not_use_crates = [
 ]
 used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, `construct acp`, the learner); construct's cli is the one place that chooses to start it" }
 
-[crates.construct-tui.modules.activity]
-may_use = ["app", "motion", "theme"]
-
 [crates.construct-tui.modules.app]
-may_use = ["ask", "boxed", "motion", "palette", "peers", "picker", "sessions", "theme", "turn"]
-
-[crates.construct-tui.modules.app_events]
-may_use = ["app", "args", "theme", "tool_block"]
-
-[crates.construct-tui.modules.args]
-may_use = []
-
-[crates.construct-tui.modules.ask]
-may_use = ["app", "theme"]
+may_use = ["boxed", "composer", "help", "motion", "overlays", "theme", "transcript", "turn", "worker"]
 
 [crates.construct-tui.modules.boxed]
 may_use = ["text", "theme"]
 
-[crates.construct-tui.modules.clip]
-may_use = []
-
-[crates.construct-tui.modules.commands]
-may_use = ["app", "clip", "help", "listing", "peers", "picker", "sessions", "theme"]
+[crates.construct-tui.modules.composer]
+may_use = ["help", "overlays", "text", "theme"]
 
 [crates.construct-tui.modules.help]
 may_use = ["boxed", "theme"]
 
-[crates.construct-tui.modules.input]
-may_use = ["app", "ask", "commands", "peers", "picker", "theme"]
-
-[crates.construct-tui.modules.input_line]
-may_use = ["app", "text", "theme"]
-
-[crates.construct-tui.modules.jobs]
-may_use = ["app", "theme"]
-
-[crates.construct-tui.modules.learning]
-may_use = []
-
 [crates.construct-tui.modules.lib]
 may_use = []
-
-[crates.construct-tui.modules.listing]
-may_use = ["app", "boxed", "theme"]
 
 [crates.construct-tui.modules.markdown]
 may_use = ["table", "text", "theme"]
 
-[crates.construct-tui.modules.palette]
-may_use = ["help", "picker", "text", "theme"]
+[crates.construct-tui.modules.motion]
+may_use = ["theme", "turn"]
 
-# Peers (#365, ADR 0074): the tile, the join and question popup, `/peer`.
-# It reaches the hub only through the `PeerHub` the binary hands it.
-[crates.construct-tui.modules.peers]
-may_use = ["markdown", "theme"]
-
-[crates.construct-tui.modules.picker]
-may_use = ["palette", "text", "theme"]
-
-[crates.construct-tui.modules.prompt]
-may_use = ["ask", "markdown", "theme"]
-
-[crates.construct-tui.modules.restore]
-may_use = ["app", "theme", "worker"]
-
-[crates.construct-tui.modules.sessions]
-may_use = ["app", "picker", "theme"]
-
-[crates.construct-tui.modules.status]
-may_use = ["app", "theme"]
+# Modal overlays (permission prompt, model picker, session browser) and peers (#365, ADR 0074).
+# Peers reach the hub only through the `PeerHub` the binary hands it.
+[crates.construct-tui.modules.overlays]
+may_use = ["markdown", "text", "theme"]
 
 [crates.construct-tui.modules.table]
 may_use = ["text", "theme"]
@@ -446,23 +401,14 @@ may_use = []
 [crates.construct-tui.modules.theme]
 may_use = []
 
-[crates.construct-tui.modules.tool_block]
-may_use = ["app", "motion", "text", "theme"]
+[crates.construct-tui.modules.transcript]
+may_use = ["boxed", "help", "markdown", "motion", "text", "theme"]
 
 [crates.construct-tui.modules.turn]
 may_use = []
 
-[crates.construct-tui.modules.view]
-may_use = ["app", "boxed", "help", "markdown", "motion", "peers", "prompt", "theme", "tool_block"]
-
-[crates.construct-tui.modules.motion]
-may_use = ["theme", "turn"]
-
-[crates.construct-tui.modules.splash]
-may_use = ["app", "motion", "theme"]
-
 [crates.construct-tui.modules.worker]
-may_use = ["app", "ask", "learning"]
+may_use = ["overlays"]
 
 [crates.construct-dev]
 may_use_crates = ["construct-core"]

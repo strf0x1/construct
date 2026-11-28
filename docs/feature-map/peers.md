@@ -2,9 +2,9 @@
 id: peers
 status: verified
 surfaces: [tui]
-depends: [crates/construct-tui/src/peers, crates/construct/src/cli/hub/tui.rs, crates/construct-hub/src/status.rs, crates/construct-hub/src/state.rs, crates/construct-hub/src/conn.rs, crates/construct-hub/src/remote.rs, crates/construct-hub/src/view.rs, crates/construct-hub/src/model.rs, crates/construct-dev/tests/peer_tui.rs, crates/construct-dev/tests/peer_llm.rs]
-verified_at: e7b3fff
-verified_deps: 13ff21be5656490d
+depends: [crates/construct-tui/src/overlays/peers, crates/construct/src/cli/hub/tui.rs, crates/construct-hub/src/status.rs, crates/construct-hub/src/state.rs, crates/construct-hub/src/conn.rs, crates/construct-hub/src/remote.rs, crates/construct-hub/src/view.rs, crates/construct-hub/src/model.rs, crates/construct-dev/tests/peer_tui.rs, crates/construct-dev/tests/peer_llm.rs]
+verified_at: 76ea271
+verified_deps: 66cf91f19a0be7df
 ---
 # Peers in the TUI
 

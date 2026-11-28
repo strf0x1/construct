@@ -3,40 +3,22 @@
 //! when something changed: the animation tick runs only while work is
 //! visibly in progress.
 
-mod activity;
 mod app;
-mod app_events;
-mod args;
-mod ask;
 mod boxed;
-mod clip;
-mod commands;
+mod composer;
 mod help;
-mod input;
-mod input_line;
-mod jobs;
-mod learning;
-mod listing;
 mod markdown;
 mod motion;
-mod palette;
-mod peers;
-mod picker;
-mod prompt;
-mod restore;
-mod sessions;
-mod splash;
-mod status;
+mod overlays;
 mod table;
 mod text;
 mod theme;
-mod tool_block;
+mod transcript;
 mod turn;
-mod view;
 mod worker;
 
 use anyhow::Result;
-use app::{App, Cmd};
+use app::App;
 use construct_core::agent::Event;
 use construct_core::config::{Config, Paths};
 use construct_core::tools::ToolSources;
@@ -47,15 +29,16 @@ use crossterm::event::{
 use crossterm::execute;
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use futures::StreamExt;
-use input::handle_key;
+use overlays::ask::Prompt;
+use overlays::peers::Msg as PeerMsg;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use std::io::Write;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
-use worker::{Launch, Ready, agent_task};
+use worker::{Cmd, Launch, Out, Ready, agent_task};
 
-pub use peers::{Act, PeerHub, PeerRow, Question, Standing};
+pub use overlays::peers::{Act, PeerHub, PeerRow, Question, Standing};
 
 struct Guard {
     kbd: bool,
@@ -116,9 +99,7 @@ fn restore_stderr(saved: Option<i32>) {
 /// ctrl-c, the interrupt it sends is a no-op, so quit never arms).
 fn fold_events(app: &mut App, rx: &mut mpsc::UnboundedReceiver<(String, Event)>) {
     while let Ok((session, ev)) = rx.try_recv() {
-        if session == app.generation {
-            app.on_event(ev);
-        }
+        app.on_session_event(&session, ev);
     }
 }
 
@@ -167,7 +148,7 @@ async fn run_inner(
     let mut term = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
     let mut app = App::new(cfg.clone());
     if startup_browser {
-        app.browser = Some(sessions::Browser::open(paths.clone(), std::env::current_dir()?, String::new(), true));
+        app.open_startup_browser(paths.clone(), std::env::current_dir()?);
     }
     app.draw(&mut term)?;
     construct_core::trace::mark("first frame");
@@ -176,11 +157,11 @@ async fn run_inner(
     let (ev_tx, mut ev_rx) = mpsc::unbounded_channel::<(String, Event)>();
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Cmd>();
     let (ready_tx, mut ready_rx) = mpsc::unbounded_channel::<Ready>();
-    let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<ask::Prompt>();
+    let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<Prompt>();
     // A provider's model list landing, maybe after the session started.
     let (landed_tx, mut landed_rx) = mpsc::unbounded_channel::<()>();
     let (refused_tx, mut refused_rx) = mpsc::unbounded_channel::<()>();
-    let out = worker::Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx, refused: refused_tx };
+    let out = Out { tx: ev_tx, ready: ready_tx, prompts: prompt_tx, landed: landed_tx, refused: refused_tx };
     let worker = tokio::spawn(agent_task(
         cfg.clone(),
         paths.clone(),
@@ -190,9 +171,9 @@ async fn run_inner(
     ));
 
     // The hub is polled only now that the first frame is up.
-    let (peer_tx, mut peer_rx) = mpsc::unbounded_channel::<peers::Msg>();
+    let (peer_tx, mut peer_rx) = mpsc::unbounded_channel::<PeerMsg>();
     if let Some(hub) = hub {
-        app.peers.start(hub, peer_tx);
+        app.start_peers(hub, peer_tx);
     }
     let mut events = EventStream::new();
     let mut tick = tokio::time::interval(Duration::from_millis(50));
@@ -204,10 +185,7 @@ async fn run_inner(
         tokio::select! {
             Some(()) = landed_rx.recv() => {
                 // A file read: the fetch is done. The running model's window stays the agent's.
-                construct_core::llm::overlay::lay_lists(&mut app.cfg, &paths);
-                if let Some(p) = app.picker.as_mut() {
-                    p.refresh(&app.cfg);
-                }
+                app.on_models_landed(&paths);
                 dirty = true;
             }
             Some(ready) = ready_rx.recv() => {
@@ -215,19 +193,19 @@ async fn run_inner(
                 dirty = true;
             }
             Some(()) = refused_rx.recv() => {
-                app.turn.refused();
+                app.on_turn_refused();
                 dirty = true;
             }
             Some(msg) = peer_rx.recv() => {
-                if let Some((color, text)) = app.peers.on(msg) { app.notice(color, text); }
+                app.on_peer_msg(msg);
                 dirty = true;
             }
             Some(prompt) = prompt_rx.recv() => {
-                app.prompts.push_back(prompt);
+                app.push_prompt(prompt);
                 dirty = true;
             }
             Some((session, ev)) = ev_rx.recv() => {
-                if session == app.generation { app.on_event(ev); }
+                app.on_session_event(&session, ev);
                 fold_events(&mut app, &mut ev_rx);
                 dirty = true;
             }
@@ -235,10 +213,10 @@ async fn run_inner(
                 match ev {
                     CEvent::Key(k) if k.kind != KeyEventKind::Release => {
                         fold_events(&mut app, &mut ev_rx);
-                        if handle_key(&mut app, k, &cmd_tx) { break; }
+                        if app.handle_key(k, &cmd_tx) { break; }
                     }
-                    CEvent::Paste(s) => { let s = s.replace("\r\n", "\n").replace('\r', "\n"); if let Some(p) = app.browser.as_mut() { p.paste(&s); } else { app.insert(&s); } }
-                    CEvent::Resize(..) => { app.cache.clear(); }
+                    CEvent::Paste(s) => app.paste(&s),
+                    CEvent::Resize(..) => app.on_resize(),
                     _ => continue,
                 }
                 app.refresh_palette();
@@ -246,7 +224,7 @@ async fn run_inner(
             }
             _ = tick.tick(), if animating => { dirty = true; }
             // motion (a comet, an unfurl) wants ~30fps; it runs only while something moves
-            _ = tokio::time::sleep(Duration::from_millis(33)), if app.motion.running() => { dirty = true; }
+            _ = tokio::time::sleep(Duration::from_millis(33)), if app.motion_running() => { dirty = true; }
             // a frame held back by the redraw cap still gets drawn
             _ = tokio::time::sleep_until((last_draw + Duration::from_millis(8)).into()), if dirty => {}
         }
@@ -257,9 +235,7 @@ async fn run_inner(
             dirty = false;
         }
     }
-    if let Some(c) = &app.canceller {
-        c.send_replace(true);
-    }
+    app.cancel();
     drop(cmd_tx);
     drop(_guard);
     let _ = tokio::time::timeout(Duration::from_millis(1500), worker).await;
