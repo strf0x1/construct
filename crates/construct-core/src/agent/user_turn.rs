@@ -117,7 +117,6 @@ impl Agent {
             content.push_str(&r);
         }
         self.push(Message::user(content), tx);
-        self.user_turns += 1;
-        self.turns_since_memory += 1;
+        self.learn.on_user_turn();
     }
 }

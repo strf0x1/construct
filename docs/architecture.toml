@@ -35,10 +35,10 @@ may_use = ["cli"]
 may_use_crates = []
 
 [crates.construct-core.modules.acp]
-may_use = ["agent", "config", "event", "journal", "learn", "permission", "text", "tools"]
+may_use = ["agent", "config", "event", "journal", "permission", "text", "tools"]
 
 [crates.construct-core.modules.agent]
-may_use = ["compact", "config", "context", "event", "http", "jobs", "journal", "llm", "manifest", "mcp", "memory", "permission", "prompt", "router", "sandbox", "text", "tools"]
+may_use = ["compact", "config", "context", "event", "http", "jobs", "journal", "learn", "llm", "manifest", "mcp", "memory", "permission", "prompt", "router", "sandbox", "text", "tools"]
 
 [crates.construct-core.modules.clock]
 may_use = []
@@ -363,6 +363,7 @@ must_not_use_crates = [
   { crate = "construct-core", module = "secrets", reason = "the first frame waits on nothing: no secret resolution on the UI path (AGENTS.md, rules of thumb)" },
   { crate = "construct-core", module = "jev", reason = "no network work on the UI path; routing and learning reach Jev from the agent, never from a draw (AGENTS.md, rules of thumb)" },
   { crate = "construct-core", module = "sandbox", reason = "the UI never spawns or confines processes; tools do that behind the agent, off the UI path" },
+  { crate = "construct-core", module = "learn", reason = "session learning orchestration belongs to the agent in construct-core, never to the TUI (#405)" },
 ]
 used_only_by = { crates = ["construct"], reason = "the TUI is a front end: the agent and everything under it must run without a terminal (`construct run --json`, `construct acp`, the learner); construct's cli is the one place that chooses to start it" }
 

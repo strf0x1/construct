@@ -171,7 +171,35 @@ impl Agent {
             }
         }
         groups.retain(|g| !matches!(g, Group::Mcp(name) if !cfg.mcp.contains_key(name)));
-        let mut agent = Self {
+        if !system_recorded {
+            let ev = Event::for_message(prompt);
+            writer.record(&ev);
+            unsent.push(ev);
+        }
+        if let Some(entry) =
+            entries.iter().rev().find(|e| matches!(e.event, Event::Recovered { .. } | Event::TurnEnd { .. }))
+            && matches!(entry.event, Event::Recovered { .. })
+        {
+            unsent.push(entry.event.clone());
+        }
+        if resume_id.is_some() && model_override.is_some() {
+            writer.record(&Event::Model {
+                model: cfg.model.clone(),
+                provider: cfg.provider_name(),
+                context_window: cfg.context_window,
+                max_tokens: cfg.max_tokens,
+            });
+        }
+        if let Some(message) = writer.take_failure() {
+            unsent.push(Event::Error { message });
+        }
+        let learn = learn::Progress::new(
+            journal::prompts(&entries).len() as u32,
+            entries.iter().filter(|e| matches!(e.event, Event::ToolStart { .. })).count() as u32,
+            context.log().len(),
+            writer.last_seq(),
+        );
+        Ok(Self {
             cfg,
             paths,
             client,
@@ -191,36 +219,10 @@ impl Agent {
             last_prompt_tokens: totals.last_prompt,
             window_seen: None,
             bytes_per_token,
-            turns_since_memory: 0,
-            tool_calls_since_skill: 0,
-            user_turns: journal::prompts(&entries).len() as u32,
-            tool_calls: entries.iter().filter(|e| matches!(e.event, Event::ToolStart { .. })).count() as u32,
+            learn,
             cancel_tx,
             notes: Coalescer::default(),
-        };
-        if !system_recorded {
-            let ev = Event::for_message(prompt);
-            agent.journal.record(&ev);
-            agent.unsent.push(ev);
-        }
-        if let Some(entry) =
-            entries.iter().rev().find(|e| matches!(e.event, Event::Recovered { .. } | Event::TurnEnd { .. }))
-            && matches!(entry.event, Event::Recovered { .. })
-        {
-            agent.unsent.push(entry.event.clone());
-        }
-        if resume_id.is_some() && model_override.is_some() {
-            agent.journal.record(&Event::Model {
-                model: agent.cfg.model.clone(),
-                provider: agent.cfg.provider_name(),
-                context_window: agent.cfg.context_window,
-                max_tokens: agent.cfg.max_tokens,
-            });
-        }
-        if let Some(message) = agent.journal.take_failure() {
-            agent.unsent.push(Event::Error { message });
-        }
-        Ok(agent)
+        })
     }
 }
 

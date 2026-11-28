@@ -105,20 +105,20 @@ impl Session {
     /// The journal's session id is the ACP session id, so the record and the
     /// wire name it the same way.
     pub fn from_agent(agent: Agent, generation: u64, attached: u64) -> Result<(String, Self)> {
-        let sid = agent.journal.session.clone();
-        let entries = agent.journal.entries()?;
+        let sid = agent.session_id().to_string();
+        let entries = agent.entries()?;
+        let catalog = agent.catalog();
         let mut transcript = Transcript::default();
         let mut turn = Turn { number: 0, phase: Phase::Idle(None) };
         let mut reason = None;
         let mut keys = Keys::default();
         for entry in &entries {
-            transcript.observe(&entry.event, &|name| agent.catalog.kind_of(name));
+            transcript.observe(&entry.event, &|name| catalog.kind_of(name));
             keys.observe(&entry.event);
             turn.observe(&entry.event, &mut reason);
         }
         let cancel = agent.canceller();
         let boundary = agent.boundary();
-        let catalog = agent.catalog.clone();
         let cwd = agent.cwd().to_path_buf();
         let session = Self {
             generation,
@@ -281,9 +281,6 @@ impl Session {
 
     /// Spawn detached learning on shutdown when this session earned it.
     pub async fn spawn_learn_if_needed(&self) {
-        let a = self.agent.lock().await;
-        if crate::learn::kind_for(a.user_turns, a.tool_calls).is_some() {
-            crate::learn::spawn_detached(&a.journal.session);
-        }
+        self.agent.lock().await.spawn_detached_learning();
     }
 }

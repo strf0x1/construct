@@ -1,14 +1,11 @@
 //! The agent side of the TUI. Build a complete destination before replacing
 //! the active runtime, and tag asynchronous events with their owning session.
 
-mod learning;
-
 use crate::overlays::ask::{Prompt, TuiAsk};
 use construct_core::agent::{Agent, Event, Events};
 use construct_core::config::{Config, Paths};
 use construct_core::journal::{Entry, Totals};
 use construct_core::tools::ToolSources;
-use learning::{finish, maybe_learn};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -42,26 +39,22 @@ pub(crate) struct Ready {
 
 impl Ready {
     fn of(a: &Agent) -> anyhow::Result<Self> {
-        let entries = a.journal.entries()?;
+        let entries = a.entries()?;
         static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-        let tag = format!("{}:{}", a.journal.session, GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+        let session = a.session_id().to_string();
+        let tag = format!("{session}:{}", GENERATION.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         let spent = Totals::of(&entries);
         Ok(Self {
             ack: None,
             tag,
-            session: a.journal.session.clone(),
+            session,
             canceller: a.canceller(),
-            catalog: a.catalog.clone(),
+            catalog: a.catalog(),
             spent,
             entries,
             jobs: a.jobs(),
-            cfg: a.cfg.clone(),
-            groups: a
-                .groups
-                .iter()
-                .filter(|g| **g != construct_core::tools::Group::Core)
-                .map(construct_core::tools::Group::label)
-                .collect(),
+            cfg: a.config().clone(),
+            groups: a.active_group_labels(),
         })
     }
 }
@@ -104,7 +97,6 @@ pub(crate) async fn agent_task(
     let cwd = std::env::current_dir().unwrap_or_default();
     let mut active: Option<(Agent, Events)> = None;
     let mut pending = resume.clone();
-    let mut reviewed = (0, 0);
     let mut first = !startup_browser;
     loop {
         // Startup browsing does not resolve credentials or ask providers.
@@ -121,7 +113,7 @@ pub(crate) async fn agent_task(
                 } => {
                     if let Some((a, tx)) = &mut active {
                         let _ = a.wake(tx).await;
-                        maybe_learn(a, tx, &mut reviewed, false);
+                        a.maybe_learn(tx, false);
                     }
                     continue;
                 }
@@ -129,7 +121,7 @@ pub(crate) async fn agent_task(
         };
         match command {
             Cmd::Resume(id) => {
-                if active.as_ref().is_some_and(|(a, _)| id.as_deref() == Some(a.journal.session.as_str())) {
+                if active.as_ref().is_some_and(|(a, _)| id.as_deref() == Some(a.session_id())) {
                     continue;
                 }
                 if active.as_ref().is_some_and(|(a, _)| a.jobs().running() > 0) {
@@ -141,11 +133,10 @@ pub(crate) async fn agent_task(
                 match prepare(&cfg, &paths, &cwd, id, model_override.as_deref(), &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
-                            finish(old, reviewed);
+                            old.finish_learning();
                         }
                         a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
-                        reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();
                         publish(&out, ready).await;
                         active = Some((a, tx));
@@ -164,11 +155,10 @@ pub(crate) async fn agent_task(
                 match prepare(&cfg, &paths, &cwd, pending.clone(), Some(&m), &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
-                            finish(old, reviewed);
+                            old.finish_learning();
                         }
                         a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
-                        reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();
                         publish(&out, ready).await;
                         active = Some((a, tx));
@@ -181,7 +171,7 @@ pub(crate) async fn agent_task(
                 pending = None;
                 if let Some((a, tx)) = &mut active {
                     let _ = a.turn(&text, tx).await;
-                    maybe_learn(a, tx, &mut reviewed, false);
+                    a.maybe_learn(tx, false);
                 } else {
                     error(&out, &active, "No active session; use /model to choose an available model, or /resume.");
                     let _ = out.refused.send(());
@@ -191,7 +181,7 @@ pub(crate) async fn agent_task(
                 let ran = match &mut active {
                     Some((a, tx)) => {
                         let ran = a.invoke_as(&name, &text, &original, tx).await.unwrap_or(true);
-                        maybe_learn(a, tx, &mut reviewed, false);
+                        a.maybe_learn(tx, false);
                         ran
                     }
                     None => false,
@@ -202,7 +192,7 @@ pub(crate) async fn agent_task(
             }
             Cmd::LearnNow => {
                 if let Some((a, tx)) = &mut active {
-                    maybe_learn(a, tx, &mut reviewed, true);
+                    a.maybe_learn(tx, true);
                 }
             }
             Cmd::Model(m) => {
@@ -214,7 +204,7 @@ pub(crate) async fn agent_task(
             }
             Cmd::Rename(title) => {
                 if let Some((a, tx)) = &active {
-                    match a.journal.rename(&title) {
+                    match a.rename(&title) {
                         Ok(()) => {
                             let _ = tx.send(Event::Learn { status: format!("Session renamed: {}", title.trim()) });
                         }
@@ -227,15 +217,14 @@ pub(crate) async fn agent_task(
                 if let Some((a, _)) = &active {
                     a.stop_jobs().await;
                 }
-                let current_cfg = active.as_ref().map(|(a, _)| &a.cfg).unwrap_or(&cfg);
+                let current_cfg = active.as_ref().map(|(a, _)| a.config()).unwrap_or(&cfg);
                 match prepare(current_cfg, &paths, &cwd, None, None, &sources) {
                     Ok((a, ready)) => {
                         if let Some((old, _)) = &active {
-                            finish(old, reviewed);
+                            old.finish_learning();
                         }
                         a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
-                        reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();
                         publish(&out, ready).await;
                         active = Some((a, tx));
@@ -248,7 +237,7 @@ pub(crate) async fn agent_task(
     }
     if let Some((a, _)) = &active {
         let _ = tokio::time::timeout(std::time::Duration::from_millis(1200), a.stop_jobs()).await;
-        finish(a, reviewed);
+        a.finish_learning();
     }
 }
 

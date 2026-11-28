@@ -63,8 +63,8 @@ impl Server {
         )
         .map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
         if replay {
-            let entries = agent.journal.entries().map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
-            let catalog = agent.catalog.clone();
+            let entries = agent.entries().map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
+            let catalog = agent.catalog();
             for update in replay::history(&entries, &|name| catalog.kind_of(name)) {
                 let line = rpc::notification("session/update", json!({ "sessionId": sid, "update": update }));
                 let _ = self.out.send(line);

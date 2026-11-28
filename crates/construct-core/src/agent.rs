@@ -5,6 +5,7 @@
 
 mod compaction;
 mod deck;
+mod learn;
 mod limits;
 mod loop_guard;
 mod nudge;
@@ -31,32 +32,29 @@ use tokio::sync::{mpsc, watch};
 pub use crate::event::{Event, Events};
 
 pub struct Agent {
-    pub cfg: Config,
-    pub paths: Paths,
-    pub client: llm::Client,
+    cfg: Config,
+    paths: Paths,
+    client: llm::Client,
     router_http: reqwest::Client,
     sources: ToolSources,
     jobs: crate::jobs::Jobs,
     perms: Arc<crate::permission::Perms>,
     boundary: Option<Arc<dyn crate::tools::boundary::BoundaryHost>>,
     ctx: Arc<Ctx>,
-    pub catalog: Arc<Catalog>,
-    pub manifest: Manifest,
-    pub context: Box<dyn crate::context::Context>,
-    pub groups: BTreeSet<Group>,
-    pub journal: Arc<journal::Writer>,
+    catalog: Arc<Catalog>,
+    manifest: Manifest,
+    context: Box<dyn crate::context::Context>,
+    groups: BTreeSet<Group>,
+    journal: Arc<journal::Writer>,
     /// Journaled before there was a UI to send them to; sent at the first turn.
     unsent: Vec<Event>,
-    pub usage: Usage,
-    pub last_prompt_tokens: u64,
+    usage: Usage,
+    last_prompt_tokens: u64,
     /// The window a provider stated when it rejected a prompt, if smaller than configured.
     window_seen: Option<u64>,
     /// Request bytes per prompt token, as the compaction planner sizes candidates.
     bytes_per_token: f64,
-    pub turns_since_memory: u32,
-    pub tool_calls_since_skill: u32,
-    pub user_turns: u32,
-    pub tool_calls: u32,
+    learn: learn::Progress,
     cancel_tx: watch::Sender<bool>,
     /// What the provider client recorded without failing, until the model call ends.
     notes: Coalescer,
@@ -174,7 +172,7 @@ impl Agent {
             let _ = tx.send(ev);
         }
         self.journal.emit(Event::TurnStart, tx);
-        if self.user_turns == 0 {
+        if self.learn.user_turns() == 0 {
             self.journal.emit(Event::Manifest(self.manifest.clone()), tx);
         }
         if let Some(user) = user {
