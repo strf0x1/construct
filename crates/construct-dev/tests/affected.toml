@@ -83,14 +83,14 @@ name = "jobs"
 paths = [
   "crates/construct-core/src/jobs/",
   "crates/construct-tools-jobs/",
-  "crates/construct-core/src/tools/shell_job.rs",
+  "crates/construct-core/src/tools/builtin/shell/job.rs",
 ]
 tests = ["crash_sweep", "e2e", "jobs", "peer_tool", "recovery", "sessions", "snapshots"]
 
 # MCP servers and their tools. ACP sessions name MCP servers too.
 [[area]]
 name = "mcp"
-paths = ["crates/construct-core/src/mcp/", "crates/construct-core/src/tools/mcp.rs", "crates/construct-dev/src/mcp_fake.rs"]
+paths = ["crates/construct-core/src/mcp/", "crates/construct-core/src/tools/builtin/mcp.rs", "crates/construct-dev/src/mcp_fake.rs"]
 tests = ["acp", "acp_keys", "acp_payloads", "deck", "e2e", "mcp", "snapshots"]
 
 # Routed tools only a few tests call.

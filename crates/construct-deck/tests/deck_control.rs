@@ -104,7 +104,7 @@ fn ctx(root: &Path) -> Ctx {
     let paths = Paths { home: root.join("home") };
     let memory = Store::new(&paths, &MemoryConfig::default());
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    Ctx::new(root.to_path_buf(), paths, memory, rx, None, Policy::default())
+    Ctx::new(root.to_path_buf(), paths, memory, rx, Policy::default())
 }
 
 fn scratch(name: &str) -> PathBuf {

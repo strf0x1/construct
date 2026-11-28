@@ -27,7 +27,7 @@ const MAX_SUBJECT: usize = 256;
 /// The repository a push reads, resolved the way `commit` resolves it.
 async fn repository(ctx: &Ctx, exe: &Executable, args: &Value) -> Result<PathBuf, ToolError> {
     let raw = args.get("workdir").and_then(Value::as_str).unwrap_or(".");
-    let cwd = construct_core::tools::fs::resolve(ctx, raw).canonicalize().map_err(|_| "workdir must exist")?;
+    let cwd = ctx.resolve_path(raw).canonicalize().map_err(|_| "workdir must exist")?;
     ctx.policy().check_read(&cwd).map_err(ToolError::sandbox)?;
     let root = git(ctx, exe, &cwd, &["rev-parse", "--show-toplevel"]).await?;
     std::fs::canonicalize(root).map_err(|_| "the repository root is not accessible".into())

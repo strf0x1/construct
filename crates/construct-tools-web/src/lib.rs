@@ -30,21 +30,29 @@ const FETCH_MAX_BYTES: usize = 5 * 1024 * 1024;
 pub struct Web;
 
 impl ToolSource for Web {
-    fn tools(&self, cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
-        Ok(vec![Arc::new(WebSearch::new(&cfg.web)?), Arc::new(WebFetch)])
+    fn tools(
+        &self,
+        cfg: &ToolsConfig,
+        _deck: &Deck,
+        _jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+        let http =
+            construct_core::http::build(construct_core::http::engine().connect_timeout(Duration::from_secs(15)))?;
+        Ok(vec![Arc::new(WebSearch::new(&cfg.web, http.clone())?), Arc::new(WebFetch::new(http))])
     }
 }
 
 pub struct WebSearch {
     choice: Choice,
+    http: reqwest::Client,
 }
 
 impl WebSearch {
     pub const NAME: &str = "web_search";
 
     /// Errors on a backend name nothing implements, at startup, not mid-turn.
-    pub fn new(cfg: &WebConfig) -> anyhow::Result<Self> {
-        Ok(Self { choice: Choice::parse(&cfg.search).map_err(anyhow::Error::msg)? })
+    pub fn new(cfg: &WebConfig, http: reqwest::Client) -> anyhow::Result<Self> {
+        Ok(Self { choice: Choice::parse(&cfg.search).map_err(anyhow::Error::msg)?, http })
     }
 }
 
@@ -80,15 +88,21 @@ impl Tool for WebSearch {
     fn display(&self) -> Display {
         Display { primary_arg: "query", ..Display::default() }
     }
-    async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        search::run(ctx, &a, self.choice).await.map(Output::plain).map_err(ToolError::from)
+    async fn call(&self, _ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
+        search::run(&self.http, &a, self.choice).await.map(Output::plain).map_err(ToolError::from)
     }
 }
 
-pub struct WebFetch;
+pub struct WebFetch {
+    http: reqwest::Client,
+}
 
 impl WebFetch {
     pub const NAME: &str = "web_fetch";
+
+    pub fn new(http: reqwest::Client) -> Self {
+        Self { http }
+    }
 }
 
 #[async_trait::async_trait]
@@ -116,17 +130,16 @@ impl Tool for WebFetch {
         Display { primary_arg: "url", ..Display::default() }
     }
     async fn call(&self, ctx: &Ctx, a: Value) -> Result<Output, ToolError> {
-        fetch(ctx, &a).await.map(Output::plain).map_err(ToolError::from)
+        fetch(&self.http, ctx, &a).await.map(Output::plain).map_err(ToolError::from)
     }
 }
 
-async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
+async fn fetch(http: &reqwest::Client, ctx: &Ctx, a: &Value) -> Result<String, String> {
     let url = a.get("url").and_then(Value::as_str).ok_or("url is required")?;
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err("url must start with http:// or https://".into());
     }
-    let resp = ctx
-        .http
+    let resp = http
         .get(url)
         .header("accept", "text/markdown, text/html;q=0.9, text/plain;q=0.8, */*;q=0.5")
         .timeout(Duration::from_secs(30))
@@ -145,7 +158,7 @@ async fn fetch(ctx: &Ctx, a: &Value) -> Result<String, String> {
     } else {
         body.to_string()
     };
-    let text = construct_core::tools::cap_output(ctx, "web", &text);
+    let text = ctx.cap_output("web", &text);
     if !status.is_success() {
         return Err(format!("HTTP {status}\n{text}"));
     }

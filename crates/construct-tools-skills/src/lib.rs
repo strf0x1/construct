@@ -19,7 +19,12 @@ use std::sync::Arc;
 pub struct Skills;
 
 impl ToolSource for Skills {
-    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+    fn tools(
+        &self,
+        _cfg: &ToolsConfig,
+        _deck: &Deck,
+        _jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
         Ok(vec![Arc::new(SkillView), Arc::new(SkillManage)])
     }
 
@@ -127,40 +132,24 @@ impl Tool for SkillManage {
 fn manage(ctx: &Ctx, a: &Value) -> Result<String, String> {
     let s = |k: &str| a.get(k).and_then(Value::as_str);
     let name = || s("name").ok_or_else(|| "name is required".to_string());
-    // An existing skill is edited where it lives; a new one goes where `scope` says.
-    let project = ctx.project_skills.as_ref();
-    let lib = match (s("scope"), s("name").and_then(|n| project.filter(|p| p.get(n).is_some()))) {
-        (_, Some(p)) => p,
-        (Some("project"), None) => match (project, &ctx.memory.project) {
-            (Some(p), Some(pr)) => {
-                pr.touch();
-                p
-            }
-            _ => return Err("not in a git repo, so there is no project kit; use scope 'global' (the default)".into()),
-        },
-        _ => &ctx.skills,
-    };
-    match s("action").unwrap_or("") {
-        "list" => {
-            let mut lines: Vec<String> = project
-                .map(|p| {
-                    p.list()
-                        .iter()
-                        .map(|k| format!("- {} ({}): {}", k.name, ctx.locate_skill(p, &k.name), k.description))
-                        .collect()
-                })
-                .unwrap_or_default();
-            lines.extend(
-                ctx.skills
-                    .list()
-                    .iter()
-                    .map(|k| format!("- {} ({}): {}", k.name, ctx.locate_skill(&ctx.skills, &k.name), k.description)),
-            );
-            if lines.is_empty() {
-                return Ok("the skill library is empty".into());
-            }
-            Ok(lines.join("\n"))
+    if s("action") == Some("list") {
+        let lines: Vec<String> = ctx
+            .skill_libs()
+            .into_iter()
+            .flat_map(|lib| {
+                lib.list()
+                    .into_iter()
+                    .map(move |k| format!("- {} ({}): {}", k.name, ctx.locate_skill(lib, &k.name), k.description))
+            })
+            .collect();
+        if lines.is_empty() {
+            return Ok("the skill library is empty".into());
         }
+        return Ok(lines.join("\n"));
+    }
+    // An existing skill is edited where it lives; a new one goes where `scope` says.
+    let lib = ctx.writable_skill_lib(s("name"), s("scope"))?;
+    match s("action").unwrap_or("") {
         "create" => lib.create(name()?, s("content").ok_or("content is required")?, "agent"),
         "edit" => lib.edit(name()?, s("content").ok_or("content is required")?),
         "patch" => {

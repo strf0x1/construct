@@ -18,7 +18,12 @@ use std::sync::Arc;
 pub struct MemoryTools;
 
 impl ToolSource for MemoryTools {
-    fn tools(&self, _cfg: &ToolsConfig, _deck: &Deck) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
+    fn tools(
+        &self,
+        _cfg: &ToolsConfig,
+        _deck: &Deck,
+        _jobs: &construct_core::jobs::Jobs,
+    ) -> anyhow::Result<Vec<Arc<dyn Tool>>> {
         Ok(vec![Arc::new(Memory)])
     }
 
@@ -80,5 +85,5 @@ fn run(ctx: &Ctx, a: &Value) -> Result<String, String> {
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| format!("operations: {e}"))?,
         None => vec![serde_json::from_value(a.clone()).map_err(|e| format!("{e}"))?],
     };
-    ctx.memory.apply(target, &ops)
+    ctx.apply_memory(target, &ops)
 }

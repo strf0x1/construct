@@ -19,8 +19,10 @@ impl Executable {
     }
 
     fn outside_workspace(path: &std::path::Path, ctx: &Ctx) -> Option<()> {
-        (!path.starts_with(&ctx.cwd) && !ctx.policy().write.iter().any(|root| path.starts_with(root)) && path.is_file())
-            .then_some(())
+        (!path.starts_with(ctx.cwd())
+            && !ctx.policy().write.iter().any(|root| path.starts_with(root))
+            && path.is_file())
+        .then_some(())
     }
 
     #[cfg(test)]

@@ -42,7 +42,7 @@ impl Farm {
         let memory = Store::new(&paths, &MemoryConfig::default());
         let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
         let (_tx, rx) = tokio::sync::watch::channel(false);
-        let ctx = Ctx::new(work, paths, memory, rx, None, sandbox);
+        let ctx = Ctx::new(work, paths, memory, rx, sandbox);
         let catalog = Catalog::build(&ToolsConfig::default(), None).unwrap();
         Self { root, ctx, catalog }
     }

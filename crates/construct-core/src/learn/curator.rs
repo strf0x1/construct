@@ -21,11 +21,12 @@ pub async fn curate(cfg: &Config, paths: &Paths, sources: &ToolSources) -> Resul
     if !catalog.groups().contains(&Group::SkillWrite) {
         return Ok(None);
     }
-    let usage = ctx.skills.usage();
+    let skills = crate::skills::Library::new(paths);
+    let usage = skills.usage();
     let now = crate::clock::now();
     let mut listing = String::new();
     let mut n = 0;
-    for s in ctx.skills.list() {
+    for s in skills.list() {
         let u = usage.get(&s.name).cloned().unwrap_or_default();
         if u.author != "agent" || u.pinned {
             continue;

@@ -3,9 +3,10 @@
 //! the output is in path order whichever thread finishes first, and only the
 //! first `GREP_MAX` lines are ever held, however many files match.
 
-use super::fs::{display, resolve, walker};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, obj};
+use super::blocking;
+use super::fs::{display, walker};
 use crate::sandbox::{Policy, open};
+use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
 use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, sinks::UTF8};
 use ignore::WalkState;
@@ -76,7 +77,7 @@ impl Tool for Grep {
 
 fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
     let pattern = arg(a, "pattern").ok_or("pattern is required")?;
-    let root = arg(a, "path").map(|p| resolve(ctx, p)).unwrap_or_else(|| ctx.cwd.clone());
+    let root = arg(a, "path").map(|p| ctx.resolve_path(p)).unwrap_or_else(|| ctx.cwd().to_path_buf());
     let insensitive = a.get("ignore_case").and_then(Value::as_bool).unwrap_or(false);
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(insensitive)
@@ -125,7 +126,7 @@ fn search_file(ctx: &Ctx, searcher: &mut Searcher, matcher: &RegexMatcher, polic
     let mut hits = Hits { count: 0, lines: Vec::new() };
     // Opened through the policy, so a file swapped for a link to outside is not read.
     let Ok(file) = open::open_read(policy, path) else { return hits };
-    let shown = display(ctx, path);
+    let shown = display(ctx.cwd(), path);
     let _ = searcher.search_file(
         matcher,
         &file,

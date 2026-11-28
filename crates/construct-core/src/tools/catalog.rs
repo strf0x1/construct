@@ -1,23 +1,12 @@
 //! The session's tool catalog: registration, routing groups and dispatch.
 //! A disabled tool is absent from every lookup, including lazy MCP discovery.
 
-use super::*;
+use super::{Call, Ctx, Deck, Display, ENABLE_TOOLS, Group, Output, Tool, ToolError, ToolKind, ToolSources, builtin};
 use crate::config::ToolsConfig;
-use anyhow::bail;
-use std::collections::{BTreeSet, HashSet};
+use anyhow::{Result, bail};
+use serde_json::{Value, json};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::{Arc, RwLock};
-
-/// What Deck gave this task, each of which adds or changes tools. All off is
-/// an ordinary session.
-#[derive(Debug, Clone, Default)]
-pub struct Deck {
-    /// A boundary endpoint: the three boundary tools exist only then.
-    pub boundary: bool,
-    /// Deck's GitHub gateway: the `developer` tool publishes through it.
-    pub github: bool,
-    /// A coordinator's control gateway URL: the `deck` tool exists only then.
-    pub control: Option<String>,
-}
 
 /// The tools this session has. Definition order in requests is the order
 /// tools are pushed in `build` (then MCP tools in discovery order), grouped
@@ -49,18 +38,20 @@ impl Catalog {
         deck: &Deck,
         sources: &ToolSources,
     ) -> Result<Catalog> {
-        let mut tools: Vec<Arc<dyn Tool>> = vec![Arc::new(shell::Shell::new(&cfg.shell))];
-        tools.push(Arc::new(read::Read));
-        tools.push(Arc::new(write::Write));
-        tools.push(Arc::new(edit::Edit));
-        if cfg.search_name.is_empty()
-            || !cfg.search_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-        {
-            bail!("tools.search_name: {:?} is not a usable tool name", cfg.search_name);
-        }
-        tools.push(Arc::new(grep::Grep::named(&cfg.search_name)));
-        tools.push(Arc::new(glob::Glob));
-        tools.extend(sources.tools(cfg, deck)?);
+        let jobs = crate::jobs::Jobs::new(&Default::default());
+        Self::build_session(cfg, mcp, deck, &jobs, sources)
+    }
+
+    /// `build_extended` bound to a live session's background job registry.
+    pub fn build_session(
+        cfg: &ToolsConfig,
+        mcp: Option<Arc<crate::mcp::Manager>>,
+        deck: &Deck,
+        jobs: &crate::jobs::Jobs,
+        sources: &ToolSources,
+    ) -> Result<Catalog> {
+        let mut tools = builtin::core_tools(cfg, sources, jobs)?;
+        tools.extend(sources.tools(cfg, deck, jobs)?);
         let mut seen = HashSet::new();
         if let Some(t) = tools.iter().find(|t| !seen.insert(t.name().to_string())) {
             bail!("tools.search_name: {:?} is already a tool", t.name());
@@ -69,7 +60,7 @@ impl Catalog {
         let disabled: Vec<String> = cfg
             .disabled
             .iter()
-            .map(|d| if tools.iter().any(|t| t.name() == d) { d.as_str() } else { canonical(d) }.to_string())
+            .map(|d| if tools.iter().any(|t| t.name() == d) { d.as_str() } else { builtin::canonical(d) }.to_string())
             .collect();
         for d in &disabled {
             if crate::mcp::server_of(d).is_none() && !tools.iter().any(|t| t.name() == d) {
@@ -88,12 +79,20 @@ impl Catalog {
         #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
         let mut tools = self.tools.write().unwrap();
         for t in listed {
-            let t = mcp::McpTool::new(m, server, t);
+            let t = builtin::mcp::McpTool::new(m, server, t);
             if !self.disabled.iter().any(|d| d == t.name()) && !tools.iter().any(|x| x.name() == t.name()) {
                 tools.push(Arc::new(t));
             }
         }
         Ok(())
+    }
+
+    /// Configured MCP servers and their descriptions, for the per-turn router.
+    pub fn mcp_descriptions(&self) -> BTreeMap<String, String> {
+        self.mcp
+            .as_ref()
+            .map(|m| m.servers().iter().map(|(k, v)| (k.clone(), v.description.clone())).collect())
+            .unwrap_or_default()
     }
 
     #[expect(clippy::unwrap_used, reason = "poisoned lock: a panic elsewhere")]
@@ -106,7 +105,7 @@ impl Catalog {
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
         let tools = self.tools();
         let find = |n: &str| tools.iter().find(|t| t.name() == n).cloned();
-        find(name).or_else(|| find(canonical(name)))
+        find(name).or_else(|| find(builtin::canonical(name)))
     }
 
     /// The kind of the named tool; `other` for one the catalog doesn't have.
@@ -141,7 +140,7 @@ impl Catalog {
         if let Some(t) = self.get(name) {
             return Some(t.group());
         }
-        if self.disabled.iter().any(|d| d == name || d == canonical(name)) {
+        if self.disabled.iter().any(|d| d == name || d == builtin::canonical(name)) {
             return None;
         }
         // A server's tools join the catalog when it starts; naming one of

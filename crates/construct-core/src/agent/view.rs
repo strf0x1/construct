@@ -15,4 +15,24 @@ impl Agent {
     pub fn log(&self) -> &[Message] {
         self.context.log()
     }
+
+    /// The tool sources this session was built with, for background learning.
+    pub fn tool_sources(&self) -> &ToolSources {
+        &self.sources
+    }
+
+    /// Deck's boundary host for this session, if running in a Deck task.
+    pub fn boundary(&self) -> Option<Arc<dyn crate::tools::boundary::BoundaryHost>> {
+        self.boundary.clone()
+    }
+
+    /// Wire the interactive permission prompt channel (`TuiAsk`, ACP `ClientAsk`, …).
+    pub fn set_permission_ask(&self, ask: Arc<dyn crate::permission::Ask>) {
+        self.perms.set_ask(ask);
+    }
+
+    /// The session's working directory.
+    pub fn cwd(&self) -> &std::path::Path {
+        self.ctx.cwd()
+    }
 }

@@ -1,8 +1,9 @@
 //! read: a text file with line numbers, or a directory listing.
 
-use super::fs::{encoding_error, is_utf16, resolve};
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, blocking, def, num, obj};
+use super::blocking;
+use super::fs::{encoding_error, is_utf16};
 use crate::sandbox::{Policy, open};
+use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, num, obj};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -15,15 +16,7 @@ const FOOTER: usize = 120;
 /// small window pages (offset) instead of losing its middle to `cap_output`.
 /// The first row always goes in. Returns the page and its last line number.
 pub(super) fn page(ctx: &Ctx, offset: usize, rows: impl Iterator<Item = String>) -> (String, usize) {
-    let (mut out, mut end) = (String::new(), offset - 1);
-    for row in rows {
-        if !out.is_empty() && out.len() + row.len() + FOOTER > ctx.output_max() {
-            break;
-        }
-        out.push_str(&row);
-        end += 1;
-    }
-    (out, end)
+    ctx.page_output(offset, FOOTER, rows)
 }
 
 pub struct Read;
@@ -70,7 +63,7 @@ impl Tool for Read {
 }
 
 fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
-    let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    let path = ctx.resolve_path(arg(a, "path").ok_or("path is required")?);
     let meta = open::metadata(policy, &path)?;
     if meta.is_dir() {
         return list_dir(policy, &path);

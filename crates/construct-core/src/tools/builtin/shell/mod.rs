@@ -5,12 +5,17 @@
 //! sweep, and only then kills the process group. The helper's stderr is its
 //! report of what it stopped.
 
-use super::Call;
-use super::{Ctx, Display, Group, Output, OutputKind, Tool, ToolError, ToolKind, def, obj};
+mod exit;
+mod job;
+
 use crate::config::ShellConfig;
-use crate::permission::{Access, Outside, blocked_in, outside};
+use crate::permission::{Access, blocked_in, outside};
 use crate::sandbox::report::{parse_report, swept_note};
 use crate::sandbox::{GRACE, Policy, StopOnDrop};
+use crate::tools::ctx::SHELL_STOP_AFTER;
+use crate::tools::{
+    Call, Ctx, Display, Group, Output, OutputKind, SHELL_NAME, Tool, ToolError, ToolKind, ToolSources, def, obj,
+};
 use serde_json::{Value, json};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -22,15 +27,33 @@ const MAX_TIMEOUT_S: u64 = 1800;
 pub struct Shell {
     /// The longest a background command runs, in seconds.
     background_timeout: u64,
+    /// Sources the catalog was built with, for linked-worktree failure hints.
+    sources: ToolSources,
+    /// The session's background job registry.
+    jobs: crate::jobs::Jobs,
 }
 
 impl Shell {
-    pub const NAME: &str = "bash";
+    pub const NAME: &str = SHELL_NAME;
     /// Old names, still accepted in config, agent definitions and calls; never offered (ADR 0046).
     pub const ALIASES: &[&str] = &["shell"];
 
     pub fn new(cfg: &ShellConfig) -> Self {
-        Self { background_timeout: cfg.background_timeout.max(1) }
+        Self {
+            background_timeout: cfg.background_timeout.max(1),
+            sources: ToolSources::default(),
+            jobs: crate::jobs::Jobs::new(&Default::default()),
+        }
+    }
+
+    pub fn with_sources(mut self, sources: ToolSources) -> Self {
+        self.sources = sources;
+        self
+    }
+
+    pub fn with_jobs(mut self, jobs: crate::jobs::Jobs) -> Self {
+        self.jobs = jobs;
+        self
     }
 }
 
@@ -67,7 +90,7 @@ impl Tool for Shell {
         self.call_with(ctx, &Call::detached(""), a).await
     }
     async fn call_with(&self, ctx: &Ctx, call: &Call, a: Value) -> Result<Output, ToolError> {
-        let r = run(ctx, call, self.background_timeout, &a).await;
+        let r = run(ctx, call, self, &a).await;
         r.map(|o| o.with_kind(OutputKind::Tail)).map_err(|e| ToolError { kind: OutputKind::Tail, ..e })
     }
 }
@@ -80,36 +103,36 @@ const MAX_ASKS: usize = 2;
 /// stop searching and ask, no more prompts are shown, and a command that
 /// names a path outside the sandbox is not run at all (#64): a weak model
 /// reads past the words, but not past a refusal.
-pub const STOP_AFTER: usize = 3;
+pub const STOP_AFTER: usize = SHELL_STOP_AFTER;
 
-async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<Output, ToolError> {
+async fn run(ctx: &Ctx, call: &Call, shell: &Shell, a: &Value) -> Result<Output, ToolError> {
     let command = a.get("command").and_then(Value::as_str).ok_or("command is required")?;
     let timeout = a.get("timeout").and_then(Value::as_u64).unwrap_or(DEFAULT_TIMEOUT_S).clamp(1, MAX_TIMEOUT_S);
-    let cwd =
-        a.get("workdir").and_then(Value::as_str).map(|d| super::fs::resolve(ctx, d)).unwrap_or_else(|| ctx.cwd.clone());
+    let cwd = a
+        .get("workdir")
+        .and_then(Value::as_str)
+        .map(|d| ctx.resolve_path(d))
+        .unwrap_or_else(|| ctx.cwd().to_path_buf());
     ctx.can_path(Shell::NAME, Access::Read, &cwd).await?;
     let mut policy = ctx.policy();
-    let stopped = ctx.shell_blocks() >= STOP_AFTER;
     // A command that hides its errors (`2>/dev/null`, `|| echo missing`)
     // leaves nothing to ask about afterwards, so the paths it names are
     // asked about before it runs.
     let named = outside(&policy, command, &cwd);
-    if stopped && !named.is_empty() {
-        return Err(refused(ctx, &named));
-    }
+    let stopped = ctx.shell_guard(&named)?;
     let mut declined = vec![];
     if !named.ask.is_empty() && !stopped {
-        match ctx.perms.shell(command, Access::Read, named.ask.clone(), true, ctx.cancel.clone()).await {
+        match ctx.ask_shell(command, Access::Read, named.ask.clone(), true).await {
             Some(extra) => policy = policy.widened(&extra, &[]),
             None => declined = named.ask.clone(),
         }
-        if *ctx.cancel.borrow() {
+        if ctx.is_cancelled() {
             return Err(ToolError::new("interrupted", "[interrupted before the command ran]"));
         }
     }
     if a.get("background").and_then(Value::as_bool).unwrap_or(false) {
-        let job = super::shell_job::start(ctx, call, command, &cwd, &policy, background_max, a.get("timeout"))?;
-        let (text, data) = sandbox_note(ctx, job.text, &named, &policy, false);
+        let job = job::start(&shell.jobs, call, command, &cwd, &policy, shell.background_timeout, a.get("timeout"))?;
+        let (text, data) = ctx.annotate_shell_sandbox(job.text, &named, &policy, false);
         return Ok(match data {
             Some(d) => Output::plain(text).with_data(json!({ "job": job.id, "sandbox": d["sandbox"] })),
             None => Output::plain(text).with_data(json!({ "job": job.id })),
@@ -117,7 +140,7 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
     }
     let mut asks = 0;
     let r = loop {
-        let r = run_once(ctx, call, &policy, command, &cwd, timeout).await;
+        let r = run_once(ctx, call, &policy, &shell.sources, command, &cwd, timeout).await;
         // A Landlock denial is otherwise visible only in the command's own
         // output, so asking comes after the fact: the user sees which paths
         // it named and that approving runs the command again.
@@ -130,7 +153,7 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
         if paths.is_empty() {
             break r;
         }
-        let Some(extra) = ctx.perms.shell(command, access, paths, false, ctx.cancel.clone()).await else { break r };
+        let Some(extra) = ctx.ask_shell(command, access, paths, false).await else { break r };
         policy = match access {
             Access::Read => policy.widened(&extra, &[]),
             Access::Write => policy.widened(&[], &extra),
@@ -139,7 +162,7 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
     };
     match r {
         Ok(out) => {
-            let (text, data) = sandbox_note(ctx, out, &named, &policy, false);
+            let (text, data) = ctx.annotate_shell_sandbox(out, &named, &policy, false);
             let o = Output::plain(text);
             Ok(match data {
                 Some(d) => o.with_data(d),
@@ -148,7 +171,7 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
         }
         Err(mut e) => {
             let hinted = e.message.contains("[sandbox:");
-            let (text, data) = sandbox_note(ctx, std::mem::take(&mut e.message), &named, &policy, hinted);
+            let (text, data) = ctx.annotate_shell_sandbox(std::mem::take(&mut e.message), &named, &policy, hinted);
             e.message = text;
             e.data = data.or(e.data);
             Err(e)
@@ -156,62 +179,11 @@ async fn run(ctx: &Ctx, call: &Call, background_max: u64, a: &Value) -> Result<O
     }
 }
 
-/// The answer to a command that names paths outside the sandbox once the turn
-/// has had `STOP_AFTER` blocked calls: it is not run.
-fn refused(ctx: &Ctx, named: &Outside) -> ToolError {
-    let n = ctx.shell_blocked();
-    let places: Vec<String> = [&named.ask, &named.broad, &named.construct, &named.protected]
-        .into_iter()
-        .flatten()
-        .map(|p| p.display().to_string())
-        .collect();
-    ToolError::new(
-        "sandbox",
-        format!(
-            "[sandbox: not run. {n} shell calls this turn were blocked by the sandbox, and this one names {} outside it too. Stop searching outside the workspace and ask the user where the file is, or to allow the path.]",
-            places.join(", ")
-        ),
-    )
-    .with_data(json!({ "sandbox": { "outside": places, "blocked_this_turn": n, "stop": true, "refused": true } }))
-}
-
-/// `out` with what the sandbox kept from the command said, whatever its exit
-/// code or redirects: the paths it named that are still out of reach, and,
-/// from the `STOP_AFTER`th blocked call in a turn, a nudge to stop and ask.
-/// `hinted`: the output already showed a denial. The data, for the journal
-/// and scorers, says what was blocked and whether the stop was given.
-fn sandbox_note(ctx: &Ctx, mut out: String, named: &Outside, policy: &Policy, hinted: bool) -> (String, Option<Value>) {
-    let blocked = named.clone().still_blocked(policy);
-    let note = blocked.note(&ctx.paths.home, &ctx.paths.skills_dir(), ctx.perms.tools());
-    if note.is_empty() && !hinted {
-        return (out, None);
-    }
-    if !note.is_empty() {
-        out.push('\n');
-        out.push_str(&note);
-    }
-    let n = ctx.shell_blocked();
-    if n >= STOP_AFTER {
-        out.push_str(&format!(
-            "\n[sandbox: {n} shell calls this turn were blocked by the sandbox. Stop searching outside the workspace and ask the user where the file is, or to allow the path.]"
-        ));
-    }
-    let shown = |v: &[std::path::PathBuf]| v.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
-    let data = json!({ "sandbox": {
-        "outside": shown(&[blocked.ask, blocked.protected].concat()),
-        "broad": shown(&blocked.broad),
-        "construct": !blocked.construct.is_empty(),
-        "from_output": hinted,
-        "blocked_this_turn": n,
-        "stop": n >= STOP_AFTER,
-    }});
-    (out, Some(data))
-}
-
 async fn run_once(
     ctx: &Ctx,
     call: &Call,
     policy: &Policy,
+    sources: &ToolSources,
     command: &str,
     cwd: &std::path::Path,
     timeout: u64,
@@ -226,7 +198,7 @@ async fn run_once(
     let (Some(mut stdout), Some(mut stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Err("spawn failed: no pipes".into());
     };
-    let mut cancel = ctx.cancel.clone();
+    let mut cancel = ctx.cancel_signal();
     let mut buf = Vec::new();
     let mut chunk = [0u8; 16384];
     let mut live = call.output_stream();
@@ -270,7 +242,7 @@ async fn run_once(
     let mut report = Vec::new();
     let _ = tokio::time::timeout(GRACE, stderr.read_to_end(&mut report)).await;
     let report = parse_report(&String::from_utf8_lossy(&report));
-    let mut out = super::cap_output(ctx, "shell", &String::from_utf8_lossy(&buf));
+    let mut out = ctx.cap_output("shell", &String::from_utf8_lossy(&buf));
     out.push_str(&report.other);
     if out.is_empty() {
         out.push_str("(no output)");
@@ -291,7 +263,7 @@ async fn run_once(
         )),
         (None, Some(0)) => Ok(out),
         (None, Some(c)) => {
-            let hint = super::shell_exit::hint(policy, cwd, &ctx.sources, &out);
+            let hint = exit::hint(policy, cwd, sources, &out);
             Err(ToolError::new("exit", format!("{out}\n[exit {c}]{hint}")))
         }
         (None, None) => Err(ToolError::new("signal", format!("{out}\n[killed by signal]"))),

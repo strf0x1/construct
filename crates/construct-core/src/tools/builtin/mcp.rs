@@ -6,8 +6,8 @@
 //! the catalog, and the only trace of them is the server's line in
 //! `enable_tools`.
 
-use super::{Ctx, Group, Output, Tool, ToolError};
 use crate::mcp::{Manager, RemoteTool, wire_name};
+use crate::tools::{Ctx, Group, Output, Tool, ToolError};
 use serde_json::{Value, json};
 use std::sync::Arc;
 

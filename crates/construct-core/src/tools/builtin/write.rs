@@ -1,9 +1,8 @@
 //! write: create a file or replace its content; an existing file must have
 //! been read first.
 
-use super::fs::resolve;
-use super::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
 use crate::sandbox::{Policy, open};
+use crate::tools::{Ctx, Display, Group, Output, Tool, ToolError, ToolKind, arg, def, obj};
 use serde_json::{Value, json};
 
 pub struct Write;
@@ -40,7 +39,7 @@ impl Tool for Write {
 }
 
 fn run(ctx: &Ctx, policy: &Policy, a: &Value) -> Result<String, ToolError> {
-    let path = resolve(ctx, arg(a, "path").ok_or("path is required")?);
+    let path = ctx.resolve_path(arg(a, "path").ok_or("path is required")?);
     let content = arg(a, "content").ok_or("content is required")?;
     let existed = open::exists(policy, &path);
     if existed && !ctx.was_read(&path) {

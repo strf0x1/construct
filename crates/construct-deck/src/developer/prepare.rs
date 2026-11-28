@@ -221,7 +221,7 @@ mod tests {
         let paths = Paths { home: root.join("home") };
         let store = Store::new(&paths, &MemoryConfig::default());
         let policy = Policy::new(&SandboxConfig::default(), &work, &paths);
-        let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, None, policy);
+        let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, policy);
         (ctx, root)
     }
 
@@ -262,7 +262,7 @@ mod tests {
         let output = prepared(&ctx, &root, &script, input).execute(&ctx).await.unwrap();
         assert!(output.text.starts_with("Already completed:"));
         assert!(!root.join("args").exists());
-        assert!(!ctx.cwd.join("bad").exists());
+        assert!(!ctx.cwd().join("bad").exists());
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -272,13 +272,13 @@ mod tests {
         let input = json!({"title":"a","body":"b"});
         let plan = prepared(&ctx, &root, "printf invalid-json", input.clone());
         assert_eq!(plan.execute(&ctx).await.err().unwrap().code, "unknown");
+        let paths = Paths { home: ctx.home().to_path_buf() };
         let ctx = Ctx::new(
-            ctx.cwd.clone(),
-            ctx.paths.clone(),
-            Store::new(&ctx.paths, &MemoryConfig::default()),
+            ctx.cwd().to_path_buf(),
+            paths.clone(),
+            Store::new(&paths, &MemoryConfig::default()),
             tokio::sync::watch::channel(false).1,
-            None,
-            ctx.sandbox.clone(),
+            ctx.policy(),
         );
         let plan = prepared(&ctx, &root, "touch should-not-run", json!({"title":"different","body":"b"}));
         assert_eq!(plan.execute(&ctx).await.err().unwrap().code, "unknown");

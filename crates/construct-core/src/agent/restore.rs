@@ -91,6 +91,8 @@ impl Agent {
         check_window(&cfg.context.strategy, u64::from(cfg.context_window), &cfg.model)?;
         let ep = cfg.endpoint();
         let client = llm::Client::new(&ep, ep.require(ep.key())?)?;
+        let router_http =
+            crate::http::build(crate::http::engine().connect_timeout(std::time::Duration::from_secs(15)))?;
         let memory = crate::memory::Store::new(&paths, &cfg.memory).with_project(&paths, &cwd);
         let (cancel_tx, cancel_rx) = watch::channel(false);
         let mcp = if cfg.mcp.is_empty() {
@@ -98,12 +100,17 @@ impl Agent {
         } else {
             Some(Arc::new(crate::mcp::Manager::new(cfg.mcp.clone(), &cfg.sandbox, &cwd, &paths)))
         };
+        let jobs = crate::jobs::Jobs::new(&cfg.jobs);
+        if let Some(id) = &resume {
+            jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
+        }
+        let boundary = cfg.deck.as_ref().and_then(|deck| sources.boundary(&deck.boundary_url));
         let deck = crate::tools::Deck {
-            boundary: cfg.deck.is_some(),
-            github: cfg.github_gateway.is_some(),
+            boundary: boundary.clone(),
+            github: cfg.github_gateway.clone(),
             control: crate::config::deck::control_url(),
         };
-        let catalog = Arc::new(Catalog::build_extended(&cfg.tools, mcp.clone(), &deck, sources)?);
+        let catalog = Arc::new(Catalog::build_session(&cfg.tools, mcp.clone(), &deck, &jobs, sources)?);
         let manifest = Manifest::new(&cfg, catalog.names());
         let cwd_s = cwd.display().to_string();
         let mut unsent = vec![];
@@ -142,25 +149,15 @@ impl Agent {
         let sandbox = crate::sandbox::Policy::new(&cfg.sandbox, &cwd, &paths);
         let prompt = Message::system(system);
         let system_recorded = context.set_system(prompt.clone());
-        let jobs = crate::jobs::Jobs::new(&cfg.jobs);
-        if let Some(id) = &resume_id {
-            jobs.resume(&journal::Journal::open(&file)?.since(id, 0)?.into_iter().map(|e| e.event).collect::<Vec<_>>());
-        }
-        let boundary = cfg.deck.as_ref().and_then(|deck| sources.boundary(&deck.boundary_url));
-        let ctx = Arc::new(
-            crate::tools::Ctx::new(cwd, paths.clone(), memory, cancel_rx, mcp, sandbox)
-                .with_jobs(jobs)
-                .with_boundary(boundary)
-                .with_sources(sources.clone())
-                .with_github(cfg.github_gateway.clone()),
-        );
+        let perms = Arc::new(crate::permission::Perms::new(&paths, sandbox).with_tools(named));
+        let ctx = Arc::new(crate::tools::Ctx::with_perms(cwd, paths.clone(), memory, cancel_rx, perms.clone()));
         let entries = writer.entries()?;
         let bytes_per_token = learned_ratio(&entries).unwrap_or(4.0);
         let totals = journal::Totals::of(&entries);
         let mut groups = BTreeSet::new();
         groups.insert(Group::Core);
         groups.extend(Group::initial(&cfg.tools.initial).map_err(anyhow::Error::msg)?);
-        if ctx.boundary.is_some() {
+        if boundary.is_some() {
             groups.insert(Group::Boundary);
         }
         if deck.control.is_some() {
@@ -178,6 +175,11 @@ impl Agent {
             cfg,
             paths,
             client,
+            router_http,
+            sources: sources.clone(),
+            jobs,
+            perms,
+            boundary,
             ctx,
             catalog,
             manifest,

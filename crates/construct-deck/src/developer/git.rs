@@ -131,7 +131,7 @@ pub(super) async fn prepare(ctx: &Ctx, args: &Value) -> Result<Plan, ToolError> 
         None => ".",
         Some(_) => required(args, "workdir")?,
     };
-    let cwd = construct_core::tools::fs::resolve(ctx, raw).canonicalize().map_err(|_| "workdir must exist")?;
+    let cwd = ctx.resolve_path(raw).canonicalize().map_err(|_| "workdir must exist")?;
     ctx.policy().check_read(&cwd).map_err(ToolError::sandbox)?;
     let executable = Executable::find("git", ctx)?;
     let root = git(ctx, &executable, &cwd, &["rev-parse", "--show-toplevel"]).await?;
@@ -143,14 +143,14 @@ pub(super) async fn prepare(ctx: &Ctx, args: &Value) -> Result<Plan, ToolError> 
     let common_dir = canonical(&common_dir)?;
     if [&git_dir, &common_dir]
         .iter()
-        .any(|path| construct_core::permission::protected(path) || path.starts_with(&ctx.paths.home))
+        .any(|path| construct_core::permission::protected(path) || path.starts_with(ctx.home()))
     {
         return Err("repository metadata points into a protected directory".into());
     }
     let git_dir = git_dir.display().to_string();
     let common_dir = common_dir.display().to_string();
     let objects = canonical(&format!("{common_dir}/objects"))?;
-    if construct_core::permission::protected(&objects) || objects.starts_with(&ctx.paths.home) {
+    if construct_core::permission::protected(&objects) || objects.starts_with(ctx.home()) {
         return Err("repository objects point into a protected directory".into());
     }
     let operation = required(args, "operation")?;

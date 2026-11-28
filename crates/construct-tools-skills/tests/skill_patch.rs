@@ -21,7 +21,7 @@ async fn patch(old: &str, new: &str) -> (Result<String, String>, String) {
     let memory = Store::new(&paths, &MemoryConfig::default());
     let sandbox = Policy::new(&SandboxConfig::default(), &work, &paths);
     let (_tx, rx) = tokio::sync::watch::channel(false);
-    let ctx = Ctx::new(work, paths.clone(), memory, rx, None, sandbox);
+    let ctx = Ctx::new(work, paths.clone(), memory, rx, sandbox);
     let sources = ToolSources::default().with(Skills);
     let catalog = Catalog::build_extended(&ToolsConfig::default(), None, &Deck::default(), &sources).unwrap();
     let call = |args: serde_json::Value| {

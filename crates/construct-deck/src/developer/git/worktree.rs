@@ -46,15 +46,15 @@ pub(in crate::developer) async fn call(ctx: &Ctx, mut args: Value) -> Result<Out
 /// model passes it to every operation.
 fn same_checkout(ctx: &Ctx, dir: &Value) -> Result<(), ToolError> {
     let real = |path: &std::path::Path| path.canonicalize().ok();
-    let here = real(&ctx.cwd);
-    if here.is_some() && dir.as_str().map(|dir| real(&construct_core::tools::fs::resolve(ctx, dir))) == Some(here) {
+    let here = real(ctx.cwd());
+    if here.is_some() && dir.as_str().map(|dir| real(&ctx.resolve_path(dir))) == Some(here) {
         return Ok(());
     }
     Err(ToolError::new(
         "invalid_argument",
         format!(
             "{STATUS}, {STAGE} and {MERGE_START} run in the session's working directory ({}); leave out workdir",
-            ctx.cwd.display()
+            ctx.cwd().display()
         ),
     ))
 }

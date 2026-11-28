@@ -54,7 +54,7 @@ fn validate(ctx: &Ctx, layout: &Layout<'_>) -> Result<(), ToolError> {
     for root in [common, git_dir] {
         if root.canonicalize().map_err(|_| "captured git directory is unavailable")? != root
             || construct_core::permission::protected(root)
-            || root.starts_with(construct_core::sandbox::Policy::real(&ctx.paths.home))
+            || root.starts_with(construct_core::sandbox::Policy::real(ctx.home()))
         {
             return Err("captured git directory changed or points into protected storage".into());
         }
@@ -116,7 +116,7 @@ impl CommitContext {
                 if source.starts_with(layout.git_dir) { Path::new(layout.git_dir) } else { Path::new(layout.common) };
             bounded(root, source)?;
             let real = source.canonicalize().map_err(|_| "cannot read staged index")?;
-            if construct_core::permission::protected(&real) || real.starts_with(&ctx.paths.home) {
+            if construct_core::permission::protected(&real) || real.starts_with(ctx.home()) {
                 return Err("index storage points into a protected directory".into());
             }
             let name = if source == index {

@@ -27,6 +27,7 @@ const TRANSCRIPT_MAX: usize = 6 * 1024;
 
 pub struct PeerTool {
     hub: Arc<dyn Hub>,
+    jobs: construct_core::jobs::Jobs,
     /// The job watching each peer's prompt, so `cancel` also stops the wake.
     watching: Watching,
 }
@@ -35,8 +36,8 @@ impl PeerTool {
     pub const NAME: &str = "peer";
 
     #[must_use]
-    pub fn new(hub: Arc<dyn Hub>) -> Self {
-        Self { hub, watching: Watching::default() }
+    pub fn new(hub: Arc<dyn Hub>, jobs: construct_core::jobs::Jobs) -> Self {
+        Self { hub, jobs, watching: Watching::default() }
     }
 
     async fn list(&self) -> Result<Output, ToolError> {
@@ -61,7 +62,7 @@ impl PeerTool {
         Ok(Output::plain(lines.join("\n")))
     }
 
-    async fn send(&self, ctx: &Ctx, call: &Call, args: &Value) -> Result<Output, ToolError> {
+    async fn send(&self, call: &Call, args: &Value) -> Result<Output, ToolError> {
         let peer = required(args, "peer")?;
         let prompt = required(args, "prompt")?;
         let wait = args["wait"].as_bool().unwrap_or(false);
@@ -95,13 +96,13 @@ impl PeerTool {
                     format!("{peer} has not finished after {secs}s; its turn keeps running.")
                 }
             };
-            let job = self.watch(ctx, call, peer, prompt, &key, seen, asked.unwrap_or(JOB_SECS))?;
+            let job = self.watch(call, peer, prompt, &key, seen, asked.unwrap_or(JOB_SECS))?;
             let text = format!(
                 "{why} Watching it as background job {job}: its reply arrives as a new message when it ends. Do anything else that is left, then end your turn; don't poll or check on it."
             );
             return Ok(Output::plain(text).with_data(json!({ "peer": peer, "key": key, "job": job })));
         }
-        let job = self.watch(ctx, call, peer, prompt, &key, vec![], asked.unwrap_or(JOB_SECS))?;
+        let job = self.watch(call, peer, prompt, &key, vec![], asked.unwrap_or(JOB_SECS))?;
         let text = format!(
             "sent to {peer}; watching it as background job {job}. Its reply arrives as a new message when its turn ends, and you continue from there. Do anything else that is left, then end your turn; don't poll or check on it."
         );
@@ -110,10 +111,8 @@ impl PeerTool {
 
     /// Start the job that wakes the coordinator when the prompt is answered,
     /// or when the peer asks a question not in `seen`.
-    #[expect(clippy::too_many_arguments, reason = "one call's facts, passed straight into the watch")]
     fn watch(
         &self,
-        ctx: &Ctx,
         call: &Call,
         peer: &str,
         prompt: &str,
@@ -132,7 +131,7 @@ impl PeerTool {
             seen,
             label: construct_core::text::truncate(&format!("peer {peer}: {prompt}"), 120),
             call_id: call.id.clone(),
-            jobs: ctx.jobs.clone(),
+            jobs: self.jobs.clone(),
             sink: (journal, tx),
             watching: self.watching.clone(),
         }
@@ -167,12 +166,12 @@ impl PeerTool {
         Ok(Output::plain(text).with_data(json!({ "peer": peer, "working": s.working })))
     }
 
-    async fn cancel(&self, ctx: &Ctx, args: &Value) -> Result<Output, ToolError> {
+    async fn cancel(&self, args: &Value) -> Result<Output, ToolError> {
         let peer = required(args, "peer")?;
         // The watch first, so a cancel the model asked for never wakes it.
         let job = self.watching.lock().unwrap_or_else(|e| e.into_inner()).remove(peer);
         if let Some(job) = job {
-            ctx.jobs.cancel(&job);
+            self.jobs.cancel(&job);
         }
         self.hub.cancel(peer).await.map_err(|e| ToolError::new("peer_refused", e))?;
         Ok(Output::plain(format!("cancelling {peer}'s turn; it will not wake you")).with_data(json!({ "peer": peer })))
@@ -222,12 +221,12 @@ impl Tool for PeerTool {
     async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
         self.call_with(ctx, &Call::detached(""), args).await
     }
-    async fn call_with(&self, ctx: &Ctx, call: &Call, args: Value) -> Result<Output, ToolError> {
+    async fn call_with(&self, _ctx: &Ctx, call: &Call, args: Value) -> Result<Output, ToolError> {
         match arg(&args, "action") {
             Some("list") => self.list().await,
-            Some("send") => self.send(ctx, call, &args).await,
+            Some("send") => self.send(call, &args).await,
             Some("status") => self.status(&args).await,
-            Some("cancel") => self.cancel(ctx, &args).await,
+            Some("cancel") => self.cancel(&args).await,
             _ => Err("action is required: list, send, status or cancel".into()),
         }
     }

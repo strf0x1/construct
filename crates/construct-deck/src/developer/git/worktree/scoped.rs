@@ -25,7 +25,7 @@ pub(super) struct Checkout {
 impl Checkout {
     pub(super) async fn open(ctx: &Ctx, write: bool) -> Result<Self, ToolError> {
         let base = ctx.policy();
-        let root = ctx.cwd.canonicalize().map_err(|_| "cannot resolve the current checkout")?;
+        let root = ctx.cwd().canonicalize().map_err(|_| "cannot resolve the current checkout")?;
         base.check_read(&root).map_err(ToolError::sandbox)?;
         if write {
             base.check_write(&root).map_err(ToolError::sandbox)?;
@@ -36,7 +36,7 @@ impl Checkout {
         if git_dir.parent() != Some(common.join("worktrees").as_path())
             || [&common, &git_dir].into_iter().any(|path| {
                 construct_core::permission::protected(path)
-                    || path.starts_with(Policy::real(&ctx.paths.home))
+                    || path.starts_with(Policy::real(ctx.home()))
                     || base.write.iter().any(|writable| path.starts_with(writable))
             })
         {
@@ -224,7 +224,7 @@ async fn config(ctx: &Ctx, exe: &Executable, root: &Path, oid_len: usize, refs: 
 }
 
 async fn run(ctx: &Ctx, mut command: tokio::process::Command, input: &[u8]) -> Result<String, ToolError> {
-    if *ctx.cancel.borrow() {
+    if ctx.is_cancelled() {
         return Err(ToolError::new("interrupted", "Git operation interrupted before starting."));
     }
     let mut child = command.spawn().map_err(|error| format!("starting scoped Git: {error}"))?;
@@ -248,7 +248,7 @@ async fn run(ctx: &Ctx, mut command: tokio::process::Command, input: &[u8]) -> R
         }
         Ok::<_, std::io::Error>((status, out?, err?))
     };
-    let mut cancel = ctx.cancel.clone();
+    let mut cancel = ctx.cancel_signal();
     let result = tokio::select! {
         result = tokio::time::timeout(Duration::from_secs(120), wait) => result.ok(),
         _ = cancel.wait_for(|stop| *stop) => None,
@@ -272,6 +272,5 @@ async fn run(ctx: &Ctx, mut command: tokio::process::Command, input: &[u8]) -> R
         return Ok(String::from_utf8_lossy(&out).into_owned());
     }
     let message = String::from_utf8_lossy(if err.is_empty() { &out } else { &err });
-    Err(ToolError::new("git", construct_core::tools::cap_output(ctx, "git", &message))
-        .with_data(json!({"exit_code":status.code()})))
+    Err(ToolError::new("git", ctx.cap_output("git", &message)).with_data(json!({"exit_code":status.code()})))
 }

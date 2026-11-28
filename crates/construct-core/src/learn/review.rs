@@ -35,7 +35,11 @@ pub async fn review(
 ) -> Result<Outcome> {
     let ep = cfg.endpoint_for(cfg.learn_model());
     let client = llm::Client::new(&ep, ep.key())?;
-    let memory = Store::new(paths, &cfg.memory);
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let memory = Store::new(paths, &cfg.memory).with_project(paths, &cwd);
+    let mem_block = memory.prompt_block();
+    let global_skills = crate::skills::Library::new(paths);
+    let project_skills = memory.project.as_ref().map(|p| crate::skills::Library::at(p.skills_dir()));
     let (_tx, rx) = tokio::sync::watch::channel(false);
     let (ctx, catalog) = learner(cfg, paths, memory, rx, sources)?;
     if !catalog.groups().iter().any(|g| matches!(g, Group::Memory | Group::SkillWrite)) {
@@ -67,7 +71,7 @@ pub async fn review(
         return Ok(Outcome { summary, actions: ledger_note });
     }
 
-    let lib = ctx.skills.list();
+    let lib = global_skills.list();
     let mut task = String::new();
     let _ = writeln!(task, "<session>\n{}\n</session>\n", digest(messages, 60_000));
     let corrections = cfg.learn.strategy == super::CORRECTIONS;
@@ -77,12 +81,8 @@ pub async fn review(
             let _ = writeln!(task, "{ev}");
         }
     }
-    let _ = writeln!(
-        task,
-        "Current memory:{}",
-        if ctx.memory.prompt_block().is_empty() { " (empty)".to_string() } else { ctx.memory.prompt_block() }
-    );
-    let project_lib = ctx.project_skills.as_ref().map(|p| p.list()).unwrap_or_default();
+    let _ = writeln!(task, "Current memory:{}", if mem_block.is_empty() { " (empty)" } else { &mem_block });
+    let project_lib = project_skills.as_ref().map(|p| p.list()).unwrap_or_default();
     if lib.is_empty() && project_lib.is_empty() {
         let _ = writeln!(task, "\nSkill library: empty.");
     } else {

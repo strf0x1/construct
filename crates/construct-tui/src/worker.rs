@@ -127,7 +127,7 @@ pub(super) async fn agent_task(
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
                         }
-                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
                         reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();
@@ -150,7 +150,7 @@ pub(super) async fn agent_task(
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
                         }
-                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
                         reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();
@@ -217,7 +217,7 @@ pub(super) async fn agent_task(
                         if let Some((old, _)) = &active {
                             finish(old, reviewed);
                         }
-                        a.ctx.perms.set_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
+                        a.set_permission_ask(Arc::new(TuiAsk { tx: out.prompts.clone() }));
                         let tx = session_events(ready.tag.clone(), out.tx.clone());
                         reviewed = (a.log().len(), a.journal.last_seq());
                         a.warm();

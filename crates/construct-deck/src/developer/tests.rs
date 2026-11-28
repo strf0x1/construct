@@ -30,7 +30,7 @@ fn context(tag: &str, home_in_workspace: bool) -> (Ctx, PathBuf) {
     let paths = Paths { home: if home_in_workspace { work.join("construct-home") } else { root.join("home") } };
     let store = Store::new(&paths, &MemoryConfig::default());
     let policy = Policy::new(&SandboxConfig::default(), &work, &paths);
-    let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, None, policy);
+    let ctx = Ctx::new(work, paths, store, tokio::sync::watch::channel(false).1, policy);
     (ctx, root)
 }
 
@@ -41,7 +41,7 @@ async fn repository_discovery_cannot_replace_the_allowed_worktree_with_an_extern
     std::fs::create_dir(&outside).unwrap();
     git(&outside, &["init"]);
     git(&outside, &["config", "core.worktree", outside.to_str().unwrap()]);
-    std::fs::write(ctx.cwd.join(".git"), format!("gitdir: {}\n", outside.join(".git").display())).unwrap();
+    std::fs::write(ctx.cwd().join(".git"), format!("gitdir: {}\n", outside.join(".git").display())).unwrap();
     let error = match prepare::prepare(&ctx, json!({"operation":"commit","message":"must not inspect outside"})).await {
         Err(error) => error,
         Ok(_) => panic!("an external worktree was accepted"),
@@ -62,9 +62,9 @@ fn authenticated_scratch_cannot_share_a_root_writable_by_ordinary_shell_commands
 async fn push_does_not_copy_repository_credential_helpers_into_host_execution() {
     use std::os::unix::fs::PermissionsExt;
     let (ctx, root) = context("helper", false);
-    git(&ctx.cwd, &["init"]);
+    git(ctx.cwd(), &["init"]);
     git(
-        &ctx.cwd,
+        ctx.cwd(),
         &[
             "-c",
             "user.name=Fixture",
@@ -76,10 +76,10 @@ async fn push_does_not_copy_repository_credential_helpers_into_host_execution() 
             "fixture",
         ],
     );
-    git(&ctx.cwd, &["branch", "-M", "fixture"]);
-    git(&ctx.cwd, &["remote", "add", "origin", "https://example.invalid/owner/repo.git"]);
+    git(ctx.cwd(), &["branch", "-M", "fixture"]);
+    git(ctx.cwd(), &["remote", "add", "origin", "https://example.invalid/owner/repo.git"]);
     let helper = format!("!touch {}", root.join("repository-helper-ran").display());
-    git(&ctx.cwd, &["config", "credential.helper", &helper]);
+    git(ctx.cwd(), &["config", "credential.helper", &helper]);
     let mut plan =
         prepare::prepare(&ctx, json!({"operation":"push","remote":"origin","branch":"fixture"})).await.unwrap();
     let executable = root.join("recording-git");

@@ -4,10 +4,20 @@ use super::client::{Boundary, MAX_WAIT};
 use super::note::status_text;
 use super::wire::Outcome;
 use super::{WAIT, WITHDRAW};
+use construct_core::tools::boundary::BoundaryHost;
 use construct_core::tools::{Ctx, Group, Output, Tool, ToolError, arg, def, num, obj};
 use serde_json::{Value, json};
+use std::sync::Arc;
 
-pub struct Wait;
+pub struct Wait {
+    boundary: Arc<dyn BoundaryHost>,
+}
+
+impl Wait {
+    pub fn new(boundary: Arc<dyn BoundaryHost>) -> Self {
+        Self { boundary }
+    }
+}
 
 #[async_trait::async_trait]
 impl Tool for Wait {
@@ -38,7 +48,7 @@ impl Tool for Wait {
         )
     }
     async fn call(&self, ctx: &Ctx, args: Value) -> Result<Output, ToolError> {
-        let Some(b) = super::of(ctx) else {
+        let Some(b) = super::downcast(self.boundary.as_ref()) else {
             return Err(ToolError::new("no_boundary", "this session has no Deck boundary endpoint"));
         };
         let id = arg(&args, "id").ok_or_else(|| ToolError::new("bad_args", "boundary_wait needs the approval id"))?;
@@ -67,7 +77,7 @@ impl Tool for Wait {
 /// A wait the user can interrupt: `session/cancel` flips the watch, and the
 /// request future is dropped rather than finished.
 async fn wait(b: &Boundary, id: &str, timeout: u64, ctx: &Ctx) -> Result<Outcome, String> {
-    let mut cancel = ctx.cancel.clone();
+    let mut cancel = ctx.cancel_signal();
     if *cancel.borrow() {
         return Err("boundary_wait was interrupted by the user".into());
     }
