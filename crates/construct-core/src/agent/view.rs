@@ -1,24 +1,38 @@
-//! The view the context strategy sends to the model. The strategy owns the
-//! message list (ADR 0042); the rest of the agent reads it through here so no
-//! caller depends on how a strategy stores it.
+//! Narrow read-only views and session metadata operations on `Agent`. Callers
+//! above the engine (TUI, ACP, CLI) inspect the session through these methods
+//! instead of reaching into `Agent`'s internal fields.
 
 use super::*;
 
 impl Agent {
-    /// The view the strategy sends to the model.
-    pub fn messages(&self) -> &[Message] {
-        self.context.messages()
+    /// This session's durable identifier.
+    pub fn session_id(&self) -> &str {
+        &self.journal.session
     }
 
-    /// Every message the session logged, including ones the view dropped
-    /// (ADR 0043 decision 12): learning and routing read this.
-    pub fn log(&self) -> &[Message] {
-        self.context.log()
+    /// All journal rows recorded for this session so far.
+    pub fn entries(&self) -> Result<Vec<journal::Entry>> {
+        self.journal.entries()
     }
 
-    /// The tool sources this session was built with, for background learning.
-    pub fn tool_sources(&self) -> &ToolSources {
-        &self.sources
+    /// Record a human-chosen title for this session.
+    pub fn rename(&self, title: &str) -> Result<()> {
+        self.journal.rename(title)
+    }
+
+    /// The session's active configuration.
+    pub fn config(&self) -> &Config {
+        &self.cfg
+    }
+
+    /// The session's tool catalog.
+    pub fn catalog(&self) -> Arc<Catalog> {
+        self.catalog.clone()
+    }
+
+    /// Active non-core tool group labels, for status display.
+    pub fn active_group_labels(&self) -> Vec<String> {
+        self.groups.iter().filter(|g| **g != Group::Core).map(Group::label).collect()
     }
 
     /// Deck's boundary host for this session, if running in a Deck task.

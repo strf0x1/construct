@@ -180,8 +180,7 @@ impl Agent {
         for (c, r) in calls.iter().zip(results) {
             let out = r.unwrap_or_else(|| "Error: not run".into());
             messages.push(Message::tool(&c.id, out));
-            self.tool_calls += 1;
-            self.tool_calls_since_skill += 1;
+            self.learn.on_tool_call();
         }
         // All tool messages for this turn are ready now: one journal commit
         // makes them durable before any of them is sent (ADR 0034, #248).

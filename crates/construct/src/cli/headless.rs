@@ -5,8 +5,8 @@
 use anyhow::Result;
 use construct_core::agent::{Agent, Event};
 use construct_core::config::{Config, Paths};
+use construct_core::llm;
 use construct_core::tools::ToolSources;
-use construct_core::{learn, llm};
 use std::io::Write;
 
 /// What to run: the prompt, how to print it, and whether to learn after.
@@ -106,8 +106,8 @@ pub(super) async fn run(
     }
     drop(tx);
     let failed = printer.await.unwrap_or(true);
-    if learn && learn::kind_for(agent.user_turns, agent.tool_calls).is_some() {
-        learn::spawn_detached(&agent.journal.session);
+    if learn {
+        agent.spawn_detached_learning();
     }
     if failed {
         std::process::exit(1);
