@@ -26,12 +26,15 @@
 //! A session's permission questions go to the client (`ask`), whose responses
 //! this same loop reads, so a question never waits on a turn.
 
-use super::cwd;
-use super::live::{Command, Phase, Session, Turn};
+mod load;
+mod turns;
+
+use super::deck;
 use super::map;
 use super::questions::Questions;
-use super::replay::Transcript;
-use super::{VERSION, rpc};
+use super::session::Session;
+use super::turn::Command;
+use super::{VERSION, cwd, rpc};
 use crate::agent::Agent;
 use crate::config::{Config, Paths};
 use crate::tools::ToolSources;
@@ -39,8 +42,7 @@ use anyhow::Result;
 use rpc::Incoming;
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
 type Out = mpsc::UnboundedSender<String>;
@@ -94,7 +96,7 @@ pub async fn serve(
     // Continue consuming turn output during shutdown, but start no queued turns.
     srv.closing = true;
     for s in srv.sessions.values() {
-        s.cancel.send_replace(true);
+        s.cancel();
     }
     srv.questions.close();
     while !turns.is_empty() {
@@ -108,29 +110,26 @@ pub async fn serve(
     }
     if srv.cfg.learn.enabled {
         for s in srv.sessions.values() {
-            let a = s.agent.lock().await;
-            if crate::learn::kind_for(a.user_turns, a.tool_calls).is_some() {
-                crate::learn::spawn_detached(&a.journal.session);
-            }
+            s.spawn_learn_if_needed().await;
         }
     }
     Ok(())
 }
 
-pub(super) struct Server {
-    pub(super) cfg: Config,
-    pub(super) paths: Paths,
+struct Server {
+    cfg: Config,
+    paths: Paths,
     /// Tools the composition root adds to every session's catalog.
-    pub(super) sources: ToolSources,
-    pub(super) out: Out,
-    pub(super) questions: Questions,
-    pub(super) commands: mpsc::UnboundedSender<Command>,
-    pub(super) attachment: u64,
+    sources: ToolSources,
+    out: Out,
+    questions: Questions,
+    commands: mpsc::UnboundedSender<Command>,
+    attachment: u64,
     next_session: u64,
-    pub(super) closing: bool,
-    pub(super) sessions: HashMap<String, Session>,
+    closing: bool,
+    sessions: HashMap<String, Session>,
     /// What this attachment's client parses (see `map::Wire`).
-    pub(super) wire: map::Wire,
+    wire: map::Wire,
 }
 
 impl Server {
@@ -144,13 +143,13 @@ impl Server {
             }
             Some(Incoming::Notification { method, params }) if method == "session/cancel" => {
                 if let Some(s) = params["sessionId"].as_str().and_then(|id| self.sessions.get(id)) {
-                    s.cancel.send_replace(true);
+                    s.cancel();
                 }
             }
             Some(Incoming::Notification { method, params })
                 if matches!(method.as_str(), map::BOUNDARY_METHOD | map::LEGACY_BOUNDARY_METHOD) =>
             {
-                self.boundary_notice(params);
+                deck::boundary_notice(self.sessions.iter().map(|(sid, s)| (sid.as_str(), s)), &params);
             }
             _ => {}
         }
@@ -164,7 +163,7 @@ impl Server {
         self.questions.retire();
     }
 
-    pub(super) fn reply(&self, id: &Value, r: Result<Value, (i64, String)>) {
+    fn reply(&self, id: &Value, r: Result<Value, (i64, String)>) {
         let _ = self.out.send(match r {
             Ok(v) => rpc::ok(id, v),
             Err((code, m)) => rpc::err(id, code, &m),
@@ -176,7 +175,7 @@ impl Server {
             "initialize" => {
                 self.detach();
                 self.wire = map::Wire::for_client(&params["clientCapabilities"]["_meta"]);
-                let caps = self.capabilities();
+                let caps = deck::capabilities(&self.cfg);
                 let result = json!({
                     "protocolVersion": VERSION,
                     "agentInfo": { "name": "construct", "title": "construct", "version": env!("CARGO_PKG_VERSION") },
@@ -199,7 +198,7 @@ impl Server {
                 let sid = params["sessionId"].as_str().unwrap_or_default();
                 self.questions.close_session(sid);
                 if let Some(s) = self.sessions.remove(sid) {
-                    s.cancel.send_replace(true);
+                    s.cancel();
                 }
                 self.reply(&id, Ok(json!({})));
             }
@@ -214,58 +213,11 @@ impl Server {
         self.register(agent)
     }
 
-    /// Take a built agent into the session table. The journal's session id is
-    /// the ACP session id, so the record and the wire name it the same way.
-    pub(super) fn register(&mut self, agent: Agent) -> Result<String> {
-        let sid = agent.journal.session.clone();
-        let entries = agent.journal.entries()?;
-        let mut transcript = Transcript::default();
-        let mut turn = Turn { number: 0, phase: Phase::Idle(None) };
-        let mut reason = None;
-        let mut keys = super::keys::Keys::default();
-        for entry in &entries {
-            transcript.observe(&entry.event, &|name| agent.catalog.kind_of(name));
-            keys.observe(&entry.event);
-            match &entry.event {
-                crate::event::Event::TurnStart => {
-                    turn.number += 1;
-                    reason = None;
-                }
-                crate::event::Event::Error { message } => {
-                    if message.ends_with("(max_steps)") {
-                        reason = Some("max_turn_requests");
-                    } else if reason.is_none() {
-                        reason = Some("error");
-                    }
-                }
-                crate::event::Event::TurnEnd { interrupted, .. } => {
-                    turn.phase =
-                        Phase::Idle(Some(if *interrupted { "cancelled" } else { reason.unwrap_or("end_turn") }.into()));
-                }
-                crate::event::Event::Recovered { .. } => turn.phase = Phase::Idle(Some("cancelled".into())),
-                _ => {}
-            }
-        }
-        let cancel = agent.canceller();
-        let boundary = agent.boundary();
+    /// Take a built agent into the session table.
+    fn register(&mut self, agent: Agent) -> Result<String> {
         self.next_session += 1;
-        self.sessions.insert(
-            sid.clone(),
-            Session {
-                generation: self.next_session,
-                cancel,
-                transcript,
-                announced: Default::default(),
-                turn,
-                catalog: agent.catalog.clone(),
-                boundary,
-                cwd: agent.cwd().to_path_buf(),
-                agent: Arc::new(Mutex::new(agent)),
-                attached: self.attachment,
-                prompts: Default::default(),
-                keys,
-            },
-        );
+        let (sid, session) = Session::from_agent(agent, self.next_session, self.attachment)?;
+        self.sessions.insert(sid.clone(), session);
         Ok(sid)
     }
 }

@@ -9,7 +9,6 @@
 //! error, a client gone) denies. The request's `toolCallId` names the
 //! question, not the tool call: `Perms` is not told which call is asking.
 
-use super::live::Command;
 use super::rpc::RpcError;
 use crate::permission::{Access, Ask, Decision, Request, Verdict};
 use serde_json::{Value, json};
@@ -19,25 +18,30 @@ use tokio::sync::{mpsc, oneshot};
 pub(super) type Answer = Result<Value, RpcError>;
 static NEXT_QUESTION: AtomicU64 = AtomicU64::new(1);
 
+/// Messages a [`ClientAsk`] sends to its turn forwarder: open a permission
+/// question or drop it if the waiting future is cancelled.
+pub(super) enum AskMsg {
+    Ask { key: u64, request: Request, answer: oneshot::Sender<Answer> },
+    Forget(u64),
+}
+
 /// A stable internal question key survives replacement of its wire id.
-struct Forget(mpsc::UnboundedSender<Command>, u64);
+struct Forget(mpsc::UnboundedSender<AskMsg>, u64);
 
 impl Drop for Forget {
     fn drop(&mut self) {
-        let _ = self.0.send(Command::Forget(self.1));
+        let _ = self.0.send(AskMsg::Forget(self.1));
     }
 }
 
-/// One session's way of asking the server actor to question its client.
+/// One turn's way of asking the server actor to question its client.
 pub(super) struct ClientAsk {
-    session: String,
-    generation: u64,
-    commands: mpsc::UnboundedSender<Command>,
+    tx: mpsc::UnboundedSender<AskMsg>,
 }
 
 impl ClientAsk {
-    pub fn new(session: String, generation: u64, commands: mpsc::UnboundedSender<Command>) -> Self {
-        Self { session, generation, commands }
+    pub fn new(tx: mpsc::UnboundedSender<AskMsg>) -> Self {
+        Self { tx }
     }
 }
 
@@ -46,9 +50,8 @@ impl Ask for ClientAsk {
     async fn ask(&self, request: Request) -> Decision {
         let key = NEXT_QUESTION.fetch_add(1, Ordering::Relaxed);
         let (answer, rx) = oneshot::channel();
-        let _forget = Forget(self.commands.clone(), key);
-        let command = Command::Ask { key, session: self.session.clone(), generation: self.generation, request, answer };
-        if self.commands.send(command).is_err() {
+        let _forget = Forget(self.tx.clone(), key);
+        if self.tx.send(AskMsg::Ask { key, request, answer }).is_err() {
             return Decision::DENY;
         }
         match rx.await {

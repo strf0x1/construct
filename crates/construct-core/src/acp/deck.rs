@@ -10,42 +10,39 @@
 //! released Deck still finds them (issue #171).
 
 use super::map;
-use super::server::Server;
+use super::session::Session;
+use crate::config::Config;
 use serde_json::{Value, json};
 
-impl Server {
-    /// The `agentCapabilities` object for `initialize`.
-    pub(super) fn capabilities(&self) -> Value {
-        let mut caps = json!({
-            "loadSession": true,
-            "sessionCapabilities": { "resume": {}, "close": {} },
-            "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
-            "mcpCapabilities": { "http": false, "sse": false },
-            "_meta": {
-                // Current key only for idempotent prompts; the bare key has
-                // no form of it (contract 1.3.0 §12.1).
-                map::META_KEY: { "events": true, "liveAttach": true, map::IDEMPOTENT_PROMPTS: true },
-                map::LEGACY_META_KEY: { "events": true, "liveAttach": true },
-            },
-        });
-        if self.cfg.deck.is_some() {
-            caps["_meta"][map::DECK_KEY] = json!({ "boundary": true });
-            caps["_meta"][map::LEGACY_DECK_KEY] = json!({ "boundary": true });
-        }
-        // The GitHub operation API has no bare form (contract 1.2.0 §11.1).
-        if self.cfg.github_gateway.is_some() {
-            caps["_meta"][map::DECK_KEY][map::GITHUB_OPERATIONS] = json!(map::GITHUB_OPERATIONS_VERSION);
-        }
-        caps
+/// The `agentCapabilities` object for `initialize`.
+pub(super) fn capabilities(cfg: &Config) -> Value {
+    let mut caps = json!({
+        "loadSession": true,
+        "sessionCapabilities": { "resume": {}, "close": {} },
+        "promptCapabilities": { "image": false, "audio": false, "embeddedContext": true },
+        "mcpCapabilities": { "http": false, "sse": false },
+        "_meta": {
+            // Current key only for idempotent prompts; the bare key has
+            // no form of it (contract 1.3.0 §12.1).
+            map::META_KEY: { "events": true, "liveAttach": true, map::IDEMPOTENT_PROMPTS: true },
+            map::LEGACY_META_KEY: { "events": true, "liveAttach": true },
+        },
+    });
+    if cfg.deck.is_some() {
+        caps["_meta"][map::DECK_KEY] = json!({ "boundary": true });
+        caps["_meta"][map::LEGACY_DECK_KEY] = json!({ "boundary": true });
     }
+    // The GitHub operation API has no bare form (contract 1.2.0 §11.1).
+    if cfg.github_gateway.is_some() {
+        caps["_meta"][map::DECK_KEY][map::GITHUB_OPERATIONS] = json!(map::GITHUB_OPERATIONS_VERSION);
+    }
+    caps
+}
 
-    /// A late boundary decision: informational, and only for the sessions the
-    /// client named (or every session when it named none). It grants nothing.
-    pub(super) fn boundary_notice(&self, params: Value) {
-        for (sid, s) in &self.sessions {
-            if let Some(b) = &s.boundary {
-                b.push_notice(&params, sid);
-            }
-        }
+/// A late boundary decision: informational, and only for the sessions the
+/// client named (or every session when it named none). It grants nothing.
+pub(super) fn boundary_notice<'a>(sessions: impl IntoIterator<Item = (&'a str, &'a Session)>, params: &Value) {
+    for (sid, s) in sessions {
+        s.push_boundary_notice(sid, params);
     }
 }

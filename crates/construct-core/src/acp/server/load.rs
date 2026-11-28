@@ -1,10 +1,10 @@
 //! Loading a disk session uses normal recovery; attaching an existing live
 //! session reads only actor-owned state, without the agent lock or recovery.
 
-use super::cwd;
-use super::map::{self, LEGACY_META_KEY, META_KEY};
-use super::rpc;
-use super::server::Server;
+use super::Server;
+use crate::acp::cwd;
+use crate::acp::map::{LEGACY_META_KEY, META_KEY};
+use crate::acp::{replay, rpc};
 use crate::agent::Agent;
 use serde_json::{Value, json};
 
@@ -37,24 +37,11 @@ impl Server {
         };
         let cwd = cwd(params).map_err(|e| (rpc::INVALID_PARAMS, format!("{e:#}")))?;
         if let Some(s) = self.sessions.get_mut(sid) {
-            if s.cwd.as_os_str() != cwd.as_os_str() {
-                return Err((
-                    rpc::INVALID_PARAMS,
-                    format!("session {sid} belongs to {}, not {}", s.cwd.display(), cwd.display()),
-                ));
+            let (updates, turn) = s.attach(sid, &cwd, self.attachment, replay)?;
+            for update in updates {
+                let _ =
+                    self.out.send(rpc::notification("session/update", json!({ "sessionId": sid, "update": update })));
             }
-            if s.attached == self.attachment {
-                return Err((rpc::INVALID_PARAMS, format!("session {sid} is already loaded on this connection")));
-            }
-            if replay {
-                for update in s.replay() {
-                    let _ = self
-                        .out
-                        .send(rpc::notification("session/update", json!({ "sessionId": sid, "update": update })));
-                }
-            }
-            s.attached = self.attachment;
-            let turn = s.turn.value(sid);
             self.questions.send(sid, &self.out);
             self.turn_notice(sid);
             return Ok(snapshot(turn));
@@ -78,14 +65,14 @@ impl Server {
         if replay {
             let entries = agent.journal.entries().map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
             let catalog = agent.catalog.clone();
-            for update in map::history(&entries, &|name| catalog.kind_of(name)) {
+            for update in replay::history(&entries, &|name| catalog.kind_of(name)) {
                 let line = rpc::notification("session/update", json!({ "sessionId": sid, "update": update }));
                 let _ = self.out.send(line);
             }
         }
         self.register(agent).map_err(|e| (rpc::INTERNAL, format!("{e:#}")))?;
         if replay {
-            let turn = self.sessions[sid].turn.value(sid);
+            let turn = self.sessions[sid].turn_value(sid);
             self.turn_notice(sid);
             Ok(snapshot(turn))
         } else {
