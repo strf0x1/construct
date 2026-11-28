@@ -25,6 +25,8 @@ construct-tools-jobs = { path = "crates/construct-tools-jobs" }
 construct-tools-peers = { path = "crates/construct-tools-peers" }
 construct-tools-memory = { path = "crates/construct-tools-memory" }
 construct-tools-skills = { path = "crates/construct-tools-skills" }
+# Wake scripts on a confined QuickJS runtime; the binary's `script` feature wires them in (ADR 0079).
+construct-script = { path = "crates/construct-script" }
 # Peer wire protocol (Noise IK, chunked envelopes, WebSocket, keep-alive; #368).
 construct-peer = { path = "crates/construct-peer" }
 # The hub peers dial home to; the binary's `hub` feature wires it in (#360).

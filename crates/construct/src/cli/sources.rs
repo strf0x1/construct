@@ -12,7 +12,15 @@ use construct_core::wake::WakeSources;
 /// `construct peer` (ADR 0079). Feature-gated sources and script filters plug
 /// in here alongside `tool_sources`.
 pub(super) fn wake_sources() -> WakeSources {
-    WakeSources::builtin()
+    let sources = WakeSources::builtin();
+    // Operator wake scripts in `$CONSTRUCT_HOME/scripts/wakes/`, after the
+    // declarative `match` filter (#417).
+    #[cfg(feature = "script")]
+    let sources = match construct_core::config::Paths::resolve() {
+        Ok(paths) => sources.with_filter(construct_script::WakeScripts::for_home(&paths)),
+        Err(_) => sources,
+    };
+    sources
 }
 
 /// In the order the tools were pushed when they lived in core, so the

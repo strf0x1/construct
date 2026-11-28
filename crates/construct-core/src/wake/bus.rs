@@ -234,6 +234,7 @@ mod tests {
             session: SessionPolicy::Dedicated(trigger.into()),
             prompt: None,
             learn: false,
+            notes: Vec::new(),
         }
     }
 

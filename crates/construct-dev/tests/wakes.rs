@@ -17,7 +17,7 @@ const BASE: &str = "[router]\nmode = \"local\"\n[learn]\nenabled = false\n";
 
 /// `construct watch --json`, stdout and stderr to files in the env dir;
 /// returns once its `wake.sock` answers.
-fn watch(env: &Env) -> Child {
+pub(crate) fn watch(env: &Env) -> Child {
     let out = std::fs::File::create(env.dir.join("watch.out")).unwrap();
     let err = std::fs::File::create(env.dir.join("watch.err")).unwrap();
     let mut child = command(env, &["watch", "--json"]).stdout(out).stderr(err).spawn().unwrap();
@@ -37,7 +37,7 @@ fn watch(env: &Env) -> Child {
 }
 
 /// SIGTERM, the way a service manager stops it; it must exit cleanly.
-fn stop(env: &Env, mut child: Child) {
+pub(crate) fn stop(env: &Env, mut child: Child) {
     let _ = std::process::Command::new("kill").args(["-TERM", &child.id().to_string()]).status();
     let deadline = Instant::now() + Duration::from_millis(budget(10_000));
     loop {
@@ -53,11 +53,11 @@ fn stop(env: &Env, mut child: Child) {
     }
 }
 
-fn file(env: &Env, name: &str) -> String {
+pub(crate) fn file(env: &Env, name: &str) -> String {
     std::fs::read_to_string(env.dir.join(name)).unwrap_or_default()
 }
 
-fn emit(env: &Env, args: &[&str]) -> String {
+pub(crate) fn emit(env: &Env, args: &[&str]) -> String {
     let mut all = vec!["wake", "emit"];
     all.extend_from_slice(args);
     let out = env.run(&all);
@@ -65,12 +65,12 @@ fn emit(env: &Env, args: &[&str]) -> String {
     String::from_utf8_lossy(&out.stdout).to_string()
 }
 
-fn rows(env: &Env, ty: &str) -> Vec<Row> {
+pub(crate) fn rows(env: &Env, ty: &str) -> Vec<Row> {
     env.journal().into_iter().filter(|r| r.ty == ty).collect()
 }
 
 /// Wait until the journal holds at least `n` rows of `ty`.
-fn wait_rows(env: &Env, ty: &str, n: usize) -> Vec<Row> {
+pub(crate) fn wait_rows(env: &Env, ty: &str, n: usize) -> Vec<Row> {
     let deadline = Instant::now() + Duration::from_millis(budget(15_000));
     loop {
         let got = rows(env, ty);

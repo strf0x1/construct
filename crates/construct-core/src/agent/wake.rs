@@ -81,6 +81,11 @@ impl Agent {
             return Ok(false);
         }
         for e in &events {
+            for n in &e.notes {
+                let note =
+                    Event::Note { class: n.class.clone(), kind: n.kind.clone(), detail: n.detail.clone(), count: 1 };
+                self.journal.record(&note);
+            }
             self.journal.record(&Event::WakeReceived(e.to_received()));
         }
         // A headless lane has no user turn to release what a resume recovered,

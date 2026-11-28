@@ -23,7 +23,7 @@
 # naming another workspace crate is a crate edge.
 
 [crates.construct]
-may_use_crates = ["construct-core", "construct-deck", "construct-hub", "construct-peer", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-peers", "construct-tools-skills", "construct-tools-web", "construct-tui"]
+may_use_crates = ["construct-core", "construct-deck", "construct-hub", "construct-peer", "construct-script", "construct-tools-history", "construct-tools-jobs", "construct-tools-memory", "construct-tools-peers", "construct-tools-skills", "construct-tools-web", "construct-tui"]
 
 [crates.construct.modules.cli]
 may_use = []
@@ -297,6 +297,30 @@ used_only_by = { crates = ["construct"], reason = "an optional tool crate (#271)
 
 [crates.construct-tools-history.modules.lib]
 may_use = []
+
+[crates.construct-script]
+may_use_crates = ["construct-core"]
+used_only_by = { crates = ["construct"], reason = "the QuickJS layer (#417, ADR 0079): only the binary's `script` feature registers it, so the engine, lean and bare peers never link QuickJS" }
+
+# sandbox is the confinement every role runs in; reload and state know
+# nothing of QuickJS; bridge is the only way out of the sandbox.
+[crates.construct-script.modules.bridge]
+may_use = ["state"]
+
+[crates.construct-script.modules.lib]
+may_use = []
+
+[crates.construct-script.modules.reload]
+may_use = []
+
+[crates.construct-script.modules.sandbox]
+may_use = []
+
+[crates.construct-script.modules.state]
+may_use = []
+
+[crates.construct-script.modules.wake]
+may_use = ["bridge", "reload", "sandbox", "state"]
 
 [crates.construct-tools-jobs]
 may_use_crates = ["construct-core"]

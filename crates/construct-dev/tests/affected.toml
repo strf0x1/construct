@@ -123,7 +123,7 @@ tests = ["hub", "join", "peer_acp", "peer_install", "peer_llm", "peer_restart", 
 [[area]]
 name = "peer-tool"
 paths = ["crates/construct-tools-peers/", "crates/construct/src/cli/hub/tool.rs", "crates/construct/src/cli/sources.rs"]
-tests = ["e2e", "peer_tool", "snapshots", "wakes"]
+tests = ["e2e", "peer_tool", "script_wakes", "snapshots", "wakes"]
 
 # Stamped peer binaries (#363): the trailer and its config layer, and
 # `construct build`.
@@ -138,4 +138,12 @@ tests = ["e2e", "stamp"]
 [[area]]
 name = "wakes"
 paths = ["crates/construct-core/src/sessions/", "crates/construct/src/cli/watch.rs"]
-tests = ["wakes"]
+tests = ["script_wakes", "wakes"]
+
+# Wake scripts (#417, ADR 0079): the QuickJS crate and its registration in
+# `sources.rs` (named under `peer-tool` too). Its own contract tests run in
+# construct-script's gate.
+[[area]]
+name = "script"
+paths = ["crates/construct-script/"]
+tests = ["script_wakes"]

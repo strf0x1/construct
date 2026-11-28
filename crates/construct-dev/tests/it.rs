@@ -72,6 +72,8 @@ mod proxy;
 mod recovery;
 #[path = "sandbox_memory.rs"]
 mod sandbox_memory;
+#[path = "script_wakes.rs"]
+mod script_wakes;
 #[path = "sessions.rs"]
 mod sessions;
 #[path = "slash.rs"]

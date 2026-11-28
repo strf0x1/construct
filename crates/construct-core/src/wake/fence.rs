@@ -132,6 +132,7 @@ pub fn unconsumed(entries: &[(u64, &Event)], now_ms: u64, ttl_ms: u64) -> Vec<Wa
                     session: SessionPolicy::Shared,
                     prompt: w.prompt.clone(),
                     learn: false,
+                    notes: Vec::new(),
                 })
             }
             _ => None,
@@ -158,6 +159,7 @@ mod tests {
             session: SessionPolicy::Dedicated("alert".into()),
             prompt: Some("Investigate alert.".into()),
             learn: false,
+            notes: Vec::new(),
         }
     }
 
