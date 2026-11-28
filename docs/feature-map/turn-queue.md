@@ -3,8 +3,8 @@ id: turn-queue
 status: verified
 surfaces: [tui]
 depends: [crates/construct-tui/src/turn.rs, crates/construct-tui/src/app/view.rs, crates/construct-tui/src/app/input.rs, crates/construct-tui/src/composer, crates/construct-tui/src/worker.rs, crates/construct-core/src/agent/user_turn.rs]
-verified_at: 61aea6d
-verified_deps: b865b39a89b3324f
+verified_at: a8b1ced
+verified_deps: 6b8cb3bd680ce9b7
 ---
 # Queued messages
 
