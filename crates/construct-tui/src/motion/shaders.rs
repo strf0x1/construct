@@ -4,11 +4,12 @@
 //! panel itself drew), never a background the panel did not set, so they read
 //! the same on any terminal theme.
 
-use super::{FLASH_OK, GUTTER_X, INK, WHITE};
+use super::{FLASH_ERR, FLASH_OK, GUTTER_X, INK, WHITE};
 use crate::theme;
 use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+use std::ops::Range;
 use tachyonfx::fx;
 use tachyonfx::{Effect, Interpolation};
 
@@ -116,22 +117,22 @@ pub(super) fn rule_draw(ms: u32) -> Effect {
     })
 }
 
-/// Attenuate the top rows of a scrolled transcript (`top > 0`) so text softly
+/// Attenuate the top rows of a scrolled viewport (`top > 0`) so text softly
 /// fades darker as it scrolls up past the top edge. Foreground-only.
-pub(super) fn scroll_fade(buf: &mut Buffer, y0: u16, h: u16, top: usize) {
-    if top == 0 || h < 4 {
+pub(super) fn scroll_fade(buf: &mut Buffer, rect: Rect, top: usize) {
+    let rect = rect.intersection(buf.area);
+    if top == 0 || rect.height < 4 || rect.width == 0 {
         return;
     }
     let strength = (top.min(3) as f32) / 3.0;
     const WEIGHTS: [f32; 3] = [0.74, 0.46, 0.20];
-    let area = buf.area;
     for (dy, &w) in WEIGHTS.iter().enumerate() {
-        let y = y0 + dy as u16;
-        if y >= area.bottom() {
+        let y = rect.y + dy as u16;
+        if y >= rect.bottom() {
             break;
         }
         let k = w * strength;
-        for x in area.x..area.right() {
+        for x in rect.x..rect.right() {
             let cell = &mut buf[(x, y)];
             if cell.symbol().trim().is_empty() {
                 continue;
@@ -165,11 +166,11 @@ pub(super) fn gutter_fill(ms: u32, color: Color) -> Effect {
     })
 }
 
-/// The panel's border draws itself: two arms grow from the bottom middle and
-/// meet at the top, each with a bright head. Cells the arms have not reached
-/// are blank, titles included.
-pub(super) fn border_draw(ms: u32) -> Effect {
-    fx::effect_fn_buf((), (ms, Interpolation::CubicOut), |_, ctx, buf| {
+/// A panel's border draws itself: two arms grow from the bottom middle and
+/// meet at the top, each with a bright head cooling into `color`. Cells the
+/// arms have not reached are blank, titles included.
+pub(super) fn border_draw(ms: u32, color: Color) -> Effect {
+    fx::effect_fn_buf((), (ms, Interpolation::CubicOut), move |_, ctx, buf| {
         let a = ctx.area;
         let p = perimeter(a);
         let n = p.len() as f32;
@@ -180,7 +181,7 @@ pub(super) fn border_draw(ms: u32) -> Effect {
             if d > reach {
                 cell.set_symbol(" ").set_bg(Color::Reset);
             } else if reach - d < 3.0 && ctx.timer.alpha() < 1.0 {
-                cell.set_fg(theme::lerp(WHITE, theme::ORANGE, (reach - d) / 3.0));
+                cell.set_fg(theme::lerp(WHITE, color, (reach - d) / 3.0));
             }
         }
     })
@@ -228,12 +229,18 @@ pub(super) fn shake(ms: u32) -> Effect {
 
 /// An answered panel, gone from the layout, dissolving into what is now
 /// drawn beneath it. `cells` is the panel as last drawn, row by row over the
-/// rect this effect is given; `sel` is the chosen row relative to the panel's
-/// top edge. The chosen row pops bright for a beat while the rest of the panel
-/// washes to `tint` (green for allowed, amber for denied) and drops out cell
-/// by cell in a fixed scatter.
-pub(super) fn ghost(cells: Vec<Cell>, sel: Option<u16>, tint: Color, ms: u32) -> Effect {
-    let pop = if tint == theme::GREEN { FLASH_OK } else { FLASH_DENY };
+/// rect this effect is given; `sel` is the chosen row range relative to the
+/// panel's top edge. The chosen rows pop bright for a beat while the rest of
+/// the panel washes to `tint` (green for allowed, amber for always/denied, red
+/// for peer deny) and drops out cell by cell in a fixed scatter.
+pub(super) fn ghost(cells: Vec<Cell>, sel: Option<Range<u16>>, tint: Color, ms: u32) -> Effect {
+    let pop = if tint == theme::GREEN {
+        FLASH_OK
+    } else if tint == theme::RED {
+        FLASH_ERR
+    } else {
+        FLASH_DENY
+    };
     fx::effect_fn_buf(cells, (ms, Interpolation::QuadIn), move |cells, ctx, buf| {
         let a = ctx.area;
         let t = ctx.timer.alpha();
@@ -242,7 +249,7 @@ pub(super) fn ghost(cells: Vec<Cell>, sel: Option<u16>, tint: Color, ms: u32) ->
             if dy >= a.height {
                 continue;
             }
-            let chosen = sel == Some(dy) && dx >= 1 && dx + 1 < a.width;
+            let chosen = sel.as_ref().is_some_and(|r| r.contains(&dy)) && dx >= 1 && dx + 1 < a.width;
             let drop_t = if chosen { ((t - 0.22) / 0.78).max(0.0) } else { t };
             if scatter(dx, dy) < drop_t {
                 continue;
@@ -250,6 +257,9 @@ pub(super) fn ghost(cells: Vec<Cell>, sel: Option<u16>, tint: Color, ms: u32) ->
             let mut c = c.clone();
             if chosen && !c.symbol().trim().is_empty() {
                 c.set_fg(theme::lerp(pop, tint, (t / 0.4).min(1.0)));
+            } else if matches!(c.bg, Color::Rgb(..)) && c.bg != theme::SELECTED_BG {
+                // Filled title badge: wash its background toward tint and keep its dark text legible.
+                c.set_bg(theme::lerp(tint, c.bg, ((t - 0.15) / 0.5).max(0.0)));
             } else if let Color::Rgb(..) = c.fg {
                 c.set_fg(theme::lerp(tint, c.fg, ((t - 0.15) / 0.5).max(0.0)));
             }
