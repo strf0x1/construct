@@ -2,7 +2,7 @@
 id: interrupt-quit
 status: verified
 surfaces: [tui]
-depends: [crates/construct-tui/src/input.rs, crates/construct-tui/src/turn.rs, crates/construct-tui/src/status.rs, crates/construct-core/src/agent.rs, crates/construct-tui/src/lib.rs, crates/construct-tui/src/app_events.rs]
+depends: [crates/construct-tui/src/app/input.rs, crates/construct-tui/src/composer, crates/construct-tui/src/turn.rs, crates/construct-tui/src/app/status.rs, crates/construct-core/src/agent.rs, crates/construct-tui/src/lib.rs, crates/construct-tui/src/app/events.rs]
 verified_at: 1bbe9a8
 verified_deps: a645655084acddaf
 ---

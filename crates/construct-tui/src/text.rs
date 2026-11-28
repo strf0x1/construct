@@ -45,6 +45,41 @@ pub fn fit(s: &str, w: usize) -> String {
     out
 }
 
+/// Fuzzy match score — lower is better: `(tier, tiebreak)`. Prefix of `name`,
+/// then substring, then the query's letters in order, then a substring of
+/// `about`. Shared by the slash palette and the model picker.
+pub(crate) fn score(q: &str, name: &str, about: &str) -> Option<(u8, usize)> {
+    if q.is_empty() {
+        return Some((0, 0));
+    }
+    if name.starts_with(q) {
+        return Some((0, name.len()));
+    }
+    if let Some(i) = name.find(q) {
+        return Some((1, i));
+    }
+    if let Some(span) = subsequence(q, name) {
+        return Some((2, span));
+    }
+    about.to_lowercase().find(q).map(|i| (3, i))
+}
+
+/// How many chars of `hay` it takes to see every char of `q` in order.
+fn subsequence(q: &str, hay: &str) -> Option<usize> {
+    let mut want = q.chars().peekable();
+    let mut start = None;
+    for (i, c) in hay.chars().enumerate() {
+        if want.peek() == Some(&c) {
+            start.get_or_insert(i);
+            want.next();
+            if want.peek().is_none() {
+                return Some(i + 1 - start.unwrap_or(0));
+            }
+        }
+    }
+    None
+}
+
 /// Property-test setup, duplicated from `construct_core::text` (`#[cfg(test)]`
 /// items cannot cross crates): text that breaks byte arithmetic, and one
 /// deterministic config so CI replays the same cases every run.
