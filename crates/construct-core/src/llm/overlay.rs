@@ -14,7 +14,7 @@ use super::discover::refresh;
 use crate::config::{Config, Dialect, Paths};
 use crate::endpoint::{self, Endpoint};
 use crate::models::{ModelEntry, Pricing};
-use crate::providers::{DEFAULT, Discover};
+use crate::providers::{DEFAULT, Discover, Reach};
 use anyhow::bail;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -26,7 +26,7 @@ const STARTUP_WAIT: Duration = Duration::from_secs(3);
 /// The default endpoint as an OpenRouter endpoint, when it speaks that
 /// dialect. Named providers are not OpenRouter presets.
 fn default_openrouter(cfg: &Config) -> Option<Endpoint> {
-    let ep = Endpoint::declared(cfg);
+    let ep = cfg.declared_endpoint();
     (super::Provider::of(&ep).dialect == Dialect::OpenRouter).then_some(ep)
 }
 
@@ -73,7 +73,7 @@ fn targets(cfg: &Config) -> Vec<(String, Discover)> {
     if default_list_enabled(cfg) {
         out.push((DEFAULT.to_string(), Discover::Openai));
     }
-    out.extend(cfg.providers.iter().filter(|(_, p)| p.discover != Discover::Off).map(|(n, p)| (n.clone(), p.discover)));
+    out.extend(cfg.discoverable_providers());
     out
 }
 
@@ -118,10 +118,8 @@ pub fn lay_lists(cfg: &mut Config, paths: &Paths) {
             .filter(|m| m.tools)
             .map(|m| (m.id.clone(), entry_of(m, pinned)))
             .collect();
-        match cfg.providers.get_mut(&name) {
-            Some(p) => (p.discovered, p.reach) = (list, catalog::reach(paths, &ep.base_url)),
-            None => cfg.discovered = list,
-        }
+        let reach = if name == DEFAULT { Reach::default() } else { catalog::reach(paths, &ep.base_url) };
+        cfg.set_discovered(&name, list, reach);
     }
 }
 

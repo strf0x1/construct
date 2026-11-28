@@ -38,19 +38,13 @@ pub struct Provider {
 
 impl Provider {
     pub fn new(cfg: &ProviderConfig, base_url: &str) -> Self {
-        let dialect = match cfg.dialect {
-            Dialect::Auto if host(base_url).is_some_and(|h| h == "openrouter.ai" || h.ends_with(".openrouter.ai")) => {
-                Dialect::OpenRouter
-            }
-            Dialect::Auto => Dialect::OpenAi,
-            d => d,
-        };
-        Self { dialect, cache: cfg.cache, reasoning: cfg.reasoning }
+        Self { dialect: cfg.resolve_dialect(base_url), cache: cfg.cache, reasoning: cfg.reasoning }
     }
 
     /// The dialect `ep` speaks.
     pub fn of(ep: &Endpoint) -> Self {
-        Self::new(&ep.provider, &ep.base_url)
+        let (dialect, cache, reasoning) = ep.wire_dialect();
+        Self { dialect, cache, reasoning }
     }
 
     pub fn name(&self) -> &'static str {
@@ -157,13 +151,6 @@ fn mark_last_prompt(body: &mut Value) {
     {
         m["content"] = json!([{ "type": "text", "text": text, "cache_control": ephemeral() }]);
     }
-}
-
-fn host(url: &str) -> Option<&str> {
-    let rest = url.split_once("://")?.1;
-    let authority = rest.split('/').next()?;
-    let host = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
-    Some(host.split(':').next().unwrap_or(host))
 }
 
 #[cfg(test)]

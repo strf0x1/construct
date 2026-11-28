@@ -60,10 +60,6 @@ pub struct Client {
     idle: Duration,
 }
 
-/// Default `[provider] idle_timeout` and `first_byte_timeout`, in seconds.
-const IDLE_SECS: u64 = 120;
-const FIRST_BYTE_SECS: u64 = 600;
-
 pub struct Request<'a> {
     pub model: &'a str,
     pub messages: &'a [Message],
@@ -87,8 +83,8 @@ impl Client {
             headers: ep.headers.clone(),
             provider: Provider::of(ep),
             prefix: ep.error_prefix(),
-            first_byte: Duration::from_secs(ep.provider.first_byte_timeout.unwrap_or(FIRST_BYTE_SECS)),
-            idle: Duration::from_secs(ep.provider.idle_timeout.unwrap_or(IDLE_SECS)),
+            first_byte: ep.first_byte_timeout(),
+            idle: ep.idle_timeout(),
         })
     }
 

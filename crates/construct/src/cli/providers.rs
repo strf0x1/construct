@@ -70,10 +70,10 @@ fn list(cfg: &Config, paths: &Paths) -> String {
     let mut rows = vec![["provider", "url", "dialect", "key", "models"].map(String::from)];
     for name in cfg.provider_names() {
         let Some((ep, ids)) = cfg.provider(&name) else { continue };
-        let key = match (ep.api_key_secret.as_str(), ep.key().is_some()) {
-            ("", _) => "none".to_string(),
-            (s, true) => format!("{s} (set)"),
-            (s, false) => format!("{s} (not set)"),
+        let key = match (ep.key_secret(), ep.key().is_some()) {
+            (None, _) => "none".to_string(),
+            (Some(s), true) => format!("{s} (set)"),
+            (Some(s), false) => format!("{s} (not set)"),
         };
         let cached = catalog::cached(paths, &ep.base_url).len();
         let mut listed = match catalog::cache_age(paths, &ep.base_url) {
@@ -115,14 +115,11 @@ async fn add(
         "{name} is already a provider; edit it in {}",
         file.display()
     );
-    let mut decl = Provider {
-        base_url: url.trim_end_matches('/').to_string(),
-        api_key_secret: key_secret.clone(),
-        ..Provider::default()
-    };
+    let base_url = url.trim_end_matches('/').to_string();
+    let decl = Provider { base_url: base_url.clone(), api_key_secret: key_secret.clone(), ..Provider::default() };
     decl.check(name)?;
     let ep = decl.endpoint(name);
-    let key = if ep.api_key_secret.is_empty() { None } else { ep.key() };
+    let key = ep.key();
     let client = llm::Client::new(&ep, key.clone())?;
     let how = match discover {
         Some(d) => serde_json::from_value(json!(d))
@@ -131,21 +128,17 @@ async fn add(
     };
     let listed = match how {
         Discover::Off => vec![],
-        _ => llm::discover::fetch(&client, how).await.map_err(|e| match key {
-            None if !ep.api_key_secret.is_empty() => {
-                anyhow!(
-                    "{name}: {e:#}; it may want its key: construct secrets set {}, then add it again",
-                    ep.api_key_secret
-                )
+        _ => llm::discover::fetch(&client, how).await.map_err(|e| match (&key, ep.key_secret()) {
+            (None, Some(secret)) => {
+                anyhow!("{name}: {e:#}; it may want its key: construct secrets set {secret}, then add it again")
             }
             _ => anyhow!(
                 "{name}: {e:#}; check --url (up to and including /v1), or pass --discover off to add it unprobed"
             ),
         })?,
     };
-    decl.discover = how;
     let before = std::fs::read_to_string(&file).unwrap_or_default();
-    write_atomic(&file, with_table(&before, name, &decl)?.as_bytes())?;
+    write_atomic(&file, with_table(&before, name, &base_url, key_secret.as_deref(), how)?.as_bytes())?;
     if let Err(e) = Config::load(paths) {
         write_atomic(&file, before.as_bytes())?;
         return Err(e.context(format!("{} would not load with [providers.{name}]; left as it was", file.display())));
@@ -155,21 +148,27 @@ async fn add(
     }
     let window =
         listed.iter().filter_map(|m| m.context).max().map_or(String::new(), |w| format!(", windows up to {w}"));
-    let key_line = match (ep.api_key_secret.as_str(), key.is_some()) {
-        ("", _) => "none".to_string(),
-        (s, true) => s.to_string(),
-        (s, false) => format!("{s}, not set yet: construct secrets set {s}"),
+    let key_line = match (ep.key_secret(), key.is_some()) {
+        (None, _) => "none".to_string(),
+        (Some(s), true) => s.to_string(),
+        (Some(s), false) => format!("{s}, not set yet: construct secrets set {s}"),
     };
     println!("added [providers.{name}] to {}", file.display());
     println!("  url       {}", ep.base_url);
     println!("  key       {key_line}");
-    println!("  discover  {} ({} listed{window})", json!(how).as_str().unwrap_or_default(), listed.len());
+    println!("  discover  {} ({} listed{window})", how.as_str(), listed.len());
     println!("next: construct providers test {name}, then /model {name}/<id>");
     Ok(())
 }
 
 /// `text` with `[providers.<name>]` added, everything else as it was.
-fn with_table(text: &str, name: &str, p: &Provider) -> Result<String> {
+fn with_table(
+    text: &str,
+    name: &str,
+    base_url: &str,
+    api_key_secret: Option<&str>,
+    discover: Discover,
+) -> Result<String> {
     use toml_edit::{DocumentMut, Item, Table, value};
     let mut doc: DocumentMut = text.parse().context("parsing config.toml")?;
     let providers = doc.entry("providers").or_insert_with(|| {
@@ -179,12 +178,12 @@ fn with_table(text: &str, name: &str, p: &Provider) -> Result<String> {
     });
     let Some(providers) = providers.as_table_mut() else { bail!("config.toml: `providers` is not a table") };
     let mut t = Table::new();
-    t["base_url"] = value(&p.base_url);
-    if let Some(s) = &p.api_key_secret {
+    t["base_url"] = value(base_url);
+    if let Some(s) = api_key_secret {
         t["api_key_secret"] = value(s);
     }
-    if p.discover != Discover::Openai {
-        t["discover"] = value(json!(p.discover).as_str().unwrap_or_default());
+    if discover != Discover::Openai {
+        t["discover"] = value(discover.as_str());
     }
     providers.insert(name, Item::Table(t));
     Ok(doc.to_string())
@@ -205,7 +204,7 @@ async fn test(cfg: &Config, paths: &Paths, name: &str, model: Option<String>) ->
         bail!("no provider {name:?}; there are: {}", cfg.provider_names().join(", "));
     };
     let dialect = llm::Provider::of(&ep).name();
-    let key_name = if ep.api_key_secret.is_empty() { "no key".to_string() } else { ep.api_key_secret.clone() };
+    let key_name = ep.key_secret().unwrap_or("no key");
     println!("{name}  {}  {dialect}  {key_name}", ep.base_url);
     let client = llm::Client::new(&ep, ep.require(ep.key())?)?;
     let mut failed = 0;

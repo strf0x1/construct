@@ -1,8 +1,8 @@
 //! Paths and settings. Everything lives under one home directory
 //! ($CONSTRUCT_HOME, default ~/.construct) so a fresh home is a fresh harness.
 
+pub use crate::endpoint::{CacheMode, Dialect, ProviderConfig, Reasoning};
 pub use crate::home::{Paths, write_atomic};
-pub use crate::providers::{CacheMode, Dialect, ProviderConfig, Reasoning};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -195,8 +195,13 @@ impl Config {
         // The baked and stamped layers sit under the file; env overrides sit
         // over all three. A broken stamp is an error here, before anything runs.
         let stamped = stamp::current()?;
-        let mut cfg = baked::load(&path, stamped.map(|s| &s.config))?;
-        baked::apply_env(&mut cfg);
+        let mut merged = baked::load(&path, stamped.map(|s| &s.config))?;
+        baked::apply_env(&mut merged);
+        let mut cfg: Config = toml::Value::Table(merged.table)
+            .try_into()
+            .with_context(|| format!("in the merged config ({})", path.display()))?;
+        cfg.window_pinned = merged.window_pinned;
+        cfg.provenance = merged.provenance;
         cfg.context.apply_env();
         cfg.apply_deck_env();
         cfg.base_url = cfg.base_url.trim_end_matches('/').to_string();
@@ -210,6 +215,16 @@ impl Config {
             mcp::check_server_name(name).with_context(|| format!("in {}", path.display()))?;
         }
         Ok(cfg)
+    }
+
+    /// The top-level endpoint, as `config.toml` declares it.
+    pub fn declared_endpoint(&self) -> crate::endpoint::Endpoint {
+        crate::endpoint::Endpoint::declared(
+            &self.base_url,
+            &self.api_key_secret,
+            self.headers.clone(),
+            self.provider.clone(),
+        )
     }
 
     pub fn learn_model(&self) -> &str {

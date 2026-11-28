@@ -89,35 +89,19 @@ impl ModelEntry {
         Ok(())
     }
 
-    /// Lay this entry's limits over `cfg`.
-    fn apply(&self, cfg: &mut Config) {
+    /// Apply this entry's limits onto `(context_window, max_tokens)`.
+    pub(super) fn apply_limits(&self, context_window: &mut u32, max_tokens: &mut Option<u32>) {
         if let Some(w) = self.context_window {
-            cfg.context_window = w;
+            *context_window = w;
         }
         if self.max_tokens.is_some() {
-            cfg.max_tokens = self.max_tokens;
+            *max_tokens = self.max_tokens;
         }
     }
 
     /// The endpoint this entry's model is served from, given the declared one.
     fn endpoint(&self, declared: Endpoint) -> Endpoint {
-        let mut ep = if !self.base_url.is_empty() {
-            // A key found for one host is never sent to another.
-            declared.moved(&self.base_url, &self.api_key_secret)
-        } else if !self.api_key_secret.is_empty() {
-            let mut ep = declared;
-            ep.api_key_secret = self.api_key_secret.clone();
-            ep
-        } else {
-            declared
-        };
-        if let Some(d) = self.dialect {
-            ep.provider.dialect = d;
-        }
-        if let Some(c) = self.cache {
-            ep.provider.cache = c;
-        }
-        ep
+        declared.with_model_overrides(&self.base_url, &self.api_key_secret, self.dialect, self.cache)
     }
 }
 
@@ -210,10 +194,10 @@ mod tests {
         assert_eq!(c.context_window, 32768);
         assert_eq!(c.max_tokens, Some(4000), "an entry that names no cap leaves the default");
         assert_eq!(c.endpoint().base_url, "https://other.example/v1");
-        assert_eq!(c.endpoint().api_key_secret, "OTHER_KEY");
+        assert_eq!(c.endpoint().key_secret(), Some("OTHER_KEY"));
         c.select_model("some/other-id").unwrap();
         assert_eq!((c.context_window, c.max_tokens), (131_072, Some(4000)));
-        assert_eq!(c.endpoint(), Endpoint::declared(&Config::default()), "the endpoint is back too");
+        assert_eq!(c.endpoint(), Config::default().declared_endpoint(), "the endpoint is back too");
         assert!(c.entry().is_none());
     }
 
@@ -222,7 +206,7 @@ mod tests {
         let mut c =
             cfg_with("api_key_secret = \"MAIN_KEY\"\n[models.local]\nbase_url = \"http://127.0.0.1:8080/v1\"\n");
         c.select_model("local").unwrap();
-        assert_eq!(c.endpoint().api_key_secret, "", "the default's secret is not sent to another host");
+        assert_eq!(c.endpoint().key_secret(), None, "the default's secret is not sent to another host");
         assert!(c.endpoint().key().is_none(), "and neither is the OpenRouter fallback");
         assert_eq!(c.api_key_secret, "MAIN_KEY", "what config.toml declares is untouched");
     }

@@ -16,69 +16,8 @@ use std::collections::BTreeMap;
 
 mod resolve;
 
-pub use crate::endpoint::DEFAULT;
+pub use crate::endpoint::{CacheMode, DEFAULT, Dialect, ProviderConfig, Reasoning};
 pub use crate::models::Resolved;
-
-/// What the endpoint needs beyond the plain OpenAI body (`llm::dialect`).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ProviderConfig {
-    pub dialect: Dialect,
-    pub cache: CacheMode,
-    #[serde(skip_serializing_if = "Reasoning::is_echo")]
-    pub reasoning: Reasoning,
-    /// Seconds the stream may go silent once the model has started sending;
-    /// then the call fails rather than hang the turn. Default 120.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub idle_timeout: Option<u64>,
-    /// Seconds to wait for the response and its first bytes. A local server
-    /// can read a long prompt this long in silence. Default 600.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_byte_timeout: Option<u64>,
-}
-
-/// `"echo"` sends an assistant's reasoning back under the key the server
-/// streamed it in (DeepSeek and Kimi reject a tool-calling history without
-/// it; OpenRouter needs `reasoning_details` to keep signed thinking).
-/// `"drop"` never sends it, for a server that rejects the field. ADR 0044.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Reasoning {
-    #[default]
-    Echo,
-    Drop,
-}
-
-impl Reasoning {
-    fn is_echo(&self) -> bool {
-        *self == Reasoning::Echo
-    }
-}
-
-/// `"auto"` picks by `base_url`: openrouter.ai is `"openrouter"`, anything
-/// else `"openai"`, the plain dialect every compatible server speaks (local
-/// servers, vLLM, DeepSeek, OpenAI). Name one when a proxy hides the host.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Dialect {
-    #[default]
-    Auto,
-    #[serde(rename = "openai")]
-    OpenAi,
-    #[serde(rename = "openrouter")]
-    OpenRouter,
-}
-
-/// `"auto"` marks prompt-cache breakpoints for models whose provider only
-/// caches when asked (Anthropic and Gemini behind OpenRouter); `"off"` never
-/// marks any. Providers that cache on their own are unaffected either way.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CacheMode {
-    #[default]
-    Auto,
-    Off,
-}
 
 /// How a provider's models and windows are learned (`llm::discover`).
 /// `openai` reads `/models` (also vLLM's); `llama.cpp` adds the loaded
@@ -93,6 +32,18 @@ pub enum Discover {
     LlamaCpp,
     Ollama,
     Off,
+}
+
+impl Discover {
+    /// The `discover` value as written in `config.toml` and CLI output.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Openai => "openai",
+            Self::LlamaCpp => "llama.cpp",
+            Self::Ollama => "ollama",
+            Self::Off => "off",
+        }
+    }
 }
 
 /// One `[providers.<name>]` table. Everything is optional for a preset.
@@ -282,14 +233,14 @@ mod tests {
         let c = cfg(TWO);
         let ep = |n: &str| c.providers[n].endpoint(n);
         assert_eq!(ep("openrouter").base_url, "https://openrouter.ai/api/v1");
-        assert_eq!(ep("openrouter").api_key_secret, "OPENROUTER_API_KEY");
-        assert_eq!(ep("openrouter").provider.dialect, Dialect::OpenRouter);
-        assert_eq!(ep("local").api_key_secret, "", "a loopback server is keyless unless it says so");
-        assert_eq!(ep("gpubox").api_key_secret, "GPUBOX_API_KEY");
+        assert_eq!(ep("openrouter").key_secret(), Some("OPENROUTER_API_KEY"));
+        assert_eq!(ep("openrouter").wire_dialect().0, Dialect::OpenRouter);
+        assert_eq!(ep("local").key_secret(), None, "a loopback server is keyless unless it says so");
+        assert_eq!(ep("gpubox").key_secret(), Some("GPUBOX_API_KEY"));
         let keyless = cfg("[providers.lan-box]\nbase_url = \"http://10.0.0.9/v1\"\napi_key_secret = \"\"\n");
-        assert_eq!(keyless.providers["lan-box"].endpoint("lan-box").api_key_secret, "");
+        assert_eq!(keyless.providers["lan-box"].endpoint("lan-box").key_secret(), None);
         let named = cfg("[providers.lan-box]\nbase_url = \"http://10.0.0.9/v1\"\n");
-        assert_eq!(named.providers["lan-box"].endpoint("lan-box").api_key_secret, "LAN_BOX_API_KEY");
+        assert_eq!(named.providers["lan-box"].endpoint("lan-box").key_secret(), Some("LAN_BOX_API_KEY"));
     }
 
     #[test]
@@ -331,5 +282,26 @@ mod tests {
         let entry = "[providers.x]\nbase_url = \"http://a/v1\"\n[providers.x.models.m]\nbase_url = \"http://b/v1\"\n";
         assert!(bad(entry).contains("[providers.x.models.\"m\"]"));
         assert!(toml::from_str::<Config>("[providers.x]\nbase_ur = \"\"\n").is_err(), "typos are refused");
+    }
+
+    #[test]
+    fn select_saved_model_qualifies_and_rejects_missing_providers() {
+        let mut c = cfg(TWO);
+        c.select_saved_model("qwen3-8b", Some("local")).unwrap();
+        assert_eq!(c.model, "local/qwen3-8b");
+        assert_eq!(c.provider_name().as_deref(), Some("local"));
+
+        c.select_saved_model("openrouter/free", Some("openrouter")).unwrap();
+        assert_eq!(c.model, "openrouter/free");
+
+        // A bare id saved on `default` that a named provider now uniquely lists
+        // is qualified back to `default/` instead of drifting to that provider.
+        let mut only = cfg("[providers.local]\nbase_url = \"http://127.0.0.1:1/v1\"\n[providers.local.models.\"m\"]\n");
+        only.select_saved_model("m", None).unwrap();
+        assert_eq!(only.model, "default/m");
+        assert_eq!(only.provider_name(), None);
+
+        let err = c.select_saved_model("m", Some("gone")).unwrap_err().to_string();
+        assert!(err.contains("saved model provider \"gone\" is unavailable"), "{err}");
     }
 }

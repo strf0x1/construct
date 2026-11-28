@@ -63,8 +63,8 @@ impl Row {
             compacts_at: (budget as f64 * cfg.compaction.threshold as f64) as u64,
             pricing: e.pricing,
             dialect: construct_core::llm::Provider::of(&ep).name(),
-            endpoint: ep.base_url,
-            key: ep.api_key_secret,
+            endpoint: ep.base_url.clone(),
+            key: ep.key_secret().unwrap_or_default().to_string(),
             provider: ep.name,
             current: id == cfg.model,
             catalogued: c.entry().is_some(),
@@ -122,7 +122,7 @@ fn headers(cfg: &Config) -> std::collections::BTreeMap<String, Group> {
         let host = ep.base_url.split_once("://").map_or(ep.base_url.as_str(), |(_, r)| r);
         let host = host.split('/').next().unwrap_or_default();
         let list = if listed == 0 { "no list".to_string() } else { format!("{listed} listed") };
-        let reach = cfg.providers.get(&name).map(|p| p.reach.clone()).unwrap_or_default();
+        let reach = cfg.provider_reach(&name);
         let down = reach.failed.is_some();
         let reach = match (reach.failed, reach.fetched_at) {
             (Some((at, why)), _) => Some(format!("unreachable {}: {why}", ago(at))),
@@ -149,7 +149,7 @@ impl Picker {
             ids.insert(0, cfg.model.clone());
         }
         let rows: Vec<Row> = ids.iter().map(|id| Row::of(cfg, id)).collect();
-        let groups = if cfg.providers.is_empty() { Default::default() } else { headers(cfg) };
+        let groups = if cfg.has_named_providers() { headers(cfg) } else { Default::default() };
         let mut p =
             Self { rows, query: String::new(), shown: vec![], selected: 0, table: TableState::default(), groups };
         p.refilter();
