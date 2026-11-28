@@ -8,7 +8,6 @@
 //! (endpoint, model, sandbox, tools); secrets never do — keys resolve through
 //! secretspec at runtime, so a copied binary carries no credential.
 
-use super::Config;
 use anyhow::{Context, Result};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -19,9 +18,18 @@ const BAKED: &str = include_str!(concat!(env!("OUT_DIR"), "/baked-config.toml"))
 /// Which layer set a key: `"baked"`, `"stamped"`, `"file"` or `"env"`.
 pub type Sources = BTreeMap<String, &'static str>;
 
+/// The merged TOML layers before deserialization into `Config`.
+/// Keeping this module in terms of TOML tables keeps it independent of
+/// `Config` and its fields.
+pub(super) struct Merged {
+    pub(super) table: toml::Table,
+    pub(super) window_pinned: bool,
+    pub(super) provenance: Sources,
+}
+
 /// Read the file layer (a missing file is the zero-config case) and merge it
 /// over the stamped and baked ones, recording where each leaf key came from.
-pub fn load(path: &Path, stamped: Option<&toml::Table>) -> Result<Config> {
+pub(super) fn load(path: &Path, stamped: Option<&toml::Table>) -> Result<Merged> {
     let file = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
@@ -31,42 +39,66 @@ pub fn load(path: &Path, stamped: Option<&toml::Table>) -> Result<Config> {
     parse_layers(BAKED, stamped, &file).with_context(|| format!("baked and stamped config + {}", path.display()))
 }
 
-/// Merge the TOML layers and deserialize the result. Split out from `load` so
-/// the precedence rules are testable without a build-time bake or a filesystem.
-fn parse_layers(baked: &str, stamped: toml::Table, file: &str) -> Result<Config> {
+/// Merge the TOML layers. Split out from `load` so the precedence rules are
+/// testable without a build-time bake or a filesystem.
+fn parse_layers(baked: &str, stamped: toml::Table, file: &str) -> Result<Merged> {
     let mut base: toml::Table = toml::from_str(baked).context("parsing the baked layer")?;
     let over: toml::Table = toml::from_str(file).context("parsing the file layer")?;
     let mut provenance = leaf_sources(&base, "", "baked");
     provenance.extend(leaf_sources(&stamped, "", "stamped"));
     provenance.extend(leaf_sources(&over, "", "file"));
-    let pinned = [&base, &stamped, &over].iter().any(|t| t.contains_key("context_window"));
+    let window_pinned = [&base, &stamped, &over].iter().any(|t| t.contains_key("context_window"));
     merge(&mut base, stamped);
     merge(&mut base, over);
-    let mut cfg: Config = toml::Value::Table(base).try_into().context("in the merged config")?;
-    cfg.window_pinned = pinned;
-    cfg.provenance = provenance;
-    Ok(cfg)
+    Ok(Merged { table: base, window_pinned, provenance })
 }
 
-/// One env override: the variable, the provenance key it sets, the setter.
-type Override = (&'static str, &'static str, fn(&mut Config, String));
+/// One-run env overrides (`CONSTRUCT_*`): environment variable name and the
+/// dotted TOML key it sets. Single source of truth for both merging and
+/// provenance.
+const ENV_OVERRIDES: &[(&str, &str)] = &[
+    ("CONSTRUCT_BASE_URL", "base_url"),
+    ("CONSTRUCT_MODEL", "model"),
+    ("CONSTRUCT_SANDBOX", "sandbox.mode"),
+    ("CONSTRUCT_SANDBOX_MEMORY_MAX", "sandbox.memory_max"),
+    ("CONSTRUCT_ROUTER", "router.mode"),
+    ("CONSTRUCT_TOOLS_WEB_SEARCH", "tools.web.search"),
+];
 
-/// One-run overrides (`CONSTRUCT_*`), applied over both layers and recorded.
-/// This table is the single source of truth for the env layer: what it sets
-/// and what provenance reports come from the same rows.
-pub fn apply_env(cfg: &mut Config) {
-    const OVERRIDES: &[Override] = &[
-        ("CONSTRUCT_BASE_URL", "base_url", |c, v| c.base_url = v),
-        ("CONSTRUCT_MODEL", "model", |c, v| c.model = v),
-        ("CONSTRUCT_SANDBOX", "sandbox.mode", |c, v| c.sandbox.mode = v),
-        ("CONSTRUCT_SANDBOX_MEMORY_MAX", "sandbox.memory_max", |c, v| c.sandbox.memory_max = v),
-        ("CONSTRUCT_ROUTER", "router.mode", |c, v| c.router.mode = v),
-        ("CONSTRUCT_TOOLS_WEB_SEARCH", "tools.web.search", |c, v| c.tools.web.search = v),
-    ];
-    for (var, key, set) in OVERRIDES {
-        if let Ok(v) = std::env::var(var) {
-            set(cfg, v);
-            cfg.provenance.insert((*key).to_string(), "env");
+/// Apply the `CONSTRUCT_*` env layer over `merged` and record `"env"` provenance.
+pub(super) fn apply_env(merged: &mut Merged) {
+    apply_env_from(merged, |var| std::env::var(var).ok());
+}
+
+fn apply_env_from(merged: &mut Merged, mut lookup: impl FnMut(&str) -> Option<String>) {
+    let mut env = toml::Table::new();
+    for &(var, key) in ENV_OVERRIDES {
+        if let Some(v) = lookup(var) {
+            set_dotted(&mut env, key, toml::Value::String(v));
+        }
+    }
+    if env.is_empty() {
+        return;
+    }
+    merged.provenance.extend(leaf_sources(&env, "", "env"));
+    merge(&mut merged.table, env);
+}
+
+/// Insert `value` at a dotted path (`"tools.web.search"`), creating any
+/// intermediate tables along the way.
+fn set_dotted(table: &mut toml::Table, dotted: &str, value: toml::Value) {
+    match dotted.split_once('.') {
+        None => {
+            table.insert(dotted.to_string(), value);
+        }
+        Some((head, rest)) => {
+            let entry = table.entry(head.to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+            if !entry.is_table() {
+                *entry = toml::Value::Table(toml::Table::new());
+            }
+            if let toml::Value::Table(child) = entry {
+                set_dotted(child, rest, value);
+            }
         }
     }
 }
@@ -103,19 +135,30 @@ fn leaf_sources(table: &toml::Table, prefix: &str, source: &'static str) -> Sour
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Config;
+
+    fn into_config(m: Merged) -> Result<Config> {
+        let mut cfg: Config = toml::Value::Table(m.table).try_into().context("in the merged config")?;
+        cfg.window_pinned = m.window_pinned;
+        cfg.provenance = m.provenance;
+        Ok(cfg)
+    }
 
     fn parse_two(baked: &str, file: &str) -> Result<Config> {
-        parse_layers(baked, toml::Table::new(), file)
+        into_config(parse_layers(baked, toml::Table::new(), file)?)
     }
 
     #[test]
     fn the_stamped_layer_sits_between_baked_and_file() {
         let stamped: toml::Table =
             toml::from_str("model = \"stamped-model\"\nllm = \"hub\"\n[sandbox]\nmode = \"read-only\"\n").unwrap();
-        let cfg = parse_layers(
-            "model = \"baked\"\nbase_url = \"https://baked.invalid/v1\"\n",
-            stamped,
-            "[sandbox]\nmode = \"off\"\n",
+        let cfg = into_config(
+            parse_layers(
+                "model = \"baked\"\nbase_url = \"https://baked.invalid/v1\"\n",
+                stamped,
+                "[sandbox]\nmode = \"off\"\n",
+            )
+            .unwrap(),
         )
         .unwrap();
         assert_eq!(cfg.model, "stamped-model");
@@ -125,6 +168,26 @@ mod tests {
         assert_eq!(cfg.provenance["llm"], "stamped");
         assert_eq!(cfg.provenance["base_url"], "baked");
         assert_eq!(cfg.provenance["sandbox.mode"], "file");
+    }
+
+    #[test]
+    fn env_layer_merges_dotted_keys_without_clobbering_siblings() {
+        let mut merged =
+            parse_layers("", toml::Table::new(), "[sandbox]\nallow_read = [\"/tmp\"]\n[tools]\ndisabled = [\"web\"]\n")
+                .unwrap();
+        apply_env_from(&mut merged, |k| match k {
+            "CONSTRUCT_SANDBOX" => Some("read-only".into()),
+            "CONSTRUCT_TOOLS_WEB_SEARCH" => Some("ddg".into()),
+            _ => None,
+        });
+        let cfg = into_config(merged).unwrap();
+        assert_eq!(cfg.sandbox.mode, "read-only");
+        assert_eq!(cfg.sandbox.allow_read, vec!["/tmp".to_string()]);
+        assert_eq!(cfg.tools.disabled, vec!["web".to_string()]);
+        assert_eq!(cfg.tools.web.search, "ddg");
+        assert_eq!(cfg.provenance["sandbox.mode"], "env");
+        assert_eq!(cfg.provenance["sandbox.allow_read"], "file");
+        assert_eq!(cfg.provenance["tools.web.search"], "env");
     }
 
     #[test]

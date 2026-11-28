@@ -33,5 +33,5 @@ construct-core = [
 # grows, merges or appears fails; one that shrinks, splits or goes fails
 # until it is updated here.
 [cycles]
-# Intended (ADR 0057, 0060): config resolution.
-construct-core = ["config, endpoint, models, providers"]
+# Intended (ADR 0057): config resolution.
+construct-core = ["config, models, providers"]

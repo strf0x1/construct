@@ -6,10 +6,12 @@
 //! user configured and catalogued, never a fetched list, so the same config
 //! always routes the same way.
 
-use super::{DEFAULT, Discover, Resolved, preset};
+use super::{DEFAULT, Discover, Reach, Resolved, preset};
 use crate::config::Config;
 use crate::endpoint::Endpoint;
-use anyhow::{Result, bail};
+use crate::models::ModelEntry;
+use anyhow::{Result, bail, ensure};
+use std::collections::BTreeMap;
 
 impl Config {
     /// Which provider serves `selector`, and the id it is sent as. An id that
@@ -77,10 +79,73 @@ impl Config {
         std::iter::once(DEFAULT.to_string()).chain(self.providers.keys().cloned()).collect()
     }
 
+    /// Whether any `[providers.<name>]` table is configured beyond `default`.
+    pub fn has_named_providers(&self) -> bool {
+        !self.providers.is_empty()
+    }
+
+    /// How the last fetches of `name`'s model list went; empty for `default`
+    /// or an unknown provider.
+    pub fn provider_reach(&self, name: &str) -> Reach {
+        self.providers.get(name).map(|p| p.reach.clone()).unwrap_or_default()
+    }
+
+    /// Named providers whose `discover` is not `off`, with how each is fetched.
+    pub fn discoverable_providers(&self) -> Vec<(String, Discover)> {
+        self.providers
+            .iter()
+            .filter(|(_, p)| p.discover != Discover::Off)
+            .map(|(n, p)| (n.clone(), p.discover))
+            .collect()
+    }
+
+    /// Replace `name`'s discovered model list (and reach status for named
+    /// providers) with what the cache holds.
+    pub fn set_discovered(&mut self, name: &str, list: BTreeMap<String, ModelEntry>, reach: Reach) {
+        match self.providers.get_mut(name) {
+            Some(p) => (p.discovered, p.reach) = (list, reach),
+            None => self.discovered = list,
+        }
+    }
+
+    /// Restore a model recorded in a resumed session's journal onto this
+    /// config, keeping selectors that still resolve to the saved provider and
+    /// qualifying bare ones when needed without altering a preset router's
+    /// wire id.
+    pub fn select_saved_model(&mut self, model: &str, provider: Option<&str>) -> Result<()> {
+        let selector = match provider {
+            Some(p) => {
+                ensure!(
+                    self.providers.contains_key(p),
+                    "saved model provider {p:?} is unavailable; choose a model with /model or --model"
+                );
+                // Keep selectors that still resolve to the saved provider.
+                // Qualifying a bare preset router can change its wire ID.
+                if self.resolve(model).is_ok_and(|r| r.provider.as_deref() == Some(p))
+                    || model.starts_with(&format!("{p}/"))
+                {
+                    model.to_string()
+                } else {
+                    let qualified = format!("{p}/{model}");
+                    ensure!(
+                        self.wire_id(&qualified) == model,
+                        "saved model {model:?} cannot be resolved unambiguously on {p}; choose a model with /model or --model"
+                    );
+                    qualified
+                }
+            }
+            None if self.resolve(model)?.provider.is_some() => format!("{DEFAULT}/{model}"),
+            None => model.to_string(),
+        };
+        self.select_model(&selector).map_err(|e| {
+            anyhow::anyhow!("saved model {selector:?} is unavailable: {e:#}; choose a model with /model or --model")
+        })
+    }
+
     /// Provider `name`'s endpoint and the ids its catalog lists (as sent).
     pub fn provider(&self, name: &str) -> Option<(Endpoint, Vec<String>)> {
         if name == DEFAULT {
-            return Some((Endpoint::declared(self), self.models.keys().cloned().collect()));
+            return Some((self.declared_endpoint(), self.models.keys().cloned().collect()));
         }
         let p = self.providers.get(name)?;
         Some((p.endpoint(name), p.models.keys().cloned().collect()))

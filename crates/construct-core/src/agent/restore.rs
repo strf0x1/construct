@@ -57,35 +57,7 @@ impl Agent {
             if model_override.is_none()
                 && let Some((model, provider)) = journal::saved_model(&entries)
             {
-                let selector = match provider {
-                    Some(p) => {
-                        anyhow::ensure!(
-                            cfg.providers.contains_key(&p),
-                            "saved model provider {p:?} is unavailable; choose a model with /model or --model"
-                        );
-                        // Keep selectors that still resolve to the saved provider.
-                        // Qualifying a bare preset router can change its wire ID.
-                        if cfg.resolve(&model).is_ok_and(|r| r.provider.as_deref() == Some(p.as_str()))
-                            || model.starts_with(&format!("{p}/"))
-                        {
-                            model
-                        } else {
-                            let qualified = format!("{p}/{model}");
-                            anyhow::ensure!(
-                                cfg.wire_id(&qualified) == model,
-                                "saved model {model:?} cannot be resolved unambiguously on {p}; choose a model with /model or --model"
-                            );
-                            qualified
-                        }
-                    }
-                    None if cfg.resolve(&model)?.provider.is_some() => format!("default/{model}"),
-                    None => model,
-                };
-                cfg.select_model(&selector).map_err(|e| {
-                    anyhow::anyhow!(
-                        "saved model {selector:?} is unavailable: {e:#}; choose a model with /model or --model"
-                    )
-                })?;
+                cfg.select_saved_model(&model, provider.as_deref())?;
             }
         }
         check_window(&cfg.context.strategy, u64::from(cfg.context_window), &cfg.model)?;

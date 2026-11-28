@@ -49,13 +49,13 @@ may_use = ["config", "event", "llm", "text"]
 # config <-> models and config <-> providers are intended pairs (ADR 0057).
 # config names no type from jobs (ADR 0060).
 [crates.construct-core.modules.config]
-may_use = ["home", "models", "providers"]
+may_use = ["endpoint", "home", "models", "providers"]
 
 [crates.construct-core.modules.context]
 may_use = ["compact", "config", "event", "llm"]
 
 [crates.construct-core.modules.endpoint]
-may_use = ["config", "secrets"]
+may_use = ["secrets"]
 
 [crates.construct-core.modules.event]
 may_use = ["llm", "manifest"]

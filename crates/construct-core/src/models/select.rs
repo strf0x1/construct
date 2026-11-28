@@ -62,17 +62,6 @@ pub struct Defaults {
     max_tokens: Option<u32>,
 }
 
-impl Defaults {
-    fn of(cfg: &Config) -> Self {
-        Self { context_window: cfg.context_window, max_tokens: cfg.max_tokens }
-    }
-
-    fn restore(&self, cfg: &mut Config) {
-        cfg.context_window = self.context_window;
-        cfg.max_tokens = self.max_tokens;
-    }
-}
-
 impl Config {
     /// Make `selector` the model: the defaults, then what discovery found for
     /// it, its provider's defaults, and its catalog entry, each over the last
@@ -83,14 +72,15 @@ impl Config {
         let defaults = match &self.defaults {
             Some(d) => d.clone(),
             None => {
-                let d = Box::new(Defaults::of(self));
+                let d = Box::new(Defaults { context_window: self.context_window, max_tokens: self.max_tokens });
                 self.defaults = Some(d.clone());
                 d
             }
         };
-        defaults.restore(self);
+        self.context_window = defaults.context_window;
+        self.max_tokens = defaults.max_tokens;
         if let Some(d) = self.discovered_entry(selector).cloned() {
-            d.apply(self);
+            d.apply_limits(&mut self.context_window, &mut self.max_tokens);
         }
         if let Some(p) = to.provider.as_ref().and_then(|p| self.providers.get(p)) {
             self.context_window = p.context_window.unwrap_or(self.context_window);
@@ -98,7 +88,7 @@ impl Config {
         }
         self.model = selector.to_string();
         if let Some(e) = self.catalogued(selector).cloned() {
-            e.apply(self);
+            e.apply_limits(&mut self.context_window, &mut self.max_tokens);
         }
         Ok(())
     }
@@ -172,7 +162,7 @@ impl Config {
         let named = self.resolve(selector).ok().and_then(|r| r.provider);
         let base = match named.as_ref().and_then(|p| self.providers.get(p).map(|d| (p, d))) {
             Some((name, p)) => p.endpoint(name),
-            None => Endpoint::declared(self),
+            None => self.declared_endpoint(),
         };
         match self.lookup(selector) {
             Some(e) => e.endpoint(base),

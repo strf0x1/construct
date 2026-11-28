@@ -138,7 +138,6 @@ fn stalled_http_error_bodies_fail_at_the_first_byte_deadline() {
 #[tokio::test]
 async fn an_unreadable_http_error_body_keeps_its_status_and_cause() {
     use construct_core::config::Config;
-    use construct_core::endpoint::Endpoint;
     use construct_core::llm::{Client, Message, Request};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -154,7 +153,7 @@ async fn an_unreadable_http_error_body_keeps_its_status_and_cause() {
             .unwrap();
     });
     let cfg = Config { base_url: url, ..Config::default() };
-    let client = Client::new(&Endpoint::declared(&cfg), None).unwrap();
+    let client = Client::new(&cfg.declared_endpoint(), None).unwrap();
     let messages = [Message::user("hi")];
     let request = Request { model: "mock", messages: &messages, tools: &[], max_tokens: None, temperature: None };
     let error = tokio::time::timeout(Duration::from_secs(5), client.stream(request, None)).await.unwrap().unwrap_err();

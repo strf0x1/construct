@@ -97,6 +97,7 @@ impl Manifest {
     }
 
     pub fn new(cfg: &Config, tools: Vec<String>) -> Self {
+        let provider = crate::llm::Provider::of(&cfg.endpoint());
         Self {
             version: env!("CARGO_PKG_VERSION").into(),
             git_sha: env!("CONSTRUCT_GIT_SHA").into(),
@@ -113,8 +114,8 @@ impl Manifest {
             context_window: cfg.context_window,
             max_tokens: cfg.max_tokens,
             compaction: cfg.compaction.clone(),
-            dialect: crate::llm::Provider::of(&cfg.endpoint()).name().into(),
-            cache: cfg.endpoint().provider.cache,
+            dialect: provider.name().into(),
+            cache: provider.cache,
             provider: cfg.provider_name(),
             window_source: cfg.window_source().code().into(),
             memory_max: cfg.sandbox.memory_max.clone(),
