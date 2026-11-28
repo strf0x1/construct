@@ -1,13 +1,14 @@
 //! One turn producer. Its completion follows the drained event stream on the
 //! server command channel, so the next queued prompt cannot overtake it.
 
-use super::ask::ClientAsk;
-use super::live::Command;
+use super::ask::{Answer, AskMsg, ClientAsk};
+use super::keys::{Outcome, Waiter};
 use crate::agent::Agent;
 use crate::event::Event;
+use crate::permission::Request;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 pub(super) struct Prompt {
     pub generation: u64,
@@ -16,7 +17,15 @@ pub(super) struct Prompt {
     pub text: String,
     /// The client's idempotency key, and resends of it waiting on this prompt.
     pub key: Option<String>,
-    pub waiters: Vec<super::keys::Waiter>,
+    pub waiters: Vec<Waiter>,
+}
+
+/// Messages a running turn task sends back to the server actor.
+pub(super) enum Command {
+    Event { session: String, generation: u64, event: Box<Event> },
+    Ask { key: u64, session: String, generation: u64, request: Request, answer: oneshot::Sender<Answer> },
+    Forget(u64),
+    Finished { session: String, prompt: Prompt, result: Outcome },
 }
 
 pub(super) async fn run(
@@ -26,7 +35,14 @@ pub(super) async fn run(
     commands: mpsc::UnboundedSender<Command>,
 ) {
     let (tx, mut rx) = mpsc::unbounded_channel::<Event>();
-    let (questions, mut asks) = mpsc::unbounded_channel();
+    let (questions, mut asks) = mpsc::unbounded_channel::<AskMsg>();
+    let generation = prompt.generation;
+    let forward_ask = |msg: AskMsg| match msg {
+        AskMsg::Ask { key, request, answer } => {
+            Command::Ask { key, session: session.clone(), generation, request, answer }
+        }
+        AskMsg::Forget(key) => Command::Forget(key),
+    };
     let forward = async {
         let (mut interrupted, mut error, mut max_steps) = (false, None::<String>, false);
         loop {
@@ -35,8 +51,8 @@ pub(super) async fn run(
             let event = tokio::select! {
                 biased;
                 event = rx.recv() => match event { Some(event) => event, None => break },
-                Some(command) = asks.recv() => {
-                    let _ = commands.send(command);
+                Some(msg) = asks.recv() => {
+                    let _ = commands.send(forward_ask(msg));
                     continue;
                 }
             };
@@ -48,20 +64,16 @@ pub(super) async fn run(
                 }
                 _ => {}
             }
-            let _ = commands.send(Command::Event {
-                session: session.clone(),
-                generation: prompt.generation,
-                event: Box::new(event),
-            });
+            let _ = commands.send(Command::Event { session: session.clone(), generation, event: Box::new(event) });
         }
-        while let Ok(command) = asks.try_recv() {
-            let _ = commands.send(command);
+        while let Ok(msg) = asks.try_recv() {
+            let _ = commands.send(forward_ask(msg));
         }
         (interrupted, error, max_steps)
     };
     let turn = async {
         let mut agent = agent.lock().await;
-        agent.set_permission_ask(Arc::new(ClientAsk::new(session.clone(), prompt.generation, questions)));
+        agent.set_permission_ask(Arc::new(ClientAsk::new(questions)));
         let result = agent.turn_keyed(&prompt.text, prompt.key.clone(), &tx).await;
         drop(tx);
         result

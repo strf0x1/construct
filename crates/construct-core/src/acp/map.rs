@@ -1,8 +1,5 @@
 //! `Event` to the ACP updates a client understands.
 //!
-//! `history` is the same mapping for a whole recorded session, which is what
-//! `session/load` replays before it answers.
-//!
 //! The design choice: standard `session/update`s carry only what ACP can say
 //! (text, thoughts, tool calls and their results). The rest of construct's
 //! vocabulary (messages, usage, requests, compaction) has no ACP shape, so
@@ -12,7 +9,6 @@
 //! A construct parent journals those and ignores the lossy updates; any other
 //! client never sees them.
 
-use super::replay::Transcript;
 use crate::event::Event;
 use crate::tools::ToolKind;
 use serde_json::{Value, json};
@@ -100,20 +96,6 @@ pub fn update(ev: &Event, kind_of: &dyn Fn(&str) -> ToolKind) -> Option<Value> {
         }),
         _ => return None,
     })
-}
-
-/// The recorded conversation as the updates `session/load` replays, in order:
-/// the user's prompts, the assistant's text, each tool call with its final
-/// status, and the recovery notice. Compaction is not replayed (a client that
-/// did not ask for `session.compaction` cannot apply it), and live-only
-/// notices are not history. A call with no recorded outcome is `failed`,
-/// never `pending`: recovery already told the model its outcome was unknown.
-pub fn history(entries: &[crate::journal::Entry], kind_of: &dyn Fn(&str) -> ToolKind) -> Vec<Value> {
-    let mut transcript = Transcript::default();
-    for entry in entries {
-        transcript.observe(&entry.event, kind_of);
-    }
-    transcript.updates(false, kind_of)
 }
 
 pub(super) fn call(
@@ -230,46 +212,6 @@ mod tests {
         .unwrap();
         assert_eq!((e["status"].as_str(), e["toolCallId"].as_str()), (Some("failed"), Some("c1")));
         assert!(update(&Event::TurnStart, &|_| ToolKind::Other).is_none());
-    }
-
-    #[test]
-    fn history_pairs_prompts_and_reports_final_tool_status() {
-        use crate::journal::Entry;
-        use crate::llm::Message;
-        let e = |seq, event| Entry { seq, at_ms: 0, event };
-        let entries = vec![
-            e(1, Event::submitted("go")),
-            e(2, Event::User { message: Message::user("go\n\n<system-reminder>injected</system-reminder>") }),
-            e(3, Event::Assistant { message: Message::text("assistant", "on it") }),
-            e(4, Event::ToolStart { id: "c1".into(), name: "read".into(), args: r#"{"path":"a"}"#.into() }),
-            e(
-                5,
-                Event::ToolEnd {
-                    id: "c1".into(),
-                    name: "read".into(),
-                    ok: false,
-                    output: "unknown".into(),
-                    ms: 0,
-                    kind: OutputKind::Plain,
-                    data: None,
-                    code: Some("interrupted_unknown".into()),
-                },
-            ),
-            e(6, Event::ToolStart { id: "c2".into(), name: "bash".into(), args: r#"{"command":"ls"}"#.into() }),
-            e(7, Event::Recovered { message: "interrupted".into() }),
-        ];
-        let h = history(&entries, &|_| ToolKind::Read);
-        let kinds: Vec<&str> = h.iter().filter_map(|u| u["sessionUpdate"].as_str()).collect();
-        assert_eq!(
-            kinds,
-            ["user_message_chunk", "agent_message_chunk", "tool_call", "agent_message_chunk", "tool_call"]
-        );
-        // The submitted prompt is the user's text; its model-facing copy is not repeated.
-        assert_eq!(h[0]["content"]["text"], "go");
-        assert_eq!((h[2]["status"].as_str(), h[2]["toolCallId"].as_str()), (Some("failed"), Some("c1")));
-        assert_eq!(h[2]["content"][0]["content"]["text"], "unknown");
-        // A start with no end is an unknown outcome too, never pending.
-        assert_eq!((h[4]["status"].as_str(), h[4]["toolCallId"].as_str()), (Some("failed"), Some("c2")));
     }
 
     #[test]
