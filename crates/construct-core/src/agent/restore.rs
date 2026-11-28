@@ -108,6 +108,7 @@ impl Agent {
         let system = crate::prompt::build(
             &cwd,
             &memory,
+            &memory.skills(&paths),
             &cfg.learn.strategy,
             crate::prompt::ToolNames {
                 shell: named.shell,
@@ -187,7 +188,7 @@ impl Agent {
             groups,
             journal: Arc::new(writer),
             unsent,
-            usage: totals.usage,
+            usage: totals.billed().clone(),
             last_prompt_tokens: totals.last_prompt,
             window_seen: None,
             bytes_per_token,

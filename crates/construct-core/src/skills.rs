@@ -1,8 +1,9 @@
 //! Skills the agent writes and improves. One directory per skill holding a
 //! SKILL.md (frontmatter: name, description) plus optional references/,
 //! templates/ and scripts/. Nothing is bundled. Deletes are archives, so the
-//! curator can never lose work. Every write goes through `guard`: a loaded
-//! skill enters the prompt.
+//! curator can never lose work. A `Library` reads; every write goes through a
+//! `Writer` and `guard`, because a loaded skill enters the prompt. A session
+//! reaches its skills through a `Stack`: the repo's kit over the global library.
 
 use crate::clock::now;
 use crate::home::{Paths, write_atomic};
@@ -11,8 +12,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 mod format;
-use format::normalize;
+mod stack;
+mod write;
 pub use format::{frontmatter, valid_name};
+pub use stack::{Kit, Stack};
+pub use write::Writer;
 
 /// The wire names of the two skill tools (`construct-tools-skills`). They
 /// live beside the library because core speaks about them without having
@@ -52,36 +56,31 @@ pub struct Usage {
 
 pub struct Library {
     dir: PathBuf,
-}
-
-/// Every skill across `libs`, sorted by name. A name in an earlier library
-/// hides the same name in a later one, so pass the project kit first.
-pub fn merged(libs: &[&Library]) -> Vec<Skill> {
-    let mut out: Vec<Skill> = Vec::new();
-    for lib in libs {
-        for s in lib.list() {
-            if !out.iter().any(|o| o.name == s.name) {
-                out.push(s);
-            }
-        }
-    }
-    out.sort_by(|a, b| a.name.cmp(&b.name));
-    out
+    /// A project kit's skills/, not the global library: only `locate` says so.
+    project: bool,
 }
 
 impl Library {
+    /// The global library.
     pub fn new(paths: &Paths) -> Self {
-        Self { dir: paths.skills_dir() }
+        Self { dir: paths.skills_dir(), project: false }
     }
 
-    /// A library rooted somewhere else (a project kit's skills/).
-    pub fn at(dir: PathBuf) -> Self {
-        Self { dir }
+    /// A project kit's skills/ (`Kit`).
+    fn kit(dir: PathBuf) -> Self {
+        Self { dir, project: true }
     }
 
-    /// Where a skill's directory is (or would be) on disk.
-    pub fn path_of(&self, name: &str) -> PathBuf {
-        self.dir.join(name)
+    /// `global: ~/.construct/skills/x/SKILL.md`, for results the model reads back.
+    pub fn locate(&self, name: &str) -> String {
+        let scope = if self.project { "project" } else { "global" };
+        let path = self.dir.join(name).join("SKILL.md").display().to_string();
+        let home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
+        let path = match home.as_deref().and_then(|h| path.strip_prefix(h)) {
+            Some(rest) => format!("~{rest}"),
+            None => path,
+        };
+        format!("{scope}: {path}")
     }
 
     pub fn list(&self) -> Vec<Skill> {
@@ -155,106 +154,6 @@ impl Library {
         } else {
             format!("no skill named {name:?}. Available: {}", names.join(", "))
         }
-    }
-
-    pub fn create(&self, name: &str, content: &str, author: &str) -> Result<String, String> {
-        if !valid_name(name) {
-            return Err("skill names are lowercase letters, digits and dashes, at most 64 chars".into());
-        }
-        if self.dir.join(name).exists() {
-            return Err(format!("{name} exists; use patch or edit"));
-        }
-        let content = normalize(name, content)?;
-        write_atomic(&self.dir.join(name).join("SKILL.md"), content.as_bytes()).map_err(|e| e.to_string())?;
-        let author = author.to_string();
-        self.touch(name, |u| {
-            u.created_at = now();
-            u.last_used = now();
-            u.author = author;
-        });
-        Ok(format!("created skill {name}"))
-    }
-
-    pub fn edit(&self, name: &str, content: &str) -> Result<String, String> {
-        let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
-        let content = normalize(name, content)?;
-        write_atomic(&skill.dir.join("SKILL.md"), content.as_bytes()).map_err(|e| e.to_string())?;
-        self.touch(name, |u| u.patches += 1);
-        Ok(format!("rewrote {name}/SKILL.md"))
-    }
-
-    /// Rewrite one file of a skill. `new` is what the guard checks, before
-    /// anything is read; `apply` turns the file's text into the updated text
-    /// (the skill tool passes the editor's exact-match replace), so the library
-    /// does not depend on `tools`.
-    pub fn patch(
-        &self,
-        name: &str,
-        file: Option<&str>,
-        new: &str,
-        apply: impl FnOnce(&str) -> Result<String, String>,
-    ) -> Result<String, String> {
-        let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
-        let path = safe_join(&skill.dir, file.unwrap_or("SKILL.md"))?;
-        if let Some(why) = crate::guard::check(new) {
-            return Err(why);
-        }
-        let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let updated = apply(&text)?;
-        write_atomic(&path, updated.as_bytes()).map_err(|e| e.to_string())?;
-        self.touch(name, |u| u.patches += 1);
-        Ok(format!("patched {name}/{}", file.unwrap_or("SKILL.md")))
-    }
-
-    pub fn write_file(&self, name: &str, file: &str, content: &str) -> Result<String, String> {
-        let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
-        if !["references/", "templates/", "scripts/"].iter().any(|p| file.starts_with(p)) {
-            return Err("support files go under references/, templates/ or scripts/".into());
-        }
-        let path = safe_join(&skill.dir, file)?;
-        if let Some(why) = crate::guard::check(content) {
-            return Err(why);
-        }
-        write_atomic(&path, content.as_bytes()).map_err(|e| e.to_string())?;
-        self.touch(name, |u| u.patches += 1);
-        Ok(format!("wrote {name}/{file}"))
-    }
-
-    pub fn remove_file(&self, name: &str, file: &str) -> Result<String, String> {
-        let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
-        if file == "SKILL.md" {
-            return Err("use delete to remove a whole skill".into());
-        }
-        std::fs::remove_file(safe_join(&skill.dir, file)?).map_err(|e| e.to_string())?;
-        Ok(format!("removed {name}/{file}"))
-    }
-
-    /// Move a skill to .archive/. `absorbed_into` names the skill that took
-    /// over its content, which must already exist.
-    pub fn archive(&self, name: &str, absorbed_into: Option<&str>) -> Result<String, String> {
-        let skill = self.get(name).ok_or_else(|| self.not_found(name))?;
-        if self.usage().get(name).is_some_and(|u| u.pinned) {
-            return Err(format!("{name} is pinned"));
-        }
-        if let Some(into) = absorbed_into.filter(|s| !s.is_empty())
-            && self.get(into).is_none()
-        {
-            return Err(format!("absorbed_into {into:?} doesn't exist; create or patch it first"));
-        }
-        let dest = self.dir.join(".archive").join(format!("{name}-{}", now()));
-        let dir = dest.parent().ok_or_else(|| format!("{name}: archive path has no parent"))?;
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-        std::fs::rename(&skill.dir, &dest).map_err(|e| e.to_string())?;
-        Ok(match absorbed_into {
-            Some(i) if !i.is_empty() => format!("archived {name} (absorbed into {i})"),
-            _ => format!("archived {name}"),
-        })
-    }
-
-    pub fn set_pinned(&self, name: &str, pinned: bool) -> Result<(), String> {
-        self.get(name).ok_or_else(|| self.not_found(name))?;
-        self.touch(name, |u| u.pinned = pinned);
-        Ok(())
     }
 }
 

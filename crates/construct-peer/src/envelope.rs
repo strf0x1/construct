@@ -156,6 +156,12 @@ impl Hello {
         self
     }
 
+    /// Drop the invite token once the hub has accepted it: it is single use,
+    /// so a redial after joining must not offer it again.
+    pub fn spend_join_token(&mut self) {
+        self.join_token = None;
+    }
+
     #[must_use]
     pub fn with_cwd(mut self, cwd: impl Into<String>) -> Self {
         self.cwd = Some(cwd.into());

@@ -38,7 +38,7 @@ impl Scratch {
     }
 
     pub fn load_skill(&self, name: &str, file: Option<&str>) -> Result<String, String> {
-        self.ctx.load_skill(name, file)
+        self.ctx.skills().load(name, file)
     }
 
     async fn check_missing_arguments(&self, catalog: &Catalog, groups: &[Group]) {

@@ -15,9 +15,9 @@ pub struct Totals {
     /// Model calls billed, side calls included.
     pub requests: u64,
     /// Everything billed.
-    pub usage: Usage,
+    usage: Usage,
     /// The part of `usage` spent by summaries.
-    pub side: Usage,
+    side: Usage,
     /// The newest own request's prompt size: how full the window is now.
     pub last_prompt: u64,
 }
@@ -61,6 +61,17 @@ impl Totals {
         self.requests += requests;
         self.usage.add(u);
         self.side.add(u);
+    }
+
+    /// Everything billed, side calls included.
+    pub fn billed(&self) -> &Usage {
+        &self.usage
+    }
+
+    /// The part of `billed` spent on side calls (summaries), when there was
+    /// any: readers show it only then.
+    pub fn side_calls(&self) -> Option<&Usage> {
+        (self.side.prompt_tokens + self.side.completion_tokens > 0).then_some(&self.side)
     }
 
     /// One session's rows.

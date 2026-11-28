@@ -12,7 +12,7 @@
 //! admission (`admit.rs`) are pure, so every trust rule is unit-tested.
 
 use anyhow::{Context, Result, bail};
-use construct_peer::{KeyDecision, PINNED_MAX_ENVELOPE, PRE_PIN_MAX_ENVELOPE, PublicKey};
+use construct_peer::{KeyDecision, PublicKey};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -124,8 +124,10 @@ impl Peer {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registry {
     pub version: u32,
+    /// Rows change only through `Registry`'s transitions (here and in
+    /// `admit`); everyone else reads them through `peers()`.
     #[serde(default)]
-    pub peers: Vec<Peer>,
+    pub(crate) peers: Vec<Peer>,
 }
 
 impl Default for Registry {
@@ -157,6 +159,12 @@ impl Registry {
         construct_core::home::write_atomic(path, &bytes)
     }
 
+    /// Every row, in the order they were added.
+    #[must_use]
+    pub fn peers(&self) -> &[Peer] {
+        &self.peers
+    }
+
     #[must_use]
     pub fn get(&self, id: &str) -> Option<&Peer> {
         self.peers.iter().find(|p| p.id == id)
@@ -171,18 +179,14 @@ impl Registry {
     }
 
     /// The verdict on a static key right after Noise IK message 1, before the
-    /// peer id is known: a pinned key gets the large envelope cap; anything
-    /// else, a revoked key included, stays at the pre-pin cap. A revoked key
+    /// peer id is known: a pinned key is raised to the large envelope cap
+    /// after its `Hello`; anything else, a revoked key included, stays at the
+    /// pre-pin cap. A revoked key
     /// completes the handshake only to be told so after its `Hello` (#367,
     /// ADR 0076): admission answers it with `Revoke` and nothing else.
     #[must_use]
     pub fn key_decision(&self, key: PublicKey) -> KeyDecision {
-        let hex = key.to_hex();
-        if self.has_key(State::Pinned, &hex) {
-            KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE }
-        } else {
-            KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE }
-        }
+        KeyDecision::Accept { pinned: self.has_key(State::Pinned, &key.to_hex()) }
     }
 
     /// Open (or replace) the invite for `id`: a new or revoked id becomes an
@@ -304,7 +308,7 @@ mod tests {
         let mut r = Registry::default();
         r.pin("pi", k, 1);
         r.revoke("pi", None).unwrap();
-        let small = KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE };
+        let small = KeyDecision::Accept { pinned: false };
         assert_eq!(r.key_decision(k), small, "handshakes at the pre-pin cap, to be told it is revoked");
         // A pending join only the live link knew becomes a revoked row.
         let stranger = key();

@@ -22,6 +22,7 @@
 //! the same driver measures load latency in the bench.
 
 mod keys;
+mod timing;
 
 use anyhow::{Context, Result, anyhow, bail};
 use portable_pty::{CommandBuilder, NativePtySystem, PtySize, PtySystem};
@@ -38,12 +39,8 @@ pub struct Driver {
     writer: Box<dyn Write + Send>,
     master: Box<dyn portable_pty::MasterPty + Send>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
-    pub start: Instant,
-    pub first_output: Option<Duration>,
-    pub first_frame: Option<Duration>,
+    timings: timing::Timings,
     pub bytes: usize,
-    /// When the screen last received output.
-    pub last_output: Option<Duration>,
     carry: Vec<u8>,
     closed: bool,
     /// Every byte the child wrote, escape sequences included.
@@ -110,11 +107,8 @@ impl Driver {
             writer,
             master: pair.master,
             child,
-            start,
-            first_output: None,
-            first_frame: None,
+            timings: timing::Timings::new(start),
             bytes: 0,
-            last_output: None,
             carry: Vec::new(),
             closed: false,
             raw: Vec::new(),
@@ -142,17 +136,12 @@ impl Driver {
     }
 
     fn ingest(&mut self, b: &[u8]) {
-        if self.first_output.is_none() {
-            self.first_output = Some(self.start.elapsed());
-        }
         self.bytes += b.len();
         self.raw.extend_from_slice(b);
-        self.last_output = Some(self.start.elapsed());
         self.parser.process(b);
         self.answer_queries(b);
-        if self.first_frame.is_none() && !self.text().trim().is_empty() {
-            self.first_frame = Some(self.start.elapsed());
-        }
+        let parser = &self.parser;
+        self.timings.output(|| !parser.screen().contents().trim().is_empty());
     }
 
     /// Answer terminal queries the way a modern terminal (Ghostty-like)
@@ -266,7 +255,7 @@ impl Driver {
         let deadline = Instant::now() + timeout;
         loop {
             if self.text().contains(needle) == present {
-                return Ok(self.start.elapsed());
+                return Ok(self.timings.elapsed());
             }
             if Instant::now() >= deadline {
                 bail!(
@@ -389,7 +378,7 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
                         out,
                         "--- snap {} @{:.0}ms ---",
                         unquote(label),
-                        d.start.elapsed().as_secs_f64() * 1000.0
+                        d.timings.elapsed().as_secs_f64() * 1000.0
                     )?;
                     for l in text.lines() {
                         writeln!(out, "{}", l.trim_end())?;
@@ -422,9 +411,7 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
                     let deadline = Instant::now() + Duration::from_millis(timeout);
                     loop {
                         d.pump(Duration::from_millis(10));
-                        let last = d.last_output.unwrap_or_default();
-                        let now = d.start.elapsed();
-                        if d.first_frame.is_some() && now.saturating_sub(last) >= Duration::from_millis(quiet) {
+                        if let Some(last) = d.timings.settled(Duration::from_millis(quiet)) {
                             waits.push(json!({ "line": n + 1, "kind": "settle", "ms": last.as_secs_f64() * 1000.0 }));
                             break;
                         }
@@ -445,12 +432,7 @@ pub fn run_script(d: &mut Driver, script: &str, out: &mut dyn Write) -> Result<V
         })();
         res.with_context(|| format!("script line {}: {raw}", n + 1))?;
     }
-    Ok(json!({
-        "first_output_ms": d.first_output.map(|t| t.as_secs_f64() * 1000.0),
-        "first_frame_ms": d.first_frame.map(|t| t.as_secs_f64() * 1000.0),
-        "bytes": d.bytes,
-        "waits": waits,
-    }))
+    Ok(d.timings.metrics(d.bytes, waits))
 }
 
 fn nz(n: u16) -> std::num::NonZeroU16 {

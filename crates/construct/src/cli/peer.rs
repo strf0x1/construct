@@ -235,8 +235,7 @@ async fn follow(
         if joined_now {
             joined = true;
             backoff.reset();
-            // The token is single use and now spent.
-            hello.join_token = None;
+            hello.spend_join_token();
         } else if held_now {
             held = true;
             backoff.reset();

@@ -32,7 +32,7 @@ fn tilde(p: &Path) -> String {
 
 /// The `/status` rows: a label and its value.
 pub fn status_rows(session: &str, journal: &Path, cfg: &Config, t: &Totals) -> Vec<(&'static str, String)> {
-    let (u, window) = (&t.usage, cfg.context_window);
+    let (u, window) = (t.billed(), cfg.context_window);
     let used = share(t.last_prompt * 100 / window.max(1) as u64, t.last_prompt, cfg.on_router());
     let mut rows = vec![
         ("session", session.to_string()),
@@ -48,8 +48,7 @@ pub fn status_rows(session: &str, journal: &Path, cfg: &Config, t: &Totals) -> V
         ("output", human(u.completion_tokens)),
         ("cost", u.cost.map_or("n/a".to_string(), |c| format!("${c:.3}"))),
     ];
-    let side = &t.side;
-    if side.prompt_tokens + side.completion_tokens > 0 {
+    if let Some(side) = t.side_calls() {
         let cost = side.cost.map_or(String::new(), |c| format!(", ${c:.3}"));
         rows.push((
             "side calls",
@@ -167,7 +166,7 @@ pub fn transcript(entries: &[Entry]) -> String {
         }
     }
     let t = Totals::of(entries);
-    let u = &t.usage;
+    let u = t.billed();
     let _ = write!(
         out,
         "# totals: {} requests, in {} (cached {}), out {}",

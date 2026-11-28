@@ -24,7 +24,7 @@ use crate::transcript::{Item, Transcript};
 use crate::turn::Turn;
 use construct_core::agent::Event;
 use construct_core::config::{Config, Paths};
-use construct_core::skills::{Library, Skill};
+use construct_core::skills::{Skill, Stack};
 use construct_core::tools::Catalog;
 use ratatui::style::Color;
 use std::path::PathBuf;
@@ -67,7 +67,7 @@ pub(crate) struct App {
     browser: Option<Browser>,
     /// Project kit, then global library. Found on the first `/`, not at
     /// startup, so the first frame never waits on it.
-    skill_libs: Option<Vec<Library>>,
+    skills: Option<Stack>,
     peers: Peers,
 }
 
@@ -98,7 +98,7 @@ impl App {
             prompts: PromptQueue::default(),
             picker: None,
             browser: None,
-            skill_libs: None,
+            skills: None,
             peers: Peers::default(),
         }
     }
@@ -155,8 +155,8 @@ impl App {
 
     /// Open, narrow or close the slash palette to match the input.
     pub(crate) fn refresh_palette(&mut self) {
-        let libs = &mut self.skill_libs;
-        self.composer.refresh_palette(&self.cfg, || load_skills(libs));
+        let skills = &mut self.skills;
+        self.composer.refresh_palette(&self.cfg, || load_skills(skills));
     }
 
     pub(crate) fn animating(&self) -> bool {
@@ -182,7 +182,7 @@ impl App {
 
     /// Every skill the user can run, read from disk now.
     fn skills(&mut self) -> Vec<Skill> {
-        load_skills(&mut self.skill_libs)
+        load_skills(&mut self.skills)
     }
 
     /// How full the window is, as the status line says it.
@@ -197,12 +197,11 @@ impl App {
     }
 }
 
-fn load_skills(skill_libs: &mut Option<Vec<Library>>) -> Vec<Skill> {
-    let libs = skill_libs.get_or_insert_with(|| {
+fn load_skills(skills: &mut Option<Stack>) -> Vec<Skill> {
+    if skills.is_none() {
         let Ok(paths) = Paths::resolve() else { return vec![] };
         let cwd = std::env::current_dir().unwrap_or_default();
-        let kit = construct_core::project::detect(&paths, &cwd).map(|p| Library::at(p.skills_dir()));
-        kit.into_iter().chain([Library::new(&paths)]).collect()
-    });
-    construct_core::skills::merged(&libs.iter().collect::<Vec<_>>())
+        *skills = Some(Stack::new(&paths, construct_core::project::detect(&paths, &cwd).as_ref()));
+    }
+    skills.as_ref().map(Stack::all).unwrap_or_default()
 }

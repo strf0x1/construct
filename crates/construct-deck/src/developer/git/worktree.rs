@@ -97,10 +97,7 @@ async fn merge_start(ctx: &Ctx, checkout: &Checkout, commit: &str) -> Result<Out
     {
         return Err("merge_start needs the full object ID of an available commit".into());
     }
-    if ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-apply", "rebase-merge", "sequencer"]
-        .iter()
-        .any(|name| checkout.git_dir.join(name).symlink_metadata().is_ok())
-    {
+    if checkout.operation_in_progress() {
         return Err("Finish the current Git operation before starting a merge.".into());
     }
     let status = checkout.git(ctx, &["status", "--porcelain=v1", "--untracked-files=no"], &[]).await?;

@@ -48,7 +48,7 @@ impl Agent {
     /// Preserve the exact submitted slash line separately from skill injection.
     /// False when no turn ran: the skill was gone, which is only an `Error`.
     pub async fn invoke_as(&mut self, skill: &str, text: &str, original: &str, tx: &Events) -> Result<bool> {
-        match self.ctx.load_skill(skill, None) {
+        match self.ctx.skills().load(skill, None) {
             Ok(body) => {
                 let invoked = Some((skill, body, original.to_string()));
                 self.rearm();
@@ -73,10 +73,7 @@ impl Agent {
         let mut route = self.route(text).await;
         // Project skills are listed in the system prompt, so the tool that
         // loads them is on wherever they are: being in the repo is the trigger.
-        let has_kit_skills = {
-            let libs = self.ctx.skill_libs();
-            libs.len() > 1 && !libs[0].list().is_empty()
-        };
+        let has_kit_skills = self.ctx.skills().kit().is_some_and(|k| !k.list().is_empty());
         if has_kit_skills && !route.groups.contains(&Group::Skills) {
             route.groups.push(Group::Skills);
         }
@@ -100,19 +97,17 @@ impl Agent {
         self.enable(route.groups.clone(), tx).await;
 
         for (name, _) in &route.skills {
-            if let Some(lib) = self.ctx.skill_lib(name) {
-                lib.suggested(name);
-            }
+            self.ctx.skills().suggested(name);
         }
         let mut content = text.to_string();
         if let Some((name, body, _)) = invoked {
-            let libs = self.ctx.skill_libs();
-            let scope = if libs.len() > 1 && libs[0].get(name).is_some() { "project" } else { "global" };
+            let in_kit = self.ctx.skills().kit().is_some_and(|k| k.get(name).is_some());
+            let scope = if in_kit { "project" } else { "global" };
             self.journal.emit(Event::Invoke { skill: name.to_string(), scope: scope.to_string() }, tx);
             content = crate::prompt::invoked_skill(name, &body, text);
         }
         let skill_view = crate::tools::policy_tools(&self.sources).skill_view;
-        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.all_skills(), skill_view) {
+        if let Some(r) = crate::prompt::skill_reminder(&route.skills, &self.ctx.skills().all(), skill_view) {
             content.push_str("\n\n");
             content.push_str(&r);
         }

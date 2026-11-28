@@ -44,7 +44,7 @@ fn counters(t: &Totals, context_pct: u64, router: bool, compact: bool) -> Vec<Sp
         ));
         out.push(sep());
     }
-    let u = &t.usage;
+    let u = t.billed();
     if !compact {
         out.push(Span::styled("billed ", theme::faint()));
     }

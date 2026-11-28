@@ -33,7 +33,7 @@ fn mem_pair() -> (LengthPrefixed<DuplexStream>, LengthPrefixed<DuplexStream>) {
 }
 
 async fn establish_pair(
-    max_responder_envelope: usize,
+    pinned: bool,
 ) -> (PeerLink<LengthPrefixed<DuplexStream>>, PeerLink<LengthPrefixed<DuplexStream>>, Hello) {
     let hub = Keypair::generate().unwrap();
     let peer = Keypair::generate().unwrap();
@@ -42,9 +42,7 @@ async fn establish_pair(
     let hub_pub = hub.public();
 
     let init = tokio::spawn(async move { handshake_initiator(a, &peer, hub_pub, &hello, PINNED_MAX_ENVELOPE).await });
-    let resp = handshake_responder(b, &hub, |_| KeyDecision::Accept { max_envelope_bytes: max_responder_envelope })
-        .await
-        .unwrap();
+    let resp = handshake_responder(b, &hub, |_| KeyDecision::Accept { pinned }).await.unwrap();
     let client = init.await.unwrap().unwrap();
     (client, resp.0, resp.1)
 }
@@ -60,9 +58,7 @@ async fn handshake_against_wrong_static_key_fails_and_silently_drops() {
     let wrong_pub = wrong_hub.public();
     let init = tokio::spawn(async move { handshake_initiator(a, &peer, wrong_pub, &hello, PINNED_MAX_ENVELOPE).await });
 
-    let err = match handshake_responder(b, &hub, |_| KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE })
-        .await
-    {
+    let err = match handshake_responder(b, &hub, |_| KeyDecision::Accept { pinned: false }).await {
         Ok(_) => panic!("expected handshake to fail with wrong static key"),
         Err(e) => e,
     };
@@ -105,7 +101,7 @@ async fn replayed_msg1_cannot_reach_authenticated_state_without_1rtt_hello() {
 
     let err = match handshake_responder(responder_stream, &hub, |pk| {
         assert_eq!(pk, peer.public());
-        KeyDecision::Accept { max_envelope_bytes: PRE_PIN_MAX_ENVELOPE }
+        KeyDecision::Accept { pinned: false }
     })
     .await
     {
@@ -118,7 +114,7 @@ async fn replayed_msg1_cannot_reach_authenticated_state_without_1rtt_hello() {
 
 #[tokio::test]
 async fn responder_exposes_matching_handshake_hash_and_hello() {
-    let (client, server, hello) = establish_pair(PINNED_MAX_ENVELOPE).await;
+    let (client, server, hello) = establish_pair(true).await;
     assert_eq!(hello.peer_id, "old-pc");
     assert_eq!(hello.join_token.as_deref(), Some("invite-abc"));
     assert_eq!(client.handshake_hash(), server.handshake_hash());
@@ -192,11 +188,10 @@ async fn tampered_transport_frame_fails_aead() {
         link.send(&Envelope::new(Channel::Acp, b"{\"jsonrpc\":\"2.0\"}".to_vec())).await.unwrap();
     });
 
-    let (mut server, _hello) = handshake_responder(LengthPrefixed::new(server_io), &hub, |_| KeyDecision::Accept {
-        max_envelope_bytes: PINNED_MAX_ENVELOPE,
-    })
-    .await
-    .unwrap();
+    let (mut server, _hello) =
+        handshake_responder(LengthPrefixed::new(server_io), &hub, |_| KeyDecision::Accept { pinned: true })
+            .await
+            .unwrap();
 
     let err = server.recv().await.unwrap_err();
     assert!(matches!(err, WireError::Crypto(_)), "{err}");
@@ -206,7 +201,7 @@ async fn tampered_transport_frame_fails_aead() {
 
 #[tokio::test]
 async fn envelopes_larger_than_64kib_round_trip_on_all_channels() {
-    let (mut client, mut server, _hello) = establish_pair(PINNED_MAX_ENVELOPE).await;
+    let (mut client, mut server, _hello) = establish_pair(true).await;
 
     for (i, channel) in [Channel::Acp, Channel::Control, Channel::Llm].into_iter().enumerate() {
         // 192 KiB spans 3+ Noise 65,535-byte frames.
@@ -230,7 +225,7 @@ async fn envelopes_larger_than_64kib_round_trip_on_all_channels() {
 #[tokio::test]
 async fn oversized_unauthenticated_envelope_is_rejected() {
     // Responder accepts with the tight pre-pin 4 KiB cap.
-    let (mut client, mut server, _hello) = establish_pair(PRE_PIN_MAX_ENVELOPE).await;
+    let (mut client, mut server, _hello) = establish_pair(false).await;
     let huge = Envelope::new(Channel::Control, vec![b'x'; PRE_PIN_MAX_ENVELOPE + 1]);
 
     let sender = tokio::spawn(async move {
@@ -262,11 +257,10 @@ async fn oversized_hello_during_handshake_is_rejected_before_pinning() {
 
     // Even if the responder plans to grant PINNED_MAX_ENVELOPE after Hello,
     // the Hello frame itself is capped at PRE_PIN_MAX_ENVELOPE.
-    let err =
-        match handshake_responder(b, &hub, |_| KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE }).await {
-            Ok(_) => panic!("oversized Hello must be rejected"),
-            Err(e) => e,
-        };
+    let err = match handshake_responder(b, &hub, |_| KeyDecision::Accept { pinned: true }).await {
+        Ok(_) => panic!("oversized Hello must be rejected"),
+        Err(e) => e,
+    };
     assert!(matches!(err, WireError::EnvelopeTooLarge { .. }), "{err}");
     assert!(err.is_silent_drop());
     init.await.unwrap();
@@ -274,7 +268,7 @@ async fn oversized_hello_during_handshake_is_rejected_before_pinning() {
 
 #[tokio::test]
 async fn keepalive_answers_ping_and_times_out_silent_peer() {
-    let (mut client, mut server, _hello) = establish_pair(PINNED_MAX_ENVELOPE).await;
+    let (mut client, mut server, _hello) = establish_pair(true).await;
 
     let ka = KeepAlive { interval: Duration::from_millis(30), timeout: Duration::from_millis(120) };
 
@@ -298,7 +292,7 @@ async fn keepalive_answers_ping_and_times_out_silent_peer() {
     assert_eq!(delivered.bytes, b"alive");
 
     // Now client stays silent: server times out waiting for Pong.
-    let (mut silent_client, mut watchdog_server, _hello) = establish_pair(PINNED_MAX_ENVELOPE).await;
+    let (mut silent_client, mut watchdog_server, _hello) = establish_pair(true).await;
     let err = recv_with_keepalive(&mut watchdog_server, ka, &mut KeepAliveState::new()).await.unwrap_err();
     assert!(matches!(err, WireError::Timeout("keep-alive pong")), "{err}");
     let _ = silent_client.close(None).await;
@@ -323,9 +317,7 @@ async fn dropped_link_reconnects_with_backoff() {
         let (sock, _) = listener.accept().await.unwrap();
         let ws = accept_ws(sock).await.unwrap();
         let (mut link, hello) =
-            handshake_responder(ws, &hub_clone, |_| KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE })
-                .await
-                .unwrap();
+            handshake_responder(ws, &hub_clone, |_| KeyDecision::Accept { pinned: true }).await.unwrap();
         assert_eq!(hello.peer_id, "reconnect-peer");
         let msg = link.recv().await.unwrap();
         link.send(&msg).await.unwrap();
@@ -370,10 +362,7 @@ async fn ws_loopback_round_trip() {
     let server = tokio::spawn(async move {
         let (sock, _) = listener.accept().await.unwrap();
         let ws = accept_ws(sock).await.unwrap();
-        let (mut link, hello) =
-            handshake_responder(ws, &hub, |_| KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE })
-                .await
-                .unwrap();
+        let (mut link, hello) = handshake_responder(ws, &hub, |_| KeyDecision::Accept { pinned: true }).await.unwrap();
         assert_eq!(hello.peer_id, "lan-peer");
         let env = link.recv().await.unwrap();
         link.send(&env).await.unwrap();
@@ -436,10 +425,7 @@ async fn wss_loopback_round_trip_with_ephemeral_ca() {
         let (sock, _) = listener.accept().await.unwrap();
         let tls = acceptor.accept(sock).await.unwrap();
         let ws = accept_ws(tls).await.unwrap();
-        let (mut link, hello) =
-            handshake_responder(ws, &hub, |_| KeyDecision::Accept { max_envelope_bytes: PINNED_MAX_ENVELOPE })
-                .await
-                .unwrap();
+        let (mut link, hello) = handshake_responder(ws, &hub, |_| KeyDecision::Accept { pinned: true }).await.unwrap();
         assert_eq!(hello.peer_id, "tls-peer");
         let env = link.recv().await.unwrap();
         link.send(&env).await.unwrap();

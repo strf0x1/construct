@@ -94,7 +94,7 @@ may_use = ["config", "llm"]
 may_use = ["config", "sandbox", "secrets", "text"]
 
 [crates.construct-core.modules.memory]
-may_use = ["config", "guard", "project"]
+may_use = ["config", "guard", "project", "skills"]
 
 [crates.construct-core.modules.models]
 may_use = ["config", "endpoint"]
@@ -121,7 +121,7 @@ may_use = ["config", "secrets"]
 may_use = []
 
 [crates.construct-core.modules.skills]
-may_use = ["clock", "guard", "home"]
+may_use = ["clock", "guard", "home", "project"]
 
 [crates.construct-core.modules.text]
 may_use = []

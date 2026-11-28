@@ -28,10 +28,11 @@ pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
 /// message 1 decrypts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyDecision {
-    /// Proceed with message 2 and wait for 1-RTT `Hello` using the given
-    /// reassembly byte cap (use `PRE_PIN_MAX_ENVELOPE` for unpinned peers and
-    /// `PINNED_MAX_ENVELOPE` for already-pinned peers).
-    Accept { max_envelope_bytes: usize },
+    /// Proceed with message 2 and wait for 1-RTT `Hello` at the pre-pin
+    /// envelope cap (`PRE_PIN_MAX_ENVELOPE`). A `pinned` key's link is raised
+    /// to `PINNED_MAX_ENVELOPE` once its `Hello` arrives; any other stays at
+    /// the pre-pin cap until the hub calls `PeerLink::pin`.
+    Accept { pinned: bool },
     /// Reject this static key immediately before sending message 2.
     Reject(String),
 }
@@ -60,15 +61,10 @@ impl<S: FrameStream> PeerLink<S> {
         self.handshake_hash
     }
 
-    /// Current maximum reassembled incoming envelope size in bytes.
-    #[must_use]
-    pub fn max_envelope_bytes(&self) -> usize {
-        self.reassembler.limit()
-    }
-
-    /// Update the incoming envelope cap (e.g., after pinning a pending peer).
-    pub fn set_max_envelope_bytes(&mut self, limit: usize) {
-        self.reassembler.set_limit(limit);
+    /// The peer is now pinned (admitted, or approved while pending): raise
+    /// the incoming envelope cap to `PINNED_MAX_ENVELOPE`.
+    pub fn pin(&mut self) {
+        self.reassembler.pin();
     }
 
     /// Encrypt and send an envelope, chunking across Noise's 65,535-byte frame
@@ -202,8 +198,8 @@ where
         None => return Err(WireError::Crypto("missing initiator static key".into())),
     };
 
-    let max_envelope_bytes = match check_key(remote_static) {
-        KeyDecision::Accept { max_envelope_bytes } => max_envelope_bytes,
+    let pinned = match check_key(remote_static) {
+        KeyDecision::Accept { pinned } => pinned,
         KeyDecision::Reject(reason) => return Err(WireError::Rejected(reason)),
     };
 
@@ -215,16 +211,15 @@ where
     let hash = HandshakeHash::try_from_slice(state.get_handshake_hash())?;
     let transport = state.into_transport_mode().map_err(|e| WireError::Crypto(format!("enter transport mode: {e}")))?;
 
-    // Enforce at most `PRE_PIN_MAX_ENVELOPE` while awaiting Hello so an
-    // unconfirmed initiator cannot buffer a huge first message; raise to the
-    // caller's chosen cap immediately after Hello succeeds.
-    let hello_limit = max_envelope_bytes.min(PRE_PIN_MAX_ENVELOPE);
+    // Enforce `PRE_PIN_MAX_ENVELOPE` while awaiting Hello so an unconfirmed
+    // initiator cannot buffer a huge first message; a pinned key is raised to
+    // the pinned cap immediately after Hello succeeds.
     let mut link = PeerLink {
         stream,
         transport,
         remote_static,
         handshake_hash: hash,
-        reassembler: Reassembler::new(hello_limit),
+        reassembler: Reassembler::new(PRE_PIN_MAX_ENVELOPE),
         scratch: buf,
     };
 
@@ -239,6 +234,8 @@ where
         Err(e) => return Err(WireError::MissingHello(e.to_string())),
     };
 
-    link.set_max_envelope_bytes(max_envelope_bytes);
+    if pinned {
+        link.pin();
+    }
     Ok((link, hello))
 }

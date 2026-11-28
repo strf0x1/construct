@@ -116,7 +116,7 @@ impl Shared {
                 questions: remote.map(Remote::questions).unwrap_or_default(),
             }
         };
-        let mut peers: Vec<PeerStatus> = self.registry.peers.iter().map(row).collect();
+        let mut peers: Vec<PeerStatus> = self.registry.peers().iter().map(row).collect();
         // Joins inside a pairing window have no row until approved.
         let mut strays: Vec<PeerStatus> = self
             .online
